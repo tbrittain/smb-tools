@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import {reactive} from 'vue'
-import {Greet} from '@/go/main/App'
-import {main} from "@/go/models";
+import {Greet} from '@generated/go/main/App'
+import {main} from "@generated/go/models";
 
 const data = reactive({
   name: "",

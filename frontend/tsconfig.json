@@ -15,8 +15,10 @@
       "DOM"
     ],
     "skipLibCheck": true,
+    "allowJs": true,
     "paths": {
-      "@/*": ["./src/*", "./wailsjs/*"]
+      "@/*": ["./src/*"],
+      "@generated/*": ["./wailsjs/*"]
     }
   },
   "include": [
