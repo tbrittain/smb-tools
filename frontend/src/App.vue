@@ -1,22 +1,17 @@
 <script lang="ts" setup>
-import HelloWorld from '@/components/HelloWorld.vue'
 </script>
 
 <template>
-  <img id="logo" alt="Wails logo" src="./assets/images/logo-universal.png"/>
-  <HelloWorld/>
+  <h1>Hello App!</h1>
+  <p>
+    <strong>Current route path:</strong> {{ $route.fullPath }}
+  </p>
+  <nav>
+    <RouterLink to="/">Go to Home</RouterLink>
+    <RouterLink to="/about">Go to About</RouterLink>
+  </nav>
+  <main>
+    <RouterView />
+  </main>
 </template>
 
-<style>
-#logo {
-  display: block;
-  width: 50%;
-  height: 50%;
-  margin: auto;
-  padding: 10% 0 0;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
-  background-origin: content-box;
-}
-</style>
