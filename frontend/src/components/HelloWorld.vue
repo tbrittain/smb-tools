@@ -2,6 +2,7 @@
 import {reactive} from 'vue'
 import {Greet} from '@generated/go/main/App'
 import {main} from "@generated/go/models";
+import {LogError} from "@generated/runtime";
 
 const data = reactive({
   name: "",
@@ -13,9 +14,23 @@ function greet() {
   let person = new main.Person();
   person.name = data.name;
   person.age = data.age;
-  Greet(person).then(result => {
-    data.resultText = result
-  })
+  Greet(person)
+      .then(result => {
+        data.resultText = result
+      })
+      .catch(err => {
+        LogError(err);
+
+        if (err instanceof Error) {
+          data.resultText = err.message;
+          return;
+        } else if (typeof err === "string") {
+          data.resultText = err;
+          return;
+        }
+
+        data.resultText = "Something went wrong! Please try again";
+      })
 }
 
 </script>
@@ -24,9 +39,15 @@ function greet() {
   <main>
     <div id="result" class="result">{{ data.resultText }}</div>
     <div id="input" class="input-box">
-      <input id="name" v-model="data.name" autocomplete="off" class="input" type="text"/>
-      <input id="age" v-model="data.age" autocomplete="off" class="input" type="number"/>
-      <button class="btn" @click="greet">Greet</button>
+      <FloatLabel variant="on">
+        <InputText id="name-input" type="text" v-model="data.name"/>
+        <label for="name-input">Name</label>
+      </FloatLabel>
+      <FloatLabel variant="on">
+        <InputNumber id="age-input" v-model="data.age"/>
+        <label for="age-input">Age</label>
+      </FloatLabel>
+      <Button @click="greet">Greet</Button>
     </div>
   </main>
 </template>
@@ -41,22 +62,6 @@ function greet() {
 .input-box {
   display: flex;
   flex-direction: column;
-}
-
-.input-box .btn {
-  width: 60px;
-  height: 30px;
-  line-height: 30px;
-  border-radius: 3px;
-  border: none;
-  margin: 0 0 0 20px;
-  padding: 0 8px;
-  cursor: pointer;
-}
-
-.input-box .btn:hover {
-  background-image: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
-  color: #333333;
 }
 
 .input-box .input {

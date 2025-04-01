@@ -9,5 +9,8 @@
   "author": {
     "name": "Trey Brittain",
     "email": "treybrittain@gmail.com"
+  },
+  "info": {
+    "productName": "SMB Tools"
   }
 }
