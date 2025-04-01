@@ -1,14 +1,14 @@
 body {
     margin: 0;
-    font-family: "Nunito", sans-serif;
+    font-family: "Funnel Sans", sans-serif;
 }
 
 @font-face {
-    font-family: "Nunito";
+    font-family: "Funnel Sans";
     font-style: normal;
     font-weight: 400;
     src: local(""),
-    url("assets/fonts/nunito-v16-latin-regular.woff2") format("woff2");
+    url("assets/fonts/FunnelSans-VariableFont_wght.ttf") format("truetype");
 }
 
 #app {
