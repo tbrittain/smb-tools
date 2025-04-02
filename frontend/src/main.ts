@@ -5,6 +5,7 @@ import PrimeVue from 'primevue/config';
 import Aura from '@primeuix/themes/aura';
 import {Button, FloatLabel, InputNumber, InputText} from "primevue";
 import {definePreset} from "@primeuix/themes";
+import { createPinia } from 'pinia'
 import './style.css';
 
 const Noir = definePreset(Aura, {
@@ -56,7 +57,9 @@ const Noir = definePreset(Aura, {
 });
 
 
+const pinia = createPinia()
 const app = createApp(App);
+app.use(pinia)
 app.use(router)
 app
     .use(PrimeVue, {
