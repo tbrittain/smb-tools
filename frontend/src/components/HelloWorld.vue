@@ -11,7 +11,7 @@ const data = reactive({
 });
 
 function greet() {
-  let person = new main.Person();
+  const person = new main.Person();
   person.name = data.name;
   person.age = data.age;
   Greet(person)
@@ -24,7 +24,9 @@ function greet() {
       if (err instanceof Error) {
         data.resultText = err.message;
         return;
-      } else if (typeof err === "string") {
+      }
+
+      if (typeof err === "string") {
         data.resultText = err;
         return;
       }

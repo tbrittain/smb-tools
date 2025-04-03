@@ -1,4 +1,8 @@
-﻿import { createMemoryHistory, createRouter, RouterOptions } from "vue-router";
+﻿import {
+  createMemoryHistory,
+  createRouter,
+  type RouterOptions,
+} from "vue-router";
 
 import HomeView from "@/pages/HomeView.vue";
 import AboutView from "@/pages/AboutView.vue";

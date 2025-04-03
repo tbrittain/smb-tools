@@ -7,8 +7,10 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "format": "biome format --write .",
-    "lint": "biome lint --write .",
+    "format": "biome format .",
+    "format:write": "biome format --write .",
+    "lint": "biome lint .",
+    "lint:write": "biome lint --write .",
     "lint:check": "biome check ."
   },
   "dependencies": {

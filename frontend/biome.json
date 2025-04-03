@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "ignore": ["node_modules", "dist", "wailsjs"]
+    "ignore": ["node_modules", "dist", "wailsjs", "src/vite-env.d.ts"]
   },
   "formatter": {
     "enabled": true,
