@@ -1,38 +1,37 @@
 <script lang="ts" setup>
-import {reactive} from 'vue'
-import {Greet} from '@generated/go/main/App'
-import {main} from "@generated/go/models";
-import {LogError} from "@generated/runtime";
+import { reactive } from "vue";
+import { Greet } from "@generated/go/main/App";
+import { main } from "@generated/go/models";
+import { LogError } from "@generated/runtime";
 
 const data = reactive({
   name: "",
   age: 0,
   resultText: "Please enter your name below 👇",
-})
+});
 
 function greet() {
   let person = new main.Person();
   person.name = data.name;
   person.age = data.age;
   Greet(person)
-      .then(result => {
-        data.resultText = result
-      })
-      .catch(err => {
-        LogError(err);
+    .then((result) => {
+      data.resultText = result;
+    })
+    .catch((err) => {
+      LogError(err);
 
-        if (err instanceof Error) {
-          data.resultText = err.message;
-          return;
-        } else if (typeof err === "string") {
-          data.resultText = err;
-          return;
-        }
+      if (err instanceof Error) {
+        data.resultText = err.message;
+        return;
+      } else if (typeof err === "string") {
+        data.resultText = err;
+        return;
+      }
 
-        data.resultText = "Something went wrong! Please try again";
-      })
+      data.resultText = "Something went wrong! Please try again";
+    });
 }
-
 </script>
 
 <template>
