@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "format": "biome format --write .",
+    "lint": "biome lint --write .",
+    "lint:check": "biome check ."
   },
   "dependencies": {
     "@primeuix/themes": "1.0.0",
