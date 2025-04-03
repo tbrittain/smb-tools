@@ -3,7 +3,6 @@ import HelloWorld from "@/components/HelloWorld.vue";
 import { useGameContextStore } from "@/stores/game-context";
 
 const gameContextStore = useGameContextStore();
-
 </script>
 
 <template>
