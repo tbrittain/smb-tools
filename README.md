@@ -7,6 +7,13 @@ This is the official Wails Vue-TS template.
 You can configure the project by editing `wails.json`. More information about the project settings can be found
 here: https://wails.io/docs/reference/project-config
 
+## Requirements
+
+- Go 1.24
+- Node 22.15.0
+- npm 10.9.2
+- [Wails](https://wails.io/docs/gettingstarted/installation) 2.10.1
+
 ## Live Development
 
 To run in live development mode, run `wails dev` in the project directory. This will run a Vite development
