@@ -19,7 +19,7 @@ func (OSFileReader) ReadFile(filePath string) (io.ReadCloser, error) {
 	return os.Open(filePath)
 }
 
-// unzipLeagueSaveGame now takes a FileReader to allow mocking in tests
+// unzipLeagueSaveGame decompresses a file using zlib compression
 func unzipLeagueSaveGame(filePath string, reader FileReader) ([]byte, error) {
 	file, err := reader.ReadFile(filePath)
 	if err != nil {
