@@ -7,8 +7,21 @@ import (
 	"os"
 )
 
-func unzipLeagueSaveGame(filePath string) ([]byte, error) {
-	file, err := os.Open(filePath)
+// FileReader defines an interface for reading files
+type FileReader interface {
+	ReadFile(filePath string) (io.ReadCloser, error)
+}
+
+// OSFileReader is a concrete implementation of FileReader using the OS
+type OSFileReader struct{}
+
+func (OSFileReader) ReadFile(filePath string) (io.ReadCloser, error) {
+	return os.Open(filePath)
+}
+
+// unzipLeagueSaveGame now takes a FileReader to allow mocking in tests
+func unzipLeagueSaveGame(filePath string, reader FileReader) ([]byte, error) {
+	file, err := reader.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
