@@ -51,6 +51,12 @@ Why we're rewriting and what we're building toward.
 | [goals.md](rewrite/goals.md) | Motivations, tech stack choices, what's new vs. carried over |
 | [feature-matrix.md](rewrite/feature-matrix.md) | Side-by-side feature map across SMB3Explorer, Companion, and smb-tools target |
 
+### `game-integration/` — Game internals investigation
+
+| File | Contents |
+|------|----------|
+| [investigation.md](game-integration/investigation.md) | Engine identification, bundled SQLite schema discovery, auto-sync strategy |
+
 ### Root-level reference
 
 | File | Contents |

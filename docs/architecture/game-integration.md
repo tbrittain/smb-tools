@@ -98,15 +98,13 @@ The plugin never writes to the game's save file. It is a passive observer.
 
 ## Investigation Status
 
-**Open questions before any implementation:**
+**See `docs/game-integration/investigation.md` for full findings.**
 
-- [ ] Is SMB4 a Unity title? (checking local installation)
-- [ ] Mono or IL2CPP build?
-- [ ] Does an existing SMB3/SMB4 modding community exist? (existing decompiled class maps would be a significant head start)
-- [ ] What classes/methods govern the save write lifecycle?
-- [ ] During played games, are physics values (exit velocity, launch angle) computed in C# and accessible, or are they GPU/physics engine values that never surface in managed code?
-
-**See investigation findings** once the local installation has been examined.
+Summary:
+- SMB4 is **not a Unity or Unreal title** — it uses a custom Metalhead proprietary engine. BepInEx/Harmony do not apply.
+- Process-level hooks would require native Windows DLL injection with no existing community tooling to build on. Not a practical near-term path.
+- **Filesystem watching (`fsnotify`) achieves Tier 1 auto-sync** cross-platform with no process injection.
+- The bundled SQLite databases reveal a much richer schema than previously documented — franchise news events, team logos, pitch counts, and more. See investigation for the full table list and action items.
 
 ---
 
