@@ -4,7 +4,43 @@ SQLite strategy, the two-database architecture, schema design principles, migrat
 
 ---
 
-## Two Databases, Two Lifetimes
+## One Database Per Franchise
+
+The original SmbExplorerCompanion used a single SQLite database with a `Franchises` table — essentially a multitenant database where every table had a `franchise_id` foreign key. This was a design flaw:
+
+- Every query required a `WHERE franchise_id = ?` predicate — easy to forget, a potential source of data leakage between franchises
+- The schema was more complex than necessary; every entity carried a FK that existed purely for tenant isolation
+- Backing up, sharing, or exporting a single franchise required extracting a subset of the database rather than just copying a file
+
+**The new design: one SQLite file per franchise.**
+
+Each franchise gets its own isolated `companion.db`. There is no `franchise_id` column anywhere in the companion schema. A query against a franchise DB implicitly operates on that franchise's data only — there is no other data present.
+
+A lightweight **franchise registry** (a small separate SQLite file or JSON manifest in the app data root) stores the list of franchises and their metadata (name, ID, game version, last synced, DB file path). The registry is the only place franchise identity is tracked across the app.
+
+### App Data Directory Structure
+
+```
+{app_data}/
+  registry.db                       # Franchise list + metadata only
+  franchises/
+    {franchise_id}/                 # UUID or stable short ID
+      companion.db                  # This franchise's companion DB (full schema)
+      snapshots/
+        {season}_{hash12}.sqlite    # Decompressed save game snapshots
+        {season}_{hash12}.sqlite.zst  # Compressed older snapshots
+```
+
+### Implications
+
+- **Migrations run per franchise**: when the app opens a franchise, it runs `golang-migrate` against that franchise's `companion.db`. All franchise DBs are migrated independently.
+- **Switching franchises** = closing one `*sql.DB` and opening another. The store layer is re-initialized with the new connection. No query changes needed.
+- **The `SaveGameReader` connection** is always separate from the companion DB connection, regardless of which franchise is active.
+- **The registry** does not hold any baseball data — only the minimum needed to list and select franchises (name, ID, game version, path to DB, last sync time, snapshot count/size summary).
+
+---
+
+## Two Database Connections, Two Lifetimes
 
 The app works with two SQLite databases simultaneously, and they have fundamentally different characteristics:
 
@@ -25,22 +61,35 @@ These are **two separate `*sql.DB` values** threaded explicitly through the code
 ## Save Game Database: Lifecycle
 
 ```
-User selects .sav file
+User triggers "Sync"
         ↓
-db/savegame.go: zlib inflate → write to temp file in OS temp dir
+db/savegame.go: zlib inflate → decompressed bytes in memory
+        ↓
+SHA-256 hash of decompressed bytes
+        ↓
+Compare hash to most recent snapshot for this franchise (from save_game_snapshots table)
+        ↓
+If hash differs: persist snapshot to franchises/{id}/snapshots/{season}_{hash12}.sqlite
+If hash matches: skip snapshot write, continue to read
+        ↓
+Write decompressed bytes to temp file in OS temp dir
         ↓
 sql.Open("sqlite", tempFilePath + "?mode=ro")  ← read-only URI param
         ↓
 SqliteSaveGameReader wraps the connection
         ↓
-User selects a different file or closes
+Read season data (players, teams, schedule, stats)
         ↓
-reader.Close() → connection closed → temp file deleted
+Write to franchise companion DB via store layer
+        ↓
+reader.Close() → temp file deleted
 ```
 
-The temp file is always cleaned up. If the app crashes, temp files are orphaned in the OS temp dir but do no harm — they are not the original save file.
+The snapshot is persisted before the temp file is opened for reading. If the sync fails partway through, the snapshot still exists and the raw data is preserved. The temp file is always cleaned up on close, whether the sync succeeded or failed.
 
 **The original `.sav` file is never modified. Ever.**
+
+See `snapshot-strategy.md` for the full snapshot lifecycle, compression policy, and storage management.
 
 ---
 

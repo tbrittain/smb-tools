@@ -90,6 +90,57 @@ Committed choices for the smb-tools rewrite. These are not up for re-evaluation 
 
 ---
 
+## Direct Save Game Import: No CSV Intermediary
+
+**Decision**: The core import flow reads directly from the SMB save game database. CSV files are not required for any core app functionality.
+
+**Rationale**:
+- The original two-app pipeline (SMB3Explorer exports 8 CSV files → user imports 8 CSV files into Companion) was the most significant UX failure of the original apps: confusing, error-prone, and entirely unnecessary given direct SQLite access
+- Issue #36 of SmbExplorerCompanion ("Import current season data directly from game db") was always the right direction; this app implements it as the default
+- CSV export remains available as a secondary, opt-in feature for power users, external analysis, or community sharing — it is not the pipeline
+
+**Implication**: The `service/import.go` reads from `SaveGameReader` (the SMB save game DB) and writes directly to the franchise companion DB. There is no CSV parsing step in the normal sync flow.
+
+---
+
+## Save Game Snapshots: Every Sync Persisted Permanently
+
+**Decision**: Every time the app syncs from an SMB save file and the content differs from the last snapshot (determined by SHA-256 hash), the full decompressed SQLite database is persisted as a permanent snapshot.
+
+**Rationale**:
+- The SMB game engine compacts franchise data after each season. Data that exists in the save file at the end of a season may be partially or fully gone after the offseason is simulated. Once lost from the save file, it cannot be recovered from the game.
+- If our companion schema misses data we later want, or if an import bug corrupts data, the snapshot is the only recovery path.
+- Snapshots are the canonical source of truth; the companion DB is a derived view over them.
+- Deduplication by hash prevents storing redundant copies when the save file hasn't changed.
+- Older snapshots are compressed (zstd) to reduce storage; recent snapshots are kept uncompressed for fast access.
+
+**See**: `snapshot-strategy.md` for the full design.
+
+---
+
+## One SQLite Database Per Franchise
+
+**Decision**: Each franchise has its own isolated SQLite database file. There is no shared multitenant companion database.
+
+**Rationale**:
+- The original SmbExplorerCompanion used a single database with a `Franchises` table and `franchise_id` FKs on every entity — a classic multitenant antipattern that added complexity to every query and every schema table
+- Per-franchise DBs mean: no `WHERE franchise_id = ?` anywhere, no risk of cross-franchise data leakage, simpler schema, trivial backup/export of a single franchise (copy one file), and complete isolation between franchises
+- Migrations run independently per franchise DB, which is actually simpler than coordinating a shared schema
+
+**Structure**:
+```
+{app_data}/
+  registry.db               # Franchise list + metadata only (no baseball data)
+  franchises/
+    {franchise_id}/
+      companion.db          # This franchise's full schema
+      snapshots/            # Save game snapshots for this franchise
+```
+
+**Implication**: Switching franchises in the UI = closing one `*sql.DB` and opening another. The store layer is re-initialized with the new connection. This is a trivial operation.
+
+---
+
 ## Original Schema: Not Preserved
 
 **Decision**: The new companion database schema is designed from scratch. The SmbExplorerCompanion EF Core schema is a reference, not a constraint.

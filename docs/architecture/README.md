@@ -6,8 +6,10 @@ Design decisions and guiding principles for the smb-tools rewrite. These documen
 |------|----------|
 | [decisions.md](decisions.md) | Committed technology choices with rationale |
 | [backend-structure.md](backend-structure.md) | Go package layout and idiomatic patterns |
-| [data-layer.md](data-layer.md) | SQLite strategy, two-database architecture, migrations, schema principles |
+| [data-layer.md](data-layer.md) | SQLite strategy, per-franchise DB design, two connections, migrations, schema principles |
 | [testing-strategy.md](testing-strategy.md) | Testability requirements and approach at each layer |
+| [ux-flows.md](ux-flows.md) | Core user-facing flows: sync, franchise switching, legacy migration, CSV export |
+| [snapshot-strategy.md](snapshot-strategy.md) | Save game snapshot persistence, deduplication, compression, storage management |
 | [open-decisions.md](open-decisions.md) | Pending decisions that require further discussion before implementation |
 
 ## Reading Order
