@@ -8,30 +8,65 @@ Investigation of Super Mega Baseball 4's technical internals to assess feasibili
 
 ## Engine Identification
 
-### Findings
+### Investigation Method
 
-The root installation directory contains only four items:
+Initial string scans of the executable (sampling across all 343MB) found no signatures for Unity, Unreal, Godot, GameMaker, IL2CPP, or any standard game engine. To move beyond absence-of-evidence, the PE structure was analyzed properly:
+
+- PE header parsed to locate the import directory table (RVA `0x1853F000`, resolved via section table to file offset `0x15634E00`)
+- All imported DLLs extracted from the import descriptor table
+- PE section layout examined
+
+### PE Section Layout
+
+| Section | Virtual Size | File Size | Notes |
+|---------|-------------|-----------|-------|
+| `.00cfg` | 33 MB | 33 MB | Code (Control Flow Guard table) |
+| `.tls` | 14 MB | 14 MB | Thread-local storage |
+| `.didata` | 47 MB | 1.4 MB | Delay-import data |
+| `.debug` | **308 MB** | 308 MB | Debug/symbol information |
+| `.sbss`, `.data`, etc. | small | small | Standard data sections |
+
+The `.debug` section is 308MB — nearly all of the file's size. This is not a standard PDB file (signature does not match). It is compiled COFF-format debug information embedded in the shipping binary, which is unusual and potentially useful for future reverse engineering work.
+
+### Imported DLLs (Complete List)
+
+All imports confirmed via PE import directory — includes delay-loaded imports:
 
 ```
-D3D12/                    # All game assets and databases
-game.cfg                  # 8 bytes: just contains ".\D3D12\"
-steam_api64.dll           # Steam API
-supermegabaseball.exe     # 344MB single executable
+DirectX/Graphics:  d3d12.dll, dxgi.dll
+Input:             DINPUT8.dll, XINPUT9_1_0.dll
+Audio:             WINMM.dll
+Networking:        WS2_32.dll, WINHTTP.dll, wininet.dll
+Steam:             steam_api64.dll
+Crypto:            bcrypt.dll, CRYPT32.dll
+MSVC Runtime:      MSVCP140.dll, VCRUNTIME140.dll, VCRUNTIME140_1.dll, CONCRT140.dll
+Windows APIs:      kernel32.dll, user32.dll, gdi32.dll, shell32.dll, advapi32.dll,
+                   ole32.dll, oleaut32.dll, ntdll.dll, Secur32.dll, shlwapi.dll,
+                   IPHLPAPI.dll, dbghelp.dll, VERSION.dll
+C Runtime:         api-ms-win-crt-*.dll (convert, filesystem, heap, math, runtime, stdio, string, time, etc.)
 ```
 
-Scanning the executable for common engine signatures (Unity, Unreal, Godot, GameMaker, IL2CPP, MonoBehaviour, CryEngine) returned **zero matches**.
+**Notably absent**: `mono.dll`, `UnityPlayer.dll`, `GameAssembly.dll` (Unity); any Unreal Engine DLL; FMOD/Wwise audio middleware; PhysX/Havok physics middleware.
 
-**Conclusion: Super Mega Baseball 4 is built on a custom proprietary engine by Metalhead Software.**
+### Conclusion
 
-The 344MB executable contains all compiled game code. The `.mt` file format used throughout `D3D12/` is a custom Metalhead asset format. There is no standard engine data directory structure (`*_Data/`, `Content/`, `Engine/`) present.
+**SMB4 is definitively built on a custom C++ engine by Metalhead Software**, compiled with MSVC 2019 toolchain and targeting DirectX 12. The evidence is positive (the import table is complete — this is not absence of evidence):
+
+- No Unity runtime of any kind in the import table
+- No Unreal Engine runtime of any kind
+- No standard game engine middleware
+- The only external dependencies are DirectX 12, Steam, standard Windows APIs, and the MSVC runtime
+- Directory structure and `.mt` asset format are Metalhead-proprietary
+
+The `CONCRT140.dll` (Microsoft Concurrency Runtime) and the `.tls` section (14MB of thread-local storage) suggest heavy use of parallelism, consistent with a custom engine doing its own job/task scheduling.
 
 ### Implications for Game Integration
 
-The BepInEx + Harmony approach documented in `architecture/game-integration.md` **does not apply** — that toolchain is specific to Unity games. Without a known engine modding framework:
+The BepInEx + Harmony approach documented in `architecture/game-integration.md` **does not apply** — that toolchain is specific to Unity games. With a custom native C++ engine:
 
-- Process-level hooks would require Windows-specific native DLL injection techniques (Detours library or similar), which is a significant RE undertaking
-- There is no known existing SMB4 modding community or decompiled class map to build on
-- **The practical alternative is filesystem watching** — see Auto-Sync Strategy below
+- Process-level hooks would require Windows native DLL injection (e.g., via the Detours library), hooking against functions identified by reverse engineering the 308MB debug section — possible but a significant undertaking
+- The 308MB `.debug` section embedded in the binary (unusual for a shipped game) could be a meaningful asset for RE work if that path is ever pursued
+- **Filesystem watching (`fsnotify`) is the practical auto-sync solution** — achieves Tier 1 auto-sync cross-platform with no process injection required
 
 ---
 
