@@ -57,6 +57,16 @@ Why we're rewriting and what we're building toward.
 |------|----------|
 | [companion-issues.md](companion-issues.md) | All open GitHub issues from SmbExplorerCompanion with space for rewrite notes |
 
+### `architecture/` — Design decisions and guiding principles
+
+| File | Contents |
+|------|----------|
+| [decisions.md](architecture/decisions.md) | Committed technology choices with rationale |
+| [backend-structure.md](architecture/backend-structure.md) | Go package layout and idiomatic patterns |
+| [data-layer.md](architecture/data-layer.md) | SQLite strategy, two-database architecture, migrations, schema principles |
+| [testing-strategy.md](architecture/testing-strategy.md) | Testability requirements and approach at each layer |
+| [open-decisions.md](architecture/open-decisions.md) | Pending decisions (frontend framework, schema design, sqlc, etc.) |
+
 ## Reading Order
 
 For a new developer on this project:

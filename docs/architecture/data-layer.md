@@ -1,0 +1,152 @@
+# Data Layer
+
+SQLite strategy, the two-database architecture, schema design principles, migration tooling, and the legacy data migration requirement.
+
+---
+
+## Two Databases, Two Lifetimes
+
+The app works with two SQLite databases simultaneously, and they have fundamentally different characteristics:
+
+| | SMB Save Game DB | Companion DB |
+|--|--|--|
+| Owned by | Metalhead Software (the game) | This app |
+| Access mode | Read-only | Read/write |
+| Schema | Fixed, not ours to change | Designed and versioned by us |
+| Lifetime | Opened on demand, closed when user unloads | Open for the entire app session |
+| Connection | Decompressed `.sav` → temp `.sqlite` file | Persistent file in OS app data directory |
+| Migrations | Never | Run automatically at startup |
+| Connection var | `saveDB *sql.DB` | `companionDB *sql.DB` |
+
+These are **two separate `*sql.DB` values** threaded explicitly through the code. They are never aliased, never mixed. The store layer makes it structurally impossible to accidentally run a companion write query against the save game DB or vice versa — `SaveGameReader` only has read methods; `PlayerStore` etc. only hold the companion `*sql.DB`.
+
+---
+
+## Save Game Database: Lifecycle
+
+```
+User selects .sav file
+        ↓
+db/savegame.go: zlib inflate → write to temp file in OS temp dir
+        ↓
+sql.Open("sqlite", tempFilePath + "?mode=ro")  ← read-only URI param
+        ↓
+SqliteSaveGameReader wraps the connection
+        ↓
+User selects a different file or closes
+        ↓
+reader.Close() → connection closed → temp file deleted
+```
+
+The temp file is always cleaned up. If the app crashes, temp files are orphaned in the OS temp dir but do no harm — they are not the original save file.
+
+**The original `.sav` file is never modified. Ever.**
+
+---
+
+## Companion Database: Lifecycle
+
+```
+App startup
+        ↓
+db/companion.go: resolve path via config/app_directories.go
+        ↓
+sql.Open("sqlite", companionDBPath)
+        ↓
+golang-migrate: run any pending up migrations
+        ↓
+App is ready — companion DB connection lives for the session
+        ↓
+App shutdown → connection closed
+```
+
+---
+
+## golang-migrate Setup
+
+Migration files live in `backend/db/migrations/` as plain SQL:
+
+```
+001_initial_schema.up.sql
+001_initial_schema.down.sql
+002_add_player_uniform_numbers.up.sql
+002_add_player_uniform_numbers.down.sql
+```
+
+Each migration is a pair: `up` applies the change, `down` reverses it. golang-migrate tracks the current version in a `schema_migrations` table it manages itself.
+
+Migrations run automatically at app startup before any store is used. If a migration fails, the app surfaces the error and exits cleanly rather than running against a partially-migrated schema.
+
+---
+
+## Schema Design Principles
+
+The new companion schema is designed from scratch. These principles govern its design:
+
+### 1. Store raw counts; compute rate stats on read
+
+The original companion stored both raw counting stats (AB, H, HR, etc.) *and* pre-computed rate stats (BA, OBP, SLG, wOBA, etc.) as nullable doubles. This creates two sources of truth: if the raw counts are correct but the stored rate is stale or rounded differently, they diverge.
+
+**Rule**: persist only counting/raw stats. Compute BA, OBP, SLG, ERA, FIP, wOBA, and all other derived metrics in Go (service layer) or as SQLite computed columns where appropriate. Never store a stat that is a deterministic function of other stored stats.
+
+### 2. Favor SQLite idioms over ORM convenience
+
+The original schema was shaped by EF Core conventions (auto-increment PKs everywhere, navigation properties, many-to-many junction tables with EF-generated names). Design the new schema for SQLite directly: appropriate use of `INTEGER PRIMARY KEY` (rowid alias), explicit junction table names, and indexes chosen for the actual query patterns this app runs.
+
+### 3. Normalize aggressively, denormalize deliberately
+
+Start fully normalized. Add denormalization only when a specific query has a measured performance problem and the denormalization is explicitly documented with the reason.
+
+### 4. Schema analysis precedes schema design
+
+Before writing a single migration file, conduct a structured analysis:
+- Review every repository query in SmbExplorerCompanion (see source files in `docs/smb-explorer-companion/companion-db-schema.md`)
+- Identify which stored columns were never queried
+- Identify which queries were doing expensive joins that a schema change could simplify
+- Identify the `IsRegularSeason` boolean flag pattern — examine whether a separate table per stat type (regular season vs playoffs) is cleaner
+
+This analysis will be documented in `docs/architecture/schema-analysis.md` before implementation begins.
+
+### 5. sqlc is under evaluation
+
+`sqlc` generates type-safe Go from SQL query files. It pairs naturally with golang-migrate (both work with plain `.sql` files) and keeps SQL out of Go strings while producing idiomatic, readable code. It will be evaluated during the initial scaffolding phase. Decision and rationale will be added to `decisions.md` once made.
+
+---
+
+## Legacy Migration: SmbExplorerCompanion.db → New Schema
+
+**This is a first-class feature, not an afterthought.**
+
+Existing users of SmbExplorerCompanion have years of franchise history in their `SmbExplorerCompanion.db` files. The new app must provide a path to bring that data forward.
+
+### Approach
+
+A `service/legacy_migration.go` implements this as a regular Go service:
+
+```go
+type LegacyMigrationService struct {
+    legacyDB    *sql.DB           // read-only connection to the old SmbExplorerCompanion.db
+    players     *store.PlayerStore
+    teams       *store.TeamStore
+    seasons     *store.SeasonStore
+    // ...
+}
+
+func (s *LegacyMigrationService) Migrate(ctx context.Context) error {
+    // Read from legacyDB in the old schema
+    // Transform to new models
+    // Write via store layer to new companion DB
+}
+```
+
+### Requirements
+
+- Opens the old DB read-only — never modifies the original
+- Is fully tested: integration tests spin up an in-memory DB seeded with a representative sample of the old schema, run the migration, and assert the new schema contains correct records
+- Handles partial/incomplete old data gracefully (some users may have incomplete seasons, missing awards, etc.)
+- Is idempotent where possible — safe to run more than once without duplicating data
+- Surfaced in the UI as an explicit "Import from previous version" flow, not a silent background operation
+
+### Schema Mapping
+
+The detailed mapping from old EF Core entities to new schema tables will be documented in `docs/architecture/schema-analysis.md` once both schemas are defined.
