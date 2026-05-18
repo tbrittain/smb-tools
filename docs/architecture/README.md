@@ -10,6 +10,7 @@ Design decisions and guiding principles for the smb-tools rewrite. These documen
 | [testing-strategy.md](testing-strategy.md) | Testability requirements and approach at each layer |
 | [ux-flows.md](ux-flows.md) | Core user-facing flows: sync, franchise switching, legacy migration, CSV export |
 | [snapshot-strategy.md](snapshot-strategy.md) | Save game snapshot persistence, deduplication, compression, storage management |
+| [game-integration.md](game-integration.md) | Optional Windows-only game process hooks (BepInEx/Harmony); investigation status |
 | [open-decisions.md](open-decisions.md) | Pending decisions that require further discussion before implementation |
 
 ## Reading Order
