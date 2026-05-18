@@ -384,3 +384,44 @@ Tracks when lookup tables were seeded to prevent re-seeding on subsequent app la
 |----------|------|-------|
 | Id | Guid | PK (DatabaseGenerated: None) |
 | SeededAt | DateTime | Timestamp of seeding |
+
+---
+
+## Source Files
+
+**SmbExplorerCompanion** (`C:\Users\Trey\source\SmbExplorerCompanion`):
+
+*Main domain entities:*
+- `SmbExplorerCompanion.Database/Entities/Franchise.cs`
+- `SmbExplorerCompanion.Database/Entities/Season.cs`
+- `SmbExplorerCompanion.Database/Entities/Conference.cs`
+- `SmbExplorerCompanion.Database/Entities/Division.cs`
+- `SmbExplorerCompanion.Database/Entities/Team.cs`
+- `SmbExplorerCompanion.Database/Entities/Player.cs`
+- `SmbExplorerCompanion.Database/Entities/PlayerSeason.cs`
+- `SmbExplorerCompanion.Database/Entities/PlayerSeasonGameStat.cs`
+- `SmbExplorerCompanion.Database/Entities/PlayerSeasonBattingStat.cs`
+- `SmbExplorerCompanion.Database/Entities/PlayerSeasonPitchingStat.cs`
+- `SmbExplorerCompanion.Database/Entities/PlayerTeamHistory.cs`
+- `SmbExplorerCompanion.Database/Entities/SeasonTeamHistory.cs`
+- `SmbExplorerCompanion.Database/Entities/TeamNameHistory.cs`
+- `SmbExplorerCompanion.Database/Entities/TeamLogoHistory.cs`
+- `SmbExplorerCompanion.Database/Entities/TeamSeasonSchedule.cs`
+- `SmbExplorerCompanion.Database/Entities/TeamPlayoffSchedule.cs`
+- `SmbExplorerCompanion.Database/Entities/ChampionshipWinner.cs`
+- `SmbExplorerCompanion.Database/Entities/PlayerGameIdHistory.cs`
+- `SmbExplorerCompanion.Database/Entities/TeamGameIdHistory.cs`
+
+*Lookup entities:*
+- `SmbExplorerCompanion.Database/Entities/Lookups/BatHandedness.cs`
+- `SmbExplorerCompanion.Database/Entities/Lookups/ThrowHandedness.cs`
+- `SmbExplorerCompanion.Database/Entities/Lookups/Position.cs`
+- `SmbExplorerCompanion.Database/Entities/Lookups/Chemistry.cs`
+- `SmbExplorerCompanion.Database/Entities/Lookups/Trait.cs`
+- `SmbExplorerCompanion.Database/Entities/Lookups/PitcherRole.cs`
+- `SmbExplorerCompanion.Database/Entities/Lookups/PitchType.cs`
+- `SmbExplorerCompanion.Database/Entities/Lookups/PlayerAward.cs`
+- `SmbExplorerCompanion.Database/Entities/Lookups/LookupSeed.cs`
+
+*DbContext (relationships, configuration, seeding):*
+- `SmbExplorerCompanion.Database/SmbExplorerCompanionDbContext.cs`

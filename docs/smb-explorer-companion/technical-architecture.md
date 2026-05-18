@@ -86,3 +86,37 @@ All other awards (`IsUserAssignable = true`) require manual assignment via the A
 - **ClassMap-based CSV parsing**: decouples CSV column names from C# property names, allowing the CSV format to match the SMB3Explorer output format while the internal model uses idiomatic naming
 - **PlayerGameIdHistory / TeamGameIdHistory**: enables re-imports across seasons to match players and teams by their game GUIDs rather than name, which is more reliable than name matching (especially with name changes or re-introduced free agents)
 - **Seeded lookup tables**: traits, awards, chemistry, positions are seeded once and referenced by FK, keeping the schema normalized and enabling filtering by these dimensions
+
+---
+
+## Source Files
+
+**SmbExplorerCompanion** (`C:\Users\Trey\source\SmbExplorerCompanion`):
+
+*Database / EF Core:*
+- `SmbExplorerCompanion.Database/SmbExplorerCompanionDbContext.cs` — DbContext, relationships, seeding
+- `SmbExplorerCompanion.Database/DependencyInjection.cs` — DI registration for database layer
+
+*CSV parsing:*
+- `SmbExplorerCompanion.Csv/Services/CsvReaderService.cs` — CsvHelper-based parsing orchestrator
+- `SmbExplorerCompanion.Csv/Models/OverallPlayer.cs` — player CSV model with ClassMap
+- `SmbExplorerCompanion.Csv/Models/SeasonStatBatting.cs` — batting stats CSV model
+- `SmbExplorerCompanion.Csv/Models/SeasonStatPitching.cs` — pitching stats CSV model
+- `SmbExplorerCompanion.Csv/Models/SeasonSchedule.cs` — schedule CSV model
+- `SmbExplorerCompanion.Csv/Models/PlayoffSchedule.cs` — playoff schedule CSV model
+- `SmbExplorerCompanion.Csv/Models/Team.cs` — team CSV model
+
+*Repositories:*
+- `SmbExplorerCompanion.Database/Services/Imports/CsvImportRepository.cs` — CSV import persistence logic
+- `SmbExplorerCompanion.Database/Services/Players/GeneralPlayerRepository.cs`
+- `SmbExplorerCompanion.Database/Services/Players/PositionPlayerCareerRepository.cs`
+- `SmbExplorerCompanion.Database/Services/Players/PitcherCareerRepository.cs`
+- `SmbExplorerCompanion.Database/Services/SearchRepository.cs`
+- `SmbExplorerCompanion.Database/Services/SummaryRepository.cs`
+- `SmbExplorerCompanion.Database/Services/TeamRepository.cs`
+
+*WPF services:*
+- `SmbExplorerCompanion.WPF/Services/NavigationService.cs` — typed screen-to-screen navigation
+- `SmbExplorerCompanion.WPF/Services/ApplicationContext.cs` — global WPF app state
+- `SmbExplorerCompanion.WPF/Services/MappingService.cs` — DTO → ViewModel mapping
+- `SmbExplorerCompanion.WPF/App.xaml.cs` — application entry point and DI setup

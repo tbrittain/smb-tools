@@ -300,3 +300,23 @@ Same columns as Career Pitching but with `Season` prepended at index 0, and two 
 | 7 | Runs For | int | Playoff runs scored |
 | 8 | Runs Against | int | Playoff runs allowed |
 | 9 | Run Differential | int | Playoff run differential |
+
+---
+
+## Source Files
+
+**SMB3Explorer** (`C:\Users\Trey\source\SMB3Explorer`):
+- `SMB3Explorer/Models/Exports/BattingStatistic.cs` — abstract base with all batting stat properties and `[Index]`/`[Name]` attributes
+- `SMB3Explorer/Models/Exports/BattingMostRecentSeasonStatistic.cs` — adds OPS+, PlayerId, SeasonId, TeamId columns
+- `SMB3Explorer/Models/Exports/CareerStatistic.cs` — career batting base class
+- `SMB3Explorer/Models/Exports/CareerBattingStatistic.cs` — career batting full model
+- `SMB3Explorer/Models/Exports/PitchingStatistic.cs` — abstract base with all pitching stat properties
+- `SMB3Explorer/Models/Exports/PitchingMostRecentSeasonStatistic.cs` — adds ERA-, FIP-, PlayerId, TeamId columns
+- `SMB3Explorer/Models/Exports/CareerPitchingStatistic.cs` — career pitching full model
+- `SMB3Explorer/Models/Exports/SeasonPlayer.cs` — most recent season player model (attributes, traits, pitches)
+- `SMB3Explorer/Models/Exports/SeasonTeam.cs` — most recent season team model
+- `SMB3Explorer/Models/Exports/SeasonSchedule.cs` — regular season schedule model
+- `SMB3Explorer/Models/Exports/SeasonPlayoffSchedule.cs` — playoff schedule model
+- `SMB3Explorer/Models/Exports/FranchiseSeasonStanding.cs` — franchise season standings model
+- `SMB3Explorer/Models/Exports/FranchisePlayoffStanding.cs` — franchise playoff standings model
+- `SMB3Explorer/Constants/FileExports.cs` — output filename constants

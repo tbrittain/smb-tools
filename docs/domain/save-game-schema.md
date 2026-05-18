@@ -319,3 +319,20 @@ Denormalized player information joining `t_baseball_players`, `t_baseball_player
 ### `v_playoff_games_won_lost`
 
 Playoff game win/loss calculations, used to compute playoff standings (champion = most wins, runner-up = second most, etc.).
+
+---
+
+## Source Files
+
+**SMB3Explorer** (`C:\Users\Trey\source\SMB3Explorer`) — SQL queries that reveal the schema:
+- `SMB3Explorer/Resources/Sql/MostRecentSeasonPlayersSmb3.sql` — player attributes, traits, salary join
+- `SMB3Explorer/Resources/Sql/MostRecentSeasonPlayersSmb4.sql` — SMB4 additions: chemistry, handedness, pitch repertoire
+- `SMB3Explorer/Resources/Sql/MostRecentSeasonTeams.sql` — team standings, aggregate attributes, budget/payroll
+- `SMB3Explorer/Resources/Sql/MostRecentSeasonSchedule.sql` — schedule + game results join
+- `SMB3Explorer/Resources/Sql/MostRecentSeasonPlayoffSchedule.sql` — playoff schedule with series/seed data
+- `SMB3Explorer/Resources/Sql/CareerStatsBatting.sql` — batting stats columns from `t_stats_batting`
+- `SMB3Explorer/Resources/Sql/CareerStatsPitching.sql` — pitching stats columns from `t_stats_pitching`
+- `SMB3Explorer/Resources/Sql/FranchiseSeasons.sql` — `t_franchise_seasons` structure
+- `SMB3Explorer/Resources/Sql/FranchiseSeasonStandings.sql` — `v_season_standings` usage
+- `SMB3Explorer/Resources/Sql/Franchises.sql` — `t_franchise`, `t_leagues`, `t_team_types` join
+- `SMB3Explorer/Services/DataService/DataServiceInit.cs` — schema validation (required tables check)

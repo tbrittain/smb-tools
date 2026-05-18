@@ -204,3 +204,14 @@ The `(traitId, subtypeId)` → enum mapping for SMB4 (for reference when reading
 | 38 | 6 | Sign Stealer |
 | 39 | 7 | Meltdown |
 | 40 | 6 | Bunter |
+
+---
+
+## Source Files
+
+**SMB3Explorer** (`C:\Users\Trey\source\SMB3Explorer`):
+- `SMB3Explorer/Enums/PlayerTrait.cs` — defines the `PlayerTrait` enum and both the SMB3 and SMB4 `(traitId, subtypeId)` → trait name mapping dictionaries
+
+**SmbExplorerCompanion** (`C:\Users\Trey\source\SmbExplorerCompanion`):
+- `SmbExplorerCompanion.Database/Entities/Lookups/Trait.cs` — `Trait` entity definition
+- `SmbExplorerCompanion.Database/SmbExplorerCompanionDbContext.cs` — `SeedLookups()` method contains the full seeded trait list for both SMB3 (20) and SMB4 (80) with chemistry and `IsPositive` values

@@ -28,3 +28,15 @@ Pitcher repertoires are stored in the `t_baseball_player_options` table and/or `
 ## Traits Associated with Pitch Types
 
 In SMB4, specific traits called "elite pitch" traits correspond to individual pitch types (e.g., "Elite 4-Seamer", "Elite Curveball"). These traits boost the effectiveness of a specific pitch. See [player-traits.md](player-traits.md) for the full trait list.
+
+---
+
+## Source Files
+
+**SMB3Explorer** (`C:\Users\Trey\source\SMB3Explorer`):
+- `SMB3Explorer/Resources/Sql/MostRecentSeasonPlayersSmb4.sql` — pitch repertoire extracted as JSON from player options
+
+**SmbExplorerCompanion** (`C:\Users\Trey\source\SmbExplorerCompanion`):
+- `SmbExplorerCompanion.Database/Entities/Lookups/PitchType.cs` — `PitchType` lookup entity
+- `SmbExplorerCompanion.Database/SmbExplorerCompanionDbContext.cs` — seeded pitch type values (4F, 2F, SB, CH, FK, CB, SL, CF)
+- `SmbExplorerCompanion.Csv/Models/OverallPlayer.cs` — `Pitch1` through `Pitch5` fields in the player CSV model

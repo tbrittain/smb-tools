@@ -107,3 +107,19 @@ Salary data lives in the `t_salary` table, linked to players and teams.
 ## Two-Way Players
 
 A player can be a two-way player (pitcher who also bats), indicated by a specific trait in SMB4. Two-way players have meaningful ratings for both hitting and pitching attributes.
+
+---
+
+## Source Files
+
+**SMB3Explorer** (`C:\Users\Trey\source\SMB3Explorer`):
+- `SMB3Explorer/Resources/Sql/MostRecentSeasonPlayersSmb3.sql` — all player attribute columns for SMB3
+- `SMB3Explorer/Resources/Sql/MostRecentSeasonPlayersSmb4.sql` — adds chemistry, handedness, pitch repertoire for SMB4
+- `SMB3Explorer/Models/Exports/SeasonPlayer.cs` — `SeasonPlayer` export model showing all player fields
+
+**SmbExplorerCompanion** (`C:\Users\Trey\source\SmbExplorerCompanion`):
+- `SmbExplorerCompanion.Database/Entities/Player.cs` — core player entity with FK references to lookups
+- `SmbExplorerCompanion.Database/Entities/PlayerSeasonGameStat.cs` — per-season attribute snapshot
+- `SmbExplorerCompanion.Database/Entities/Lookups/Position.cs` — position definitions with `IsPrimaryPosition` flag
+- `SmbExplorerCompanion.Database/Entities/Lookups/Chemistry.cs` — chemistry type definitions
+- `SmbExplorerCompanion.Database/Entities/Lookups/PitcherRole.cs` — pitcher role definitions

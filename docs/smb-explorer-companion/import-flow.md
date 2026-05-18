@@ -107,3 +107,19 @@ Import at the **end of each season, before simulating the offseason**. Once the 
 - The "most recent season" data in the save file will be overwritten with the new season
 
 The companion app cannot recover data that was never imported before these events occur.
+
+---
+
+## Source Files
+
+**SmbExplorerCompanion** (`C:\Users\Trey\source\SmbExplorerCompanion`):
+- `SmbExplorerCompanion.Csv/Services/CsvReaderService.cs` — parses all 8 CSV file types using CsvHelper ClassMaps
+- `SmbExplorerCompanion.Database/Services/Imports/CsvImportRepository.cs` — persistence logic: entity matching by GUID, creation of PlayerSeason, SeasonTeamHistory, stats, schedules
+- `SmbExplorerCompanion.Csv/Models/OverallPlayer.cs` — player CSV model (maps `MostRecentSeasonPlayers.csv`)
+- `SmbExplorerCompanion.Csv/Models/Team.cs` — team CSV model
+- `SmbExplorerCompanion.Csv/Models/SeasonStatBatting.cs` — batting stats ClassMap
+- `SmbExplorerCompanion.Csv/Models/SeasonStatPitching.cs` — pitching stats ClassMap
+- `SmbExplorerCompanion.Csv/Models/SeasonSchedule.cs` — schedule ClassMap
+- `SmbExplorerCompanion.Csv/Models/PlayoffSchedule.cs` — playoff schedule ClassMap
+- `SmbExplorerCompanion.Database/Entities/PlayerGameIdHistory.cs` — GUID → Player ID mapping
+- `SmbExplorerCompanion.Database/Entities/TeamGameIdHistory.cs` — GUID → Team ID mapping

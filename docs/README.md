@@ -51,6 +51,12 @@ Why we're rewriting and what we're building toward.
 | [goals.md](rewrite/goals.md) | Motivations, tech stack choices, what's new vs. carried over |
 | [feature-matrix.md](rewrite/feature-matrix.md) | Side-by-side feature map across SMB3Explorer, Companion, and smb-tools target |
 
+### Root-level reference
+
+| File | Contents |
+|------|----------|
+| [companion-issues.md](companion-issues.md) | All open GitHub issues from SmbExplorerCompanion with space for rewrite notes |
+
 ## Reading Order
 
 For a new developer on this project:

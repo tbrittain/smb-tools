@@ -109,3 +109,21 @@ Simple two-screen navigation:
 - **Decompression to temp**: the decompressed file lives in `%TEMP%` and is cleaned up on disconnect; the original `.sav` is never modified
 - **Lazy season loading**: franchise seasons are loaded on demand when the user selects a league, not upfront
 - **Partial class DataService**: splits a large service class by domain without introducing multiple service dependencies
+
+---
+
+## Source Files
+
+**SMB3Explorer** (`C:\Users\Trey\source\SMB3Explorer`):
+- `SMB3Explorer/Services/DataService/DataServiceInit.cs` — decompression, SQLite connection, schema validation
+- `SMB3Explorer/Services/DataService/DataService.cs` — main service class and SQL execution helpers
+- `SMB3Explorer/Services/DataService/DataServiceFranchises.cs` — franchise/league loading
+- `SMB3Explorer/Services/DataService/DataServiceFranchiseSeasons.cs` — season record loading
+- `SMB3Explorer/Services/DataService/DataServiceFranchiseTeams.cs` — team standings queries
+- `SMB3Explorer/Services/DataService/DataServiceFranchiseCareer.cs` — career player stat queries
+- `SMB3Explorer/Services/DataService/DataServiceMostRecentSeason.cs` — current season export queries
+- `SMB3Explorer/Services/DataService/IDataService.cs` — data service interface
+- `SMB3Explorer/Services/ApplicationContext/ApplicationContext.cs` — runtime state (selected league, seasons, game preference)
+- `SMB3Explorer/ApplicationConfig/ApplicationConfig.cs` — JSON-persisted league access history
+- `SMB3Explorer/Services/NavigationService/NavigationService.cs` — two-screen navigation
+- `SMB3Explorer/App.xaml.cs` — application entry point and DI setup

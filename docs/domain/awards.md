@@ -90,3 +90,11 @@ Hall of Famers are highlighted on the home screen and can be filtered in the lea
 ## Custom Awards
 
 Users can create custom awards beyond the built-in list. Custom awards have `IsBuiltIn = false`. They are user-assignable and appear in the Awards Delegation screen. This enables tracking of custom franchise awards (e.g., "Iron Man Award", "Best Defensive Team").
+
+---
+
+## Source Files
+
+**SmbExplorerCompanion** (`C:\Users\Trey\source\SmbExplorerCompanion`):
+- `SmbExplorerCompanion.Database/Entities/Lookups/PlayerAward.cs` — `PlayerAward` entity with all flag properties
+- `SmbExplorerCompanion.Database/SmbExplorerCompanionDbContext.cs` — `SeedLookups()` method contains the full seeded award list with all property values
