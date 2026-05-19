@@ -23,15 +23,17 @@ const preview: Preview = {
   decorators: [
     (story) => ({
       components: { story },
-      template: `
-        <div class="dark" style="background: var(--color-bg); min-height: 100vh; padding: 1.5rem;">
-          <story />
-        </div>
-      `,
+      // .dark activates PrimeVue's dark mode selector and makes --color-*
+      // variables available. The wrapper is otherwise unstyled so Storybook's
+      // own canvas controls the background.
+      template: '<div class="dark"><story /></div>',
     }),
   ],
   parameters: {
-    backgrounds: { disable: true }, // we control bg via .dark wrapper
+    backgrounds: {
+      default: 'dark',
+      values: [{ name: 'dark', value: '#0d1117' }],
+    },
     controls: {
       matchers: {
         color: /(background|color)$/i,
