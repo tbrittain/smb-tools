@@ -23,12 +23,12 @@ Check off phases as they are completed. Individual phases will be broken into de
 ## Phase 2 — Save Game Layer
 *Everything needed to read an SMB save file. No UI yet — just the Go layer that understands the save game format.*
 
-- [ ] ZLib decompression of .sav files
-- [ ] Read-only SQLite connection via SaveGameReader interface
-- [ ] Full save game schema coverage (all tables documented in `docs/domain/save-game-schema.md` plus newly discovered tables from `league-template.sqlite`)
-- [ ] Auto-discovery of save file locations (default paths for SMB3/SMB4, master.sqlite league registry)
-- [ ] Snapshot persistence: SHA-256 dedup, zstd compression of older snapshots
-- [ ] Snapshot metadata tracked in companion DB
+- [x] ZLib decompression of .sav files
+- [x] Read-only SQLite connection via SaveGameReader interface
+- [x] Full save game schema coverage (all tables documented in `docs/domain/save-game-schema.md` plus newly discovered tables from `league-template.sqlite`)
+- [x] Auto-discovery of save file locations (default paths for SMB3/SMB4, master.sqlite league registry)
+- [x] Snapshot persistence: SHA-256 dedup, zstd compression of older snapshots
+- [x] Snapshot metadata tracked in companion DB
 
 ---
 
