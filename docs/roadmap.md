@@ -11,12 +11,12 @@ Check off phases as they are completed. Individual phases will be broken into de
 
 - [x] Re-scaffold Wails v2.12.0 with Vue 3 + TypeScript frontend
 - [x] Configure full frontend toolchain (Vite 8, PrimeVue, AG Grid, ECharts, Pinia, Biome, Storybook)
-- [ ] Establish Go backend package structure (store, service, models, config, db)
-- [ ] Set up golang-migrate with initial empty companion DB schema
-- [ ] Wire up modernc.org/sqlite for both DB connections
-- [ ] Set up CI pipeline (go test, go vet, golangci-lint, vitest)
-- [ ] Establish testutil package (in-memory SQLite, seed helpers)
-- [ ] App data directory management and franchise registry skeleton
+- [x] Establish Go backend package structure (store, service, models, config, db)
+- [x] Set up SQL-file-based schema migrations with initial registry + companion schemas
+- [x] Wire up modernc.org/sqlite for both DB connections
+- [x] Set up CI pipeline (go test, go vet, golangci-lint, vitest)
+- [x] Establish testutil package (in-memory SQLite, seed helpers)
+- [x] App data directory management and franchise registry skeleton
 
 ---
 

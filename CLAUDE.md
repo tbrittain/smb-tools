@@ -46,16 +46,22 @@ All design decisions, rationale, and domain knowledge live in `docs/`. Before im
 ## Project Structure
 
 ```
-backend/
-  app.go                  # Wails App struct — THIN, delegates only
+app.go                    # Wails App struct — THIN, delegates only
+main.go                   # Wails entry point
+internal/
+  config/                 # App data directories, franchise registry paths
   db/
-    companion.go          # Open companion DB, run migrations
+    companion.go          # Open per-franchise companion DB, run migrations
+    registry.go           # Open registry DB, run migrations
     savegame.go           # Decompress .sav, open read-only connection
-    migrations/           # golang-migrate SQL files (*.up.sql / *.down.sql)
+    migrate.go            # SQL-file migration runner (embed.FS-based)
+    migrations/           # SQL migration files ({version}_{name}.up.sql)
+      registry/
+      companion/
   store/                  # Data access — one file per domain, plain structs
   service/                # Business logic that crosses store boundaries
   models/                 # Shared Go structs (no ORM tags)
-  config/                 # App data directories, franchise registry
+  testutil/               # Test helpers: NewTestDB, NewTestRegistryDB, seed helpers
 frontend/
   src/
     components/           # Reusable components (each should have a Story)
