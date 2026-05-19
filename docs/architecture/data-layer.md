@@ -132,11 +132,15 @@ Migrations run automatically at app startup before any store is used. If a migra
 
 The new companion schema is designed from scratch. These principles govern its design:
 
-### 1. Store raw counts; compute rate stats on read
+### 1. Be deliberate about which derived stats to persist
 
-The original companion stored both raw counting stats (AB, H, HR, etc.) *and* pre-computed rate stats (BA, OBP, SLG, wOBA, etc.) as nullable doubles. This creates two sources of truth: if the raw counts are correct but the stored rate is stale or rounded differently, they diverge.
+The original companion stored both raw counting stats (AB, H, HR, etc.) *and* pre-computed rate stats as nullable doubles. The problem was not that it stored derived stats — it's that they were stored as independent columns that could silently diverge from the raw counts that produced them.
 
-**Rule**: persist only counting/raw stats. Compute BA, OBP, SLG, ERA, FIP, wOBA, and all other derived metrics in Go (service layer) or as SQLite computed columns where appropriate. Never store a stat that is a deterministic function of other stored stats.
+**Simple rate stats** (BA = H/AB, OBP, SLG, OPS, WHIP, K/9, BB/9, etc.) are deterministic functions of a single row's own columns. Use SQLite [generated columns](https://www.sqlite.org/gencol.html) for these — they are computed by SQLite itself and are always in sync. Never store them as independent writable columns.
+
+**Context-dependent stats** (wOBA, FIP, ERA+, OPS+, smbWAR) require league-wide context — linear weights, league ERA constants, park factors — that is only available at sync time. These must be computed during the import pipeline and persisted alongside the raw counts. Store the league constant or weights used alongside them so the derivation is auditable.
+
+**The rule**: never store a derived stat as an independent writable column where it could diverge from its inputs. Generated columns for simple rates. Computed-then-stored (with audit trail) for complex rates.
 
 ### 2. Favor SQLite idioms over ORM convenience
 
