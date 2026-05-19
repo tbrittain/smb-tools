@@ -31,10 +31,10 @@ type Snapshot struct {
 // SnapshotStore handles reads and writes for the save_game_snapshots table
 // in a per-franchise companion database.
 type SnapshotStore struct {
-	db *sql.DB
+	db DBTX
 }
 
-func NewSnapshotStore(db *sql.DB) *SnapshotStore {
+func NewSnapshotStore(db DBTX) *SnapshotStore {
 	return &SnapshotStore{db: db}
 }
 
@@ -99,7 +99,7 @@ func (s *SnapshotStore) List(ctx context.Context) ([]Snapshot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listing snapshots: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var snaps []Snapshot
 	for rows.Next() {

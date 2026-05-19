@@ -12,10 +12,10 @@ import (
 // FranchiseStore handles reads and writes for the franchise registry.
 // It operates against registry.db, not a per-franchise companion DB.
 type FranchiseStore struct {
-	db *sql.DB
+	db DBTX
 }
 
-func NewFranchiseStore(db *sql.DB) *FranchiseStore {
+func NewFranchiseStore(db DBTX) *FranchiseStore {
 	return &FranchiseStore{db: db}
 }
 
@@ -43,7 +43,7 @@ func (s *FranchiseStore) List(ctx context.Context) ([]models.Franchise, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listing franchises: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return scanFranchises(rows)
 }
 
@@ -59,7 +59,7 @@ func (s *FranchiseStore) GetByID(ctx context.Context, id string) (models.Franchi
 	if err != nil {
 		return models.Franchise{}, fmt.Errorf("getting franchise %q: %w", id, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	fs, err := scanFranchises(rows)
 	if err != nil {

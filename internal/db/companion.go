@@ -19,15 +19,15 @@ func OpenCompanion(ctx context.Context, path string) (*sql.DB, error) {
 		return nil, fmt.Errorf("opening companion DB: %w", err)
 	}
 	if err := db.PingContext(ctx); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("pinging companion DB: %w", err)
 	}
 	if _, err := db.ExecContext(ctx, `PRAGMA journal_mode=WAL`); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("enabling WAL mode on companion DB: %w", err)
 	}
 	if err := runMigrations(ctx, db, companionMigrations, "migrations/companion"); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("running companion migrations: %w", err)
 	}
 	return db, nil

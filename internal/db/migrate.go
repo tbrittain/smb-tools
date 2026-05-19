@@ -32,7 +32,7 @@ func runMigrations(ctx context.Context, db *sql.DB, migrations embed.FS, dir str
 	if err != nil {
 		return fmt.Errorf("querying applied migrations: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var v int
 		if err := rows.Scan(&v); err != nil {

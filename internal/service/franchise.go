@@ -51,7 +51,9 @@ func (s *FranchiseService) CreateFranchise(ctx context.Context, name string, ver
 		_ = os.RemoveAll(s.dirs.FranchiseDir(id)) // best-effort cleanup
 		return models.Franchise{}, fmt.Errorf("initializing companion DB: %w", err)
 	}
-	companionDB.Close() // closed here; caller opens via OpenFranchise when needed
+	if err := companionDB.Close(); err != nil {
+		return models.Franchise{}, fmt.Errorf("closing companion DB after initialization: %w", err)
+	}
 
 	f := models.Franchise{
 		ID:          id,

@@ -6,13 +6,16 @@ import (
 )
 
 // NewTestSaveGameDB creates an in-memory SQLite database seeded with the core
-// SMB save game schema and a minimal set of synthetic data. Use this as the
-// backing store for SqliteSaveGameReader in unit and integration tests.
+// SMB save game schema and a representative set of synthetic data. Use this as
+// the backing store for SqliteSaveGameReader in unit and integration tests.
 //
-// The schema mirrors the actual SMB save game structure documented in
-// docs/domain/save-game-schema.md. Synthetic data uses clearly fake values
-// (player names like "Test Player", GUIDs like X'0000...') so tests are
-// self-contained and never depend on real game files.
+// Fixture data includes:
+//   - 1 league / franchise
+//   - 2 seasons (IDs 100 and 101)
+//   - 2 teams (Home Squad, Away Crew)
+//   - 2 players: a position player (batter, GUID AA…) and a pitcher (BB…)
+//   - Batting and pitching stats for both seasons, regular season and playoffs
+//   - A regular season schedule and a playoff game
 func NewTestSaveGameDB(t *testing.T) *sql.DB {
 	t.Helper()
 	db, err := sql.Open("sqlite", ":memory:")
@@ -216,13 +219,15 @@ func seedSaveGameData(db *sql.DB) error {
 
 		INSERT INTO t_franchise (franchiseId, leagueId) VALUES (1, 1);
 
+		-- Two seasons for multi-season tracking tests
 		INSERT INTO t_franchise_seasons (seasonID, franchiseId) VALUES (100, 1);
+		INSERT INTO t_franchise_seasons (seasonID, franchiseId) VALUES (101, 1);
 
 		-- Teams
 		INSERT INTO t_teams (GUID, teamName) VALUES (X'01000000000000000000000000000000', 'Home Squad');
 		INSERT INTO t_teams (GUID, teamName) VALUES (X'02000000000000000000000000000000', 'Away Crew');
-		INSERT INTO t_team_local_ids (GUID) VALUES (X'01000000000000000000000000000000');
-		INSERT INTO t_team_local_ids (GUID) VALUES (X'02000000000000000000000000000000');
+		INSERT INTO t_team_local_ids (GUID) VALUES (X'01000000000000000000000000000000'); -- localID 1
+		INSERT INTO t_team_local_ids (GUID) VALUES (X'02000000000000000000000000000000'); -- localID 2
 
 		-- Conferences and divisions
 		INSERT INTO t_conferences (conferenceName) VALUES ('East Conference');
@@ -230,26 +235,136 @@ func seedSaveGameData(db *sql.DB) error {
 		INSERT INTO t_division_teams (teamLocalId, divisionId) VALUES (1, 1);
 		INSERT INTO t_division_teams (teamLocalId, divisionId) VALUES (2, 1);
 
-		-- Players
+		-- Player AA: outfielder (batter)
 		INSERT INTO t_baseball_players (GUID, power, contact, speed, fielding, arm, velocity, junk, accuracy, age)
-		VALUES (X'AA000000000000000000000000000000', 80, 75, 60, 70, 65, 85, 70, 80, 27);
-		INSERT INTO t_baseball_player_local_ids (GUID) VALUES (X'AA000000000000000000000000000000');
+		VALUES (X'AA000000000000000000000000000000', 80, 75, 60, 70, 65, 50, 50, 50, 27);
+		INSERT INTO t_baseball_player_local_ids (GUID) VALUES (X'AA000000000000000000000000000000'); -- localID 1
 		INSERT INTO t_baseball_player_traits (baseballPlayerGUID, traits) VALUES (X'AA000000000000000000000000000000', '[]');
 		INSERT INTO t_salary (baseballPlayerGUID, salary) VALUES (X'AA000000000000000000000000000000', 250);
 
-		-- Stats
+		-- Player BB: pitcher
+		INSERT INTO t_baseball_players (GUID, power, contact, speed, fielding, arm, velocity, junk, accuracy, age)
+		VALUES (X'BB000000000000000000000000000000', 40, 40, 40, 50, 55, 88, 78, 82, 30);
+		INSERT INTO t_baseball_player_local_ids (GUID) VALUES (X'BB000000000000000000000000000000'); -- localID 2
+		INSERT INTO t_baseball_player_traits (baseballPlayerGUID, traits) VALUES (X'BB000000000000000000000000000000', '[]');
+		INSERT INTO t_salary (baseballPlayerGUID, salary) VALUES (X'BB000000000000000000000000000000', 300);
+
+		-- ── Season 100 stats ─────────────────────────────────────────────────
+
+		-- Batter (AA) — regular season
 		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (1, 'Home Squad');
 		INSERT INTO t_stats_players (aggregatorID, baseballPlayerGUIDIfKnown, firstName, lastName, primaryPosition, age)
-		VALUES (1, X'AA000000000000000000000000000000', 'Test', 'Player', 'CF', 27);
-		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, atBats, hits, homeruns, rbi)
-		VALUES (1, 50, 180, 54, 12, 40);
+		VALUES (1, X'AA000000000000000000000000000000', 'Test', 'Batter', 'CF', 27);
+		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, gamesBatting, atBats, runs, hits, doubles, triples, homeruns, rbi, baseOnBalls, strikeOuts)
+		VALUES (1, 50, 50, 180, 30, 54, 10, 2, 12, 40, 20, 35);
 		INSERT INTO t_season_stats (aggregatorID, seasonID) VALUES (1, 100);
-		INSERT INTO t_career_season_stats (aggregatorID) VALUES (1);
 
-		-- Schedule
+		-- Pitcher (BB) — regular season
+		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (2, 'Home Squad');
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerGUIDIfKnown, firstName, lastName, primaryPosition, pitcherRole, age)
+		VALUES (2, X'BB000000000000000000000000000000', 'Test', 'Pitcher', 'P', 'SP', 30);
+		INSERT INTO t_stats_pitching (aggregatorID, wins, losses, games, gamesStarted, outsPitched, hits, earnedRuns, homeRuns, baseOnBalls, strikeOuts, battersFaced, totalPitches)
+		VALUES (2, 12, 8, 25, 25, 540, 140, 55, 15, 40, 180, 740, 3200);
+		INSERT INTO t_season_stats (aggregatorID, seasonID) VALUES (2, 100);
+
+		-- Batter (AA) — playoff
+		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (3, 'Home Squad');
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerGUIDIfKnown, firstName, lastName, primaryPosition, age)
+		VALUES (3, X'AA000000000000000000000000000000', 'Test', 'Batter', 'CF', 27);
+		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, gamesBatting, atBats, hits, homeruns, rbi)
+		VALUES (3, 5, 5, 18, 6, 2, 5);
+
+		-- Pitcher (BB) — playoff
+		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (4, 'Home Squad');
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerGUIDIfKnown, firstName, lastName, primaryPosition, pitcherRole, age)
+		VALUES (4, X'BB000000000000000000000000000000', 'Test', 'Pitcher', 'P', 'SP', 30);
+		INSERT INTO t_stats_pitching (aggregatorID, wins, losses, games, gamesStarted, outsPitched, hits, earnedRuns, strikeOuts)
+		VALUES (4, 2, 0, 2, 2, 54, 10, 3, 18);
+
+		-- Career stats (aggregators 1 and 2)
+		INSERT INTO t_career_season_stats (aggregatorID) VALUES (1);
+		INSERT INTO t_career_season_stats (aggregatorID) VALUES (2);
+
+		-- ── Season 100 schedule ──────────────────────────────────────────────
+
 		INSERT INTO t_season_schedule (gameNumber, day, homeTeamID, awayTeamID) VALUES (1, 1, 1, 2);
-		INSERT INTO t_game_results (gameNumber, homeRunsScored, awayRunsScored) VALUES (1, 5, 3);
+		INSERT INTO t_game_results (gameNumber, homeRunsScored, awayRunsScored, homePitcherLocalID, awayPitcherLocalID)
+		VALUES (1, 5, 3, 2, 1);
 		INSERT INTO t_season_games (gameNumber, seasonID) VALUES (1, 100);
+
+		INSERT INTO t_season_schedule (gameNumber, day, homeTeamID, awayTeamID) VALUES (2, 2, 2, 1);
+		INSERT INTO t_game_results (gameNumber, homeRunsScored, awayRunsScored, homePitcherLocalID, awayPitcherLocalID)
+		VALUES (2, 1, 4, 1, 2);
+		INSERT INTO t_season_games (gameNumber, seasonID) VALUES (2, 100);
+
+		-- ── Season 100 playoffs ───────────────────────────────────────────────
+
+		INSERT INTO t_playoffs (GUID, seasonGUID) VALUES (X'CC000000000000000000000000000000', X'DD000000000000000000000000000000');
+		INSERT INTO t_playoff_series (playoffGUID, seriesNumber, team1GUID, team2GUID, team1Standing, team2Standing)
+		VALUES (X'CC000000000000000000000000000000', 1, X'01000000000000000000000000000000', X'02000000000000000000000000000000', 1, 2);
+
+		INSERT INTO t_season_schedule (gameNumber, day, homeTeamID, awayTeamID) VALUES (100, 1, 1, 2);
+		INSERT INTO t_game_results (gameNumber, homeRunsScored, awayRunsScored, homePitcherLocalID, awayPitcherLocalID)
+		VALUES (100, 3, 1, 2, 1);
+		INSERT INTO t_season_games (gameNumber, seasonID) VALUES (100, 100);
+
+		-- ── Season 101 stats (same players, second season) ───────────────────
+
+		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (5, 'Home Squad');
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerGUIDIfKnown, firstName, lastName, primaryPosition, age)
+		VALUES (5, X'AA000000000000000000000000000000', 'Test', 'Batter', 'CF', 28);
+		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, gamesBatting, atBats, runs, hits, homeruns, rbi)
+		VALUES (5, 52, 52, 190, 35, 60, 15, 48);
+		INSERT INTO t_season_stats (aggregatorID, seasonID) VALUES (5, 101);
+
+		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (6, 'Home Squad');
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerGUIDIfKnown, firstName, lastName, primaryPosition, pitcherRole, age)
+		VALUES (6, X'BB000000000000000000000000000000', 'Test', 'Pitcher', 'P', 'SP', 31);
+		INSERT INTO t_stats_pitching (aggregatorID, wins, losses, games, gamesStarted, outsPitched, hits, earnedRuns, strikeOuts)
+		VALUES (6, 14, 7, 25, 25, 570, 130, 50, 195);
+		INSERT INTO t_season_stats (aggregatorID, seasonID) VALUES (6, 101);
+
+		INSERT INTO t_season_schedule (gameNumber, day, homeTeamID, awayTeamID) VALUES (3, 1, 1, 2);
+		INSERT INTO t_game_results (gameNumber, homeRunsScored, awayRunsScored) VALUES (3, 6, 2);
+		INSERT INTO t_season_games (gameNumber, seasonID) VALUES (3, 101);
 	`)
 	return err
+}
+
+// MidSeasonStats are overrides for creating a save game DB that simulates
+// a mid-season snapshot (partial stats) for player AA in season 100.
+type MidSeasonStats struct {
+	Hits   int
+	AtBats int
+	HomeRuns int
+}
+
+// NewTestSaveGameDB_MidSeason creates a save game DB identical to
+// NewTestSaveGameDB except that player AA's batting stats for season 100
+// are replaced with the provided partial-season values.
+// Use this to test idempotent re-imports (mid-season then end-of-season).
+func NewTestSaveGameDB_MidSeason(t *testing.T, stats MidSeasonStats) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("testutil.NewTestSaveGameDB_MidSeason: open: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	if err := createSaveGameSchema(db); err != nil {
+		t.Fatalf("testutil.NewTestSaveGameDB_MidSeason: schema: %v", err)
+	}
+	if err := seedSaveGameData(db); err != nil {
+		t.Fatalf("testutil.NewTestSaveGameDB_MidSeason: seed: %v", err)
+	}
+	// Override batting stats for player AA, season 100 (aggregatorID=1)
+	_, err = db.Exec(`
+		UPDATE t_stats_batting
+		SET hits = ?, atBats = ?, homeruns = ?
+		WHERE aggregatorID = 1
+	`, stats.Hits, stats.AtBats, stats.HomeRuns)
+	if err != nil {
+		t.Fatalf("testutil.NewTestSaveGameDB_MidSeason: overriding stats: %v", err)
+	}
+	return db
 }

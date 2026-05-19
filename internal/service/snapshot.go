@@ -80,7 +80,7 @@ func (s *SnapshotService) TakeSnapshotFromFile(ctx context.Context, srcPath stri
 	if err != nil {
 		return 0, false, fmt.Errorf("opening source file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	data, err := io.ReadAll(f)
 	if err != nil {

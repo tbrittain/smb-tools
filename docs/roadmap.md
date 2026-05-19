@@ -46,15 +46,15 @@ Check off phases as they are completed. Individual phases will be broken into de
 ## Phase 4 — Season Sync
 *The core pipeline: one action that reads a save game and persists the season to the companion DB. Replaces the entire SMB3Explorer → CSV → Companion import flow.*
 
-- [ ] Full player import (attributes, traits, salary, handedness, chemistry, pitch types)
-- [ ] Full team import (standings, budget, payroll, aggregate attributes)
-- [ ] Regular season schedule and game results
-- [ ] Playoff schedule and results
-- [ ] Career stats for all active players
-- [ ] Franchise news events (skill changes, trait changes, trades, retirements — from newly discovered `t_franchise_news_*` tables)
-- [ ] Team logo extraction from save game DB
-- [ ] Sync UI: trigger button, last-synced indicator, progress feedback
-- [ ] Championship winner detection and recording
+- [x] Full player import (attributes, traits, salary, handedness, chemistry, pitch types)
+- [x] Full team import (standings, budget, payroll, aggregate attributes)
+- [x] Regular season schedule and game results
+- [x] Playoff schedule and results
+- [x] Career stats for all active players
+- [ ] Franchise news events (skill changes, trait changes, trades, retirements — from `t_franchise_news_*` tables; requires new SaveGameReader methods and companion schema columns beyond the original companion app's scope; deferred until companion schema is finalized)
+- [ ] Team logo extraction (binary blob storage + rendering; deferred until Phase 5/6 when the UI that displays logos exists)
+- [x] Sync UI: trigger button, last-synced indicator, progress feedback
+- [ ] Championship winner detection (post-import query over completed playoff data; deferred to Phase 5 where leaderboard queries will also be written)
 
 ---
 
