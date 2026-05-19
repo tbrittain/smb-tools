@@ -39,7 +39,7 @@ func (s *SnapshotService) TakeSnapshot(ctx context.Context, decompressedBytes []
 	if err != nil {
 		return 0, false, fmt.Errorf("checking latest snapshot hash: %w", err)
 	}
-	if latest == hash {
+	if latest == hash { //nolint:gocritic // comparing same named types
 		return 0, false, nil // identical to last snapshot — skip
 	}
 
@@ -48,9 +48,9 @@ func (s *SnapshotService) TakeSnapshot(ctx context.Context, decompressedBytes []
 	}
 
 	// Filename: {season_num}_{first 12 chars of hash}.sqlite
-	shortHash := hash[:12]
-	fileName := fmt.Sprintf("%04d_%s.sqlite", seasonNum, shortHash)
-	fullPath := filepath.Join(s.snapshotDir, fileName)
+	shortHash := string(hash)[:12]
+	fileName := store.SnapshotFileName(fmt.Sprintf("%04d_%s.sqlite", seasonNum, shortHash))
+	fullPath := filepath.Join(s.snapshotDir, string(fileName))
 
 	if err := os.WriteFile(fullPath, decompressedBytes, 0o600); err != nil {
 		return 0, false, fmt.Errorf("writing snapshot file: %w", err)
@@ -89,8 +89,8 @@ func (s *SnapshotService) TakeSnapshotFromFile(ctx context.Context, srcPath stri
 	return s.TakeSnapshot(ctx, data, seasonNum)
 }
 
-// sha256Sum returns the hex-encoded SHA-256 hash of data.
-func sha256Sum(data []byte) string {
+// sha256Sum returns the SHA256Hex of data.
+func sha256Sum(data []byte) store.SHA256Hex {
 	h := sha256.Sum256(data)
-	return hex.EncodeToString(h[:])
+	return store.SHA256Hex(hex.EncodeToString(h[:]))
 }

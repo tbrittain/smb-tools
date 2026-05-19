@@ -1,3 +1,12 @@
+// Package models/savegame.go contains raw save game schema structs.
+//
+// IMPORTANT: These are NOT domain models. They are verbatim representations
+// of rows from the SMB save game SQLite database, used purely to marshal data
+// out of the save file. Field names and types correspond directly to the
+// underlying columns (see docs/domain/save-game-schema.md).
+//
+// The import pipeline transforms these raw structs into the companion app's
+// own domain models before persisting to the companion DB.
 package models
 
 // SaveGameLeague represents a league entry from t_leagues in the SMB save game.

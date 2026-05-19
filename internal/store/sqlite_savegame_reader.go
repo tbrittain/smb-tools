@@ -306,6 +306,10 @@ func (r *SqliteSaveGameReader) GetCareerPitchingStats(ctx context.Context) ([]mo
 
 // ---- private helpers -------------------------------------------------------
 
+// queryBattingStats uses `args ...any` because it passes arguments directly to
+// database/sql's QueryContext, which itself accepts `args ...any`. SQL query
+// parameters can be int, string, float64, nil, etc. — there is no single
+// concrete type for all of them, so the variadic any is appropriate here.
 func (r *SqliteSaveGameReader) queryBattingStats(ctx context.Context, joinClause string, args ...any) ([]models.SaveGameBattingStat, error) {
 	query := `
 		SELECT

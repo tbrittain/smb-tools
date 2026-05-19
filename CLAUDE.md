@@ -88,6 +88,8 @@ docs/                     # All architecture decisions, domain knowledge, roadma
 
 **Store methods are dumb.** They execute a query and map to a model struct. No business logic in store methods.
 
+**Avoid primitive obsession.** Don't use `string` or `int` for values that have a more specific domain meaning. Define named types for things like `GameVersion`, `SHA256Hex`, `SnapshotFileName`, etc. This produces self-documenting code and prevents accidentally passing the wrong value where a semantically distinct type is expected. The question to ask: "would a plain `string` here let me accidentally pass any string, or does this field have a constrained set of values or a specific format?" If the latter, it warrants a type.
+
 **Error handling**: return errors explicitly. Don't panic. Don't swallow errors with `_`. Wrap with context using `fmt.Errorf("doing X: %w", err)`.
 
 **Naming**: follow standard Go conventions. Exported types/functions get doc comments. Unexported helpers do not need comments unless the logic is non-obvious.

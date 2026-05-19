@@ -7,16 +7,25 @@ import (
 	"time"
 )
 
+// SHA256Hex is the hex-encoded string representation of a SHA-256 digest.
+// Using a named type makes the intent explicit at call sites and prevents
+// accidentally passing an arbitrary string where a hash is expected.
+type SHA256Hex string
+
+// SnapshotFileName is the relative path of a snapshot file within the
+// franchise's snapshots/ directory (e.g. "0007_4a8b3c912f1d.sqlite").
+type SnapshotFileName string
+
 // Snapshot represents one save game snapshot record from save_game_snapshots.
 type Snapshot struct {
-	ID                   int64
-	SeasonNum            int
-	CapturedAt           time.Time
-	FileName             string // relative path within franchises/{id}/snapshots/
-	SHA256Hash           string // hex-encoded full SHA-256
-	FileSizeBytes        int64
-	Compressed           bool
-	CompressedSizeBytes  *int64
+	ID                  int64
+	SeasonNum           int
+	CapturedAt          time.Time
+	FileName            SnapshotFileName
+	SHA256Hash          SHA256Hex
+	FileSizeBytes       int64
+	Compressed          bool
+	CompressedSizeBytes *int64
 }
 
 // SnapshotStore handles reads and writes for the save_game_snapshots table
@@ -31,7 +40,7 @@ func NewSnapshotStore(db *sql.DB) *SnapshotStore {
 
 // LatestHash returns the SHA-256 hash of the most recently captured snapshot,
 // or "" if no snapshots exist yet.
-func (s *SnapshotStore) LatestHash(ctx context.Context) (string, error) {
+func (s *SnapshotStore) LatestHash(ctx context.Context) (SHA256Hex, error) {
 	var hash sql.NullString
 	err := s.db.QueryRowContext(ctx,
 		`SELECT sha256_hash FROM save_game_snapshots ORDER BY id DESC LIMIT 1`,
@@ -42,7 +51,7 @@ func (s *SnapshotStore) LatestHash(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("querying latest snapshot hash: %w", err)
 	}
-	return hash.String, nil
+	return SHA256Hex(hash.String), nil
 }
 
 // Record inserts a new snapshot record. fileName is the relative path within
@@ -67,7 +76,7 @@ func (s *SnapshotStore) Record(ctx context.Context, snap Snapshot) (int64, error
 }
 
 // MarkCompressed updates the snapshot record after it has been compressed.
-func (s *SnapshotStore) MarkCompressed(ctx context.Context, id int64, compressedFileName string, compressedSize int64) error {
+func (s *SnapshotStore) MarkCompressed(ctx context.Context, id int64, compressedFileName SnapshotFileName, compressedSize int64) error {
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE save_game_snapshots
 		SET compressed = 1, file_name = ?, compressed_size_bytes = ?
@@ -95,15 +104,17 @@ func (s *SnapshotStore) List(ctx context.Context) ([]Snapshot, error) {
 	var snaps []Snapshot
 	for rows.Next() {
 		var sn Snapshot
-		var capturedAt string
+		var capturedAt, fileName, sha256Hash string
 		var compressedSize sql.NullInt64
 		var compressed int
 		if err := rows.Scan(
-			&sn.ID, &sn.SeasonNum, &capturedAt, &sn.FileName,
-			&sn.SHA256Hash, &sn.FileSizeBytes, &compressed, &compressedSize,
+			&sn.ID, &sn.SeasonNum, &capturedAt, &fileName,
+			&sha256Hash, &sn.FileSizeBytes, &compressed, &compressedSize,
 		); err != nil {
 			return nil, fmt.Errorf("scanning snapshot: %w", err)
 		}
+		sn.FileName = SnapshotFileName(fileName)
+		sn.SHA256Hash = SHA256Hex(sha256Hash)
 		sn.Compressed = compressed == 1
 		if compressedSize.Valid {
 			sn.CompressedSizeBytes = &compressedSize.Int64

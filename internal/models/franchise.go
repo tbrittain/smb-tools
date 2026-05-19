@@ -7,7 +7,7 @@ import "time"
 type Franchise struct {
 	ID                string
 	Name              string
-	GameVersion       string // "smb3" or "smb4"
+	GameVersion       GameVersion
 	SaveFilePath      string
 	LeagueGUID        string
 	DBPath            string
