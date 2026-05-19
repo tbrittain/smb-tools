@@ -15,13 +15,14 @@ import (
 // logic lives in internal/service and internal/store.
 type App struct {
 	ctx            context.Context
+	version        string
 	dirs           *config.AppDirs
 	registryDB     *sql.DB
 	franchiseStore *store.FranchiseStore
 }
 
-func NewApp() *App {
-	return &App{}
+func NewApp(version string) *App {
+	return &App{version: version}
 }
 
 func (a *App) startup(ctx context.Context) {
