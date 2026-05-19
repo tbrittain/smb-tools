@@ -9,8 +9,8 @@ Check off phases as they are completed. Individual phases will be broken into de
 ## Phase 1 — Foundation
 *Re-scaffold the app, establish the full development environment, wire up CI and testing infrastructure. No features — just a solid base to build on.*
 
-- [ ] Re-scaffold Wails v2.12.0 with Vue 3 + TypeScript frontend
-- [ ] Configure full frontend toolchain (Vite 8, PrimeVue, AG Grid, ECharts, Pinia, Biome, Storybook)
+- [x] Re-scaffold Wails v2.12.0 with Vue 3 + TypeScript frontend
+- [x] Configure full frontend toolchain (Vite 8, PrimeVue, AG Grid, ECharts, Pinia, Biome, Storybook)
 - [ ] Establish Go backend package structure (store, service, models, config, db)
 - [ ] Set up golang-migrate with initial empty companion DB schema
 - [ ] Wire up modernc.org/sqlite for both DB connections
