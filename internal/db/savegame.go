@@ -41,7 +41,10 @@ func DecompressAndOpen(ctx context.Context, savePath string) (db *sql.DB, tmpPat
 		_ = os.Remove(tmpPath)
 		return nil, "", fmt.Errorf("decompressing save file: %w", err)
 	}
-	_ = tmp.Close()
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return nil, "", fmt.Errorf("flushing decompressed save file: %w", err)
+	}
 
 	// Open strictly read-only; the original save is never written to.
 	db, err = sql.Open("sqlite", "file:"+tmpPath+"?mode=ro")
