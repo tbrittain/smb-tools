@@ -129,6 +129,19 @@ VALUES (?,?,?,?,?,?,0,0,0,?,0,?,0,0,?,0,?,0,0,0,0)
 
 // ── SeasonQueryStore tests ────────────────────────────────────────────────────
 
+func seedPlayoffGameNullScore(t *testing.T, db *sql.DB, seasonID, seriesNum, gameNum int, homeHistID, awayHistID int64) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(), `
+INSERT INTO team_playoff_schedules
+    (season_id, series_number, game_number, home_team_history_id, away_team_history_id,
+     home_score, away_score)
+VALUES (?,?,?,?,?,NULL,NULL)
+`, seasonID, seriesNum, gameNum, homeHistID, awayHistID)
+	if err != nil {
+		t.Fatalf("seedPlayoffGameNullScore: %v", err)
+	}
+}
+
 func TestListWithChampion_NoPlayoffs(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
@@ -185,6 +198,41 @@ func TestListWithChampion_WithPlayoffs(t *testing.T) {
 	}
 	if *seasons[0].ChampionHistoryID != homeHistID {
 		t.Errorf("champion history ID: want %d, got %d", homeHistID, *seasons[0].ChampionHistoryID)
+	}
+}
+
+func TestListWithChampion_PartialPlayoffs_NoChampion(t *testing.T) {
+	// If any playoff game has a NULL score (mid-playoffs import), no champion
+	// should be returned — even if one team leads the final series.
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	homeTeamID := seedTeam(t, db, "team-home-partial")
+	awayTeamID := seedTeam(t, db, "team-away-partial")
+	homeHistID := seedTeamHistory(t, db, homeTeamID, 1, "Home Partial", "W", "NL", 90, 52)
+	awayHistID := seedTeamHistory(t, db, awayTeamID, 1, "Away Partial", "E", "NL", 75, 67)
+
+	// Home leads 3-1 in the final series, but game 6 is unplayed (NULL score)
+	seedPlayoffGame(t, db, 1, 2, 1, homeHistID, awayHistID, 4, 1)
+	seedPlayoffGame(t, db, 1, 2, 2, homeHistID, awayHistID, 3, 2)
+	seedPlayoffGame(t, db, 1, 2, 3, awayHistID, homeHistID, 5, 2)
+	seedPlayoffGame(t, db, 1, 2, 4, homeHistID, awayHistID, 2, 1)
+	seedPlayoffGameNullScore(t, db, 1, 2, 5, awayHistID, homeHistID) // not yet played
+
+	sq := store.NewSeasonQueryStore(db)
+	seasons, err := sq.ListWithChampion(ctx)
+	if err != nil {
+		t.Fatalf("ListWithChampion: %v", err)
+	}
+	if len(seasons) != 1 {
+		t.Fatalf("expected 1 season, got %d", len(seasons))
+	}
+	if seasons[0].ChampionTeamName != "" {
+		t.Errorf("partial playoffs: expected no champion, got %q", seasons[0].ChampionTeamName)
+	}
+	if seasons[0].ChampionHistoryID != nil {
+		t.Errorf("partial playoffs: expected nil champion ID, got %v", *seasons[0].ChampionHistoryID)
 	}
 }
 
