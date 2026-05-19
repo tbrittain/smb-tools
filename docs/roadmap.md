@@ -10,7 +10,7 @@ Check off phases as they are completed. Individual phases will be broken into de
 *Re-scaffold the app, establish the full development environment, wire up CI and testing infrastructure. No features — just a solid base to build on.*
 
 - [ ] Re-scaffold Wails v2.12.0 with Vue 3 + TypeScript frontend
-- [ ] Configure full frontend toolchain (Vite 8, PrimeVue, AG Grid, ECharts, Pinia, Biome)
+- [ ] Configure full frontend toolchain (Vite 8, PrimeVue, AG Grid, ECharts, Pinia, Biome, Storybook)
 - [ ] Establish Go backend package structure (store, service, models, config, db)
 - [ ] Set up golang-migrate with initial empty companion DB schema
 - [ ] Wire up modernc.org/sqlite for both DB connections
@@ -27,7 +27,6 @@ Check off phases as they are completed. Individual phases will be broken into de
 - [ ] Read-only SQLite connection via SaveGameReader interface
 - [ ] Full save game schema coverage (all tables documented in `docs/domain/save-game-schema.md` plus newly discovered tables from `league-template.sqlite`)
 - [ ] Auto-discovery of save file locations (default paths for SMB3/SMB4, master.sqlite league registry)
-- [ ] Filesystem watcher (fsnotify) for save file change detection
 - [ ] Snapshot persistence: SHA-256 dedup, zstd compression of older snapshots
 - [ ] Snapshot metadata tracked in companion DB
 
@@ -119,6 +118,12 @@ Check off phases as they are completed. Individual phases will be broken into de
 
 ---
 
+---
+
+> **Phases 1–9 constitute MVP.** Phases 10 and beyond are post-MVP enhancements.
+
+---
+
 ## Phase 10 — CSV Export
 *Opt-in data export for power users, external analysis, and community sharing. Not required for any core app functionality.*
 
@@ -157,5 +162,5 @@ Check off phases as they are completed. Individual phases will be broken into de
 ## Phase 13 — Game Integration (Optional / Windows-Only)
 *Enhancement layer. Does not block any other phase. Core app is fully functional without this.*
 
-- [ ] fsnotify-based auto-sync: detect save file write → trigger sync automatically
+- [ ] fsnotify-based auto-sync: detect save file write → trigger sync automatically (eliminating manual sync trigger)
 - [ ] Investigate BepInEx feasibility further (blocked on community RE work; see `docs/game-integration/investigation.md`)

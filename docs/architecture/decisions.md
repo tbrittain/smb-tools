@@ -82,6 +82,7 @@ Committed choices for the smb-tools rewrite. These are not up for re-evaluation 
 - **Apache ECharts + vue-echarts**: already used in the reference app. Covers every chart type needed — bar (season trends), radar/spider (player attribute percentiles), scatter (player comparisons). Official Vue integration via vue-echarts.
 - **Pinia**: not used in git-analytics (simpler app, no shared global state). smb-tools has franchise-level global state (which franchise DB is open, current franchise metadata) that needs to be accessible across many components without deep prop-drilling. Pinia is the idiomatic Vue 3 answer.
 - **Biome**: same config as reference app (2-space indent, single quotes, no semicolons, 120-char line width).
+- **Storybook**: component development and inspection environment. This app has many data-heavy, stateful components (stat tables, charts, player cards, leaderboard rows). Storybook allows each to be developed and visually verified in isolation, with controlled prop/slot inputs, without needing a live database or a running sync pipeline. Stories serve as living visual documentation of component variants and edge cases (empty states, long names, zero stats, etc.).
 
 **Pinned versions** (current stable at time of scaffolding):
 
@@ -101,6 +102,7 @@ Committed choices for the smb-tools rewrite. These are not up for re-evaluation 
 | ag-grid-vue3 | 35.3.0 |
 | pinia | 3.0.4 |
 | @biomejs/biome | 2.4.15 |
+| storybook (+ @storybook/vue3-vite) | latest stable at scaffold time |
 
 **Go / Wails versions** (match at scaffolding time):
 
