@@ -16,6 +16,8 @@
     "build-storybook": "storybook build"
   },
   "dependencies": {
+    "@fontsource/ibm-plex-mono": "5.2.7",
+    "@fontsource/ibm-plex-sans": "5.2.8",
     "@primeuix/themes": "2.0.3",
     "ag-grid-community": "35.3.0",
     "ag-grid-vue3": "35.3.0",
