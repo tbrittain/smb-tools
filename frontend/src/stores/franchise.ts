@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { main } from '../../wailsjs/go/models'
 import {
   CreateFranchise,
   DeleteFranchise,
@@ -9,6 +8,7 @@ import {
   RenameFranchise,
   SelectFranchise,
 } from '../../wailsjs/go/main/App'
+import type { main } from '../../wailsjs/go/models'
 
 export const useFranchiseStore = defineStore('franchise', () => {
   const franchises = ref<main.FranchiseDTO[]>([])
@@ -44,9 +44,7 @@ export const useFranchiseStore = defineStore('franchise', () => {
 
   async function renameFranchise(id: string, newName: string) {
     await RenameFranchise(id, newName)
-    franchises.value = franchises.value.map(f =>
-      f.id === id ? { ...f, name: newName } : f
-    )
+    franchises.value = franchises.value.map((f) => (f.id === id ? { ...f, name: newName } : f))
     if (active.value?.id === id) {
       active.value = { ...active.value, name: newName }
     }
@@ -54,7 +52,7 @@ export const useFranchiseStore = defineStore('franchise', () => {
 
   async function deleteFranchise(id: string) {
     await DeleteFranchise(id)
-    franchises.value = franchises.value.filter(f => f.id !== id)
+    franchises.value = franchises.value.filter((f) => f.id !== id)
     if (active.value?.id === id) {
       active.value = null
     }

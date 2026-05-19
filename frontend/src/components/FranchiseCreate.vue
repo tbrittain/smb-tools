@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
+import AppButton from './AppButton.vue'
 
 const emit = defineEmits<{
   create: [name: string, gameVersion: string]
@@ -59,10 +60,10 @@ async function handleSubmit() {
     <p v-if="error" class="error-text">{{ error }}</p>
 
     <div class="actions">
-      <button class="btn-secondary" @click="emit('cancel')">Cancel</button>
-      <button class="btn-primary" :disabled="submitting" @click="handleSubmit">
+      <AppButton variant="secondary" @click="emit('cancel')">Cancel</AppButton>
+      <AppButton variant="primary" :disabled="submitting" @click="handleSubmit">
         Create Franchise
-      </button>
+      </AppButton>
     </div>
   </div>
 </template>
@@ -134,30 +135,5 @@ input[type='text']:focus {
   justify-content: flex-end;
   gap: 0.75rem;
   margin-top: 1.5rem;
-}
-
-.btn-primary {
-  padding: 0.5rem 1.25rem;
-  background: var(--color-accent);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.9375rem;
-  cursor: pointer;
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  padding: 0.5rem 1.25rem;
-  background: transparent;
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  font-size: 0.9375rem;
-  cursor: pointer;
 }
 </style>

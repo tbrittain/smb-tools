@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import type { main } from '../../wailsjs/go/models'
+import AppButton from './AppButton.vue'
 
 const props = defineProps<{
   franchises: main.FranchiseDTO[]
@@ -26,7 +27,7 @@ function gameVersionLabel(version: string): string {
   <div class="franchise-selector">
     <div class="header">
       <h2>Select Franchise</h2>
-      <button class="btn-primary" @click="emit('create')">+ New Franchise</button>
+      <AppButton variant="primary" size="sm" @click="emit('create')">+ New Franchise</AppButton>
     </div>
 
     <div v-if="props.franchises.length === 0" class="empty-state">
@@ -132,13 +133,4 @@ h2 {
   border-radius: 99px;
 }
 
-.btn-primary {
-  padding: 0.45rem 1rem;
-  background: var(--color-accent);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
 </style>

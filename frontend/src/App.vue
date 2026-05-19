@@ -1,8 +1,9 @@
 <script lang="ts" setup>
 import { onMounted, ref } from 'vue'
-import { useFranchiseStore } from './stores/franchise'
-import FranchiseSelector from './components/FranchiseSelector.vue'
+import AppButton from './components/AppButton.vue'
 import FranchiseCreate from './components/FranchiseCreate.vue'
+import FranchiseSelector from './components/FranchiseSelector.vue'
+import { useFranchiseStore } from './stores/franchise'
 
 const franchiseStore = useFranchiseStore()
 const showCreate = ref(false)
@@ -77,7 +78,7 @@ async function handleSelect(id: string) {
         </nav>
         <div class="sidebar-footer">
           <span class="active-franchise-name">{{ franchiseStore.active.name }}</span>
-          <button class="btn-link" @click="franchiseStore.active = null">Switch</button>
+          <AppButton variant="ghost" size="sm" @click="franchiseStore.active = null">Switch</AppButton>
         </div>
       </aside>
       <main class="main-content">
