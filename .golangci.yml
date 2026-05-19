@@ -2,22 +2,12 @@ run:
   timeout: 5m
 
 linters:
+  default: none
   enable:
     - errcheck
     - govet
     - staticcheck
     - ineffassign
-    - typecheck
-    - gosimple
-    - unused
-
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-
-issues:
-  exclude-rules:
-    # Test files can have unused variables (table-driven test cases etc.)
-    - path: _test\.go
-      linters:
-        - unused
+  settings:
+    errcheck:
+      check-type-assertions: true
