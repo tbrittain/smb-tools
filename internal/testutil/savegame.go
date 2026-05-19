@@ -330,3 +330,41 @@ func seedSaveGameData(db *sql.DB) error {
 	`)
 	return err
 }
+
+// MidSeasonStats are overrides for creating a save game DB that simulates
+// a mid-season snapshot (partial stats) for player AA in season 100.
+type MidSeasonStats struct {
+	Hits   int
+	AtBats int
+	HomeRuns int
+}
+
+// NewTestSaveGameDB_MidSeason creates a save game DB identical to
+// NewTestSaveGameDB except that player AA's batting stats for season 100
+// are replaced with the provided partial-season values.
+// Use this to test idempotent re-imports (mid-season then end-of-season).
+func NewTestSaveGameDB_MidSeason(t *testing.T, stats MidSeasonStats) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("testutil.NewTestSaveGameDB_MidSeason: open: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	if err := createSaveGameSchema(db); err != nil {
+		t.Fatalf("testutil.NewTestSaveGameDB_MidSeason: schema: %v", err)
+	}
+	if err := seedSaveGameData(db); err != nil {
+		t.Fatalf("testutil.NewTestSaveGameDB_MidSeason: seed: %v", err)
+	}
+	// Override batting stats for player AA, season 100 (aggregatorID=1)
+	_, err = db.Exec(`
+		UPDATE t_stats_batting
+		SET hits = ?, atBats = ?, homeruns = ?
+		WHERE aggregatorID = 1
+	`, stats.Hits, stats.AtBats, stats.HomeRuns)
+	if err != nil {
+		t.Fatalf("testutil.NewTestSaveGameDB_MidSeason: overriding stats: %v", err)
+	}
+	return db
+}

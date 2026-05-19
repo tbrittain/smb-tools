@@ -51,10 +51,10 @@ Check off phases as they are completed. Individual phases will be broken into de
 - [x] Regular season schedule and game results
 - [x] Playoff schedule and results
 - [x] Career stats for all active players
-- [ ] Franchise news events (skill changes, trait changes, trades, retirements — from `t_franchise_news_*` tables; deferred)
-- [ ] Team logo extraction from save game DB (deferred)
+- [ ] Franchise news events (skill changes, trait changes, trades, retirements — from `t_franchise_news_*` tables; requires new SaveGameReader methods and companion schema columns beyond the original companion app's scope; deferred until companion schema is finalized)
+- [ ] Team logo extraction (binary blob storage + rendering; deferred until Phase 5/6 when the UI that displays logos exists)
 - [x] Sync UI: trigger button, last-synced indicator, progress feedback
-- [ ] Championship winner detection and recording (deferred to Phase 5)
+- [ ] Championship winner detection (post-import query over completed playoff data; deferred to Phase 5 where leaderboard queries will also be written)
 
 ---
 

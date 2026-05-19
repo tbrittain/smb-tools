@@ -51,8 +51,11 @@ async function handleSync() {
     <section class="sync-section">
       <h3>Sync Season</h3>
       <p class="sync-help">
-        Import a season directly from the save game file. Run at the end of each
-        season before simulating the offseason.
+        Import a season directly from the save game file. You can sync at any
+        point during the season — syncing is safe to run multiple times and
+        will always reflect the latest state of the save. For best results,
+        run once more before simulating the offseason to capture final stats
+        before the game compacts historical data.
       </p>
 
       <div class="sync-inputs">

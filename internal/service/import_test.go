@@ -323,6 +323,78 @@ func TestImportSeason_PlayerTrackedAcrossSeasons(t *testing.T) {
 	}
 }
 
+
+// TestImportSeason_MidSeasonThenEndOfSeason verifies that importing mid-season
+// (partial stats) followed by an end-of-season import (full stats) correctly
+// reflects the final state. This is the core idempotency guarantee: the last
+// import wins, so users can sync freely during the season and the final
+// end-of-season sync will always produce the definitive record.
+func TestImportSeason_MidSeasonThenEndOfSeason(t *testing.T) {
+	companionDB := testutil.NewTestDB(t)
+	ctx := context.Background()
+	svc := service.NewImportService()
+
+	// First import: mid-season (player AA has 10 hits, 35 AB, 2 HR)
+	midSeasonDB := testutil.NewTestSaveGameDB_MidSeason(t, testutil.MidSeasonStats{
+		Hits: 10, AtBats: 35, HomeRuns: 2,
+	})
+	midReader := store.NewSqliteSaveGameReader(midSeasonDB, "")
+	_, err := svc.ImportSeason(ctx, companionDB, midReader, 100, 1)
+	if err != nil {
+		t.Fatalf("mid-season import: %v", err)
+	}
+
+	// Verify mid-season stats were recorded
+	var midHits int
+	_ = companionDB.QueryRowContext(ctx, `
+		SELECT bs.hits
+		FROM player_season_batting_stats bs
+		JOIN player_seasons ps ON ps.id = bs.player_season_id
+		JOIN players p ON p.id = ps.player_id
+		WHERE p.game_guid = 'AA000000000000000000000000000000'
+		  AND bs.is_regular_season = 1`).Scan(&midHits)
+	if midHits != 10 {
+		t.Errorf("mid-season hits: got %d, want 10", midHits)
+	}
+
+	// Second import: end of season (player AA has the full 54 hits, 180 AB, 12 HR)
+	endSeasonDB := testutil.NewTestSaveGameDB(t)
+	endReader := store.NewSqliteSaveGameReader(endSeasonDB, "")
+	_, err = svc.ImportSeason(ctx, companionDB, endReader, 100, 1)
+	if err != nil {
+		t.Fatalf("end-of-season import: %v", err)
+	}
+
+	// Final values must reflect the end-of-season snapshot, not the mid-season one.
+	// The mid-season 10 hits should be gone; 54 hits is the truth.
+	var finalHits, finalAtBats, finalHR int
+	err = companionDB.QueryRowContext(ctx, `
+		SELECT bs.hits, bs.at_bats, bs.home_runs
+		FROM player_season_batting_stats bs
+		JOIN player_seasons ps ON ps.id = bs.player_season_id
+		JOIN players p ON p.id = ps.player_id
+		WHERE p.game_guid = 'AA000000000000000000000000000000'
+		  AND bs.is_regular_season = 1`).Scan(&finalHits, &finalAtBats, &finalHR)
+	if err != nil {
+		t.Fatalf("querying end-of-season stats: %v", err)
+	}
+	if finalHits != 54 {
+		t.Errorf("end-of-season hits: got %d, want 54 (mid-season value should be overwritten)", finalHits)
+	}
+	if finalAtBats != 180 {
+		t.Errorf("end-of-season at_bats: got %d, want 180", finalAtBats)
+	}
+	if finalHR != 12 {
+		t.Errorf("end-of-season home_runs: got %d, want 12", finalHR)
+	}
+
+	// Only one season record (no duplication from two imports)
+	var seasonCount int
+	_ = companionDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM seasons WHERE id = 100`).Scan(&seasonCount)
+	if seasonCount != 1 {
+		t.Errorf("expected 1 season record, got %d", seasonCount)
+	}
+}
 func TestImportSeason_TeamTrackedAcrossSeasons(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()

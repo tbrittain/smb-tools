@@ -413,10 +413,3 @@ func joinStrings(ss []string) string {
 	return "[\"" + strings.Join(ss, "\",\"") + "\"]"
 }
 
-// Compile-time check: SeasonStore, TeamHistoryStore, PlayerSeasonStore,
-// ScheduleStore must each accept a *sql.Tx (which implements sql.DB's methods
-// via the same interface subset). The store constructors accept *sql.DB, which
-// means they also accept *sql.Tx when wrapped.
-//
-// Go's database/sql package ensures *sql.Tx has ExecContext/QueryContext etc.,
-// but *sql.Tx is not *sql.DB. We use a thin DB-like interface internally.
