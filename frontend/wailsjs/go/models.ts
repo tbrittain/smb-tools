@@ -22,6 +22,28 @@ export namespace main {
 	        this.lastSeason = source["lastSeason"];
 	    }
 	}
+	export class SyncSeasonResult {
+	    seasonId: number;
+	    seasonNum: number;
+	    players: number;
+	    teams: number;
+	    games: number;
+	    playoffGames: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SyncSeasonResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.seasonId = source["seasonId"];
+	        this.seasonNum = source["seasonNum"];
+	        this.players = source["players"];
+	        this.teams = source["teams"];
+	        this.games = source["games"];
+	        this.playoffGames = source["playoffGames"];
+	    }
+	}
 
 }
 

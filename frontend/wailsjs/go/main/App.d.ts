@@ -15,3 +15,5 @@ export function ListFranchises():Promise<Array<main.FranchiseDTO>>;
 export function RenameFranchise(arg1:string,arg2:string):Promise<void>;
 
 export function SelectFranchise(arg1:string):Promise<main.FranchiseDTO>;
+
+export function SyncSeason(arg1:number,arg2:number):Promise<main.SyncSeasonResult>;

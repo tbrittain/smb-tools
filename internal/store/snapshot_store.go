@@ -31,10 +31,10 @@ type Snapshot struct {
 // SnapshotStore handles reads and writes for the save_game_snapshots table
 // in a per-franchise companion database.
 type SnapshotStore struct {
-	db *sql.DB
+	db DBTX
 }
 
-func NewSnapshotStore(db *sql.DB) *SnapshotStore {
+func NewSnapshotStore(db DBTX) *SnapshotStore {
 	return &SnapshotStore{db: db}
 }
 

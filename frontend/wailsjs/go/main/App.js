@@ -29,3 +29,7 @@ export function RenameFranchise(arg1, arg2) {
 export function SelectFranchise(arg1) {
   return window['go']['main']['App']['SelectFranchise'](arg1);
 }
+
+export function SyncSeason(arg1, arg2) {
+  return window['go']['main']['App']['SyncSeason'](arg1, arg2);
+}

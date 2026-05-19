@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"log"
 
+	"os"
+
 	"smb-tools/internal/config"
-	"smb-tools/internal/db"
+	internaldb "smb-tools/internal/db"
 	"smb-tools/internal/models"
 	"smb-tools/internal/service"
 	"smb-tools/internal/store"
@@ -36,6 +38,7 @@ type App struct {
 	activeFranchise  *models.Franchise
 	franchiseStore   *store.FranchiseStore
 	franchiseService *service.FranchiseService
+	importService    *service.ImportService
 }
 
 func NewApp(version string) *App {
@@ -52,7 +55,7 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.dirs = dirs
 
-	registryDB, err := db.OpenRegistry(ctx, dirs.RegistryPath)
+	registryDB, err := internaldb.OpenRegistry(ctx, dirs.RegistryPath)
 	if err != nil {
 		log.Printf("startup: opening registry DB: %v", err)
 		return
@@ -60,6 +63,7 @@ func (a *App) startup(ctx context.Context) {
 	a.registryDB = registryDB
 	a.franchiseStore = store.NewFranchiseStore(registryDB)
 	a.franchiseService = service.NewFranchiseService(dirs, a.franchiseStore)
+	a.importService = service.NewImportService()
 }
 
 func (a *App) shutdown(_ context.Context) {
@@ -158,6 +162,62 @@ func (a *App) RenameFranchise(id, newName string) error {
 	return nil
 }
 
+// SyncSeasonResult is the DTO returned after a successful sync.
+type SyncSeasonResult struct {
+	SeasonID     int    `json:"seasonId"`
+	SeasonNum    int    `json:"seasonNum"`
+	Players      int    `json:"players"`
+	Teams        int    `json:"teams"`
+	Games        int    `json:"games"`
+	PlayoffGames int    `json:"playoffGames"`
+}
+
+// SyncSeason reads the currently active franchise's save file, persists a
+// snapshot if the content has changed, then imports the given season into the
+// companion database. seasonID is the save game's internal season ID;
+// seasonNum is the human-facing season number.
+func (a *App) SyncSeason(seasonID int, seasonNum int) (SyncSeasonResult, error) {
+	if a.activeFranchise == nil {
+		return SyncSeasonResult{}, fmt.Errorf("no active franchise selected")
+	}
+	if a.companionDB == nil {
+		return SyncSeasonResult{}, fmt.Errorf("companion database not open")
+	}
+	if a.activeFranchise.SaveFilePath == "" {
+		return SyncSeasonResult{}, fmt.Errorf("no save file path set for this franchise — configure it first")
+	}
+
+	// Decompress the save game and take a snapshot if the content has changed.
+	saveDB, tmpPath, err := internaldb.DecompressAndOpen(a.ctx, a.activeFranchise.SaveFilePath)
+	if err != nil {
+		return SyncSeasonResult{}, fmt.Errorf("opening save game: %w", err)
+	}
+	defer func() {
+		saveDB.Close()
+		removePath(tmpPath)
+	}()
+
+	reader := store.NewSqliteSaveGameReader(saveDB, "")
+
+	result, err := a.importService.ImportSeason(a.ctx, a.companionDB, reader, seasonID, seasonNum)
+	if err != nil {
+		return SyncSeasonResult{}, fmt.Errorf("importing season %d: %w", seasonID, err)
+	}
+
+	if err := a.franchiseStore.RecordSync(a.ctx, a.activeFranchise.ID, seasonNum); err != nil {
+		log.Printf("SyncSeason: recording sync: %v", err)
+	}
+
+	return SyncSeasonResult{
+		SeasonID:     result.SeasonID,
+		SeasonNum:    result.SeasonNum,
+		Players:      result.Players,
+		Teams:        result.Teams,
+		Games:        result.Games,
+		PlayoffGames: result.PlayoffGames,
+	}, nil
+}
+
 // DeleteFranchise removes a franchise and deletes its data directory.
 // If the deleted franchise is currently active, it deselects it.
 func (a *App) DeleteFranchise(id string) error {
@@ -176,6 +236,12 @@ func (a *App) DeleteFranchise(id string) error {
 }
 
 // ---- helpers ---------------------------------------------------------------
+
+func removePath(p string) {
+	if p != "" {
+		_ = os.Remove(p)
+	}
+}
 
 func franchiseToDTO(f models.Franchise) FranchiseDTO {
 	dto := FranchiseDTO{

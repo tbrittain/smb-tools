@@ -12,10 +12,10 @@ import (
 // FranchiseStore handles reads and writes for the franchise registry.
 // It operates against registry.db, not a per-franchise companion DB.
 type FranchiseStore struct {
-	db *sql.DB
+	db DBTX
 }
 
-func NewFranchiseStore(db *sql.DB) *FranchiseStore {
+func NewFranchiseStore(db DBTX) *FranchiseStore {
 	return &FranchiseStore{db: db}
 }
 
