@@ -1,54 +1,26 @@
 <script lang="ts" setup>
-import { reactive } from "vue";
-import { Greet } from "@generated/go/main/App";
-import { main } from "@generated/go/models";
-import { LogError } from "@generated/runtime";
+import {reactive} from 'vue'
+import {Greet} from '../../wailsjs/go/main/App'
 
 const data = reactive({
   name: "",
-  age: 0,
   resultText: "Please enter your name below 👇",
-});
+})
 
 function greet() {
-  const person = new main.Person();
-  person.name = data.name;
-  person.age = data.age;
-  Greet(person)
-    .then((result) => {
-      data.resultText = result;
-    })
-    .catch((err) => {
-      LogError(err);
-
-      if (err instanceof Error) {
-        data.resultText = err.message;
-        return;
-      }
-
-      if (typeof err === "string") {
-        data.resultText = err;
-        return;
-      }
-
-      data.resultText = "Something went wrong! Please try again";
-    });
+  Greet(data.name).then(result => {
+    data.resultText = result
+  })
 }
+
 </script>
 
 <template>
   <main>
     <div id="result" class="result">{{ data.resultText }}</div>
     <div id="input" class="input-box">
-      <FloatLabel variant="on">
-        <InputText id="name-input" type="text" v-model="data.name"/>
-        <label for="name-input">Name</label>
-      </FloatLabel>
-      <FloatLabel variant="on">
-        <InputNumber id="age-input" v-model="data.age"/>
-        <label for="age-input">Age</label>
-      </FloatLabel>
-      <Button @click="greet">Greet</Button>
+      <input id="name" v-model="data.name" autocomplete="off" class="input" type="text"/>
+      <button class="btn" @click="greet">Greet</button>
     </div>
   </main>
 </template>
@@ -60,9 +32,20 @@ function greet() {
   margin: 1.5rem auto;
 }
 
-.input-box {
-  display: flex;
-  flex-direction: column;
+.input-box .btn {
+  width: 60px;
+  height: 30px;
+  line-height: 30px;
+  border-radius: 3px;
+  border: none;
+  margin: 0 0 0 20px;
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.input-box .btn:hover {
+  background-image: linear-gradient(to top, #cfd9df 0%, #e2ebf0 100%);
+  color: #333333;
 }
 
 .input-box .input {

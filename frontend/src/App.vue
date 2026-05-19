@@ -1,17 +1,21 @@
 <script lang="ts" setup>
-</script>
+import HelloWorld from './components/HelloWorld.vue'</script>
 
 <template>
-  <h1>SMB Tools</h1>
-  <p>
-    <strong>Current route path:</strong> <span style="font-family: monospace;">{{ $route.fullPath }}</span>
-  </p>
-  <nav style="display: flex; flex-direction: column; gap: 1rem;">
-    <RouterLink to="/">Go to Home</RouterLink>
-    <RouterLink to="/about">Go to About</RouterLink>
-  </nav>
-  <main>
-    <RouterView />
-  </main>
+  <img id="logo" alt="Wails logo" src="./assets/images/logo-universal.png"/>
+  <HelloWorld/>
 </template>
 
+<style>
+#logo {
+  display: block;
+  width: 50%;
+  height: 50%;
+  margin: auto;
+  padding: 10% 0 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-origin: content-box;
+}
+</style>

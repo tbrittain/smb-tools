@@ -7,10 +7,7 @@
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
   "author": {
-    "name": "Trey Brittain",
+    "name": "tbrittain",
     "email": "treybrittain@gmail.com"
-  },
-  "info": {
-    "productName": "SMB Tools"
   }
 }
