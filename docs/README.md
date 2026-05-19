@@ -57,7 +57,11 @@ Why we're rewriting and what we're building toward.
 |------|----------|
 | [investigation.md](game-integration/investigation.md) | Engine identification, bundled SQLite schema discovery, auto-sync strategy |
 
-### Root-level reference
+### Root-level
+
+| File | Contents |
+|------|----------|
+| [roadmap.md](roadmap.md) | Feature roadmap with phase-by-phase checkboxes |
 
 | File | Contents |
 |------|----------|
