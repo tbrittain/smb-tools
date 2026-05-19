@@ -30,3 +30,6 @@ go.work.sum
 .env
 .idea
 .claude/
+
+*storybook.log
+storybook-static
