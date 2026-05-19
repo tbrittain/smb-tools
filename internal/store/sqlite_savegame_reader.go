@@ -46,7 +46,7 @@ func (r *SqliteSaveGameReader) GetLeagues(ctx context.Context) ([]models.SaveGam
 	if err != nil {
 		return nil, fmt.Errorf("querying leagues: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var leagues []models.SaveGameLeague
 	for rows.Next() {
@@ -77,7 +77,7 @@ func (r *SqliteSaveGameReader) GetFranchiseSeasons(ctx context.Context, leagueID
 	if err != nil {
 		return nil, fmt.Errorf("querying franchise seasons: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var seasons []models.SaveGameFranchiseSeason
 	for rows.Next() {
@@ -125,7 +125,7 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 	if err != nil {
 		return nil, fmt.Errorf("querying season players: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var players []models.SaveGamePlayer
 	for rows.Next() {
@@ -176,7 +176,7 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonTeams(ctx context.Context, season
 	if err != nil {
 		return nil, fmt.Errorf("querying season teams: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var teams []models.SaveGameTeam
 	for rows.Next() {
@@ -233,7 +233,7 @@ func (r *SqliteSaveGameReader) GetSeasonSchedule(ctx context.Context, seasonID i
 	if err != nil {
 		return nil, fmt.Errorf("querying season schedule: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return scanGames(rows)
 }
 
@@ -282,7 +282,7 @@ func (r *SqliteSaveGameReader) GetPlayoffSchedule(ctx context.Context, seasonID 
 	if err != nil {
 		return nil, fmt.Errorf("querying playoff schedule: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return scanPlayoffGames(rows)
 }
 
@@ -350,7 +350,7 @@ func (r *SqliteSaveGameReader) queryBattingStats(ctx context.Context, joinClause
 	if err != nil {
 		return nil, fmt.Errorf("querying batting stats: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return scanBattingStats(rows)
 }
 
@@ -385,7 +385,7 @@ func (r *SqliteSaveGameReader) queryPitchingStats(ctx context.Context, joinClaus
 	if err != nil {
 		return nil, fmt.Errorf("querying pitching stats: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return scanPitchingStats(rows)
 }
 

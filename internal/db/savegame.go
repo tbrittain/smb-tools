@@ -22,13 +22,13 @@ func DecompressAndOpen(ctx context.Context, savePath string) (db *sql.DB, tmpPat
 	if err != nil {
 		return nil, "", fmt.Errorf("opening save file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	zr, err := zlib.NewReader(f)
 	if err != nil {
 		return nil, "", fmt.Errorf("creating zlib reader: %w", err)
 	}
-	defer zr.Close()
+	defer func() { _ = zr.Close() }()
 
 	tmp, err := os.CreateTemp("", "smb-tools-savegame-*.sqlite")
 	if err != nil {
@@ -37,21 +37,21 @@ func DecompressAndOpen(ctx context.Context, savePath string) (db *sql.DB, tmpPat
 	tmpPath = tmp.Name()
 
 	if _, err := io.Copy(tmp, zr); err != nil {
-		tmp.Close()
-		os.Remove(tmpPath)
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath)
 		return nil, "", fmt.Errorf("decompressing save file: %w", err)
 	}
-	tmp.Close()
+	_ = tmp.Close()
 
 	// Open strictly read-only; the original save is never written to.
 	db, err = sql.Open("sqlite", "file:"+tmpPath+"?mode=ro")
 	if err != nil {
-		os.Remove(tmpPath)
+		_ = os.Remove(tmpPath)
 		return nil, "", fmt.Errorf("opening decompressed DB: %w", err)
 	}
 	if err := db.PingContext(ctx); err != nil {
-		db.Close()
-		os.Remove(tmpPath)
+		_ = db.Close()
+		_ = os.Remove(tmpPath)
 		return nil, "", fmt.Errorf("pinging save game DB: %w", err)
 	}
 	return db, tmpPath, nil

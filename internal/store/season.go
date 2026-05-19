@@ -56,7 +56,7 @@ func (s *SeasonStore) List(ctx context.Context) ([]Season, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listing seasons: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var seasons []Season
 	for rows.Next() {

@@ -99,7 +99,7 @@ func (s *SnapshotStore) List(ctx context.Context) ([]Snapshot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("listing snapshots: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var snaps []Snapshot
 	for rows.Next() {

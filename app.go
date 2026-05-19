@@ -193,7 +193,7 @@ func (a *App) SyncSeason(seasonID int, seasonNum int) (SyncSeasonResult, error) 
 		return SyncSeasonResult{}, fmt.Errorf("opening save game: %w", err)
 	}
 	defer func() {
-		saveDB.Close()
+		_ = saveDB.Close()
 		removePath(tmpPath)
 	}()
 
