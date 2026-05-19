@@ -25,7 +25,7 @@ Check off phases as they are completed. Individual phases will be broken into de
 
 - [x] ZLib decompression of .sav files
 - [x] Read-only SQLite connection via SaveGameReader interface
-- [x] Full save game schema coverage (all tables documented in `docs/domain/save-game-schema.md` plus newly discovered tables from `league-template.sqlite`)
+- [x] Save game schema coverage for the data the original companion app imported: players, teams, schedules, batting stats, pitching stats (scope is the original companion's import surface, not the full save game schema)
 - [x] Auto-discovery of save file locations (default paths for SMB3/SMB4, master.sqlite league registry)
 - [x] Snapshot persistence: SHA-256 dedup, zstd compression of older snapshots
 - [x] Snapshot metadata tracked in companion DB
