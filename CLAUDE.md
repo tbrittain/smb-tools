@@ -167,7 +167,7 @@ docs/                     # All architecture decisions, domain knowledge, roadma
 # Backend
 go test ./...          # Run all Go tests
 go vet ./...           # Static analysis
-golangci-lint run      # Linting
+golangci-lint run      # Linting — run this before every commit (v2, install once: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest)
 
 # Frontend  
 npm run dev            # Vite dev server (used by Wails in dev mode)
