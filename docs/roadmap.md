@@ -35,11 +35,11 @@ Check off phases as they are completed. Individual phases will be broken into de
 ## Phase 3 — Franchise Management
 *Create, switch between, and manage franchises. The per-franchise DB architecture in practice.*
 
-- [ ] Franchise registry (registry.db): create, list, rename, delete franchises
-- [ ] Per-franchise companion DB creation with migrations
-- [ ] Associate a franchise with an SMB save file + league GUID
-- [ ] Franchise switching (close current DB, open selected)
-- [ ] Basic franchise management UI (create new, select existing, last-used persistence)
+- [x] Franchise registry (registry.db): create, list, rename, delete franchises
+- [x] Per-franchise companion DB creation with migrations
+- [x] Associate a franchise with an SMB save file + league GUID
+- [x] Franchise switching (close current DB, open selected)
+- [x] Basic franchise management UI (create new, select existing, last-used persistence)
 
 ---
 
