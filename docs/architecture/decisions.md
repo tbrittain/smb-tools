@@ -15,7 +15,9 @@ Committed choices for the smb-tools rewrite. These are not up for re-evaluation 
 - Tauri (Rust) is a strong alternative but carries a learning tax: no existing Rust reference app, longer build times, more boilerplate for SQLite-heavy data work
 - Wails v3 exists but is still in RC; v2 is stable and production-proven. Migration to v3 is a future option
 
-**Implication**: The repo will be re-scaffolded from scratch using `wails init`. The previous scaffold is discarded entirely.
+**Wails v3 status** (verified May 2026): v3 is at **v3.0.0-alpha.93** (released May 15, 2026) — still explicitly marked alpha with no stable release date. The maintainers' own statement: "When it's ready. And it's nearly ready." (December 2025), with no ETA and no confirmed beta milestone. v3 also carries significant breaking changes from v2 (new application structure, new build system via Taskfile, different API style, different bindings generation). v2.12.0 (released March 26, 2026) is the current stable production release and what this project targets.
+
+**Implication**: The repo will be re-scaffolded from scratch using `wails init` targeting v2.12.0. The previous scaffold is discarded entirely.
 
 ---
 
@@ -69,16 +71,43 @@ Committed choices for the smb-tools rewrite. These are not up for re-evaluation 
 
 ---
 
-## UI: JavaScript + HTML + CSS (Framework TBD)
+## Frontend Stack
 
-**Decision**: The frontend is a web UI rendered via Wails' WebView — JavaScript, HTML, and CSS. No native UI toolkit (no WPF, no Qt, no SwiftUI).
+**Decision**: Vue 3 + TypeScript + Vite, with PrimeVue as the component library, AG Grid Community for data grids, and Apache ECharts + vue-echarts for charting. Pinia for global state. Biome for linting and formatting.
 
 **Rationale**:
-- The original WPF applications were a constant source of frustration — limited datagrid capability, no access to JavaScript charting/plotting libraries, Windows-only
-- The JavaScript ecosystem has the best tooling for the data-heavy, visualization-rich UI this app requires (AG Grid, Apache ECharts, TanStack Table, etc.)
-- Cross-platform consistency: a web UI renders the same on Windows, macOS, and Linux via each platform's WebView
+- **Vue 3**: developer has an existing Wails + Vue reference app (git-analytics) with proven patterns. Vue's Composition API reactivity model is preferred over React's useState/useEffect model. Svelte was considered but its ecosystem for data grids and charting is notably weaker, and SvelteKit's primary features (SSR, file-based routing) provide no benefit in a Wails context.
+- **PrimeVue**: preferred over Naive UI and Element Plus based on aesthetics and existing familiarity from the previous smb-tools scaffold. Among the highest-download Vue component libraries. Tailwind-based alternatives (shadcn-vue) were explicitly ruled out.
+- **AG Grid Community**: the gold standard for web data grids. Handles the franchise-wide leaderboards, sortable/filterable stat tables, and paginated season breakdowns that plain HTML tables cannot. The reference app (git-analytics) used plain tables; smb-tools data volume and interactivity requirements exceed what that approach supports.
+- **Apache ECharts + vue-echarts**: already used in the reference app. Covers every chart type needed — bar (season trends), radar/spider (player attribute percentiles), scatter (player comparisons). Official Vue integration via vue-echarts.
+- **Pinia**: not used in git-analytics (simpler app, no shared global state). smb-tools has franchise-level global state (which franchise DB is open, current franchise metadata) that needs to be accessible across many components without deep prop-drilling. Pinia is the idiomatic Vue 3 answer.
+- **Biome**: same config as reference app (2-space indent, single quotes, no semicolons, 120-char line width).
 
-**Framework**: Not yet decided. See `open-decisions.md` for the pending discussion on React vs. Vue vs. alternatives, component library, datagrid library, and charting library.
+**Pinned versions** (current stable at time of scaffolding):
+
+| Package | Version |
+|---------|---------|
+| vue | 3.5.34 |
+| vue-router | 5.0.7 |
+| vite | 8.0.13 |
+| @vitejs/plugin-vue | 6.0.7 |
+| typescript | 6.0.3 |
+| vue-tsc | 3.3.0 |
+| primevue | 4.5.5 |
+| @primeuix/themes | 2.0.3 |
+| echarts | 6.0.0 |
+| vue-echarts | 8.0.1 |
+| ag-grid-community | 35.3.0 |
+| ag-grid-vue3 | 35.3.0 |
+| pinia | 3.0.4 |
+| @biomejs/biome | 2.4.15 |
+
+**Go / Wails versions** (match at scaffolding time):
+
+| | Version |
+|--|---------|
+| Go | 1.26.3 |
+| Wails | v2.12.0 |
 
 ---
 
