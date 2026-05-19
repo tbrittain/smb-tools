@@ -41,7 +41,11 @@ describe('AppButton', () => {
     let clicked = false
     const wrapper = mount(AppButton, {
       slots: { default: 'Go' },
-      attrs: { onClick: () => { clicked = true } },
+      attrs: {
+        onClick: () => {
+          clicked = true
+        },
+      },
     })
     await wrapper.trigger('click')
     expect(clicked).toBe(true)

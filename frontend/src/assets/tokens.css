@@ -1,0 +1,14 @@
+/* Design tokens — imported by both App.vue and Storybook preview */
+:root {
+  --color-bg: #0d1117;
+  --color-surface-1: #161b22;
+  --color-surface-2: #21262d;
+  --color-surface-3: #30363d;
+  --color-border: #30363d;
+  --color-text-primary: #e6edf3;
+  --color-text-secondary: #8b949e;
+  --color-accent: #388bfd;
+  --color-error: #f85149;
+
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}

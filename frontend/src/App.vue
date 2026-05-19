@@ -89,27 +89,7 @@ async function handleSelect(id: string) {
 </template>
 
 <style>
-:root {
-  --color-bg:           #0d1117;
-  --color-surface-1:    #161b22;
-  --color-surface-2:    #21262d;
-  --color-surface-3:    #30363d;
-  --color-border:       #30363d;
-  --color-text-primary: #e6edf3;
-  --color-text-secondary: #8b949e;
-  --color-accent:       #388bfd;
-  --color-error:        #f85149;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-}
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  background: var(--color-bg);
-  color: var(--color-text-primary);
-  height: 100vh;
-  overflow: hidden;
-}
+/* Global layout — tokens loaded via assets/tokens.css in main.ts */
 
 #app-root {
   height: 100vh;
