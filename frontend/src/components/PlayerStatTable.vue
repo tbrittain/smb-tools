@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import type { ColDef } from 'ag-grid-community'
-import { AgGridVue } from 'ag-grid-vue3'
+import Column from 'primevue/column'
+import DataTable from 'primevue/datatable'
 import { computed } from 'vue'
 import type { main } from '../../wailsjs/go/models'
 import { formatBA, formatERA, formatIP, formatK9, formatWHIP } from '../composables/useStatFormatters'
@@ -12,221 +12,122 @@ const props = defineProps<{
   showPlayoffs: boolean
 }>()
 
+// Flatten the selected stat block into each row for easy field access
 const data = computed(() =>
-  props.rows.map((r) => ({
-    ...r,
-    stats: props.showPlayoffs ? (r.playoffBatting ?? r.playoffPitching) : (r.batting ?? r.pitching),
-    _batting: props.showPlayoffs ? r.playoffBatting : r.batting,
-    _pitching: props.showPlayoffs ? r.playoffPitching : r.pitching,
-  })),
+  props.rows.map((r) => {
+    const b = props.showPlayoffs ? r.playoffBatting : r.batting
+    const p = props.showPlayoffs ? r.playoffPitching : r.pitching
+    return { ...r, _b: b, _p: p }
+  }),
 )
-
-const battingCols: ColDef[] = [
-  { headerName: 'Season', field: 'seasonNum', width: 82, pinned: 'left', sort: 'asc' },
-  { headerName: 'Team', field: 'teamName', minWidth: 130, pinned: 'left' },
-  { headerName: 'Age', field: 'age', width: 62, type: 'numericColumn' },
-  {
-    headerName: 'G',
-    valueGetter: (p) => p.data?._batting?.gamesPlayed ?? null,
-    width: 62,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'AB',
-    valueGetter: (p) => p.data?._batting?.atBats ?? null,
-    width: 70,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'H',
-    valueGetter: (p) => p.data?._batting?.hits ?? null,
-    width: 62,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'HR',
-    valueGetter: (p) => p.data?._batting?.homeRuns ?? null,
-    width: 65,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'RBI',
-    valueGetter: (p) => p.data?._batting?.rbi ?? null,
-    width: 65,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'SB',
-    valueGetter: (p) => p.data?._batting?.stolenBases ?? null,
-    width: 62,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'BB',
-    valueGetter: (p) => p.data?._batting?.walks ?? null,
-    width: 62,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'K',
-    valueGetter: (p) => p.data?._batting?.strikeouts ?? null,
-    width: 62,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'BA',
-    valueGetter: (p) => p.data?._batting?.ba ?? null,
-    width: 72,
-    type: 'numericColumn',
-    valueFormatter: (p) => formatBA(p.value as number | null),
-  },
-  {
-    headerName: 'OBP',
-    valueGetter: (p) => p.data?._batting?.obp ?? null,
-    width: 72,
-    type: 'numericColumn',
-    valueFormatter: (p) => formatBA(p.value as number | null),
-  },
-  {
-    headerName: 'SLG',
-    valueGetter: (p) => p.data?._batting?.slg ?? null,
-    width: 72,
-    type: 'numericColumn',
-    valueFormatter: (p) => formatBA(p.value as number | null),
-  },
-  {
-    headerName: 'OPS',
-    valueGetter: (p) => p.data?._batting?.ops ?? null,
-    width: 80,
-    type: 'numericColumn',
-    valueFormatter: (p) => formatBA(p.value as number | null),
-  },
-]
-
-const pitchingCols: ColDef[] = [
-  { headerName: 'Season', field: 'seasonNum', width: 82, pinned: 'left', sort: 'asc' },
-  { headerName: 'Team', field: 'teamName', minWidth: 130, pinned: 'left' },
-  { headerName: 'Age', field: 'age', width: 62, type: 'numericColumn' },
-  {
-    headerName: 'G',
-    valueGetter: (p) => p.data?._pitching?.games ?? null,
-    width: 62,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'GS',
-    valueGetter: (p) => p.data?._pitching?.gamesStarted ?? null,
-    width: 65,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'W',
-    valueGetter: (p) => p.data?._pitching?.wins ?? null,
-    width: 55,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'L',
-    valueGetter: (p) => p.data?._pitching?.losses ?? null,
-    width: 55,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'SV',
-    valueGetter: (p) => p.data?._pitching?.saves ?? null,
-    width: 60,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'IP',
-    valueGetter: (p) => p.data?._pitching?.outsPitched ?? null,
-    width: 75,
-    type: 'numericColumn',
-    valueFormatter: (p) => (p.value != null ? formatIP(p.value as number) : '—'),
-  },
-  {
-    headerName: 'H',
-    valueGetter: (p) => p.data?._pitching?.hitsAllowed ?? null,
-    width: 62,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'ER',
-    valueGetter: (p) => p.data?._pitching?.earnedRuns ?? null,
-    width: 62,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'BB',
-    valueGetter: (p) => p.data?._pitching?.walks ?? null,
-    width: 62,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'K',
-    valueGetter: (p) => p.data?._pitching?.strikeouts ?? null,
-    width: 62,
-    type: 'numericColumn',
-    valueFormatter: (p) => p.value ?? '—',
-  },
-  {
-    headerName: 'ERA',
-    valueGetter: (p) => p.data?._pitching?.era ?? null,
-    width: 75,
-    type: 'numericColumn',
-    valueFormatter: (p) => formatERA(p.value as number | null),
-  },
-  {
-    headerName: 'WHIP',
-    valueGetter: (p) => p.data?._pitching?.whip ?? null,
-    width: 78,
-    type: 'numericColumn',
-    valueFormatter: (p) => formatWHIP(p.value as number | null),
-  },
-  {
-    headerName: 'K/9',
-    valueGetter: (p) => p.data?._pitching?.k9 ?? null,
-    width: 72,
-    type: 'numericColumn',
-    valueFormatter: (p) => formatK9(p.value as number | null),
-  },
-]
-
-const defaultColDef: ColDef = { sortable: true, resizable: true }
 </script>
 
 <template>
   <div class="stat-table-wrap">
     <EmptyState v-if="rows.length === 0" message="No season data" />
-    <div v-else class="ag-theme-alpine-dark" style="height: 100%; width: 100%">
-      <AgGridVue
-        :row-data="data"
-        :column-defs="mode === 'batting' ? battingCols : pitchingCols"
-        :default-col-def="defaultColDef"
-        :animate-rows="false"
-        :suppress-cell-focus="true"
-        :dom-layout="'autoHeight'"
-        row-height="34"
-        header-height="34"
-        style="width: 100%"
-      />
-    </div>
+
+    <!-- Batting mode -->
+    <DataTable
+      v-else-if="mode === 'batting'"
+      :value="data"
+      sort-field="seasonNum"
+      :sort-order="-1"
+      size="small"
+      removable-sort
+    >
+      <Column field="seasonNum" header="Season" sortable style="width: 80px" />
+      <Column field="teamName" header="Team" sortable style="min-width: 130px" />
+      <Column field="age" header="Age" sortable style="width: 55px" />
+      <Column header="G" sortable sort-field="_b.gamesPlayed" style="width: 55px">
+        <template #body="{ data: r }">{{ r._b?.gamesPlayed ?? '—' }}</template>
+      </Column>
+      <Column header="AB" sortable sort-field="_b.atBats" style="width: 60px">
+        <template #body="{ data: r }">{{ r._b?.atBats ?? '—' }}</template>
+      </Column>
+      <Column header="H" sortable sort-field="_b.hits" style="width: 55px">
+        <template #body="{ data: r }">{{ r._b?.hits ?? '—' }}</template>
+      </Column>
+      <Column header="HR" sortable sort-field="_b.homeRuns" style="width: 55px">
+        <template #body="{ data: r }">{{ r._b?.homeRuns ?? '—' }}</template>
+      </Column>
+      <Column header="RBI" sortable sort-field="_b.rbi" style="width: 60px">
+        <template #body="{ data: r }">{{ r._b?.rbi ?? '—' }}</template>
+      </Column>
+      <Column header="SB" sortable sort-field="_b.stolenBases" style="width: 55px">
+        <template #body="{ data: r }">{{ r._b?.stolenBases ?? '—' }}</template>
+      </Column>
+      <Column header="BB" sortable sort-field="_b.walks" style="width: 55px">
+        <template #body="{ data: r }">{{ r._b?.walks ?? '—' }}</template>
+      </Column>
+      <Column header="K" sortable sort-field="_b.strikeouts" style="width: 55px">
+        <template #body="{ data: r }">{{ r._b?.strikeouts ?? '—' }}</template>
+      </Column>
+      <Column header="BA" sortable sort-field="_b.ba" style="width: 65px" class="col-rate">
+        <template #body="{ data: r }">{{ formatBA(r._b?.ba) }}</template>
+      </Column>
+      <Column header="OBP" sortable sort-field="_b.obp" style="width: 68px" class="col-rate">
+        <template #body="{ data: r }">{{ formatBA(r._b?.obp) }}</template>
+      </Column>
+      <Column header="SLG" sortable sort-field="_b.slg" style="width: 68px" class="col-rate">
+        <template #body="{ data: r }">{{ formatBA(r._b?.slg) }}</template>
+      </Column>
+      <Column header="OPS" sortable sort-field="_b.ops" style="width: 72px" class="col-rate">
+        <template #body="{ data: r }">{{ formatBA(r._b?.ops) }}</template>
+      </Column>
+    </DataTable>
+
+    <!-- Pitching mode -->
+    <DataTable
+      v-else
+      :value="data"
+      sort-field="seasonNum"
+      :sort-order="-1"
+      size="small"
+      removable-sort
+    >
+      <Column field="seasonNum" header="Season" sortable style="width: 80px" />
+      <Column field="teamName" header="Team" sortable style="min-width: 130px" />
+      <Column field="age" header="Age" sortable style="width: 55px" />
+      <Column header="G" sortable sort-field="_p.games" style="width: 55px">
+        <template #body="{ data: r }">{{ r._p?.games ?? '—' }}</template>
+      </Column>
+      <Column header="GS" sortable sort-field="_p.gamesStarted" style="width: 55px">
+        <template #body="{ data: r }">{{ r._p?.gamesStarted ?? '—' }}</template>
+      </Column>
+      <Column header="W" sortable sort-field="_p.wins" style="width: 50px">
+        <template #body="{ data: r }">{{ r._p?.wins ?? '—' }}</template>
+      </Column>
+      <Column header="L" sortable sort-field="_p.losses" style="width: 50px">
+        <template #body="{ data: r }">{{ r._p?.losses ?? '—' }}</template>
+      </Column>
+      <Column header="SV" sortable sort-field="_p.saves" style="width: 55px">
+        <template #body="{ data: r }">{{ r._p?.saves ?? '—' }}</template>
+      </Column>
+      <Column header="IP" sortable sort-field="_p.outsPitched" style="width: 68px">
+        <template #body="{ data: r }">{{ r._p != null ? formatIP(r._p.outsPitched) : '—' }}</template>
+      </Column>
+      <Column header="H" sortable sort-field="_p.hitsAllowed" style="width: 55px">
+        <template #body="{ data: r }">{{ r._p?.hitsAllowed ?? '—' }}</template>
+      </Column>
+      <Column header="ER" sortable sort-field="_p.earnedRuns" style="width: 55px">
+        <template #body="{ data: r }">{{ r._p?.earnedRuns ?? '—' }}</template>
+      </Column>
+      <Column header="BB" sortable sort-field="_p.walks" style="width: 55px">
+        <template #body="{ data: r }">{{ r._p?.walks ?? '—' }}</template>
+      </Column>
+      <Column header="K" sortable sort-field="_p.strikeouts" style="width: 55px">
+        <template #body="{ data: r }">{{ r._p?.strikeouts ?? '—' }}</template>
+      </Column>
+      <Column header="ERA" sortable sort-field="_p.era" style="width: 68px" class="col-rate">
+        <template #body="{ data: r }">{{ formatERA(r._p?.era) }}</template>
+      </Column>
+      <Column header="WHIP" sortable sort-field="_p.whip" style="width: 72px" class="col-rate">
+        <template #body="{ data: r }">{{ formatWHIP(r._p?.whip) }}</template>
+      </Column>
+      <Column header="K/9" sortable sort-field="_p.k9" style="width: 65px" class="col-rate">
+        <template #body="{ data: r }">{{ formatK9(r._p?.k9) }}</template>
+      </Column>
+    </DataTable>
   </div>
 </template>
 
