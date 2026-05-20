@@ -247,7 +247,10 @@ type SaveFileCandidateDTO struct {
 	GameVersion    string `json:"gameVersion"`
 	LeagueName     string `json:"leagueName"`
 	NumSeasons     int    `json:"numSeasons"`
-	IsFranchise    bool   `json:"isFranchise"`
+	// Mode is "franchise", "season", "elimination", or "none".
+	// Only franchise mode saves may be associated with a franchise in this app.
+	Mode           string `json:"mode"`
+	IsFranchise    bool   `json:"isFranchise"` // convenience: Mode == "franchise"
 	PlayerTeamName string `json:"playerTeamName"` // team the user controlled; "" if not franchise mode
 	LeagueGUID     string `json:"leagueGUID"`
 }
@@ -279,6 +282,7 @@ func (a *App) GetSaveFileCandidates() ([]SaveFileCandidateDTO, error) {
 			lg := leagues[0]
 			dto.LeagueName     = lg.Name
 			dto.NumSeasons     = lg.NumSeasons
+			dto.Mode           = leagueMode(lg)
 			dto.IsFranchise    = lg.FranchiseID != nil
 			dto.PlayerTeamName = lg.PlayerTeamName
 			dto.LeagueGUID     = lg.GUID
@@ -315,6 +319,7 @@ func (a *App) ProbeFranchiseSaveFile(franchiseID string) (SaveFileCandidateDTO, 
 		if lg.GUID == f.LeagueGUID || f.LeagueGUID == "" {
 			dto.LeagueName     = lg.Name
 			dto.NumSeasons     = lg.NumSeasons
+			dto.Mode           = leagueMode(lg)
 			dto.IsFranchise    = lg.FranchiseID != nil
 			dto.PlayerTeamName = lg.PlayerTeamName
 			dto.LeagueGUID     = lg.GUID
@@ -370,6 +375,7 @@ func (a *App) ProbeLeagues(saveFilePath string) ([]SaveFileCandidateDTO, error) 
 			Path:           saveFilePath,
 			LeagueName:     lg.Name,
 			NumSeasons:     lg.NumSeasons,
+			Mode:           leagueMode(lg),
 			IsFranchise:    lg.FranchiseID != nil,
 			PlayerTeamName: lg.PlayerTeamName,
 			LeagueGUID:     lg.GUID,
@@ -851,6 +857,25 @@ func (a *App) GetPitchingSeasonLeaders(filters LeaderboardFiltersDTO) ([]Pitchin
 }
 
 // ---- helpers ---------------------------------------------------------------
+
+// leagueMode maps a SaveGameLeague to the string mode label sent to the frontend.
+// Matches SMB3Explorer's LeagueModeExtensions.Parse logic:
+//   franchise present → "franchise"
+//   no franchise + elimination flag → "elimination"
+//   no franchise + no elimination → "season"
+//   no seasons played → "none"
+func leagueMode(lg models.SaveGameLeague) string {
+	if lg.FranchiseID != nil {
+		return "franchise"
+	}
+	if lg.Elimination {
+		return "elimination"
+	}
+	if lg.NumSeasons > 0 {
+		return "season"
+	}
+	return "none"
+}
 
 func removePath(p string) {
 	if p != "" {

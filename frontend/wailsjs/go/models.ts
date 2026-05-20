@@ -669,6 +669,7 @@ export namespace main {
 	    gameVersion: string;
 	    leagueName: string;
 	    numSeasons: number;
+	    mode: string;
 	    isFranchise: boolean;
 	    playerTeamName: string;
 	    leagueGUID: string;
@@ -683,6 +684,7 @@ export namespace main {
 	        this.gameVersion = source["gameVersion"];
 	        this.leagueName = source["leagueName"];
 	        this.numSeasons = source["numSeasons"];
+	        this.mode = source["mode"];
 	        this.isFranchise = source["isFranchise"];
 	        this.playerTeamName = source["playerTeamName"];
 	        this.leagueGUID = source["leagueGUID"];

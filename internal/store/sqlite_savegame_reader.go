@@ -33,19 +33,27 @@ func (r *SqliteSaveGameReader) Close() error {
 }
 
 func (r *SqliteSaveGameReader) GetLeagues(ctx context.Context) ([]models.SaveGameLeague, error) {
+	// Join pattern mirrors SMB3Explorer's Franchises.sql:
+	//   - t_franchise joined via leagueGUID = t_leagues.GUID (not the integer leagueId)
+	//   - t_seasons joined via historicalLeagueGUID for the elimination flag
+	// FranchiseID non-null → franchise mode
+	// FranchiseID null + elimination → elimination mode
+	// FranchiseID null + no elimination → season mode
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT
-			COALESCE(hex(l.GUID), '')        AS leagueGUID,
+			COALESCE(hex(l.GUID), '')              AS leagueGUID,
 			l.leagueId,
 			l.leagueName,
 			l.leagueTeamTypeId,
 			COALESCE(tt.typeName, ''),
 			f.franchiseId,
-			COUNT(DISTINCT fs.seasonID)      AS numSeasons,
-			COALESCE(pt.teamName, '')        AS playerTeamName
+			MAX(COALESCE(ts.elimination, 0))       AS elimination,
+			COUNT(DISTINCT fs.seasonID)            AS numSeasons,
+			COALESCE(pt.teamName, '')              AS playerTeamName
 		FROM t_leagues l
 		LEFT JOIN t_team_types tt ON tt.teamType = l.leagueTeamTypeId
-		LEFT JOIN t_franchise f ON f.leagueId = l.leagueId
+		LEFT JOIN t_franchise f ON f.leagueGUID = l.GUID
+		LEFT JOIN t_seasons ts ON ts.historicalLeagueGUID = l.GUID
 		LEFT JOIN t_franchise_seasons fs ON fs.franchiseId = f.franchiseId
 		LEFT JOIN t_teams pt ON pt.GUID = f.playerTeamGUID
 		GROUP BY l.leagueId, l.leagueName, l.leagueTeamTypeId, f.franchiseId
@@ -59,9 +67,10 @@ func (r *SqliteSaveGameReader) GetLeagues(ctx context.Context) ([]models.SaveGam
 	for rows.Next() {
 		var lg models.SaveGameLeague
 		var franchiseID sql.NullInt64
+		var elimination int
 		if err := rows.Scan(
 			&lg.GUID, &lg.ID, &lg.Name, &lg.TeamTypeID, &lg.TypeName,
-			&franchiseID, &lg.NumSeasons, &lg.PlayerTeamName,
+			&franchiseID, &elimination, &lg.NumSeasons, &lg.PlayerTeamName,
 		); err != nil {
 			return nil, fmt.Errorf("scanning league: %w", err)
 		}
@@ -69,6 +78,7 @@ func (r *SqliteSaveGameReader) GetLeagues(ctx context.Context) ([]models.SaveGam
 			id := int(franchiseID.Int64)
 			lg.FranchiseID = &id
 		}
+		lg.Elimination = elimination == 1
 		leagues = append(leagues, lg)
 	}
 	return leagues, rows.Err()
@@ -89,8 +99,7 @@ func (r *SqliteSaveGameReader) GetCurrentSeason(ctx context.Context, leagueGUID 
 			SELECT fs.seasonID, RANK() OVER (ORDER BY fs.seasonID) AS seasonNum
 			FROM t_franchise_seasons fs
 			JOIN t_franchise f ON f.franchiseId = fs.franchiseId
-			JOIN t_leagues tl ON tl.leagueId = f.leagueId
-			WHERE hex(tl.GUID) = ?
+			WHERE hex(f.leagueGUID) = ?
 			ORDER BY fs.seasonID DESC
 			LIMIT 1
 		`, leagueGUID)
@@ -105,16 +114,16 @@ func (r *SqliteSaveGameReader) GetCurrentSeason(ctx context.Context, leagueGUID 
 	return info, nil
 }
 
-func (r *SqliteSaveGameReader) GetFranchiseSeasons(ctx context.Context, leagueID int) ([]models.SaveGameFranchiseSeason, error) {
+func (r *SqliteSaveGameReader) GetFranchiseSeasons(ctx context.Context, leagueGUID string) ([]models.SaveGameFranchiseSeason, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT
 			fs.seasonID,
 			RANK() OVER (PARTITION BY f.franchiseId ORDER BY fs.seasonID) AS seasonNum
 		FROM t_franchise_seasons fs
 		JOIN t_franchise f ON f.franchiseId = fs.franchiseId
-		WHERE f.leagueId = ?
+		WHERE hex(f.leagueGUID) = ?
 		ORDER BY fs.seasonID
-	`, leagueID)
+	`, leagueGUID)
 	if err != nil {
 		return nil, fmt.Errorf("querying franchise seasons: %w", err)
 	}

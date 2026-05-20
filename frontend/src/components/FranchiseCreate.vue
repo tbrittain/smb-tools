@@ -59,8 +59,9 @@ async function handleSubmit() {
     <div class="field">
       <label>Save File</label>
       <p class="field-hint">
-        Select the SMB4 save file for this franchise. The app reads the file to
-        identify your league and season data.
+        Only franchise mode saves are shown. smb-tools temporarily connects to
+        each file to read its metadata — nothing is imported yet. Data is
+        imported when you click <strong>Sync Season</strong> on the dashboard.
       </p>
       <SaveFilePicker :selected-path="selectedPath" @change="onSaveFileChange" />
     </div>

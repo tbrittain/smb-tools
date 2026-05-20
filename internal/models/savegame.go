@@ -16,7 +16,8 @@ type SaveGameLeague struct {
 	Name           string
 	TeamTypeID     int
 	TypeName       string
-	FranchiseID    *int
+	FranchiseID    *int   // non-nil → franchise mode; nil → season or elimination mode
+	Elimination    bool   // true → elimination mode (only meaningful when FranchiseID is nil)
 	NumSeasons     int
 	PlayerTeamName string // non-empty only in franchise mode
 }

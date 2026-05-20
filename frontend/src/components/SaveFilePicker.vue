@@ -27,8 +27,9 @@ async function load() {
   error.value = null
   try {
     const all = await GetSaveFileCandidates()
-    // SMB3 is deferred — only surface SMB4 save files
-    candidates.value = all.filter((c) => c.gameVersion === 'smb4')
+    // Only SMB4 franchise-mode saves may be associated with an app franchise.
+    // Season and elimination saves are excluded.
+    candidates.value = all.filter((c) => c.gameVersion === 'smb4' && c.mode === 'franchise')
   } catch (e) {
     error.value = String(e)
   } finally {
@@ -52,6 +53,7 @@ async function handleBrowse() {
           gameVersion: 'smb4',
           leagueName: '',
           numSeasons: 0,
+          mode: 'unknown',
           isFranchise: false,
           playerTeamName: '',
           leagueGUID: '',
@@ -69,18 +71,6 @@ async function handleBrowse() {
 
 function select(c: main.SaveFileCandidateDTO) {
   emit('change', c.path, c.leagueGUID, c)
-}
-
-function modeLabel(c: main.SaveFileCandidateDTO): string {
-  if (c.isFranchise) return 'Franchise'
-  if (c.numSeasons > 0) return 'Season'
-  return 'No games yet'
-}
-
-function modeCssClass(c: main.SaveFileCandidateDTO): string {
-  if (c.isFranchise) return 'mode-franchise'
-  if (c.numSeasons > 0) return 'mode-season'
-  return 'mode-empty'
 }
 
 function primaryLabel(c: main.SaveFileCandidateDTO): string {
@@ -106,7 +96,8 @@ function seasonLine(c: main.SaveFileCandidateDTO): string | null {
 
     <template v-else>
       <div v-if="candidates.length === 0" class="no-candidates">
-        No save files found in the default SMB4 location.
+        No franchise mode save files found in the default SMB4 location.
+        Season and elimination saves are not supported.
       </div>
 
       <!-- Scrollable candidate list -->
@@ -129,14 +120,11 @@ function seasonLine(c: main.SaveFileCandidateDTO): string | null {
           </div>
 
           <div class="card-body">
-            <!-- Mode badge -->
-            <span class="mode-badge" :class="modeCssClass(c)">{{ modeLabel(c) }}</span>
-
             <!-- League name — primary identifier -->
             <span class="league-name">{{ primaryLabel(c) }}</span>
 
-            <!-- Player team — only in franchise mode -->
-            <span v-if="c.isFranchise && c.playerTeamName" class="detail-line">
+            <!-- Player team -->
+            <span v-if="c.playerTeamName" class="detail-line">
               Playing as: <strong>{{ c.playerTeamName }}</strong>
             </span>
 
@@ -235,17 +223,6 @@ function seasonLine(c: main.SaveFileCandidateDTO): string | null {
   gap: 0.2rem;
   min-width: 0;
 }
-
-.mode-badge {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-}
-
-.mode-franchise { color: var(--color-accent); }
-.mode-season    { color: #60a5fa; }
-.mode-empty     { color: var(--color-text-secondary); }
 
 .league-name {
   font-size: 0.9375rem;

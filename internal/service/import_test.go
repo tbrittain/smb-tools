@@ -497,8 +497,8 @@ func (r *erroringReader) Close() error { return nil }
 func (r *erroringReader) GetLeagues(ctx context.Context) ([]models.SaveGameLeague, error) {
 	return r.inner.GetLeagues(ctx)
 }
-func (r *erroringReader) GetFranchiseSeasons(ctx context.Context, id int) ([]models.SaveGameFranchiseSeason, error) {
-	return r.inner.GetFranchiseSeasons(ctx, id)
+func (r *erroringReader) GetFranchiseSeasons(ctx context.Context, leagueGUID string) ([]models.SaveGameFranchiseSeason, error) {
+	return r.inner.GetFranchiseSeasons(ctx, leagueGUID)
 }
 func (r *erroringReader) GetCurrentSeasonPlayers(ctx context.Context, id int) ([]models.SaveGamePlayer, error) {
 	return r.inner.GetCurrentSeasonPlayers(ctx, id)

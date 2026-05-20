@@ -47,8 +47,15 @@ func createSaveGameSchema(db *sql.DB) error {
 		);
 		CREATE TABLE t_franchise (
 			franchiseId     INTEGER PRIMARY KEY NOT NULL,
-			leagueId        INTEGER NOT NULL REFERENCES t_leagues(leagueId),
+			leagueGUID      BLOB NOT NULL REFERENCES t_leagues(GUID),
 			playerTeamGUID  BLOB
+		);
+		-- t_seasons links season records to leagues and carries the elimination flag.
+		-- Distinct from t_franchise_seasons which links seasons to a specific franchise.
+		CREATE TABLE t_seasons (
+			id                    INTEGER PRIMARY KEY NOT NULL,
+			historicalLeagueGUID  BLOB NOT NULL REFERENCES t_leagues(GUID),
+			elimination           INTEGER NOT NULL DEFAULT 0
 		);
 		CREATE TABLE t_franchise_seasons (
 			seasonID     INTEGER PRIMARY KEY NOT NULL,
@@ -219,9 +226,13 @@ func seedSaveGameData(db *sql.DB) error {
 		INSERT INTO t_leagues (leagueId, leagueName, leagueTeamTypeId, GUID)
 		VALUES (1, 'Test Franchise League', 1, X'EE000000000000000000000000000000');
 
-		-- leagueId=1, playerTeamGUID is Home Squad (for display testing)
-		INSERT INTO t_franchise (franchiseId, leagueId, playerTeamGUID)
-		VALUES (1, 1, X'01000000000000000000000000000000');
+		-- leagueGUID matches t_leagues.GUID; playerTeamGUID is Home Squad
+		INSERT INTO t_franchise (franchiseId, leagueGUID, playerTeamGUID)
+		VALUES (1, X'EE000000000000000000000000000000', X'01000000000000000000000000000000');
+
+		-- t_seasons entries — franchise mode, not elimination
+		INSERT INTO t_seasons (id, historicalLeagueGUID, elimination) VALUES (100, X'EE000000000000000000000000000000', 0);
+		INSERT INTO t_seasons (id, historicalLeagueGUID, elimination) VALUES (101, X'EE000000000000000000000000000000', 0);
 
 		-- Two seasons for multi-season tracking tests
 		INSERT INTO t_franchise_seasons (seasonID, franchiseId) VALUES (100, 1);

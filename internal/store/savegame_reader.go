@@ -16,8 +16,9 @@ type SaveGameReader interface {
 	GetLeagues(ctx context.Context) ([]models.SaveGameLeague, error)
 
 	// GetFranchiseSeasons returns the season records for a given league,
-	// ordered by season number ascending.
-	GetFranchiseSeasons(ctx context.Context, leagueID int) ([]models.SaveGameFranchiseSeason, error)
+	// ordered by season number ascending. leagueGUID is the hex-encoded GUID
+	// blob from t_leagues (same value stored on Franchise.LeagueGUID).
+	GetFranchiseSeasons(ctx context.Context, leagueGUID string) ([]models.SaveGameFranchiseSeason, error)
 
 	// GetCurrentSeasonPlayers returns the full player roster for a given season
 	// with all attributes, traits, salary, and (for SMB4) handedness, chemistry,
