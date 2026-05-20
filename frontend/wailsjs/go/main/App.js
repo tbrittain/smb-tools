@@ -14,8 +14,44 @@ export function GetActiveFranchise() {
   return window['go']['main']['App']['GetActiveFranchise']();
 }
 
+export function GetCareerLeaders() {
+  return window['go']['main']['App']['GetCareerLeaders']();
+}
+
+export function GetPlayerCareer(arg1) {
+  return window['go']['main']['App']['GetPlayerCareer'](arg1);
+}
+
+export function GetPlayerSeasonLog(arg1) {
+  return window['go']['main']['App']['GetPlayerSeasonLog'](arg1);
+}
+
+export function GetSeasonList() {
+  return window['go']['main']['App']['GetSeasonList']();
+}
+
+export function GetSeasonStatLeaders(arg1) {
+  return window['go']['main']['App']['GetSeasonStatLeaders'](arg1);
+}
+
+export function GetStandings(arg1) {
+  return window['go']['main']['App']['GetStandings'](arg1);
+}
+
+export function GetTeamHistory(arg1) {
+  return window['go']['main']['App']['GetTeamHistory'](arg1);
+}
+
+export function GetTeamSeasonDetail(arg1, arg2) {
+  return window['go']['main']['App']['GetTeamSeasonDetail'](arg1, arg2);
+}
+
 export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
+}
+
+export function ListAllTeamSeasons() {
+  return window['go']['main']['App']['ListAllTeamSeasons']();
 }
 
 export function ListFranchises() {
@@ -24,6 +60,14 @@ export function ListFranchises() {
 
 export function RenameFranchise(arg1, arg2) {
   return window['go']['main']['App']['RenameFranchise'](arg1, arg2);
+}
+
+export function SearchPlayers(arg1) {
+  return window['go']['main']['App']['SearchPlayers'](arg1);
+}
+
+export function SearchTeams(arg1) {
+  return window['go']['main']['App']['SearchTeams'](arg1);
 }
 
 export function SelectFranchise(arg1) {
