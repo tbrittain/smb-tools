@@ -184,24 +184,22 @@ func (svc *ImportService) importInTx(
 		return result, fmt.Errorf("importing regular season batting stats: %w", err)
 	}
 
-	// ── 5. Batting stats (playoffs) ─────────────────────────────────────────
-	// Playoff stats use the same stats tables, linked via different aggregators.
-	// We read career stats to capture career totals; playoff batting comes from
-	// what was season-scoped in the save game.
-	// For now, same reader method with season scope covers both via aggregators.
+	// ── 5. Pitching stats (regular season) ─────────────────────────────────
+	if err := svc.importPitchingStats(ctx, players, reader, seasonID, true, playerGUIDToSeasonID); err != nil {
+		return result, fmt.Errorf("importing regular season pitching stats: %w", err)
+	}
+
+	// ── 6. Batting stats (playoffs) ─────────────────────────────────────────
 	if err := svc.importBattingStats(ctx, players, reader, seasonID, false, playerGUIDToSeasonID); err != nil {
 		return result, fmt.Errorf("importing playoff batting stats: %w", err)
 	}
 
-	// ── 6. Pitching stats (regular season + playoffs) ───────────────────────
-	if err := svc.importPitchingStats(ctx, players, reader, seasonID, true, playerGUIDToSeasonID); err != nil {
-		return result, fmt.Errorf("importing regular season pitching stats: %w", err)
-	}
+	// ── 7. Pitching stats (playoffs) ────────────────────────────────────────
 	if err := svc.importPitchingStats(ctx, players, reader, seasonID, false, playerGUIDToSeasonID); err != nil {
 		return result, fmt.Errorf("importing playoff pitching stats: %w", err)
 	}
 
-	// ── 7. Regular season schedule ──────────────────────────────────────────
+	// ── 8. Regular season schedule ──────────────────────────────────────────
 	if err := schedule.DeleteSeasonSchedule(ctx, seasonID); err != nil {
 		return result, fmt.Errorf("clearing old schedule: %w", err)
 	}
@@ -243,7 +241,7 @@ func (svc *ImportService) importInTx(
 	}
 	result.Games = len(games)
 
-	// ── 8. Playoff schedule ──────────────────────────────────────────────────
+	// ── 9. Playoff schedule ──────────────────────────────────────────────────
 	playoffGames, err := reader.GetPlayoffSchedule(ctx, seasonID)
 	if err != nil {
 		return result, fmt.Errorf("reading playoff schedule: %w", err)
@@ -297,11 +295,7 @@ func (svc *ImportService) importBattingStats(
 	if isRegularSeason {
 		stats, err = reader.GetSeasonBattingStats(ctx, seasonID)
 	} else {
-		// Playoff batting stats use the same season scope in the save game.
-		// The save game doesn't cleanly separate them — we rely on the reader
-		// returning the same aggregator rows; the distinction is contextual.
-		// For now, playoff stats are a subset found via career aggregator overlap.
-		stats, err = reader.GetCareerBattingStats(ctx)
+		stats, err = reader.GetPlayoffBattingStats(ctx, seasonID)
 	}
 	if err != nil {
 		return err
@@ -353,7 +347,7 @@ func (svc *ImportService) importPitchingStats(
 	if isRegularSeason {
 		stats, err = reader.GetSeasonPitchingStats(ctx, seasonID)
 	} else {
-		stats, err = reader.GetCareerPitchingStats(ctx)
+		stats, err = reader.GetPlayoffPitchingStats(ctx, seasonID)
 	}
 	if err != nil {
 		return err

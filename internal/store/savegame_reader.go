@@ -16,8 +16,9 @@ type SaveGameReader interface {
 	GetLeagues(ctx context.Context) ([]models.SaveGameLeague, error)
 
 	// GetFranchiseSeasons returns the season records for a given league,
-	// ordered by season number ascending.
-	GetFranchiseSeasons(ctx context.Context, leagueID int) ([]models.SaveGameFranchiseSeason, error)
+	// ordered by season number ascending. leagueGUID is the hex-encoded GUID
+	// blob from t_leagues (same value stored on Franchise.LeagueGUID).
+	GetFranchiseSeasons(ctx context.Context, leagueGUID string) ([]models.SaveGameFranchiseSeason, error)
 
 	// GetCurrentSeasonPlayers returns the full player roster for a given season
 	// with all attributes, traits, salary, and (for SMB4) handedness, chemistry,
@@ -35,12 +36,21 @@ type SaveGameReader interface {
 	// GetPlayoffSchedule returns the playoff schedule and results for a given season.
 	GetPlayoffSchedule(ctx context.Context, seasonID int) ([]models.SaveGamePlayoffGame, error)
 
-	// GetSeasonBattingStats returns all batting stat rows for the given season.
-	// Returns both regular season stats (linked via t_season_stats).
+	// GetSeasonBattingStats returns regular season batting stats for the given
+	// season (rows linked via t_season_stats).
 	GetSeasonBattingStats(ctx context.Context, seasonID int) ([]models.SaveGameBattingStat, error)
 
-	// GetSeasonPitchingStats returns all pitching stat rows for the given season.
+	// GetPlayoffBattingStats returns playoff batting stats for the given season
+	// (rows linked via t_playoff_stats).
+	GetPlayoffBattingStats(ctx context.Context, seasonID int) ([]models.SaveGameBattingStat, error)
+
+	// GetSeasonPitchingStats returns regular season pitching stats for the given
+	// season (rows linked via t_season_stats).
 	GetSeasonPitchingStats(ctx context.Context, seasonID int) ([]models.SaveGamePitchingStat, error)
+
+	// GetPlayoffPitchingStats returns playoff pitching stats for the given season
+	// (rows linked via t_playoff_stats).
+	GetPlayoffPitchingStats(ctx context.Context, seasonID int) ([]models.SaveGamePitchingStat, error)
 
 	// GetCareerBattingStats returns career-aggregated batting stats for all
 	// currently active players in the franchise.
@@ -49,6 +59,11 @@ type SaveGameReader interface {
 	// GetCareerPitchingStats returns career-aggregated pitching stats for all
 	// currently active pitchers.
 	GetCareerPitchingStats(ctx context.Context) ([]models.SaveGamePitchingStat, error)
+
+	// GetCurrentSeason returns the most recent season for the franchise
+	// identified by leagueGUID. If leagueGUID is empty (SMB3 single-league
+	// saves), returns the latest season across all franchise seasons.
+	GetCurrentSeason(ctx context.Context, leagueGUID string) (models.SaveGameSeasonInfo, error)
 
 	// Close releases the underlying database connection.
 	Close() error

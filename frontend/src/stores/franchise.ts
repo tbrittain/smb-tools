@@ -5,8 +5,10 @@ import {
   DeleteFranchise,
   GetActiveFranchise,
   ListFranchises,
+  ProbeFranchiseSaveFile,
   RenameFranchise,
   SelectFranchise,
+  SetFranchiseSaveFile,
 } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 
@@ -30,10 +32,24 @@ export const useFranchiseStore = defineStore('franchise', () => {
     }
   }
 
-  async function createFranchise(name: string, gameVersion: string) {
-    const created = await CreateFranchise(name, gameVersion)
+  async function createFranchise(name: string, gameVersion: string, saveFilePath: string, leagueGUID: string) {
+    const created = await CreateFranchise(name, gameVersion, saveFilePath, leagueGUID)
     franchises.value = [...franchises.value, created]
     return created
+  }
+
+  async function probeSaveFile(franchiseID: string): Promise<main.SaveFileCandidateDTO> {
+    return ProbeFranchiseSaveFile(franchiseID)
+  }
+
+  // Updates the save file association for the active franchise without
+  // reopening the companion DB (no SelectFranchise round-trip needed).
+  async function setSaveFile(franchiseID: string, saveFilePath: string, leagueGUID: string) {
+    await SetFranchiseSaveFile(franchiseID, saveFilePath, leagueGUID)
+    if (active.value?.id === franchiseID) {
+      active.value = { ...active.value, saveFilePath }
+    }
+    franchises.value = franchises.value.map((f) => (f.id === franchiseID ? { ...f, saveFilePath } : f))
   }
 
   async function selectFranchise(id: string) {
@@ -68,5 +84,7 @@ export const useFranchiseStore = defineStore('franchise', () => {
     selectFranchise,
     renameFranchise,
     deleteFranchise,
+    probeSaveFile,
+    setSaveFile,
   }
 })

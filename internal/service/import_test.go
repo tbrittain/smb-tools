@@ -497,8 +497,8 @@ func (r *erroringReader) Close() error { return nil }
 func (r *erroringReader) GetLeagues(ctx context.Context) ([]models.SaveGameLeague, error) {
 	return r.inner.GetLeagues(ctx)
 }
-func (r *erroringReader) GetFranchiseSeasons(ctx context.Context, id int) ([]models.SaveGameFranchiseSeason, error) {
-	return r.inner.GetFranchiseSeasons(ctx, id)
+func (r *erroringReader) GetFranchiseSeasons(ctx context.Context, leagueGUID string) ([]models.SaveGameFranchiseSeason, error) {
+	return r.inner.GetFranchiseSeasons(ctx, leagueGUID)
 }
 func (r *erroringReader) GetCurrentSeasonPlayers(ctx context.Context, id int) ([]models.SaveGamePlayer, error) {
 	return r.inner.GetCurrentSeasonPlayers(ctx, id)
@@ -518,9 +518,18 @@ func (r *erroringReader) GetSeasonBattingStats(ctx context.Context, id int) ([]m
 func (r *erroringReader) GetSeasonPitchingStats(ctx context.Context, id int) ([]models.SaveGamePitchingStat, error) {
 	return r.inner.GetSeasonPitchingStats(ctx, id)
 }
+func (r *erroringReader) GetPlayoffBattingStats(ctx context.Context, id int) ([]models.SaveGameBattingStat, error) {
+	return r.inner.GetPlayoffBattingStats(ctx, id)
+}
+func (r *erroringReader) GetPlayoffPitchingStats(ctx context.Context, id int) ([]models.SaveGamePitchingStat, error) {
+	return r.inner.GetPlayoffPitchingStats(ctx, id)
+}
 func (r *erroringReader) GetCareerBattingStats(ctx context.Context) ([]models.SaveGameBattingStat, error) {
 	return r.inner.GetCareerBattingStats(ctx)
 }
 func (r *erroringReader) GetCareerPitchingStats(ctx context.Context) ([]models.SaveGamePitchingStat, error) {
 	return r.inner.GetCareerPitchingStats(ctx)
+}
+func (r *erroringReader) GetCurrentSeason(ctx context.Context, leagueGUID string) (models.SaveGameSeasonInfo, error) {
+	return r.inner.GetCurrentSeason(ctx, leagueGUID)
 }

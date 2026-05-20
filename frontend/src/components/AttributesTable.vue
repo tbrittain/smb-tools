@@ -46,7 +46,7 @@ function barColor(v: number): string {
       <div class="bar-wrap">
         <div
           class="bar"
-          :style="{ width: `${a.value}%`, background: barColor(a.value) }"
+          :style="{ width: `${(a.value / 99) * 100}%`, background: barColor(a.value) }"
         />
       </div>
       <span class="attr-val">{{ a.value }}</span>

@@ -29,7 +29,16 @@ func NewFranchiseService(dirs *config.AppDirs, franchiseStore *store.FranchiseSt
 // CreateFranchise registers a new franchise, creates its directory structure,
 // and initializes its companion database with migrations. Returns the new
 // franchise record.
-func (s *FranchiseService) CreateFranchise(ctx context.Context, name string, version models.GameVersion) (models.Franchise, error) {
+//
+// saveFilePath and leagueGUID may be empty if the user has not yet configured
+// a save file; they can be set later via FranchiseStore.UpdateSaveFile.
+func (s *FranchiseService) CreateFranchise(
+	ctx context.Context,
+	name string,
+	version models.GameVersion,
+	saveFilePath string,
+	leagueGUID string,
+) (models.Franchise, error) {
 	if name == "" {
 		return models.Franchise{}, fmt.Errorf("franchise name must not be empty")
 	}
@@ -56,10 +65,12 @@ func (s *FranchiseService) CreateFranchise(ctx context.Context, name string, ver
 	}
 
 	f := models.Franchise{
-		ID:          id,
-		Name:        name,
-		GameVersion: version,
-		DBPath:      dbPath,
+		ID:           id,
+		Name:         name,
+		GameVersion:  version,
+		DBPath:       dbPath,
+		SaveFilePath: saveFilePath,
+		LeagueGUID:   leagueGUID,
 	}
 	if err := s.franchiseStore.Create(ctx, f); err != nil {
 		_ = os.RemoveAll(s.dirs.FranchiseDir(id))

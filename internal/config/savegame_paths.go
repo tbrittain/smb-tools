@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"smb-tools/internal/models"
 )
@@ -88,7 +89,12 @@ func WalkForSaveFiles(root string, version models.GameVersion) []SaveGameCandida
 		if err != nil || d.IsDir() {
 			return nil
 		}
-		if filepath.Ext(path) == ".sav" {
+		// Only league save files are valid SMB franchise saves.
+		// The naming convention (confirmed from SMB3Explorer) is league-{GUID}.sav.
+		// master.sav, mugshots-*.sav, season-*.sav, and *.sav.bak are auxiliary
+		// data files that cannot be associated with an app franchise.
+		base := filepath.Base(path)
+		if filepath.Ext(base) == ".sav" && strings.HasPrefix(base, "league-") {
 			found = append(found, SaveGameCandidate{Path: path, GameVersion: version})
 		}
 		return nil

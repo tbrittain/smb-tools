@@ -162,6 +162,7 @@ docs/                     # All architecture decisions, domain knowledge, roadma
 - **No Options API in Vue** — Composition API with `<script setup>` only
 - **No writing to the SMB save game file** (except the team transfer tool, which writes to a copy)
 - **No skipping tests** because a feature "seems simple" — edge cases in stat calculations and import logic are where bugs live
+- **No inventing save game column names** — verify every name against the SMB3Explorer SQL files or a real decompressed save before writing it. A fixture built on made-up names produces tests that prove nothing. See "Save Game SQL — Real Schema Required" above.
 
 ## Development Commands
 
@@ -184,6 +185,41 @@ wails dev              # Full app in dev mode (hot reload)
 wails build            # Build for current platform — also regenerates wailsjs/ bindings
                        # Run this after any Go binding/DTO changes and before opening a PR
 ```
+
+## Save Game SQL — Real Schema Required
+
+**The only acceptable source of truth for save game table and column names is the real SMB save game schema.** Making tests pass is not the goal — the fixture must mirror the real schema, or passing tests are meaningless.
+
+Before writing any query that touches the save game database, verify every table and column name against one of these two authoritative sources:
+
+1. **SMB3Explorer SQL files** at `C:\Users\Trey\source\SMB3Explorer\SMB3Explorer\Resources\Sql\` — battle-tested queries against the real game. This is the fastest reference; check the relevant `.sql` file before using any column name.
+
+2. **A decompressed real save file** — decompress any `.sav` from `%LOCALAPPDATA%\Metalhead\Super Mega Baseball 4\` using `internal/db.DecompressAndOpen` and run `PRAGMA table_info(<table_name>)` to see the actual columns.
+
+The same requirement applies to the test fixture in `internal/testutil/savegame.go`. The fixture exists to run the import pipeline against a controlled dataset — it must use the real schema's column names, not invented ones. A fixture built with made-up column names produces tests that prove nothing about whether the real game will work.
+
+## Save Game Import — Anti-Corruption Layer
+
+**Raw save game values must never leak into the companion DB or the domain layer.** The SMB save game stores many values as opaque integer codes (position codes, hand codes, chemistry codes, option keys). These are implementation details of Metalhead's engine, not smb-tools domain concepts.
+
+The `SaveGameReader` and the import pipeline in `internal/service/import.go` form the **anti-corruption layer** (ACL): they translate raw codes into meaningful domain values before those values ever touch the companion database or a domain model struct.
+
+**The rule**: every field read from the save game that carries a coded integer value must be translated to a human-readable domain string (or typed constant) in Go — in the reader or import layer — before being stored or returned. SQL `CASE` expressions in the query are not an acceptable substitute; translation belongs in Go code.
+
+Examples of what this looks like in practice:
+
+```go
+// Raw integer code from save game → domain string in Go
+p.PrimaryPos    = saveGamePosition(rawPrimaryPos)    // "8" → "CF"
+p.PitcherRole   = saveGamePitcherRole(rawPitcherRole) // "1" → "SP"
+p.ThrowHand     = saveGameHand(throwCode)             // 0   → "L"
+p.BatHand       = saveGameHand(batCode)               // 2   → "S"
+p.ChemistryType = saveGameChemistry(chemCode)         // 0   → "Competitive"
+```
+
+The translation functions (`saveGamePosition`, `saveGamePitcherRole`, `saveGameHand`, `saveGameChemistry`) live in `internal/store/sqlite_savegame_reader.go` and are the canonical mapping between save game codes and domain values.
+
+**The test fixture must also use domain values, not raw codes.** `internal/testutil/savegame.go` seeds the fixture with domain strings (e.g., `"CF"`, `"SP"`, `"L"`, `"Competitive"`) — not the raw integers the save game stores. A fixture seeded with raw codes would only prove that translation was skipped, not that it worked correctly.
 
 ## Key Domain Knowledge
 

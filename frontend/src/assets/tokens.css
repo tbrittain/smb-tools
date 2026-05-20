@@ -1,17 +1,19 @@
-/* Design tokens — imported by both App.vue and Storybook preview */
+/* Design tokens — all color values delegate to PrimeVue Aura so the app
+   shell and PrimeVue components always use the same palette. */
 :root {
-  /* Typography */
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", "Consolas", monospace;
+}
 
-  /* Colors */
-  --color-bg: #0d1117;
-  --color-surface-1: #161b22;
-  --color-surface-2: #21262d;
-  --color-surface-3: #30363d;
-  --color-border: #30363d;
-  --color-text-primary: #e6edf3;
-  --color-text-secondary: #8b949e;
-  --color-accent: #388bfd;
-  --color-error: #f85149;
+.dark {
+  --color-bg: var(--p-surface-950);
+  --color-surface-1: var(--p-surface-900);
+  --color-surface-2: var(--p-surface-800);
+  --color-surface-3: var(--p-surface-700);
+  --color-border: var(--p-surface-700);
+  --color-text-primary: var(--p-text-color);
+  --color-text-secondary: var(--p-text-muted-color);
+  --color-accent: var(--p-primary-color);
+  --color-error: var(--p-red-500);
+  --color-gold: var(--p-yellow-400);
 }

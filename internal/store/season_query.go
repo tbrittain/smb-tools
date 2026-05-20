@@ -209,7 +209,8 @@ JOIN player_seasons ps ON ps.id = b.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
 JOIN players p         ON p.id  = ps.player_id
 LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
-WHERE ps.season_id = ? AND b.is_regular_season = 1 AND b.at_bats >= s.num_games * 3
+WHERE ps.season_id = ? AND b.is_regular_season = 1
+  AND b.at_bats > 0 AND b.at_bats >= s.num_games * 3
 ORDER BY ba DESC LIMIT 1`,
 			args: []any{seasonID},
 		},
@@ -249,7 +250,8 @@ JOIN player_seasons ps ON ps.id = pit.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
 JOIN players p         ON p.id  = ps.player_id
 LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
-WHERE ps.season_id = ? AND pit.is_regular_season = 1 AND pit.outs_pitched >= s.num_games * 3
+WHERE ps.season_id = ? AND pit.is_regular_season = 1
+  AND pit.outs_pitched > 0 AND pit.outs_pitched >= s.num_games * 3
 ORDER BY era ASC LIMIT 1`,
 			args: []any{seasonID},
 		},
@@ -283,15 +285,20 @@ ORDER BY pit.strikeouts DESC LIMIT 1`,
 
 	for _, lq := range queries {
 		var sl models.StatLeader
+		var sv sql.NullFloat64
 		err := s.db.QueryRowContext(ctx, lq.sql, lq.args...).Scan(
-			&sl.PlayerID, &sl.FirstName, &sl.LastName, &sl.TeamName, &sl.StatValue,
+			&sl.PlayerID, &sl.FirstName, &sl.LastName, &sl.TeamName, &sv,
 		)
 		if err == sql.ErrNoRows {
-			continue // leave the pointer nil — no qualifying player
+			continue // no qualifying player
 		}
 		if err != nil {
 			return leaders, fmt.Errorf("scanning stat leader: %w", err)
 		}
+		if !sv.Valid {
+			continue // computed stat is NULL (e.g. division by zero) — no leader
+		}
+		sl.StatValue = sv.Float64
 		*lq.dest = &sl
 	}
 

@@ -1,16 +1,29 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
+import type { main } from '../../wailsjs/go/models'
 import AppButton from './AppButton.vue'
+import SaveFilePicker from './SaveFilePicker.vue'
 
 const emit = defineEmits<{
-  create: [name: string, gameVersion: string]
+  create: [name: string, gameVersion: string, saveFilePath: string, leagueGUID: string]
   cancel: []
 }>()
 
+// SMB3 support is deferred — only SMB4 is available for now.
+const GAME_VERSION = 'smb4'
+
 const name = ref('')
-const gameVersion = ref('smb4')
+const selectedPath = ref('')
+const selectedLeagueGUID = ref('')
+const selectedProbe = ref<main.SaveFileCandidateDTO | null>(null)
 const submitting = ref(false)
 const error = ref<string | null>(null)
+
+function onSaveFileChange(path: string, leagueGUID: string, probe?: main.SaveFileCandidateDTO) {
+  selectedPath.value = path
+  selectedLeagueGUID.value = leagueGUID
+  selectedProbe.value = probe ?? null
+}
 
 async function handleSubmit() {
   error.value = null
@@ -20,7 +33,7 @@ async function handleSubmit() {
   }
   submitting.value = true
   try {
-    emit('create', name.value.trim(), gameVersion.value)
+    emit('create', name.value.trim(), GAME_VERSION, selectedPath.value, selectedLeagueGUID.value)
   } finally {
     submitting.value = false
   }
@@ -37,24 +50,30 @@ async function handleSubmit() {
         id="franchise-name"
         v-model="name"
         type="text"
-        placeholder="e.g. Super Mega League Season 1"
+        placeholder="e.g. Super Mega League"
         autocomplete="off"
         @keyup.enter="handleSubmit"
       />
     </div>
 
     <div class="field">
-      <label>Game Version</label>
-      <div class="radio-group">
-        <label class="radio-option">
-          <input v-model="gameVersion" type="radio" value="smb4" />
-          Super Mega Baseball 4
-        </label>
-        <label class="radio-option">
-          <input v-model="gameVersion" type="radio" value="smb3" />
-          Super Mega Baseball 3
-        </label>
-      </div>
+      <label>Save File</label>
+      <p class="field-hint">Only franchise mode saves are shown.</p>
+      <SaveFilePicker :selected-path="selectedPath" @change="onSaveFileChange" />
+    </div>
+
+    <!-- Confirmation: show what will be connected -->
+    <div v-if="selectedPath" class="selection-summary">
+      <span class="summary-icon">✓</span>
+      <span>
+        <template v-if="selectedProbe?.leagueName">
+          <strong>{{ selectedProbe.leagueName }}</strong>
+          <template v-if="selectedProbe.playerTeamName"> · {{ selectedProbe.playerTeamName }}</template>
+        </template>
+        <template v-else>
+          {{ selectedPath.split(/[\\/]/).pop() }}
+        </template>
+      </span>
     </div>
 
     <p v-if="error" class="error-text">{{ error }}</p>
@@ -70,7 +89,7 @@ async function handleSubmit() {
 
 <style scoped>
 .franchise-create {
-  max-width: 480px;
+  max-width: 520px;
   margin: 0 auto;
 }
 
@@ -93,6 +112,13 @@ label {
   margin-bottom: 0.4rem;
 }
 
+.field-hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.6rem;
+  line-height: 1.4;
+}
+
 input[type='text'] {
   width: 100%;
   padding: 0.5rem 0.75rem;
@@ -109,19 +135,22 @@ input[type='text']:focus {
   border-color: var(--color-accent);
 }
 
-.radio-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.radio-option {
+.selection-summary {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.9375rem;
+  padding: 0.5rem 0.75rem;
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface-2));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border-radius: 6px;
+  font-size: 0.875rem;
   color: var(--color-text-primary);
-  cursor: pointer;
+  margin-bottom: 1rem;
+}
+
+.summary-icon {
+  color: var(--color-accent);
+  font-weight: 700;
 }
 
 .error-text {
