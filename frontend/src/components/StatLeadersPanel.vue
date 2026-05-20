@@ -29,25 +29,31 @@ function formatInt(v: number | null | undefined): string {
     <LoadingSpinner v-if="loading" />
     <template v-else-if="leaders">
       <div class="leader-grid">
-        <div v-for="cat in [
-          { key: 'ba',         label: 'Batting Avg',   leader: leaders.ba,         fmt: formatBA  },
-          { key: 'hr',         label: 'Home Runs',     leader: leaders.hr,         fmt: formatInt },
-          { key: 'rbi',        label: 'RBI',           leader: leaders.rbi,        fmt: formatInt },
-          { key: 'era',        label: 'ERA',           leader: leaders.era,        fmt: formatERA },
-          { key: 'wins',       label: 'Wins',          leader: leaders.wins,       fmt: formatInt },
-          { key: 'strikeouts', label: 'Strikeouts',    leader: leaders.strikeouts, fmt: formatInt },
-        ]" :key="cat.key" class="leader-tile">
+        <div
+          v-for="cat in [
+            { key: 'ba', label: 'Batting Avg', leader: leaders.ba, fmt: formatBA },
+            { key: 'hr', label: 'Home Runs', leader: leaders.hr, fmt: formatInt },
+            { key: 'rbi', label: 'RBI', leader: leaders.rbi, fmt: formatInt },
+            { key: 'era', label: 'ERA', leader: leaders.era, fmt: formatERA },
+            { key: 'wins', label: 'Wins', leader: leaders.wins, fmt: formatInt },
+            { key: 'strikeouts', label: 'Strikeouts', leader: leaders.strikeouts, fmt: formatInt },
+          ]"
+          :key="cat.key"
+          class="leader-tile"
+        >
           <span class="tile-label">{{ cat.label }}</span>
           <template v-if="cat.leader">
-            <RouterLink
-              :to="`/players/${cat.leader.playerId}`"
-              class="tile-value"
-            >
-              {{ cat.fmt(cat.leader.statValue) }}
-            </RouterLink>
-            <span class="tile-player">{{ cat.leader.firstName }} {{ cat.leader.lastName }}</span>
+            <!-- Name links to the player page; value is a plain span so it
+                 always renders regardless of router context. -->
+            <div class="tile-stat-line">
+              <RouterLink :to="`/players/${cat.leader.playerId}`" class="tile-player">
+                {{ cat.leader.firstName }} {{ cat.leader.lastName }}
+              </RouterLink>
+              <span class="tile-value">{{ cat.fmt(cat.leader.statValue) }}</span>
+            </div>
+            <span class="tile-team">{{ cat.leader.teamName }}</span>
           </template>
-          <span v-else class="tile-value muted">—</span>
+          <span v-else class="tile-empty">—</span>
         </div>
       </div>
     </template>
@@ -74,7 +80,7 @@ function formatInt(v: number | null | undefined): string {
   padding: 0.75rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.25rem;
 }
 
 .tile-label {
@@ -85,34 +91,48 @@ function formatInt(v: number | null | undefined): string {
   color: var(--color-text-secondary);
 }
 
-.tile-value {
-  font-size: 1.375rem;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  text-decoration: none;
-  font-family: var(--font-mono);
-}
-
-.tile-value:hover {
-  color: var(--color-accent);
-}
-
-.tile-value.muted {
-  color: var(--color-text-secondary);
-  font-size: 1rem;
-  font-weight: 400;
+.tile-stat-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
 .tile-player {
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-decoration: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.empty {
+.tile-player:hover {
+  color: var(--color-accent);
+}
+
+.tile-value {
+  font-size: 1.125rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tile-team {
+  font-size: 0.75rem;
   color: var(--color-text-secondary);
+}
+
+.tile-empty {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+}
+
+.empty {
   font-size: 0.875rem;
+  color: var(--color-text-secondary);
 }
 </style>
