@@ -262,19 +262,22 @@ type SaveFileCandidateDTO struct {
 func (a *App) GetSaveFileCandidates() ([]SaveFileCandidateDTO, error) {
 	candidates, err := config.DiscoverSaveFiles()
 	if err != nil {
-		log.Printf("GetSaveFileCandidates: discovery: %v", err)
+		runtime.LogWarningf(a.ctx, "GetSaveFileCandidates: discovery error: %v", err)
 		return []SaveFileCandidateDTO{}, nil
 	}
 
+	runtime.LogInfof(a.ctx, "GetSaveFileCandidates: found %d league save file(s)", len(candidates))
+
 	var out []SaveFileCandidateDTO
 	for _, c := range candidates {
+		runtime.LogDebugf(a.ctx, "GetSaveFileCandidates: probing %s", c.Path)
 		dto := SaveFileCandidateDTO{
 			Path:        c.Path,
 			GameVersion: string(c.GameVersion),
 		}
 		leagues, err := a.probeLeaguesFromPath(c.Path)
 		if err != nil {
-			// Non-fatal — include the candidate so the user can still browse to it
+			runtime.LogWarningf(a.ctx, "GetSaveFileCandidates: probe failed for %s: %v", c.Path, err)
 			out = append(out, dto)
 			continue
 		}
@@ -286,9 +289,15 @@ func (a *App) GetSaveFileCandidates() ([]SaveFileCandidateDTO, error) {
 			dto.IsFranchise    = lg.Mode == models.LeagueModeFranchise
 			dto.PlayerTeamName = lg.PlayerTeamName
 			dto.LeagueGUID     = lg.GUID
+			runtime.LogInfof(a.ctx, "GetSaveFileCandidates: %s -> mode=%s league=%q team=%q seasons=%d",
+				c.Path, dto.Mode, dto.LeagueName, dto.PlayerTeamName, dto.NumSeasons)
+		} else {
+			runtime.LogWarningf(a.ctx, "GetSaveFileCandidates: %s -> no leagues found in save file", c.Path)
 		}
 		out = append(out, dto)
 	}
+
+	runtime.LogInfof(a.ctx, "GetSaveFileCandidates: returning %d candidate(s)", len(out))
 	return out, nil
 }
 
@@ -386,17 +395,22 @@ func (a *App) ProbeLeagues(saveFilePath string) ([]SaveFileCandidateDTO, error) 
 
 // probeLeaguesFromPath decompresses a save file and returns its leagues.
 // Shared by GetSaveFileCandidates, ProbeFranchiseSaveFile, and ProbeLeagues.
+// The decompressed temp file is deleted on return — nothing is persisted.
 func (a *App) probeLeaguesFromPath(path string) ([]models.SaveGameLeague, error) {
 	saveDB, tmpPath, err := internaldb.DecompressAndOpen(a.ctx, path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decompressing %s: %w", path, err)
 	}
 	defer func() {
 		_ = saveDB.Close()
 		removePath(tmpPath)
 	}()
 	reader := store.NewSqliteSaveGameReader(saveDB, "")
-	return reader.GetLeagues(a.ctx)
+	leagues, err := reader.GetLeagues(a.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("reading leagues from %s: %w", path, err)
+	}
+	return leagues, nil
 }
 
 // DeleteFranchise removes a franchise and deletes its data directory.

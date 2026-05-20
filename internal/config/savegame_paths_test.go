@@ -9,29 +9,38 @@ import (
 	"smb-tools/internal/models"
 )
 
-func TestWalkForSaveFiles_FindsSavFiles(t *testing.T) {
+func TestWalkForSaveFiles_FindsLeagueSavFiles(t *testing.T) {
 	root := t.TempDir()
 
-	// Create a fake Steam ID subdirectory with a .sav file
-	steamDir := filepath.Join(root, "12345678")
+	// Create a fake Steam ID subdirectory mirroring the real layout
+	steamDir := filepath.Join(root, "76561198034146134")
 	if err := os.MkdirAll(steamDir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	savPath := filepath.Join(steamDir, "savedata.sav")
-	if err := os.WriteFile(savPath, []byte("fake"), 0o600); err != nil {
+	leaguePath := filepath.Join(steamDir, "league-1D454F48-B9BD-42A0-A528-358E46142A64.sav")
+	if err := os.WriteFile(leaguePath, []byte("fake"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	// Also create a non-.sav file that should be ignored
-	if err := os.WriteFile(filepath.Join(steamDir, "config.json"), []byte("{}"), 0o600); err != nil {
-		t.Fatal(err)
+	// These should all be ignored: wrong prefix or not a real league save
+	for _, name := range []string{
+		"master.sav",
+		"mugshots-0E7BD862-11CA-4A56-9483-B73710DB404F.sav",
+		"season-CA454E09-CFBA-4F92-8DF0-07D2D5AA09E7.sav",
+		"league-1D454F48-B9BD-42A0-A528-358E46142A64.sav.bak",
+		"league-1D454F48-B9BD-42A0-A528-358E46142A64.hash",
+		"config.json",
+	} {
+		if err := os.WriteFile(filepath.Join(steamDir, name), []byte("fake"), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	candidates := config.WalkForSaveFiles(root, models.GameVersionSMB4)
 	if len(candidates) != 1 {
 		t.Fatalf("expected 1 candidate, got %d", len(candidates))
 	}
-	if candidates[0].Path != savPath {
-		t.Errorf("expected path %q, got %q", savPath, candidates[0].Path)
+	if candidates[0].Path != leaguePath {
+		t.Errorf("expected path %q, got %q", leaguePath, candidates[0].Path)
 	}
 	if candidates[0].GameVersion != models.GameVersionSMB4 {
 		t.Errorf("expected version %q, got %q", models.GameVersionSMB4, candidates[0].GameVersion)
