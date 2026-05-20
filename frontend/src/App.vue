@@ -75,6 +75,7 @@ async function handleSelect(id: string) {
         <nav class="sidebar-nav">
           <router-link to="/">Dashboard</router-link>
           <router-link to="/teams">Teams</router-link>
+          <router-link to="/leaderboards">Leaderboards</router-link>
           <router-link to="/search">Search</router-link>
         </nav>
         <div class="sidebar-footer">

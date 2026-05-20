@@ -1,6 +1,8 @@
 package main
 
-import "smb-tools/internal/models"
+import (
+	"smb-tools/internal/models"
+)
 
 // ── Seasons ───────────────────────────────────────────────────────────────────
 
@@ -486,5 +488,217 @@ func playoffGameToDTO(g models.PlayoffGameRow) PlayoffGameDTO {
 		AwayScore:         g.AwayScore,
 		HomePitcherName:   g.HomePitcherName,
 		AwayPitcherName:   g.AwayPitcherName,
+	}
+}
+
+// ── Leaderboards ──────────────────────────────────────────────────────────────
+
+// LeaderboardFiltersDTO carries filter parameters from the frontend.
+// Zero values (empty string, false, 0) mean "no filter applied".
+type LeaderboardFiltersDTO struct {
+	IsPlayoffs       bool   `json:"isPlayoffs"`
+	OnlyHallOfFamers bool   `json:"onlyHallOfFamers"`
+	Position         string `json:"position"`
+	BatHand          string `json:"batHand"`
+	ThrowHand        string `json:"throwHand"`
+	ChemistryType    string `json:"chemistryType"`
+	SeasonStart      int    `json:"seasonStart"`
+	SeasonEnd        int    `json:"seasonEnd"`
+}
+
+// BattingLeaderRowDTO is one row in a batting leaderboard (career or season).
+// The DTO is flat so PrimeVue DataTable sort-field can reference top-level keys.
+// Career rows have SeasonsPlayed > 0; season rows have SeasonNum > 0.
+type BattingLeaderRowDTO struct {
+	PlayerID        int64  `json:"playerId"`
+	FirstName       string `json:"firstName"`
+	LastName        string `json:"lastName"`
+	IsHallOfFamer   bool   `json:"isHallOfFamer"`
+	SeasonsPlayed   int    `json:"seasonsPlayed"`
+	SeasonNum       int    `json:"seasonNum"`
+	TeamName        string `json:"teamName"`
+	Age             int    `json:"age"`
+	PrimaryPosition string `json:"primaryPosition"`
+	BatHand         string `json:"batHand"`
+	ChemistryType   string `json:"chemistryType"`
+	// Counting stats
+	GamesPlayed    int `json:"gamesPlayed"`
+	GamesBatting   int `json:"gamesBatting"`
+	AtBats         int `json:"atBats"`
+	Runs           int `json:"runs"`
+	Hits           int `json:"hits"`
+	Doubles        int `json:"doubles"`
+	Triples        int `json:"triples"`
+	HomeRuns       int `json:"homeRuns"`
+	RBI            int `json:"rbi"`
+	StolenBases    int `json:"stolenBases"`
+	CaughtStealing int `json:"caughtStealing"`
+	Walks          int `json:"walks"`
+	Strikeouts     int `json:"strikeouts"`
+	HitByPitch     int `json:"hitByPitch"`
+	SacHits        int `json:"sacHits"`
+	SacFlies       int `json:"sacFlies"`
+	Errors         int `json:"errors"`
+	PassedBalls    int `json:"passedBalls"`
+	// Computed rate fields (nil when denominator is zero)
+	BA      *float64 `json:"ba"`
+	OBP     *float64 `json:"obp"`
+	SLG     *float64 `json:"slg"`
+	OPS     *float64 `json:"ops"`
+	ISO     *float64 `json:"iso"`
+	BABIP   *float64 `json:"babip"`
+	KPct    *float64 `json:"kPct"`
+	BBPct   *float64 `json:"bbPct"`
+	ABPerHR *float64 `json:"abPerHr"`
+}
+
+// PitchingLeaderRowDTO is one row in a pitching leaderboard (career or season).
+// Career rows have SeasonsPlayed > 0; season rows have SeasonNum > 0.
+type PitchingLeaderRowDTO struct {
+	PlayerID      int64  `json:"playerId"`
+	FirstName     string `json:"firstName"`
+	LastName      string `json:"lastName"`
+	IsHallOfFamer bool   `json:"isHallOfFamer"`
+	SeasonsPlayed int    `json:"seasonsPlayed"`
+	SeasonNum     int    `json:"seasonNum"`
+	TeamName      string `json:"teamName"`
+	Age           int    `json:"age"`
+	PitcherRole   string `json:"pitcherRole"`
+	ThrowHand     string `json:"throwHand"`
+	ChemistryType string `json:"chemistryType"`
+	// Counting stats
+	Wins            int `json:"wins"`
+	Losses          int `json:"losses"`
+	Games           int `json:"games"`
+	GamesStarted    int `json:"gamesStarted"`
+	CompleteGames   int `json:"completeGames"`
+	Shutouts        int `json:"shutouts"`
+	Saves           int `json:"saves"`
+	OutsPitched     int `json:"outsPitched"`
+	HitsAllowed     int `json:"hitsAllowed"`
+	EarnedRuns      int `json:"earnedRuns"`
+	HomeRunsAllowed int `json:"homeRunsAllowed"`
+	Walks           int `json:"walks"`
+	Strikeouts      int `json:"strikeouts"`
+	HitBatters      int `json:"hitBatters"`
+	BattersFaced    int `json:"battersFaced"`
+	GamesFinished   int `json:"gamesFinished"`
+	RunsAllowed     int `json:"runsAllowed"`
+	WildPitches     int `json:"wildPitches"`
+	TotalPitches    int `json:"totalPitches"`
+	// Computed rate fields (nil when denominator is zero)
+	ERA    *float64 `json:"era"`
+	WHIP   *float64 `json:"whip"`
+	K9     *float64 `json:"k9"`
+	BB9    *float64 `json:"bb9"`
+	H9     *float64 `json:"h9"`
+	HR9    *float64 `json:"hr9"`
+	KPerBB *float64 `json:"kPerBb"`
+	KPct   *float64 `json:"kPct"`
+	WinPct *float64 `json:"winPct"`
+	PPerIP *float64 `json:"pPerIp"`
+}
+
+// ── Leaderboard mapping helpers ───────────────────────────────────────────────
+
+func leaderboardFiltersToDomain(f LeaderboardFiltersDTO) models.LeaderboardFilters {
+	return models.LeaderboardFilters{
+		IsPlayoffs:       f.IsPlayoffs,
+		OnlyHallOfFamers: f.OnlyHallOfFamers,
+		Position:         f.Position,
+		BatHand:          f.BatHand,
+		ThrowHand:        f.ThrowHand,
+		ChemistryType:    f.ChemistryType,
+		SeasonStart:      f.SeasonStart,
+		SeasonEnd:        f.SeasonEnd,
+	}
+}
+
+func battingStatsToLeaderDTO(b models.CareerBattingStats) (
+	gp, gb, ab, r, h, d, tr, hr, rbi, sb, cs, bb, k, hbp, sh, sf, e, pb int,
+	ba, obp, slg, ops, iso, babip, kpct, bbpct, abhr *float64,
+) {
+	return b.GamesPlayed, b.GamesBatting,
+		b.AtBats, b.Runs, b.Hits, b.Doubles, b.Triples, b.HomeRuns, b.RBI,
+		b.StolenBases, b.CaughtStealing, b.Walks, b.Strikeouts,
+		b.HitByPitch, b.SacHits, b.SacFlies, b.Errors, b.PassedBalls,
+		b.BA, b.OBP, b.SLG, b.OPS, b.ISO, b.BABIP, b.KPct, b.BBPct, b.ABPerHR
+}
+
+func battingCareerLeaderToDTO(r models.BattingCareerLeaderRow) BattingLeaderRowDTO {
+	gp, gb, ab, runs, h, d, tr, hr, rbi, sb, cs, bb, k, hbp, sh, sf, e, pb,
+		ba, obp, slg, ops, iso, babip, kpct, bbpct, abhr := battingStatsToLeaderDTO(r.CareerBattingStats)
+	return BattingLeaderRowDTO{
+		PlayerID: r.PlayerID, FirstName: r.FirstName, LastName: r.LastName,
+		IsHallOfFamer: r.IsHallOfFamer, SeasonsPlayed: r.SeasonsPlayed,
+		GamesPlayed: gp, GamesBatting: gb,
+		AtBats: ab, Runs: runs, Hits: h, Doubles: d, Triples: tr, HomeRuns: hr, RBI: rbi,
+		StolenBases: sb, CaughtStealing: cs, Walks: bb, Strikeouts: k,
+		HitByPitch: hbp, SacHits: sh, SacFlies: sf, Errors: e, PassedBalls: pb,
+		BA: ba, OBP: obp, SLG: slg, OPS: ops, ISO: iso,
+		BABIP: babip, KPct: kpct, BBPct: bbpct, ABPerHR: abhr,
+	}
+}
+
+func battingSeasonLeaderToDTO(r models.BattingSeasonLeaderRow) BattingLeaderRowDTO {
+	gp, gb, ab, runs, h, d, tr, hr, rbi, sb, cs, bb, k, hbp, sh, sf, e, pb,
+		ba, obp, slg, ops, iso, babip, kpct, bbpct, abhr := battingStatsToLeaderDTO(r.CareerBattingStats)
+	return BattingLeaderRowDTO{
+		PlayerID: r.PlayerID, FirstName: r.FirstName, LastName: r.LastName,
+		IsHallOfFamer: r.IsHallOfFamer,
+		SeasonNum: r.SeasonNum, TeamName: r.TeamName, Age: r.Age,
+		PrimaryPosition: r.PrimaryPosition, BatHand: r.BatHand, ChemistryType: r.ChemistryType,
+		GamesPlayed: gp, GamesBatting: gb,
+		AtBats: ab, Runs: runs, Hits: h, Doubles: d, Triples: tr, HomeRuns: hr, RBI: rbi,
+		StolenBases: sb, CaughtStealing: cs, Walks: bb, Strikeouts: k,
+		HitByPitch: hbp, SacHits: sh, SacFlies: sf, Errors: e, PassedBalls: pb,
+		BA: ba, OBP: obp, SLG: slg, OPS: ops, ISO: iso,
+		BABIP: babip, KPct: kpct, BBPct: bbpct, ABPerHR: abhr,
+	}
+}
+
+func pitchingStatsToLeaderDTO(p models.CareerPitchingStats) (
+	w, l, g, gs, cg, sho, sv, outs, h, er, hra, bb, k, hb, bf, gf, ra, wp, tp int,
+	era, whip, k9, bb9, h9, hr9, kperbb, kpct, winpct, pperip *float64,
+) {
+	return p.Wins, p.Losses, p.Games, p.GamesStarted,
+		p.CompleteGames, p.Shutouts, p.Saves, p.OutsPitched,
+		p.HitsAllowed, p.EarnedRuns, p.HomeRunsAllowed, p.Walks,
+		p.Strikeouts, p.HitBatters, p.BattersFaced, p.GamesFinished,
+		p.RunsAllowed, p.WildPitches, p.TotalPitches,
+		p.ERA, p.WHIP, p.K9, p.BB9, p.H9, p.HR9, p.KPerBB, p.KPct, p.WinPct, p.PPerIP
+}
+
+func pitchingCareerLeaderToDTO(r models.PitchingCareerLeaderRow) PitchingLeaderRowDTO {
+	w, l, g, gs, cg, sho, sv, outs, h, er, hra, bb, k, hb, bf, gf, ra, wp, tp,
+		era, whip, k9, bb9, h9, hr9, kperbb, kpct, winpct, pperip := pitchingStatsToLeaderDTO(r.CareerPitchingStats)
+	return PitchingLeaderRowDTO{
+		PlayerID: r.PlayerID, FirstName: r.FirstName, LastName: r.LastName,
+		IsHallOfFamer: r.IsHallOfFamer, SeasonsPlayed: r.SeasonsPlayed,
+		Wins: w, Losses: l, Games: g, GamesStarted: gs,
+		CompleteGames: cg, Shutouts: sho, Saves: sv, OutsPitched: outs,
+		HitsAllowed: h, EarnedRuns: er, HomeRunsAllowed: hra, Walks: bb,
+		Strikeouts: k, HitBatters: hb, BattersFaced: bf, GamesFinished: gf,
+		RunsAllowed: ra, WildPitches: wp, TotalPitches: tp,
+		ERA: era, WHIP: whip, K9: k9, BB9: bb9, H9: h9, HR9: hr9,
+		KPerBB: kperbb, KPct: kpct, WinPct: winpct, PPerIP: pperip,
+	}
+}
+
+func pitchingSeasonLeaderToDTO(r models.PitchingSeasonLeaderRow) PitchingLeaderRowDTO {
+	w, l, g, gs, cg, sho, sv, outs, h, er, hra, bb, k, hb, bf, gf, ra, wp, tp,
+		era, whip, k9, bb9, h9, hr9, kperbb, kpct, winpct, pperip := pitchingStatsToLeaderDTO(r.CareerPitchingStats)
+	return PitchingLeaderRowDTO{
+		PlayerID: r.PlayerID, FirstName: r.FirstName, LastName: r.LastName,
+		IsHallOfFamer: r.IsHallOfFamer,
+		SeasonNum: r.SeasonNum, TeamName: r.TeamName, Age: r.Age,
+		PitcherRole: r.PitcherRole, ThrowHand: r.ThrowHand, ChemistryType: r.ChemistryType,
+		Wins: w, Losses: l, Games: g, GamesStarted: gs,
+		CompleteGames: cg, Shutouts: sho, Saves: sv, OutsPitched: outs,
+		HitsAllowed: h, EarnedRuns: er, HomeRunsAllowed: hra, Walks: bb,
+		Strikeouts: k, HitBatters: hb, BattersFaced: bf, GamesFinished: gf,
+		RunsAllowed: ra, WildPitches: wp, TotalPitches: tp,
+		ERA: era, WHIP: whip, K9: k9, BB9: bb9, H9: h9, HR9: hr9,
+		KPerBB: kperbb, KPct: kpct, WinPct: winpct, PPerIP: pperip,
 	}
 }

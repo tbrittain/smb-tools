@@ -1,5 +1,91 @@
 export namespace main {
 	
+	export class BattingLeaderRowDTO {
+	    playerId: number;
+	    firstName: string;
+	    lastName: string;
+	    isHallOfFamer: boolean;
+	    seasonsPlayed: number;
+	    seasonNum: number;
+	    teamName: string;
+	    age: number;
+	    primaryPosition: string;
+	    batHand: string;
+	    chemistryType: string;
+	    gamesPlayed: number;
+	    gamesBatting: number;
+	    atBats: number;
+	    runs: number;
+	    hits: number;
+	    doubles: number;
+	    triples: number;
+	    homeRuns: number;
+	    rbi: number;
+	    stolenBases: number;
+	    caughtStealing: number;
+	    walks: number;
+	    strikeouts: number;
+	    hitByPitch: number;
+	    sacHits: number;
+	    sacFlies: number;
+	    errors: number;
+	    passedBalls: number;
+	    ba?: number;
+	    obp?: number;
+	    slg?: number;
+	    ops?: number;
+	    iso?: number;
+	    babip?: number;
+	    kPct?: number;
+	    bbPct?: number;
+	    abPerHr?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new BattingLeaderRowDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.playerId = source["playerId"];
+	        this.firstName = source["firstName"];
+	        this.lastName = source["lastName"];
+	        this.isHallOfFamer = source["isHallOfFamer"];
+	        this.seasonsPlayed = source["seasonsPlayed"];
+	        this.seasonNum = source["seasonNum"];
+	        this.teamName = source["teamName"];
+	        this.age = source["age"];
+	        this.primaryPosition = source["primaryPosition"];
+	        this.batHand = source["batHand"];
+	        this.chemistryType = source["chemistryType"];
+	        this.gamesPlayed = source["gamesPlayed"];
+	        this.gamesBatting = source["gamesBatting"];
+	        this.atBats = source["atBats"];
+	        this.runs = source["runs"];
+	        this.hits = source["hits"];
+	        this.doubles = source["doubles"];
+	        this.triples = source["triples"];
+	        this.homeRuns = source["homeRuns"];
+	        this.rbi = source["rbi"];
+	        this.stolenBases = source["stolenBases"];
+	        this.caughtStealing = source["caughtStealing"];
+	        this.walks = source["walks"];
+	        this.strikeouts = source["strikeouts"];
+	        this.hitByPitch = source["hitByPitch"];
+	        this.sacHits = source["sacHits"];
+	        this.sacFlies = source["sacFlies"];
+	        this.errors = source["errors"];
+	        this.passedBalls = source["passedBalls"];
+	        this.ba = source["ba"];
+	        this.obp = source["obp"];
+	        this.slg = source["slg"];
+	        this.ops = source["ops"];
+	        this.iso = source["iso"];
+	        this.babip = source["babip"];
+	        this.kPct = source["kPct"];
+	        this.bbPct = source["bbPct"];
+	        this.abPerHr = source["abPerHr"];
+	    }
+	}
 	export class CareerBattingStatsDTO {
 	    gamesPlayed: number;
 	    gamesBatting: number;
@@ -212,6 +298,122 @@ export namespace main {
 	        this.saveFilePath = source["saveFilePath"];
 	        this.lastSynced = source["lastSynced"];
 	        this.lastSeason = source["lastSeason"];
+	    }
+	}
+	export class LeaderboardFiltersDTO {
+	    isPlayoffs: boolean;
+	    onlyHallOfFamers: boolean;
+	    position: string;
+	    batHand: string;
+	    throwHand: string;
+	    chemistryType: string;
+	    seasonStart: number;
+	    seasonEnd: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new LeaderboardFiltersDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.isPlayoffs = source["isPlayoffs"];
+	        this.onlyHallOfFamers = source["onlyHallOfFamers"];
+	        this.position = source["position"];
+	        this.batHand = source["batHand"];
+	        this.throwHand = source["throwHand"];
+	        this.chemistryType = source["chemistryType"];
+	        this.seasonStart = source["seasonStart"];
+	        this.seasonEnd = source["seasonEnd"];
+	    }
+	}
+	export class PitchingLeaderRowDTO {
+	    playerId: number;
+	    firstName: string;
+	    lastName: string;
+	    isHallOfFamer: boolean;
+	    seasonsPlayed: number;
+	    seasonNum: number;
+	    teamName: string;
+	    age: number;
+	    pitcherRole: string;
+	    throwHand: string;
+	    chemistryType: string;
+	    wins: number;
+	    losses: number;
+	    games: number;
+	    gamesStarted: number;
+	    completeGames: number;
+	    shutouts: number;
+	    saves: number;
+	    outsPitched: number;
+	    hitsAllowed: number;
+	    earnedRuns: number;
+	    homeRunsAllowed: number;
+	    walks: number;
+	    strikeouts: number;
+	    hitBatters: number;
+	    battersFaced: number;
+	    gamesFinished: number;
+	    runsAllowed: number;
+	    wildPitches: number;
+	    totalPitches: number;
+	    era?: number;
+	    whip?: number;
+	    k9?: number;
+	    bb9?: number;
+	    h9?: number;
+	    hr9?: number;
+	    kPerBb?: number;
+	    kPct?: number;
+	    winPct?: number;
+	    pPerIp?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new PitchingLeaderRowDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.playerId = source["playerId"];
+	        this.firstName = source["firstName"];
+	        this.lastName = source["lastName"];
+	        this.isHallOfFamer = source["isHallOfFamer"];
+	        this.seasonsPlayed = source["seasonsPlayed"];
+	        this.seasonNum = source["seasonNum"];
+	        this.teamName = source["teamName"];
+	        this.age = source["age"];
+	        this.pitcherRole = source["pitcherRole"];
+	        this.throwHand = source["throwHand"];
+	        this.chemistryType = source["chemistryType"];
+	        this.wins = source["wins"];
+	        this.losses = source["losses"];
+	        this.games = source["games"];
+	        this.gamesStarted = source["gamesStarted"];
+	        this.completeGames = source["completeGames"];
+	        this.shutouts = source["shutouts"];
+	        this.saves = source["saves"];
+	        this.outsPitched = source["outsPitched"];
+	        this.hitsAllowed = source["hitsAllowed"];
+	        this.earnedRuns = source["earnedRuns"];
+	        this.homeRunsAllowed = source["homeRunsAllowed"];
+	        this.walks = source["walks"];
+	        this.strikeouts = source["strikeouts"];
+	        this.hitBatters = source["hitBatters"];
+	        this.battersFaced = source["battersFaced"];
+	        this.gamesFinished = source["gamesFinished"];
+	        this.runsAllowed = source["runsAllowed"];
+	        this.wildPitches = source["wildPitches"];
+	        this.totalPitches = source["totalPitches"];
+	        this.era = source["era"];
+	        this.whip = source["whip"];
+	        this.k9 = source["k9"];
+	        this.bb9 = source["bb9"];
+	        this.h9 = source["h9"];
+	        this.hr9 = source["hr9"];
+	        this.kPerBb = source["kPerBb"];
+	        this.kPct = source["kPct"];
+	        this.winPct = source["winPct"];
+	        this.pPerIp = source["pPerIp"];
 	    }
 	}
 	export class PlayerCareerDTO {

@@ -14,8 +14,24 @@ export function GetActiveFranchise() {
   return window['go']['main']['App']['GetActiveFranchise']();
 }
 
+export function GetBattingCareerLeaders(arg1) {
+  return window['go']['main']['App']['GetBattingCareerLeaders'](arg1);
+}
+
+export function GetBattingSeasonLeaders(arg1) {
+  return window['go']['main']['App']['GetBattingSeasonLeaders'](arg1);
+}
+
 export function GetCareerLeaders() {
   return window['go']['main']['App']['GetCareerLeaders']();
+}
+
+export function GetPitchingCareerLeaders(arg1) {
+  return window['go']['main']['App']['GetPitchingCareerLeaders'](arg1);
+}
+
+export function GetPitchingSeasonLeaders(arg1) {
+  return window['go']['main']['App']['GetPitchingSeasonLeaders'](arg1);
 }
 
 export function GetPlayerCareer(arg1) {

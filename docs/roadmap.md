@@ -73,15 +73,15 @@ Check off phases as they are completed. Individual phases will be broken into de
 ## Phase 6 — Leaderboards
 *Franchise-wide statistical leaderboards — the most-used views for most users.*
 
-- [ ] Top batting careers
-- [ ] Top batting seasons
-- [ ] Top pitching careers
-- [ ] Top pitching seasons
-- [ ] Filters: position, chemistry type, handedness, Hall of Famers only
-- [ ] Season range selector
-- [ ] Regular season / playoffs toggle
-- [ ] Sorting by any stat column
-- [ ] Pagination
+- [x] Top batting careers
+- [x] Top batting seasons
+- [x] Top pitching careers
+- [x] Top pitching seasons
+- [x] Filters: position, chemistry type, handedness, Hall of Famers only
+- [x] Season range selector
+- [x] Regular season / playoffs toggle
+- [x] Sorting by any stat column
+- [x] Pagination
 
 ---
 
