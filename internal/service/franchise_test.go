@@ -31,7 +31,7 @@ func TestFranchiseService_CreateFranchise(t *testing.T) {
 	svc, fs := newTestFranchiseService(t)
 	ctx := context.Background()
 
-	f, err := svc.CreateFranchise(ctx, "Test League", models.GameVersionSMB4)
+	f, err := svc.CreateFranchise(ctx, "Test League", models.GameVersionSMB4, "", "")
 	if err != nil {
 		t.Fatalf("CreateFranchise: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestFranchiseService_CreateFranchise(t *testing.T) {
 
 func TestFranchiseService_CreateFranchise_EmptyName(t *testing.T) {
 	svc, _ := newTestFranchiseService(t)
-	_, err := svc.CreateFranchise(context.Background(), "", models.GameVersionSMB4)
+	_, err := svc.CreateFranchise(context.Background(), "", models.GameVersionSMB4, "", "")
 	if err == nil {
 		t.Error("expected error for empty franchise name")
 	}
@@ -62,7 +62,7 @@ func TestFranchiseService_CreateFranchise_EmptyName(t *testing.T) {
 
 func TestFranchiseService_CreateFranchise_InvalidVersion(t *testing.T) {
 	svc, _ := newTestFranchiseService(t)
-	_, err := svc.CreateFranchise(context.Background(), "My Franchise", "smb5")
+	_, err := svc.CreateFranchise(context.Background(), "My Franchise", "smb5", "", "")
 	if err == nil {
 		t.Error("expected error for invalid game version")
 	}
@@ -72,7 +72,7 @@ func TestFranchiseService_DeleteFranchise(t *testing.T) {
 	svc, fs := newTestFranchiseService(t)
 	ctx := context.Background()
 
-	f, _ := svc.CreateFranchise(ctx, "To Delete", models.GameVersionSMB4)
+	f, _ := svc.CreateFranchise(ctx, "To Delete", models.GameVersionSMB4, "", "")
 	if err := svc.DeleteFranchise(ctx, f.ID); err != nil {
 		t.Fatalf("DeleteFranchise: %v", err)
 	}

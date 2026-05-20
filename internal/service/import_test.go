@@ -524,3 +524,6 @@ func (r *erroringReader) GetCareerBattingStats(ctx context.Context) ([]models.Sa
 func (r *erroringReader) GetCareerPitchingStats(ctx context.Context) ([]models.SaveGamePitchingStat, error) {
 	return r.inner.GetCareerPitchingStats(ctx)
 }
+func (r *erroringReader) GetCurrentSeason(ctx context.Context, leagueGUID string) (models.SaveGameSeasonInfo, error) {
+	return r.inner.GetCurrentSeason(ctx, leagueGUID)
+}

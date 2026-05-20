@@ -664,6 +664,30 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class SaveFileCandidateDTO {
+	    path: string;
+	    gameVersion: string;
+	    leagueName: string;
+	    numSeasons: number;
+	    isFranchise: boolean;
+	    playerTeamName: string;
+	    leagueGUID: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SaveFileCandidateDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.gameVersion = source["gameVersion"];
+	        this.leagueName = source["leagueName"];
+	        this.numSeasons = source["numSeasons"];
+	        this.isFranchise = source["isFranchise"];
+	        this.playerTeamName = source["playerTeamName"];
+	        this.leagueGUID = source["leagueGUID"];
+	    }
+	}
 	export class ScheduleGameDTO {
 	    gameNumber: number;
 	    day: number;

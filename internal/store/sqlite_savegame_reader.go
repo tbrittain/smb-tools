@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -34,14 +35,20 @@ func (r *SqliteSaveGameReader) Close() error {
 func (r *SqliteSaveGameReader) GetLeagues(ctx context.Context) ([]models.SaveGameLeague, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT
+			COALESCE(hex(l.GUID), '')        AS leagueGUID,
 			l.leagueId,
 			l.leagueName,
 			l.leagueTeamTypeId,
 			COALESCE(tt.typeName, ''),
-			f.franchiseId
+			f.franchiseId,
+			COUNT(DISTINCT fs.seasonID)      AS numSeasons,
+			COALESCE(pt.teamName, '')        AS playerTeamName
 		FROM t_leagues l
 		LEFT JOIN t_team_types tt ON tt.teamType = l.leagueTeamTypeId
 		LEFT JOIN t_franchise f ON f.leagueId = l.leagueId
+		LEFT JOIN t_franchise_seasons fs ON fs.franchiseId = f.franchiseId
+		LEFT JOIN t_teams pt ON pt.GUID = f.playerTeamGUID
+		GROUP BY l.leagueId, l.leagueName, l.leagueTeamTypeId, f.franchiseId
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("querying leagues: %w", err)
@@ -52,7 +59,10 @@ func (r *SqliteSaveGameReader) GetLeagues(ctx context.Context) ([]models.SaveGam
 	for rows.Next() {
 		var lg models.SaveGameLeague
 		var franchiseID sql.NullInt64
-		if err := rows.Scan(&lg.ID, &lg.Name, &lg.TeamTypeID, &lg.TypeName, &franchiseID); err != nil {
+		if err := rows.Scan(
+			&lg.GUID, &lg.ID, &lg.Name, &lg.TeamTypeID, &lg.TypeName,
+			&franchiseID, &lg.NumSeasons, &lg.PlayerTeamName,
+		); err != nil {
 			return nil, fmt.Errorf("scanning league: %w", err)
 		}
 		if franchiseID.Valid {
@@ -62,6 +72,37 @@ func (r *SqliteSaveGameReader) GetLeagues(ctx context.Context) ([]models.SaveGam
 		leagues = append(leagues, lg)
 	}
 	return leagues, rows.Err()
+}
+
+func (r *SqliteSaveGameReader) GetCurrentSeason(ctx context.Context, leagueGUID string) (models.SaveGameSeasonInfo, error) {
+	var row *sql.Row
+	if leagueGUID == "" {
+		// SMB3 / single-league: no league filter, just get the most recent season.
+		row = r.db.QueryRowContext(ctx, `
+			SELECT seasonID, RANK() OVER (ORDER BY seasonID) AS seasonNum
+			FROM t_franchise_seasons
+			ORDER BY seasonID DESC
+			LIMIT 1
+		`)
+	} else {
+		row = r.db.QueryRowContext(ctx, `
+			SELECT fs.seasonID, RANK() OVER (ORDER BY fs.seasonID) AS seasonNum
+			FROM t_franchise_seasons fs
+			JOIN t_franchise f ON f.franchiseId = fs.franchiseId
+			JOIN t_leagues tl ON tl.leagueId = f.leagueId
+			WHERE hex(tl.GUID) = ?
+			ORDER BY fs.seasonID DESC
+			LIMIT 1
+		`, leagueGUID)
+	}
+	var info models.SaveGameSeasonInfo
+	if err := row.Scan(&info.SeasonID, &info.SeasonNum); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.SaveGameSeasonInfo{}, fmt.Errorf("no seasons found in save game")
+		}
+		return models.SaveGameSeasonInfo{}, fmt.Errorf("detecting current season: %w", err)
+	}
+	return info, nil
 }
 
 func (r *SqliteSaveGameReader) GetFranchiseSeasons(ctx context.Context, leagueID int) ([]models.SaveGameFranchiseSeason, error) {

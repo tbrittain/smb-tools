@@ -8,6 +8,7 @@ import (
 
 	"os"
 
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"smb-tools/internal/config"
 	internaldb "smb-tools/internal/db"
 	"smb-tools/internal/models"
@@ -106,13 +107,14 @@ func (a *App) ListFranchises() ([]FranchiseDTO, error) {
 	return dtos, nil
 }
 
-// CreateFranchise creates a new franchise with the given name and game version.
-func (a *App) CreateFranchise(name string, gameVersion string) (FranchiseDTO, error) {
+// CreateFranchise creates a new franchise. saveFilePath and leagueGUID may be
+// empty if the user wants to configure the save file later via SetFranchiseSaveFile.
+func (a *App) CreateFranchise(name, gameVersion, saveFilePath, leagueGUID string) (FranchiseDTO, error) {
 	if a.franchiseService == nil {
 		return FranchiseDTO{}, fmt.Errorf("app not initialized")
 	}
 	v := models.GameVersion(gameVersion)
-	f, err := a.franchiseService.CreateFranchise(a.ctx, name, v)
+	f, err := a.franchiseService.CreateFranchise(a.ctx, name, v, saveFilePath, leagueGUID)
 	if err != nil {
 		return FranchiseDTO{}, err
 	}
@@ -186,11 +188,10 @@ type SyncSeasonResult struct {
 	PlayoffGames int    `json:"playoffGames"`
 }
 
-// SyncSeason reads the currently active franchise's save file, persists a
-// snapshot if the content has changed, then imports the given season into the
-// companion database. seasonID is the save game's internal season ID;
-// seasonNum is the human-facing season number.
-func (a *App) SyncSeason(seasonID int, seasonNum int) (SyncSeasonResult, error) {
+// SyncSeason reads the active franchise's save file, auto-detects the current
+// season, and imports it into the companion database. Safe to call multiple
+// times — existing data is replaced with the latest save game state.
+func (a *App) SyncSeason() (SyncSeasonResult, error) {
 	if a.activeFranchise == nil {
 		return SyncSeasonResult{}, fmt.Errorf("no active franchise selected")
 	}
@@ -198,10 +199,9 @@ func (a *App) SyncSeason(seasonID int, seasonNum int) (SyncSeasonResult, error) 
 		return SyncSeasonResult{}, fmt.Errorf("companion database not open")
 	}
 	if a.activeFranchise.SaveFilePath == "" {
-		return SyncSeasonResult{}, fmt.Errorf("no save file path set for this franchise — configure it first")
+		return SyncSeasonResult{}, fmt.Errorf("no save file configured for this franchise — set one via franchise settings")
 	}
 
-	// Decompress the save game and take a snapshot if the content has changed.
 	saveDB, tmpPath, err := internaldb.DecompressAndOpen(a.ctx, a.activeFranchise.SaveFilePath)
 	if err != nil {
 		return SyncSeasonResult{}, fmt.Errorf("opening save game: %w", err)
@@ -213,12 +213,17 @@ func (a *App) SyncSeason(seasonID int, seasonNum int) (SyncSeasonResult, error) 
 
 	reader := store.NewSqliteSaveGameReader(saveDB, "")
 
-	result, err := a.importService.ImportSeason(a.ctx, a.companionDB, reader, seasonID, seasonNum)
+	seasonInfo, err := reader.GetCurrentSeason(a.ctx, a.activeFranchise.LeagueGUID)
 	if err != nil {
-		return SyncSeasonResult{}, fmt.Errorf("importing season %d: %w", seasonID, err)
+		return SyncSeasonResult{}, fmt.Errorf("detecting current season: %w", err)
 	}
 
-	if err := a.franchiseStore.RecordSync(a.ctx, a.activeFranchise.ID, seasonNum); err != nil {
+	result, err := a.importService.ImportSeason(a.ctx, a.companionDB, reader, seasonInfo.SeasonID, seasonInfo.SeasonNum)
+	if err != nil {
+		return SyncSeasonResult{}, fmt.Errorf("importing season %d: %w", seasonInfo.SeasonNum, err)
+	}
+
+	if err := a.franchiseStore.RecordSync(a.ctx, a.activeFranchise.ID, seasonInfo.SeasonNum); err != nil {
 		log.Printf("SyncSeason: recording sync: %v", err)
 	}
 
@@ -230,6 +235,162 @@ func (a *App) SyncSeason(seasonID int, seasonNum int) (SyncSeasonResult, error) 
 		Games:        result.Games,
 		PlayoffGames: result.PlayoffGames,
 	}, nil
+}
+
+// ---- Save file discovery and probing --------------------------------------
+
+// SaveFileCandidateDTO represents a discovered .sav file with its probed
+// league/franchise metadata, giving users enough context to identify which
+// save file corresponds to their franchise.
+type SaveFileCandidateDTO struct {
+	Path           string `json:"path"`
+	GameVersion    string `json:"gameVersion"`
+	LeagueName     string `json:"leagueName"`
+	NumSeasons     int    `json:"numSeasons"`
+	IsFranchise    bool   `json:"isFranchise"`
+	PlayerTeamName string `json:"playerTeamName"` // team the user controlled; "" if not franchise mode
+	LeagueGUID     string `json:"leagueGUID"`
+}
+
+// GetSaveFileCandidates scans the default SMB save file locations for .sav
+// files and probes each one to return franchise metadata. This gives the user
+// enough information (league name, player team, season count) to identify the
+// right save file without opening a file browser.
+func (a *App) GetSaveFileCandidates() ([]SaveFileCandidateDTO, error) {
+	candidates, err := config.DiscoverSaveFiles()
+	if err != nil {
+		log.Printf("GetSaveFileCandidates: discovery: %v", err)
+		return []SaveFileCandidateDTO{}, nil
+	}
+
+	var out []SaveFileCandidateDTO
+	for _, c := range candidates {
+		dto := SaveFileCandidateDTO{
+			Path:        c.Path,
+			GameVersion: string(c.GameVersion),
+		}
+		leagues, err := a.probeLeaguesFromPath(c.Path)
+		if err != nil {
+			// Non-fatal — include the candidate so the user can still browse to it
+			out = append(out, dto)
+			continue
+		}
+		if len(leagues) > 0 {
+			lg := leagues[0]
+			dto.LeagueName     = lg.Name
+			dto.NumSeasons     = lg.NumSeasons
+			dto.IsFranchise    = lg.FranchiseID != nil
+			dto.PlayerTeamName = lg.PlayerTeamName
+			dto.LeagueGUID     = lg.GUID
+		}
+		out = append(out, dto)
+	}
+	return out, nil
+}
+
+// ProbeFranchiseSaveFile probes the save file currently associated with the
+// given franchise and returns its live metadata. Use this to show "game has N
+// seasons" alongside the last-synced state in the franchise list — call it for
+// each franchise on load and whenever the user wants a refresh.
+func (a *App) ProbeFranchiseSaveFile(franchiseID string) (SaveFileCandidateDTO, error) {
+	if a.franchiseStore == nil {
+		return SaveFileCandidateDTO{}, fmt.Errorf("app not initialized")
+	}
+	f, err := a.franchiseStore.GetByID(a.ctx, franchiseID)
+	if err != nil {
+		return SaveFileCandidateDTO{}, fmt.Errorf("franchise not found: %w", err)
+	}
+	if f.SaveFilePath == "" {
+		return SaveFileCandidateDTO{}, nil
+	}
+	dto := SaveFileCandidateDTO{
+		Path:        f.SaveFilePath,
+		GameVersion: string(f.GameVersion),
+	}
+	leagues, err := a.probeLeaguesFromPath(f.SaveFilePath)
+	if err != nil {
+		return dto, nil // non-fatal — caller gets basic path info
+	}
+	for _, lg := range leagues {
+		if lg.GUID == f.LeagueGUID || f.LeagueGUID == "" {
+			dto.LeagueName     = lg.Name
+			dto.NumSeasons     = lg.NumSeasons
+			dto.IsFranchise    = lg.FranchiseID != nil
+			dto.PlayerTeamName = lg.PlayerTeamName
+			dto.LeagueGUID     = lg.GUID
+			break
+		}
+	}
+	return dto, nil
+}
+
+// SetFranchiseSaveFile updates the save file path and league GUID for an
+// existing franchise. Use this when the user changes their save file location
+// or initially configures a save file after franchise creation.
+func (a *App) SetFranchiseSaveFile(franchiseID, saveFilePath, leagueGUID string) error {
+	if a.franchiseStore == nil {
+		return fmt.Errorf("app not initialized")
+	}
+	if err := a.franchiseStore.UpdateSaveFile(a.ctx, franchiseID, saveFilePath, leagueGUID); err != nil {
+		return fmt.Errorf("updating save file: %w", err)
+	}
+	if a.activeFranchise != nil && a.activeFranchise.ID == franchiseID {
+		a.activeFranchise.SaveFilePath = saveFilePath
+		a.activeFranchise.LeagueGUID = leagueGUID
+	}
+	return nil
+}
+
+// BrowseSaveFile opens the OS file picker filtered to .sav files and returns
+// the selected path. Returns "" if the user cancels.
+func (a *App) BrowseSaveFile() (string, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select SMB Save File",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "SMB Save Files (*.sav)", Pattern: "*.sav"},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("file dialog: %w", err)
+	}
+	return path, nil
+}
+
+// ProbeLeagues opens a save file and returns its league metadata. Use this
+// when the user browses to a save file not covered by GetSaveFileCandidates
+// (i.e., a file outside the default discovery paths).
+func (a *App) ProbeLeagues(saveFilePath string) ([]SaveFileCandidateDTO, error) {
+	leagues, err := a.probeLeaguesFromPath(saveFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("probing save file: %w", err)
+	}
+	out := make([]SaveFileCandidateDTO, len(leagues))
+	for i, lg := range leagues {
+		out[i] = SaveFileCandidateDTO{
+			Path:           saveFilePath,
+			LeagueName:     lg.Name,
+			NumSeasons:     lg.NumSeasons,
+			IsFranchise:    lg.FranchiseID != nil,
+			PlayerTeamName: lg.PlayerTeamName,
+			LeagueGUID:     lg.GUID,
+		}
+	}
+	return out, nil
+}
+
+// probeLeaguesFromPath decompresses a save file and returns its leagues.
+// Shared by GetSaveFileCandidates, ProbeFranchiseSaveFile, and ProbeLeagues.
+func (a *App) probeLeaguesFromPath(path string) ([]models.SaveGameLeague, error) {
+	saveDB, tmpPath, err := internaldb.DecompressAndOpen(a.ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = saveDB.Close()
+		removePath(tmpPath)
+	}()
+	reader := store.NewSqliteSaveGameReader(saveDB, "")
+	return reader.GetLeagues(a.ctx)
 }
 
 // DeleteFranchise removes a franchise and deletes its data directory.

@@ -13,10 +13,10 @@ onMounted(async () => {
   await franchiseStore.loadFranchises()
 })
 
-async function handleCreate(name: string, gameVersion: string) {
+async function handleCreate(name: string, gameVersion: string, saveFilePath: string, leagueGUID: string) {
   error.value = null
   try {
-    const created = await franchiseStore.createFranchise(name, gameVersion)
+    const created = await franchiseStore.createFranchise(name, gameVersion, saveFilePath, leagueGUID)
     showCreate.value = false
     await franchiseStore.selectFranchise(created.id)
   } catch (e) {

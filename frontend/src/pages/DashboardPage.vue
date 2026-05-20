@@ -20,26 +20,19 @@ const franchiseStore = useFranchiseStore()
 
 // ── Sync form ────────────────────────────────────────────────────────────────
 
-const seasonID = ref<number>(0)
-const seasonNum = ref<number>(1)
 const syncing = ref(false)
 const syncError = ref<string | null>(null)
 const lastResult = ref<main.SyncSeasonResult | null>(null)
 
 async function handleSync() {
-  if (!seasonID.value || !seasonNum.value) {
-    syncError.value = 'Season ID and season number are required'
-    return
-  }
   syncing.value = true
   syncError.value = null
   lastResult.value = null
   try {
-    lastResult.value = await SyncSeason(seasonID.value, seasonNum.value)
+    lastResult.value = await SyncSeason()
     if (franchiseStore.active) {
       await franchiseStore.selectFranchise(franchiseStore.active.id)
     }
-    // Refresh stats after sync
     await loadDashboardData()
   } catch (e) {
     syncError.value = String(e)
@@ -136,23 +129,13 @@ onMounted(loadDashboardData)
     <section class="sync-section">
       <h3>Sync Season</h3>
       <p class="sync-help">
-        Import a season from the save game. Safe to run multiple times — always
-        reflects the latest save state. For best results, sync once more before
-        simulating the offseason to capture final stats.
+        Reads the latest season from your save file. Safe to run multiple times —
+        always reflects the current save state. For best results, sync after the
+        regular season ends and again after the playoffs.
       </p>
-      <div class="sync-inputs">
-        <label>
-          Save game season ID
-          <input v-model.number="seasonID" type="number" min="1" placeholder="e.g. 100" />
-        </label>
-        <label>
-          Season number (display)
-          <input v-model.number="seasonNum" type="number" min="1" placeholder="e.g. 1" />
-        </label>
-      </div>
       <p v-if="syncError" class="error-text">{{ syncError }}</p>
       <div v-if="lastResult" class="sync-result">
-        <span>✓ Season {{ lastResult.seasonNum }} imported —</span>
+        <span>✓ Season {{ lastResult.seasonNum }} synced —</span>
         <span>{{ lastResult.players }} players,</span>
         <span>{{ lastResult.teams }} teams,</span>
         <span>{{ lastResult.games }} games</span>
@@ -166,7 +149,7 @@ onMounted(loadDashboardData)
         {{ syncing ? 'Syncing…' : 'Sync Season' }}
       </AppButton>
       <p v-if="!franchiseStore.active?.saveFilePath" class="hint-text">
-        No save file path configured for this franchise.
+        No save file configured. Edit this franchise to connect a save file.
       </p>
     </section>
 
@@ -276,32 +259,6 @@ h3 {
   line-height: 1.5;
 }
 
-.sync-inputs {
-  display: flex;
-  gap: 1rem;
-}
-
-.sync-inputs label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-  flex: 1;
-}
-
-.sync-inputs input {
-  padding: 0.4rem 0.625rem;
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  color: var(--color-text-primary);
-  font-size: 0.9375rem;
-  font-family: var(--font-mono);
-  outline: none;
-}
-
-.sync-inputs input:focus { border-color: var(--color-accent); }
 
 .sync-result {
   display: flex;

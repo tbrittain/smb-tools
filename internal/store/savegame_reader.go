@@ -50,6 +50,11 @@ type SaveGameReader interface {
 	// currently active pitchers.
 	GetCareerPitchingStats(ctx context.Context) ([]models.SaveGamePitchingStat, error)
 
+	// GetCurrentSeason returns the most recent season for the franchise
+	// identified by leagueGUID. If leagueGUID is empty (SMB3 single-league
+	// saves), returns the latest season across all franchise seasons.
+	GetCurrentSeason(ctx context.Context, leagueGUID string) (models.SaveGameSeasonInfo, error)
+
 	// Close releases the underlying database connection.
 	Close() error
 }

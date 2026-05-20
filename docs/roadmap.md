@@ -40,6 +40,8 @@ Check off phases as they are completed. Individual phases will be broken into de
 - [x] Associate a franchise with an SMB save file + league GUID
 - [x] Franchise switching (close current DB, open selected)
 - [x] Basic franchise management UI (create new, select existing, last-used persistence)
+- [x] Save file auto-discovery: scan default paths, probe each .sav for league/franchise metadata (name, player team, season count) so user can identify the right file without a file browser
+- [x] Per-franchise save file re-indexing (ProbeFranchiseSaveFile) for live game state in the franchise list
 
 ---
 
@@ -54,6 +56,7 @@ Check off phases as they are completed. Individual phases will be broken into de
 - [ ] Franchise news events (skill changes, trait changes, trades, retirements — from `t_franchise_news_*` tables; requires new SaveGameReader methods and companion schema columns beyond the original companion app's scope; deferred until companion schema is finalized)
 - [ ] Team logo extraction (binary blob storage + rendering; deferred until Phase 5/6 when the UI that displays logos exists)
 - [x] Sync UI: trigger button, last-synced indicator, progress feedback
+- [x] Season auto-detection: SyncSeason reads the most recent season from the save game; user no longer needs to supply internal season IDs
 - [ ] Championship winner detection (post-import query over completed playoff data; deferred to Phase 5 where leaderboard queries will also be written)
 
 ---

@@ -5,6 +5,7 @@ import {
   DeleteFranchise,
   GetActiveFranchise,
   ListFranchises,
+  ProbeFranchiseSaveFile,
   RenameFranchise,
   SelectFranchise,
 } from '../../wailsjs/go/main/App'
@@ -30,10 +31,14 @@ export const useFranchiseStore = defineStore('franchise', () => {
     }
   }
 
-  async function createFranchise(name: string, gameVersion: string) {
-    const created = await CreateFranchise(name, gameVersion)
+  async function createFranchise(name: string, gameVersion: string, saveFilePath: string, leagueGUID: string) {
+    const created = await CreateFranchise(name, gameVersion, saveFilePath, leagueGUID)
     franchises.value = [...franchises.value, created]
     return created
+  }
+
+  async function probeSaveFile(franchiseID: string): Promise<main.SaveFileCandidateDTO> {
+    return ProbeFranchiseSaveFile(franchiseID)
   }
 
   async function selectFranchise(id: string) {
@@ -68,5 +73,6 @@ export const useFranchiseStore = defineStore('franchise', () => {
     selectFranchise,
     renameFranchise,
     deleteFranchise,
+    probeSaveFile,
   }
 })

@@ -38,15 +38,17 @@ func createSaveGameSchema(db *sql.DB) error {
 		CREATE TABLE t_leagues (
 			leagueId          INTEGER PRIMARY KEY NOT NULL,
 			leagueName        TEXT NOT NULL,
-			leagueTeamTypeId  INTEGER NOT NULL
+			leagueTeamTypeId  INTEGER NOT NULL,
+			GUID              BLOB
 		);
 		CREATE TABLE t_team_types (
 			teamType  INTEGER PRIMARY KEY NOT NULL,
 			typeName  TEXT NOT NULL
 		);
 		CREATE TABLE t_franchise (
-			franchiseId   INTEGER PRIMARY KEY NOT NULL,
-			leagueId      INTEGER NOT NULL REFERENCES t_leagues(leagueId)
+			franchiseId     INTEGER PRIMARY KEY NOT NULL,
+			leagueId        INTEGER NOT NULL REFERENCES t_leagues(leagueId),
+			playerTeamGUID  BLOB
 		);
 		CREATE TABLE t_franchise_seasons (
 			seasonID     INTEGER PRIMARY KEY NOT NULL,
@@ -214,10 +216,12 @@ func seedSaveGameData(db *sql.DB) error {
 	_, err := db.Exec(`
 		INSERT INTO t_team_types (teamType, typeName) VALUES (1, 'franchise');
 
-		INSERT INTO t_leagues (leagueId, leagueName, leagueTeamTypeId)
-		VALUES (1, 'Test Franchise League', 1);
+		INSERT INTO t_leagues (leagueId, leagueName, leagueTeamTypeId, GUID)
+		VALUES (1, 'Test Franchise League', 1, X'EE000000000000000000000000000000');
 
-		INSERT INTO t_franchise (franchiseId, leagueId) VALUES (1, 1);
+		-- leagueId=1, playerTeamGUID is Home Squad (for display testing)
+		INSERT INTO t_franchise (franchiseId, leagueId, playerTeamGUID)
+		VALUES (1, 1, X'01000000000000000000000000000000');
 
 		-- Two seasons for multi-season tracking tests
 		INSERT INTO t_franchise_seasons (seasonID, franchiseId) VALUES (100, 1);

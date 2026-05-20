@@ -11,20 +11,29 @@ package models
 
 // SaveGameLeague represents a league entry from t_leagues in the SMB save game.
 type SaveGameLeague struct {
-	ID          int
-	Name        string
-	TeamTypeID  int
-	TypeName    string
-	FranchiseID *int
-	NumSeasons  int
-	Elimination bool
+	GUID           string // hex-encoded GUID blob; stable identifier for league association
+	ID             int
+	Name           string
+	TeamTypeID     int
+	TypeName       string
+	FranchiseID    *int
+	NumSeasons     int
+	PlayerTeamName string // non-empty only in franchise mode
 }
 
 // SaveGameFranchiseSeason represents one season in a franchise (t_franchise_seasons).
 type SaveGameFranchiseSeason struct {
-	SeasonID  int
-	SeasonNum int // computed rank within the franchise
+	SeasonID   int
+	SeasonNum  int // computed rank within the franchise
 	LeagueGUID string
+}
+
+// SaveGameSeasonInfo is the auto-detected current (most recent) season for a
+// franchise. Returned by SaveGameReader.GetCurrentSeason so the sync binding
+// never needs to ask the user for the internal season ID.
+type SaveGameSeasonInfo struct {
+	SeasonID  int
+	SeasonNum int
 }
 
 // SaveGamePlayer is a player snapshot from the most recent season, combining
