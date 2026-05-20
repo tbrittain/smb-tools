@@ -125,8 +125,8 @@ func createSaveGameSchema(db *sql.DB) error {
 			baseballPlayerLocalID INTEGER REFERENCES t_baseball_player_local_ids(localID),
 			firstName             TEXT,
 			lastName              TEXT,
-			primaryPosition       TEXT,
-			secondaryPosition     TEXT,
+			primaryPos            TEXT,
+			secondaryPos          TEXT,
 			pitcherRole           TEXT,
 			age                   INTEGER,
 			retirementSeason      INTEGER
@@ -305,7 +305,7 @@ func seedSaveGameData(db *sql.DB) error {
 
 		-- Batter (AA) — regular season; baseballPlayerLocalID = 1
 		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (1, 'Home Squad');
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPosition, age)
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPos, age)
 		VALUES (1, 1, 'Test', 'Batter', 'CF', 27);
 		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, gamesBatting, atBats, runs, hits, doubles, triples, homeruns, rbi, baseOnBalls, strikeOuts)
 		VALUES (1, 50, 50, 180, 30, 54, 10, 2, 12, 40, 20, 35);
@@ -313,7 +313,7 @@ func seedSaveGameData(db *sql.DB) error {
 
 		-- Pitcher (BB) — regular season; baseballPlayerLocalID = 2
 		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (2, 'Home Squad');
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPosition, pitcherRole, age)
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPos, pitcherRole, age)
 		VALUES (2, 2, 'Test', 'Pitcher', 'P', 'SP', 30);
 		INSERT INTO t_stats_pitching (aggregatorID, wins, losses, games, gamesStarted, outsPitched, hits, earnedRuns, homeRuns, baseOnBalls, strikeOuts, battersFaced, totalPitches)
 		VALUES (2, 12, 8, 25, 25, 540, 140, 55, 15, 40, 180, 740, 3200);
@@ -321,14 +321,14 @@ func seedSaveGameData(db *sql.DB) error {
 
 		-- Batter (AA) — playoff career stats aggregator
 		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (3, 'Home Squad');
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPosition, age)
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPos, age)
 		VALUES (3, 1, 'Test', 'Batter', 'CF', 27);
 		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, gamesBatting, atBats, hits, homeruns, rbi)
 		VALUES (3, 5, 5, 18, 6, 2, 5);
 
 		-- Pitcher (BB) — playoff career stats aggregator
 		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (4, 'Home Squad');
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPosition, pitcherRole, age)
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPos, pitcherRole, age)
 		VALUES (4, 2, 'Test', 'Pitcher', 'P', 'SP', 30);
 		INSERT INTO t_stats_pitching (aggregatorID, wins, losses, games, gamesStarted, outsPitched, hits, earnedRuns, strikeOuts)
 		VALUES (4, 2, 0, 2, 2, 54, 10, 3, 18);
@@ -366,14 +366,14 @@ func seedSaveGameData(db *sql.DB) error {
 		-- ── Season 101 stats (same players, second season) ────────────────────
 
 		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (5, 'Home Squad');
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPosition, age)
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPos, age)
 		VALUES (5, 1, 'Test', 'Batter', 'CF', 28);
 		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, gamesBatting, atBats, runs, hits, homeruns, rbi)
 		VALUES (5, 52, 52, 190, 35, 60, 15, 48);
 		INSERT INTO t_season_stats (aggregatorID, seasonID) VALUES (5, 101);
 
 		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (6, 'Home Squad');
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPosition, pitcherRole, age)
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPos, pitcherRole, age)
 		VALUES (6, 2, 'Test', 'Pitcher', 'P', 'SP', 31);
 		INSERT INTO t_stats_pitching (aggregatorID, wins, losses, games, gamesStarted, outsPitched, hits, earnedRuns, strikeOuts)
 		VALUES (6, 14, 7, 25, 25, 570, 130, 50, 195);
