@@ -1,11 +1,24 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
-import { SyncSeason } from '../../wailsjs/go/main/App'
+import { computed, onMounted, ref, watch } from 'vue'
+import {
+  GetCareerLeaders,
+  GetSeasonList,
+  GetSeasonStatLeaders,
+  GetStandings,
+  SyncSeason,
+} from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppButton from '../components/AppButton.vue'
+import CareerLeadersPanel from '../components/CareerLeadersPanel.vue'
+import LoadingSpinner from '../components/LoadingSpinner.vue'
+import SeasonSelector from '../components/SeasonSelector.vue'
+import StandingsTable from '../components/StandingsTable.vue'
+import StatLeadersPanel from '../components/StatLeadersPanel.vue'
 import { useFranchiseStore } from '../stores/franchise'
 
 const franchiseStore = useFranchiseStore()
+
+// ── Sync form ────────────────────────────────────────────────────────────────
 
 const seasonID = ref<number>(0)
 const seasonNum = ref<number>(1)
@@ -23,16 +36,85 @@ async function handleSync() {
   lastResult.value = null
   try {
     lastResult.value = await SyncSeason(seasonID.value, seasonNum.value)
-    // Refresh the active franchise to show updated last-synced
     if (franchiseStore.active) {
       await franchiseStore.selectFranchise(franchiseStore.active.id)
     }
+    // Refresh stats after sync
+    await loadDashboardData()
   } catch (e) {
     syncError.value = String(e)
   } finally {
     syncing.value = false
   }
 }
+
+// ── Dashboard data ───────────────────────────────────────────────────────────
+
+const seasons = ref<main.SeasonSummaryDTO[]>([])
+const selectedSeasonID = ref<number | null>(null)
+const standings = ref<main.TeamStandingDTO[]>([])
+const statLeaders = ref<main.StatLeadersDTO | null>(null)
+const careerLeaders = ref<main.CareerLeadersDTO | null>(null)
+
+const loadingSeasons = ref(false)
+const loadingStandings = ref(false)
+const loadingLeaders = ref(false)
+const loadingCareer = ref(false)
+const dataError = ref<string | null>(null)
+
+const mostRecentSeason = computed(() => (seasons.value.length > 0 ? seasons.value[seasons.value.length - 1] : null))
+
+async function loadDashboardData() {
+  loadingSeasons.value = true
+  dataError.value = null
+  try {
+    seasons.value = await GetSeasonList()
+    if (seasons.value.length > 0 && selectedSeasonID.value === null) {
+      selectedSeasonID.value = seasons.value[seasons.value.length - 1].id
+    }
+    await Promise.all([loadSeasonData(), loadCareer()])
+  } catch (e) {
+    dataError.value = String(e)
+  } finally {
+    loadingSeasons.value = false
+  }
+}
+
+async function loadSeasonData() {
+  if (selectedSeasonID.value === null) return
+  loadingStandings.value = true
+  loadingLeaders.value = true
+  try {
+    const [s, l] = await Promise.all([
+      GetStandings(selectedSeasonID.value),
+      GetSeasonStatLeaders(selectedSeasonID.value),
+    ])
+    standings.value = s
+    statLeaders.value = l
+  } catch (e) {
+    dataError.value = String(e)
+  } finally {
+    loadingStandings.value = false
+    loadingLeaders.value = false
+  }
+}
+
+async function loadCareer() {
+  loadingCareer.value = true
+  try {
+    careerLeaders.value = await GetCareerLeaders()
+  } catch (e) {
+    dataError.value = String(e)
+  } finally {
+    loadingCareer.value = false
+  }
+}
+
+watch(selectedSeasonID, (id) => {
+  if (id !== null) loadSeasonData()
+})
+
+onMounted(loadDashboardData)
 </script>
 
 <template>
@@ -48,16 +130,16 @@ async function handleSync() {
       </span>
     </header>
 
+    <p v-if="dataError" class="error-text">{{ dataError }}</p>
+
+    <!-- Sync form -->
     <section class="sync-section">
       <h3>Sync Season</h3>
       <p class="sync-help">
-        Import a season directly from the save game file. You can sync at any
-        point during the season — syncing is safe to run multiple times and
-        will always reflect the latest state of the save. For best results,
-        run once more before simulating the offseason to capture final stats
-        before the game compacts historical data.
+        Import a season from the save game. Safe to run multiple times — always
+        reflects the latest save state. For best results, sync once more before
+        simulating the offseason to capture final stats.
       </p>
-
       <div class="sync-inputs">
         <label>
           Save game season ID
@@ -68,9 +150,7 @@ async function handleSync() {
           <input v-model.number="seasonNum" type="number" min="1" placeholder="e.g. 1" />
         </label>
       </div>
-
       <p v-if="syncError" class="error-text">{{ syncError }}</p>
-
       <div v-if="lastResult" class="sync-result">
         <span>✓ Season {{ lastResult.seasonNum }} imported —</span>
         <span>{{ lastResult.players }} players,</span>
@@ -78,7 +158,6 @@ async function handleSync() {
         <span>{{ lastResult.games }} games</span>
         <span v-if="lastResult.playoffGames">, {{ lastResult.playoffGames }} playoff games</span>
       </div>
-
       <AppButton
         variant="primary"
         :disabled="syncing || !franchiseStore.active?.saveFilePath"
@@ -86,16 +165,63 @@ async function handleSync() {
       >
         {{ syncing ? 'Syncing…' : 'Sync Season' }}
       </AppButton>
-
       <p v-if="!franchiseStore.active?.saveFilePath" class="hint-text">
         No save file path configured for this franchise.
       </p>
     </section>
 
-    <section class="placeholder-section">
-      <p class="placeholder">
-        Franchise stats and leaderboards — coming in Phase 5.
-      </p>
+    <!-- Stats only shown once at least one season is synced -->
+    <template v-if="seasons.length > 0">
+
+      <!-- Season summary bar -->
+      <div v-if="mostRecentSeason" class="summary-bar">
+        <div class="summary-item">
+          <span class="summary-label">Seasons</span>
+          <span class="summary-val">{{ seasons.length }}</span>
+        </div>
+        <div v-if="mostRecentSeason.championTeamName" class="summary-item">
+          <span class="summary-label">Last Champion</span>
+          <span class="summary-val">{{ mostRecentSeason.championTeamName }}</span>
+        </div>
+      </div>
+
+      <!-- Season picker + stat leaders -->
+      <section class="section">
+        <div class="section-header">
+          <h3>Season Leaders</h3>
+          <SeasonSelector
+            v-model="selectedSeasonID"
+            :seasons="seasons"
+          />
+        </div>
+        <StatLeadersPanel
+          :leaders="statLeaders"
+          :loading="loadingLeaders"
+        />
+      </section>
+
+      <!-- Career leaders -->
+      <section class="section">
+        <h3>All-Time Leaders</h3>
+        <LoadingSpinner v-if="loadingCareer" />
+        <CareerLeadersPanel v-else :leaders="careerLeaders" />
+      </section>
+
+      <!-- Standings -->
+      <section class="section">
+        <div class="section-header">
+          <h3>Standings</h3>
+        </div>
+        <LoadingSpinner v-if="loadingStandings" />
+        <StandingsTable v-else :standings="standings" />
+      </section>
+
+    </template>
+
+    <LoadingSpinner v-else-if="loadingSeasons" />
+
+    <section v-else class="placeholder-section">
+      <p class="placeholder">Sync your first season to see franchise stats.</p>
     </section>
   </div>
 </template>
@@ -106,6 +232,7 @@ async function handleSync() {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  max-width: 1000px;
 }
 
 .page-header {
@@ -118,6 +245,13 @@ h2 {
   font-size: 1.4rem;
   font-weight: 600;
   color: var(--color-text-primary);
+}
+
+h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
 }
 
 .last-synced {
@@ -134,12 +268,6 @@ h2 {
   flex-direction: column;
   gap: 1rem;
   max-width: 520px;
-}
-
-h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
 }
 
 .sync-help {
@@ -173,9 +301,7 @@ h3 {
   outline: none;
 }
 
-.sync-inputs input:focus {
-  border-color: var(--color-accent);
-}
+.sync-inputs input:focus { border-color: var(--color-accent); }
 
 .sync-result {
   display: flex;
@@ -185,22 +311,46 @@ h3 {
   flex-wrap: wrap;
 }
 
-.error-text {
-  font-size: 0.875rem;
-  color: var(--color-error);
+.error-text { font-size: 0.875rem; color: var(--color-error); }
+.hint-text  { font-size: 0.8125rem; color: var(--color-text-secondary); }
+
+.summary-bar {
+  display: flex;
+  gap: 2rem;
 }
 
-.hint-text {
-  font-size: 0.8125rem;
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.summary-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--color-text-secondary);
 }
 
-.placeholder-section {
-  padding: 1rem 0;
+.summary-val {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
 }
 
-.placeholder {
-  color: var(--color-text-secondary);
-  font-size: 0.9375rem;
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
 }
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.placeholder-section { padding: 1rem 0; }
+.placeholder { color: var(--color-text-secondary); font-size: 0.9375rem; }
 </style>

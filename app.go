@@ -39,6 +39,11 @@ type App struct {
 	franchiseStore   *store.FranchiseStore
 	franchiseService *service.FranchiseService
 	importService    *service.ImportService
+	// Read-side query stores — initialised when a franchise is selected,
+	// cleared when it is deselected or switched.
+	seasonQueryStore *store.SeasonQueryStore
+	playerQueryStore *store.PlayerQueryStore
+	teamQueryStore   *store.TeamQueryStore
 }
 
 func NewApp(version string) *App {
@@ -120,13 +125,16 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 		return FranchiseDTO{}, fmt.Errorf("app not initialized")
 	}
 
-	// Close previous companion DB
+	// Close previous companion DB and clear query stores
 	if a.companionDB != nil {
 		if err := a.companionDB.Close(); err != nil {
 			log.Printf("SelectFranchise: closing previous companion DB: %v", err)
 		}
 		a.companionDB = nil
 		a.activeFranchise = nil
+		a.seasonQueryStore = nil
+		a.playerQueryStore = nil
+		a.teamQueryStore = nil
 	}
 
 	companionDB, f, err := a.franchiseService.OpenFranchise(a.ctx, id)
@@ -135,6 +143,9 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 	}
 	a.companionDB = companionDB
 	a.activeFranchise = &f
+	a.seasonQueryStore = store.NewSeasonQueryStore(companionDB)
+	a.playerQueryStore = store.NewPlayerQueryStore(companionDB)
+	a.teamQueryStore = store.NewTeamQueryStore(companionDB)
 	return franchiseToDTO(f), nil
 }
 
@@ -231,8 +242,372 @@ func (a *App) DeleteFranchise(id string) error {
 			a.companionDB = nil
 		}
 		a.activeFranchise = nil
+		a.seasonQueryStore = nil
+		a.playerQueryStore = nil
+		a.teamQueryStore = nil
 	}
 	return a.franchiseService.DeleteFranchise(a.ctx, id)
+}
+
+// ---- Phase 5 query bindings ------------------------------------------------
+
+func (a *App) requireCompanionDB() error {
+	if a.companionDB == nil {
+		return fmt.Errorf("no active franchise selected")
+	}
+	return nil
+}
+
+// GetSeasonList returns all synced seasons with champion information.
+func (a *App) GetSeasonList() ([]SeasonSummaryDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	seasons, err := a.seasonQueryStore.ListWithChampion(a.ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]SeasonSummaryDTO, len(seasons))
+	for i, s := range seasons {
+		out[i] = SeasonSummaryDTO{
+			ID:                s.ID,
+			SeasonNum:         s.SeasonNum,
+			NumGames:          s.NumGames,
+			ImportedAt:        s.ImportedAt.Format("2006-01-02T15:04:05Z"),
+			ChampionTeamName:  s.ChampionTeamName,
+			ChampionHistoryID: s.ChampionHistoryID,
+		}
+	}
+	return out, nil
+}
+
+// GetStandings returns all teams' standings for the given season.
+func (a *App) GetStandings(seasonID int) ([]TeamStandingDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	rows, err := a.seasonQueryStore.GetStandings(a.ctx, seasonID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]TeamStandingDTO, len(rows))
+	for i, r := range rows {
+		out[i] = TeamStandingDTO{
+			HistoryID:      r.HistoryID,
+			TeamID:         r.TeamID,
+			TeamName:       r.TeamName,
+			DivisionName:   r.DivisionName,
+			ConferenceName: r.ConferenceName,
+			Wins:           r.Wins,
+			Losses:         r.Losses,
+			WinPct:         r.WinPct,
+			GamesBack:      r.GamesBack,
+			RunsFor:        r.RunsFor,
+			RunsAgainst:    r.RunsAgainst,
+			RunDiff:        r.RunDiff,
+			PlayoffSeed:    r.PlayoffSeed,
+		}
+	}
+	return out, nil
+}
+
+// GetSeasonStatLeaders returns the six title-leader categories for a season.
+func (a *App) GetSeasonStatLeaders(seasonID int) (StatLeadersDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return StatLeadersDTO{}, err
+	}
+	l, err := a.seasonQueryStore.GetSeasonStatLeaders(a.ctx, seasonID)
+	if err != nil {
+		return StatLeadersDTO{}, err
+	}
+	toDTO := func(sl *models.StatLeader) *StatLeaderDTO {
+		if sl == nil {
+			return nil
+		}
+		return &StatLeaderDTO{
+			PlayerID:  sl.PlayerID,
+			FirstName: sl.FirstName,
+			LastName:  sl.LastName,
+			TeamName:  sl.TeamName,
+			StatValue: sl.StatValue,
+		}
+	}
+	return StatLeadersDTO{
+		SeasonNum:  l.SeasonNum,
+		BA:         toDTO(l.BA),
+		HR:         toDTO(l.HR),
+		RBI:        toDTO(l.RBI),
+		ERA:        toDTO(l.ERA),
+		Wins:       toDTO(l.Wins),
+		Strikeouts: toDTO(l.Strikeouts),
+	}, nil
+}
+
+// GetCareerLeaders returns the top-5 all-time career leaders for each category.
+func (a *App) GetCareerLeaders() (CareerLeadersDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return CareerLeadersDTO{}, err
+	}
+	cl, err := a.seasonQueryStore.GetCareerLeaders(a.ctx)
+	if err != nil {
+		return CareerLeadersDTO{}, err
+	}
+	toSlice := func(rows []models.CareerLeaderRow) []CareerLeaderDTO {
+		out := make([]CareerLeaderDTO, len(rows))
+		for i, r := range rows {
+			out[i] = CareerLeaderDTO{
+				PlayerID:      r.PlayerID,
+				FirstName:     r.FirstName,
+				LastName:      r.LastName,
+				StatValue:     r.StatValue,
+				SeasonsPlayed: r.SeasonsPlayed,
+			}
+		}
+		return out
+	}
+	return CareerLeadersDTO{
+		HR:         toSlice(cl.HR),
+		Hits:       toSlice(cl.Hits),
+		RBI:        toSlice(cl.RBI),
+		Wins:       toSlice(cl.Wins),
+		Strikeouts: toSlice(cl.Strikeouts),
+		Saves:      toSlice(cl.Saves),
+	}, nil
+}
+
+// SearchPlayers returns up to 50 players matching the query string.
+func (a *App) SearchPlayers(query string) ([]PlayerSearchResultDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	results, err := a.playerQueryStore.SearchPlayers(a.ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PlayerSearchResultDTO, len(results))
+	for i, r := range results {
+		out[i] = PlayerSearchResultDTO{
+			PlayerID:      r.PlayerID,
+			FirstName:     r.FirstName,
+			LastName:      r.LastName,
+			IsHallOfFamer: r.IsHallOfFamer,
+			SeasonsPlayed: r.SeasonsPlayed,
+			FirstSeason:   r.FirstSeason,
+			LastSeason:    r.LastSeason,
+		}
+	}
+	return out, nil
+}
+
+// SearchTeams returns up to 50 teams matching the query string.
+func (a *App) SearchTeams(query string) ([]TeamSearchResultDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	results, err := a.teamQueryStore.SearchTeams(a.ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]TeamSearchResultDTO, len(results))
+	for i, r := range results {
+		out[i] = TeamSearchResultDTO{
+			TeamID:      r.TeamID,
+			TeamName:    r.TeamName,
+			Seasons:     r.Seasons,
+			FirstSeason: r.FirstSeason,
+			LastSeason:  r.LastSeason,
+		}
+	}
+	return out, nil
+}
+
+// GetPlayerCareer returns a player's bio and career regular-season totals.
+// Rate stats (BA, OBP, ERA, etc.) are computed before returning.
+func (a *App) GetPlayerCareer(playerID int64) (PlayerCareerDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return PlayerCareerDTO{}, err
+	}
+	career, err := a.playerQueryStore.GetPlayerCareer(a.ctx, playerID)
+	if err != nil {
+		return PlayerCareerDTO{}, err
+	}
+	if career.Batting != nil {
+		service.ComputeBattingRates(career.Batting)
+	}
+	if career.Pitching != nil {
+		service.ComputePitchingRates(career.Pitching)
+	}
+	return PlayerCareerDTO{
+		PlayerID:      career.PlayerID,
+		FirstName:     career.FirstName,
+		LastName:      career.LastName,
+		IsHallOfFamer: career.IsHallOfFamer,
+		Batting:       battingToDTO(career.Batting),
+		Pitching:      pitchingToDTO(career.Pitching),
+	}, nil
+}
+
+// GetPlayerSeasonLog returns a player's season-by-season regular and playoff
+// stats. Rate stats are computed on each row before returning.
+func (a *App) GetPlayerSeasonLog(playerID int64) ([]PlayerSeasonLogDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	rows, err := a.playerQueryStore.GetPlayerSeasonLog(a.ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PlayerSeasonLogDTO, len(rows))
+	for i, r := range rows {
+		for _, b := range []*models.CareerBattingStats{r.Batting, r.PlayoffBatting} {
+			if b != nil {
+				service.ComputeBattingRates(b)
+			}
+		}
+		for _, p := range []*models.CareerPitchingStats{r.Pitching, r.PlayoffPitching} {
+			if p != nil {
+				service.ComputePitchingRates(p)
+			}
+		}
+		out[i] = PlayerSeasonLogDTO{
+			SeasonNum:         r.SeasonNum,
+			SeasonID:          r.SeasonID,
+			TeamName:          r.TeamName,
+			Age:               r.Age,
+			Salary:            r.Salary,
+			PrimaryPosition:   r.PrimaryPosition,
+			SecondaryPosition: r.SecondaryPosition,
+			PitcherRole:       r.PitcherRole,
+			BatHand:           r.BatHand,
+			ThrowHand:         r.ThrowHand,
+			ChemistryType:     r.ChemistryType,
+			TraitsJSON:        r.TraitsJSON,
+			PitchesJSON:       r.PitchesJSON,
+			Power:             r.Power,
+			Contact:           r.Contact,
+			Speed:             r.Speed,
+			Fielding:          r.Fielding,
+			Arm:               r.Arm,
+			Velocity:          r.Velocity,
+			Junk:              r.Junk,
+			Accuracy:          r.Accuracy,
+			Batting:           battingToDTO(r.Batting),
+			Pitching:          pitchingToDTO(r.Pitching),
+			PlayoffBatting:    battingToDTO(r.PlayoffBatting),
+			PlayoffPitching:   pitchingToDTO(r.PlayoffPitching),
+		}
+	}
+	return out, nil
+}
+
+// GetTeamHistory returns all seasons played by a team with champion flags.
+func (a *App) GetTeamHistory(teamID int64) (TeamHistoryDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return TeamHistoryDTO{}, err
+	}
+	th, err := a.teamQueryStore.GetTeamHistory(a.ctx, teamID)
+	if err != nil {
+		return TeamHistoryDTO{}, err
+	}
+	seasons := make([]TeamSeasonSummaryDTO, len(th.Seasons))
+	for i, s := range th.Seasons {
+		seasons[i] = teamSeasonSummaryToDTO(s)
+	}
+	return TeamHistoryDTO{
+		TeamID:   th.TeamID,
+		GameGUID: th.GameGUID,
+		Seasons:  seasons,
+	}, nil
+}
+
+// GetTeamSeasonDetail returns the roster, schedule, and playoff results for one
+// team season. Rate stats are computed on roster players before returning.
+// Only teamHistoryID is required — seasonID is derived from the team summary.
+func (a *App) GetTeamSeasonDetail(teamHistoryID int64) (TeamSeasonDetailDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return TeamSeasonDetailDTO{}, err
+	}
+
+	teamSummary, err := a.teamQueryStore.GetTeamSeasonSummaryByHistoryID(a.ctx, teamHistoryID)
+	if err != nil {
+		return TeamSeasonDetailDTO{}, fmt.Errorf("team summary: %w", err)
+	}
+	seasonID := teamSummary.SeasonID
+
+	roster, err := a.teamQueryStore.GetTeamSeasonRoster(a.ctx, teamHistoryID)
+	if err != nil {
+		return TeamSeasonDetailDTO{}, fmt.Errorf("roster: %w", err)
+	}
+	for i := range roster {
+		if roster[i].Batting != nil {
+			service.ComputeBattingRates(roster[i].Batting)
+		}
+		if roster[i].Pitching != nil {
+			service.ComputePitchingRates(roster[i].Pitching)
+		}
+	}
+
+	schedule, err := a.teamQueryStore.GetTeamSeasonSchedule(a.ctx, teamHistoryID, seasonID)
+	if err != nil {
+		return TeamSeasonDetailDTO{}, fmt.Errorf("schedule: %w", err)
+	}
+
+	playoffs, err := a.teamQueryStore.GetTeamSeasonPlayoffSchedule(a.ctx, teamHistoryID, seasonID)
+	if err != nil {
+		return TeamSeasonDetailDTO{}, fmt.Errorf("playoff schedule: %w", err)
+	}
+
+	rosterDTOs := make([]RosterPlayerDTO, len(roster))
+	for i, r := range roster {
+		rosterDTOs[i] = rosterPlayerToDTO(r)
+	}
+	scheduleDTOs := make([]ScheduleGameDTO, len(schedule))
+	for i, g := range schedule {
+		scheduleDTOs[i] = scheduleGameToDTO(g)
+	}
+	playoffDTOs := make([]PlayoffGameDTO, len(playoffs))
+	for i, g := range playoffs {
+		playoffDTOs[i] = playoffGameToDTO(g)
+	}
+
+	return TeamSeasonDetailDTO{
+		Team:     teamSeasonSummaryToDTO(teamSummary),
+		Roster:   rosterDTOs,
+		Schedule: scheduleDTOs,
+		Playoffs: playoffDTOs,
+	}, nil
+}
+
+// ListAllTeamSeasons returns every team-season for the historical teams page.
+func (a *App) ListAllTeamSeasons() ([]TeamSeasonListDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	rows, err := a.teamQueryStore.ListAllTeamSeasons(a.ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]TeamSeasonListDTO, len(rows))
+	for i, r := range rows {
+		out[i] = TeamSeasonListDTO{
+			SeasonNum:      r.SeasonNum,
+			HistoryID:      r.HistoryID,
+			TeamID:         r.TeamID,
+			TeamName:       r.TeamName,
+			ConferenceName: r.ConferenceName,
+			DivisionName:   r.DivisionName,
+			Wins:           r.Wins,
+			Losses:         r.Losses,
+			WinPct:         r.WinPct,
+			RunsFor:        r.RunsFor,
+			RunsAgainst:    r.RunsAgainst,
+			PlayoffSeed:    r.PlayoffSeed,
+			PlayoffWins:    r.PlayoffWins,
+			PlayoffLosses:  r.PlayoffLosses,
+			IsChampion:     r.IsChampion,
+		}
+	}
+	return out, nil
 }
 
 // ---- helpers ---------------------------------------------------------------

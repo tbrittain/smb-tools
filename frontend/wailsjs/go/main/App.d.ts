@@ -8,11 +8,33 @@ export function DeleteFranchise(arg1:string):Promise<void>;
 
 export function GetActiveFranchise():Promise<main.FranchiseDTO>;
 
+export function GetCareerLeaders():Promise<main.CareerLeadersDTO>;
+
+export function GetPlayerCareer(arg1:number):Promise<main.PlayerCareerDTO>;
+
+export function GetPlayerSeasonLog(arg1:number):Promise<Array<main.PlayerSeasonLogDTO>>;
+
+export function GetSeasonList():Promise<Array<main.SeasonSummaryDTO>>;
+
+export function GetSeasonStatLeaders(arg1:number):Promise<main.StatLeadersDTO>;
+
+export function GetStandings(arg1:number):Promise<Array<main.TeamStandingDTO>>;
+
+export function GetTeamHistory(arg1:number):Promise<main.TeamHistoryDTO>;
+
+export function GetTeamSeasonDetail(arg1:number):Promise<main.TeamSeasonDetailDTO>;
+
 export function GetVersion():Promise<string>;
+
+export function ListAllTeamSeasons():Promise<Array<main.TeamSeasonListDTO>>;
 
 export function ListFranchises():Promise<Array<main.FranchiseDTO>>;
 
 export function RenameFranchise(arg1:string,arg2:string):Promise<void>;
+
+export function SearchPlayers(arg1:string):Promise<Array<main.PlayerSearchResultDTO>>;
+
+export function SearchTeams(arg1:string):Promise<Array<main.TeamSearchResultDTO>>;
 
 export function SelectFranchise(arg1:string):Promise<main.FranchiseDTO>;
 

@@ -1,11 +1,21 @@
+import '@fontsource/ibm-plex-sans/400.css'
+import '@fontsource/ibm-plex-sans/600.css'
+import '@fontsource/ibm-plex-mono/400.css'
 import Aura from '@primeuix/themes/aura'
 import PrimeVue from 'primevue/config'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import type { Preview } from '@storybook/vue3-vite'
 import { setup } from '@storybook/vue3-vite'
 import '../src/assets/tokens.css'
 import '../src/style.css'
 
-// Register PrimeVue globally so any story using PrimeVue components works
+
+// Minimal router so RouterLink works in stories without throwing
+const storybookRouter = createRouter({
+  history: createMemoryHistory(),
+  routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div />' } }],
+})
+
 setup((app) => {
   app.use(PrimeVue, {
     theme: {
@@ -16,6 +26,7 @@ setup((app) => {
       },
     },
   })
+  app.use(storybookRouter)
 })
 
 const preview: Preview = {

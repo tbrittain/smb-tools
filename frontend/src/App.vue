@@ -74,7 +74,8 @@ async function handleSelect(id: string) {
         </div>
         <nav class="sidebar-nav">
           <router-link to="/">Dashboard</router-link>
-          <!-- Additional nav items added in Phase 5-6 -->
+          <router-link to="/teams">Teams</router-link>
+          <router-link to="/search">Search</router-link>
         </nav>
         <div class="sidebar-footer">
           <span class="active-franchise-name">{{ franchiseStore.active.name }}</span>
