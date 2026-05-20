@@ -1,5 +1,4 @@
 // Domain constants for Super Mega Baseball player attributes.
-// Use `as const` so callers can derive literal union types if needed.
 
 export const BATTING_POSITIONS = ['C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH'] as const
 export const PITCHING_ROLES = ['SP', 'RP', 'CL'] as const
