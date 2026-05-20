@@ -129,9 +129,10 @@ onMounted(loadDashboardData)
     <section class="sync-section">
       <h3>Sync Season</h3>
       <p class="sync-help">
-        Reads the latest season from your save file. Safe to run multiple times —
-        always reflects the current save state. For best results, sync after the
-        regular season ends and again after the playoffs.
+        Reads the current season from your save file. Sync once after the regular
+        season ends, then again after the playoffs conclude —
+        <strong>before</strong> progressing to the offseason. Advancing to the
+        offseason triggers in-game data compaction that can cause stat loss.
       </p>
       <p v-if="syncError" class="error-text">{{ syncError }}</p>
       <div v-if="lastResult" class="sync-result">

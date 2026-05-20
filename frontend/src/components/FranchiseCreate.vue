@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref } from 'vue'
 import { BrowseSaveFile, GetSaveFileCandidates, ProbeLeagues } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppButton from './AppButton.vue'
@@ -9,10 +9,12 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
+// SMB3 support is deferred — only SMB4 is available for now.
+const GAME_VERSION = 'smb4'
+
 // ── Form state ───────────────────────────────────────────────────────────────
 
 const name = ref('')
-const gameVersion = ref('smb4')
 
 // ── Save file discovery ───────────────────────────────────────────────────────
 
@@ -33,9 +35,10 @@ onMounted(discoverSaveFiles)
 async function discoverSaveFiles() {
   loadingCandidates.value = true
   try {
-    candidates.value = await GetSaveFileCandidates()
-    // Auto-select the first franchise candidate that matches the chosen game version
-    const match = candidates.value.find((c) => c.isFranchise && c.gameVersion === gameVersion.value)
+    const all = await GetSaveFileCandidates()
+    // Only show SMB4 save files — SMB3 support is deferred
+    candidates.value = all.filter((c) => c.gameVersion === GAME_VERSION)
+    const match = candidates.value.find((c) => c.isFranchise)
     if (match) {
       await selectCandidate(match.path)
     }
@@ -45,14 +48,6 @@ async function discoverSaveFiles() {
     loadingCandidates.value = false
   }
 }
-
-// Re-run auto-select when game version changes
-watch(gameVersion, () => {
-  const match = candidates.value.find((c) => c.isFranchise && c.gameVersion === gameVersion.value)
-  if (match && match.path !== selectedPath.value) {
-    selectCandidate(match.path)
-  }
-})
 
 async function selectCandidate(path: string) {
   selectedPath.value = path
@@ -65,7 +60,7 @@ async function selectCandidate(path: string) {
     if (leagues.length > 0) {
       const league = leagues[0]
       selectedLeagueGUID.value = league.leagueGUID
-      probeResult.value = { ...league, path, gameVersion: gameVersion.value }
+      probeResult.value = { ...league, path, gameVersion: GAME_VERSION }
     }
   } catch {
     // Non-fatal — can proceed without league detail
@@ -83,7 +78,7 @@ async function handleBrowse() {
       if (!candidates.value.find((c) => c.path === path)) {
         const entry: main.SaveFileCandidateDTO = probeResult.value ?? {
           path,
-          gameVersion: gameVersion.value,
+          gameVersion: GAME_VERSION,
           leagueName: '',
           numSeasons: 0,
           isFranchise: false,
@@ -106,7 +101,7 @@ async function handleSubmit() {
   }
   submitting.value = true
   try {
-    emit('create', name.value.trim(), gameVersion.value, selectedPath.value, selectedLeagueGUID.value)
+    emit('create', name.value.trim(), GAME_VERSION, selectedPath.value, selectedLeagueGUID.value)
   } finally {
     submitting.value = false
   }
@@ -139,21 +134,6 @@ function displayLabel(c: main.SaveFileCandidateDTO): string {
         autocomplete="off"
         @keyup.enter="handleSubmit"
       />
-    </div>
-
-    <!-- Game version -->
-    <div class="field">
-      <label>Game Version</label>
-      <div class="radio-group">
-        <label class="radio-option">
-          <input v-model="gameVersion" type="radio" value="smb4" />
-          Super Mega Baseball 4
-        </label>
-        <label class="radio-option">
-          <input v-model="gameVersion" type="radio" value="smb3" />
-          Super Mega Baseball 3
-        </label>
-      </div>
     </div>
 
     <!-- Save file -->
@@ -260,21 +240,6 @@ input[type='text'] {
 
 input[type='text']:focus {
   border-color: var(--color-accent);
-}
-
-.radio-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.radio-option {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9375rem;
-  color: var(--color-text-primary);
-  cursor: pointer;
 }
 
 /* Candidate list */
