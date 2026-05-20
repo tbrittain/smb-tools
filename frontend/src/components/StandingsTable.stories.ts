@@ -33,7 +33,7 @@ const row = (
   runsFor: rf,
   runsAgainst: ra,
   runDiff: rf - ra,
-  playoffSeed: seed ?? null,
+  playoffSeed: seed,
 })
 
 const standings = [

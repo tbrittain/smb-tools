@@ -3,8 +3,8 @@ import type { main } from '../../wailsjs/go/models'
 import { formatBA, formatERA, formatIP, formatK9, formatWHIP } from '../composables/useStatFormatters'
 
 defineProps<{
-  batting: main.CareerBattingStatsDTO | null
-  pitching: main.CareerPitchingStatsDTO | null
+  batting: main.CareerBattingStatsDTO | null | undefined
+  pitching: main.CareerPitchingStatsDTO | null | undefined
 }>()
 </script>
 

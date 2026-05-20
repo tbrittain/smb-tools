@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
+import { main } from '../../wailsjs/go/models'
 import PlayerBioCard from './PlayerBioCard.vue'
 
 const meta: Meta<typeof PlayerBioCard> = {
@@ -9,16 +10,7 @@ export default meta
 
 type Story = StoryObj<typeof PlayerBioCard>
 
-const basePlayer = {
-  playerId: 1,
-  firstName: 'Barry',
-  lastName: 'Bonds',
-  isHallOfFamer: false,
-  batting: null,
-  pitching: null,
-}
-
-const baseSeason = {
+const baseSeason = new main.PlayerSeasonLogDTO({
   seasonNum: 8,
   seasonId: 8,
   teamName: 'Giants',
@@ -40,11 +32,14 @@ const baseSeason = {
   velocity: 0,
   junk: 0,
   accuracy: 0,
-  batting: null,
-  pitching: null,
-  playoffBatting: null,
-  playoffPitching: null,
-}
+})
+
+const basePlayer = new main.PlayerCareerDTO({
+  playerId: 1,
+  firstName: 'Barry',
+  lastName: 'Bonds',
+  isHallOfFamer: false,
+})
 
 export const PositionPlayer: Story = {
   args: { player: basePlayer, currentSeason: baseSeason },
@@ -52,15 +47,15 @@ export const PositionPlayer: Story = {
 
 export const HallOfFamer: Story = {
   args: {
-    player: { ...basePlayer, isHallOfFamer: true },
+    player: new main.PlayerCareerDTO({ ...basePlayer, isHallOfFamer: true }),
     currentSeason: baseSeason,
   },
 }
 
 export const Pitcher: Story = {
   args: {
-    player: { ...basePlayer, firstName: 'Randy', lastName: 'Johnson' },
-    currentSeason: {
+    player: new main.PlayerCareerDTO({ playerId: 2, firstName: 'Randy', lastName: 'Johnson', isHallOfFamer: false }),
+    currentSeason: new main.PlayerSeasonLogDTO({
       ...baseSeason,
       primaryPosition: 'P',
       secondaryPosition: '',
@@ -68,7 +63,7 @@ export const Pitcher: Story = {
       batHand: 'R',
       throwHand: 'L',
       teamName: 'Diamondbacks',
-    },
+    }),
   },
 }
 
