@@ -156,13 +156,13 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 		SELECT
 			hex(bp.GUID)                                  AS playerGUID,
 			? AS seasonID,
-			COALESCE(sp.firstName, '')                    AS firstName,
-			COALESCE(sp.lastName, '')                     AS lastName,
-			COALESCE(sp.primaryPos, '')              AS primaryPos,
-			COALESCE(sp.secondaryPos, '')            AS secondaryPos,
-			COALESCE(sp.pitcherRole, '')                  AS pitcherRole,
-			COALESCE(ct.teamName, '')                     AS currentTeam,
-			COALESCE(mrt.teamName, '')                    AS previousTeam,
+			COALESCE(vbpi.firstName,       sp.firstName, '')  AS firstName,
+			COALESCE(vbpi.lastName,        sp.lastName,  '')  AS lastName,
+			COALESCE(vbpi.primaryPosition, sp.primaryPos,'')  AS primaryPos,
+			COALESCE(sp.secondaryPos, '')                     AS secondaryPos,
+			COALESCE(vbpi.pitcherRole,     sp.pitcherRole,'') AS pitcherRole,
+			COALESCE(ct.teamName, '')                         AS currentTeam,
+			COALESCE(mrt.teamName, '')                        AS previousTeam,
 			COALESCE(bp.power, 0),
 			COALESCE(bp.contact, 0),
 			COALESCE(bp.speed, 0),
@@ -188,6 +188,7 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 		LEFT JOIN t_teams ct             ON ct.GUID        = ctli.GUID
 		LEFT JOIN t_team_local_ids mrtli ON mrtli.localID = st.mostRecentlyPlayedTeamLocalID
 		LEFT JOIN t_teams mrt            ON mrt.GUID       = mrtli.GUID
+		LEFT JOIN v_baseball_player_info vbpi ON vbpi.baseballPlayerGUID = bpli.GUID
 		LEFT JOIN t_salary s ON s.baseballPlayerGUID = bp.GUID
 		ORDER BY sp.lastName, sp.firstName
 	`, seasonID, seasonID)
@@ -389,7 +390,7 @@ func (r *SqliteSaveGameReader) queryBattingStats(ctx context.Context, joinClause
 		SELECT
 			st.aggregatorID,
 			COALESCE(hex(bpli.GUID), '') AS playerGUID,
-			COALESCE(sp.firstName, ''), COALESCE(sp.lastName, ''),
+			COALESCE(vbpi.firstName, sp.firstName, ''), COALESCE(vbpi.lastName, sp.lastName, ''),
 			COALESCE(ct.teamName, ''),
 			COALESCE(mrt.teamName, ''),
 			COALESCE(pmrt.teamName, ''),
@@ -410,6 +411,7 @@ func (r *SqliteSaveGameReader) queryBattingStats(ctx context.Context, joinClause
 		JOIN t_stats_players sp ON sp.statsPlayerID = st.statsPlayerID
 		JOIN t_stats_batting b ON b.aggregatorID = st.aggregatorID
 		LEFT JOIN t_baseball_player_local_ids bpli  ON bpli.localID  = sp.baseballPlayerLocalID
+		LEFT JOIN v_baseball_player_info vbpi        ON vbpi.baseballPlayerGUID = bpli.GUID
 		LEFT JOIN t_team_local_ids ctli             ON ctli.localID  = st.currentTeamLocalID
 		LEFT JOIN t_teams ct                        ON ct.GUID        = ctli.GUID
 		LEFT JOIN t_team_local_ids mrtli            ON mrtli.localID = st.mostRecentlyPlayedTeamLocalID
@@ -432,7 +434,7 @@ func (r *SqliteSaveGameReader) queryPitchingStats(ctx context.Context, joinClaus
 		SELECT
 			st.aggregatorID,
 			COALESCE(hex(bpli.GUID), '') AS playerGUID,
-			COALESCE(sp.firstName, ''), COALESCE(sp.lastName, ''),
+			COALESCE(vbpi.firstName, sp.firstName, ''), COALESCE(vbpi.lastName, sp.lastName, ''),
 			COALESCE(ct.teamName, ''),
 			COALESCE(mrt.teamName, ''),
 			COALESCE(pmrt.teamName, ''),
@@ -452,6 +454,7 @@ func (r *SqliteSaveGameReader) queryPitchingStats(ctx context.Context, joinClaus
 		JOIN t_stats_players sp ON sp.statsPlayerID = st.statsPlayerID
 		JOIN t_stats_pitching p ON p.aggregatorID = st.aggregatorID
 		LEFT JOIN t_baseball_player_local_ids bpli  ON bpli.localID  = sp.baseballPlayerLocalID
+		LEFT JOIN v_baseball_player_info vbpi        ON vbpi.baseballPlayerGUID = bpli.GUID
 		LEFT JOIN t_team_local_ids ctli             ON ctli.localID  = st.currentTeamLocalID
 		LEFT JOIN t_teams ct                        ON ct.GUID        = ctli.GUID
 		LEFT JOIN t_team_local_ids mrtli            ON mrtli.localID = st.mostRecentlyPlayedTeamLocalID

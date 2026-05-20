@@ -294,6 +294,21 @@ func seedSaveGameData(db *sql.DB) error {
 		INSERT INTO t_baseball_players (GUID, power, contact, speed, fielding, arm, velocity, junk, accuracy, age)
 		VALUES (X'AA000000000000000000000000000000', 80, 75, 60, 70, 65, 50, 50, 50, 27);
 		INSERT INTO t_baseball_player_local_ids (GUID) VALUES (X'AA000000000000000000000000000000');
+		-- v_baseball_player_info: simplified fixture view that provides player
+		-- biographical data keyed by baseballPlayerGUID (same GUID as t_baseball_player_local_ids).
+		-- In the real game this is a more complex view; for tests, names come from
+		-- t_stats_players directly since the fixture populates them there.
+		CREATE VIEW v_baseball_player_info AS
+		SELECT
+			bpli.GUID        AS baseballPlayerGUID,
+			sp.firstName,
+			sp.lastName,
+			sp.primaryPos    AS primaryPosition,
+			sp.pitcherRole,
+			sp.statsPlayerID
+		FROM t_baseball_player_local_ids bpli
+		JOIN t_stats_players sp ON sp.baseballPlayerLocalID = bpli.localID;
+
 		-- no trait rows → query subquery returns NULL → COALESCE gives '[]'
 		INSERT INTO t_salary (baseballPlayerGUID, salary) VALUES (X'AA000000000000000000000000000000', 250);
 

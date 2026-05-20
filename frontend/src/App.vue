@@ -35,7 +35,7 @@ async function handleSelect(id: string) {
 </script>
 
 <template>
-  <div id="app-root" class="dark">
+  <div id="app-root">
     <!-- Loading state -->
     <div v-if="franchiseStore.loading" class="fullscreen-center">
       <span class="loading-text">Loading…</span>

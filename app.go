@@ -222,6 +222,8 @@ func (a *App) SyncSeason() (SyncSeasonResult, error) {
 	if err != nil {
 		return SyncSeasonResult{}, fmt.Errorf("importing season %d: %w", seasonInfo.SeasonNum, err)
 	}
+	runtime.LogInfof(a.ctx, "SyncSeason: imported season %d — %d players, %d teams, %d games",
+		seasonInfo.SeasonNum, result.Players, result.Teams, result.Games)
 
 	if err := a.franchiseStore.RecordSync(a.ctx, a.activeFranchise.ID, seasonInfo.SeasonNum); err != nil {
 		log.Printf("SyncSeason: recording sync: %v", err)

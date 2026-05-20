@@ -10,6 +10,8 @@ import router from './router'
 import './assets/tokens.css'
 import './style.css'
 
+document.documentElement.classList.add('dark')
+
 const app = createApp(App)
 
 app.use(createPinia())
