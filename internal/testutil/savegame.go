@@ -35,8 +35,7 @@ func NewTestSaveGameDB(t *testing.T) *sql.DB {
 
 func createSaveGameSchema(db *sql.DB) error {
 	_, err := db.Exec(`
-		-- Real SMB4 save game schema column names (confirmed from SMB3Explorer SQL files).
-		-- t_leagues uses GUID as the primary key — there is no integer leagueId column.
+		-- Schema mirrors the real SMB4 save game, confirmed against SMB3Explorer SQL.
 		CREATE TABLE t_leagues (
 			GUID              BLOB PRIMARY KEY NOT NULL,
 			name              TEXT NOT NULL,
@@ -52,17 +51,17 @@ func createSaveGameSchema(db *sql.DB) error {
 			leagueGUID      BLOB NOT NULL REFERENCES t_leagues(GUID),
 			playerTeamGUID  BLOB
 		);
-		-- t_seasons: integer PK used as the season key throughout the save game
-		-- (t_season_stats.seasonID references this id).
 		CREATE TABLE t_seasons (
 			id                    INTEGER PRIMARY KEY NOT NULL,
 			GUID                  BLOB,
 			historicalLeagueGUID  BLOB NOT NULL REFERENCES t_leagues(GUID),
 			elimination           INTEGER NOT NULL DEFAULT 0
 		);
+		-- t_franchise_seasons retained for structural completeness; no longer
+		-- used by any reader query (GetCurrentSeason uses t_seasons directly).
 		CREATE TABLE t_franchise_seasons (
-			seasonID     INTEGER PRIMARY KEY NOT NULL,
-			franchiseId  INTEGER NOT NULL REFERENCES t_franchise(franchiseId)
+			seasonID     INTEGER NOT NULL,
+			franchiseGUID BLOB NOT NULL
 		);
 		CREATE TABLE t_teams (
 			GUID      BLOB PRIMARY KEY NOT NULL,
@@ -72,18 +71,20 @@ func createSaveGameSchema(db *sql.DB) error {
 			localID  INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 			GUID     BLOB NOT NULL REFERENCES t_teams(GUID)
 		);
+		-- Real game: t_conferences/t_divisions use GUID blobs as PKs, name TEXT.
 		CREATE TABLE t_conferences (
-			rowid          INTEGER PRIMARY KEY AUTOINCREMENT,
-			conferenceName TEXT NOT NULL
+			GUID  BLOB PRIMARY KEY NOT NULL,
+			name  TEXT NOT NULL
 		);
 		CREATE TABLE t_divisions (
-			rowid        INTEGER PRIMARY KEY AUTOINCREMENT,
-			divisionName TEXT NOT NULL,
-			conferenceId INTEGER NOT NULL REFERENCES t_conferences(rowid)
+			GUID           BLOB PRIMARY KEY NOT NULL,
+			name           TEXT NOT NULL,
+			conferenceGUID BLOB NOT NULL REFERENCES t_conferences(GUID)
 		);
+		-- Real game: t_division_teams joins by team GUID, not local ID.
 		CREATE TABLE t_division_teams (
-			teamLocalId INTEGER NOT NULL,
-			divisionId  INTEGER NOT NULL
+			teamGUID     BLOB NOT NULL REFERENCES t_teams(GUID),
+			divisionGUID BLOB NOT NULL REFERENCES t_divisions(GUID)
 		);
 		CREATE TABLE t_baseball_players (
 			GUID      BLOB PRIMARY KEY NOT NULL,
@@ -101,9 +102,10 @@ func createSaveGameSchema(db *sql.DB) error {
 			localID  INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 			GUID     BLOB NOT NULL REFERENCES t_baseball_players(GUID)
 		);
+		-- Real game: traits linked by baseballPlayerLocalID (integer), not GUID.
 		CREATE TABLE t_baseball_player_traits (
-			baseballPlayerGUID BLOB NOT NULL REFERENCES t_baseball_players(GUID),
-			traits             TEXT NOT NULL DEFAULT '[]'
+			baseballPlayerLocalID INTEGER NOT NULL REFERENCES t_baseball_player_local_ids(localID),
+			traits                TEXT NOT NULL DEFAULT '[]'
 		);
 		CREATE TABLE t_salary (
 			baseballPlayerGUID BLOB NOT NULL REFERENCES t_baseball_players(GUID),
@@ -115,16 +117,19 @@ func createSaveGameSchema(db *sql.DB) error {
 			mostRecentTeamName        TEXT,
 			secondMostRecentTeamName  TEXT
 		);
+		-- Real game: t_stats_players links via baseballPlayerLocalID (integer).
+		-- baseballPlayerGUIDIfKnown is only an output alias in SMB3Explorer SQL,
+		-- not a real column name.
 		CREATE TABLE t_stats_players (
-			aggregatorID                INTEGER PRIMARY KEY REFERENCES t_stats(aggregatorID),
-			baseballPlayerGUIDIfKnown  BLOB REFERENCES t_baseball_players(GUID),
-			firstName                  TEXT,
-			lastName                   TEXT,
-			primaryPosition            TEXT,
-			secondaryPosition          TEXT,
-			pitcherRole                TEXT,
-			age                        INTEGER,
-			retirementSeason           INTEGER
+			aggregatorID          INTEGER PRIMARY KEY REFERENCES t_stats(aggregatorID),
+			baseballPlayerLocalID INTEGER REFERENCES t_baseball_player_local_ids(localID),
+			firstName             TEXT,
+			lastName              TEXT,
+			primaryPosition       TEXT,
+			secondaryPosition     TEXT,
+			pitcherRole           TEXT,
+			age                   INTEGER,
+			retirementSeason      INTEGER
 		);
 		CREATE TABLE t_stats_batting (
 			aggregatorID   INTEGER PRIMARY KEY REFERENCES t_stats(aggregatorID),
@@ -171,27 +176,32 @@ func createSaveGameSchema(db *sql.DB) error {
 		);
 		CREATE TABLE t_season_stats (
 			aggregatorID INTEGER NOT NULL REFERENCES t_stats(aggregatorID),
-			seasonID     INTEGER NOT NULL REFERENCES t_franchise_seasons(seasonID)
+			seasonID     INTEGER NOT NULL
 		);
 		CREATE TABLE t_career_season_stats (
 			aggregatorID INTEGER NOT NULL REFERENCES t_stats(aggregatorID)
 		);
+		-- Real game: t_season_schedule has no gameNumber or day — those are
+		-- computed via RANK/ROW_NUMBER in queries.
 		CREATE TABLE t_season_schedule (
-			gameNumber  INTEGER PRIMARY KEY NOT NULL,
-			day         INTEGER NOT NULL DEFAULT 1,
+			seasonID    INTEGER NOT NULL,
 			homeTeamID  INTEGER NOT NULL,
 			awayTeamID  INTEGER NOT NULL
 		);
+		-- Real game: t_game_results.ID is the integer PK; teams linked by local ID.
 		CREATE TABLE t_game_results (
-			gameNumber         INTEGER PRIMARY KEY NOT NULL,
+			ID                 INTEGER PRIMARY KEY NOT NULL,
+			homeTeamLocalID    INTEGER NOT NULL,
+			awayTeamLocalID    INTEGER NOT NULL,
 			homeRunsScored     INTEGER,
 			awayRunsScored     INTEGER,
 			homePitcherLocalID INTEGER,
 			awayPitcherLocalID INTEGER
 		);
+		-- Real game: t_season_games links seasons to game results via gameID.
 		CREATE TABLE t_season_games (
-			gameNumber INTEGER NOT NULL,
-			seasonID   INTEGER NOT NULL
+			seasonID INTEGER NOT NULL,
+			gameID   INTEGER NOT NULL REFERENCES t_game_results(ID)
 		);
 		CREATE TABLE t_playoffs (
 			GUID       BLOB PRIMARY KEY NOT NULL,
@@ -205,19 +215,38 @@ func createSaveGameSchema(db *sql.DB) error {
 			team1Standing INTEGER NOT NULL DEFAULT 1,
 			team2Standing INTEGER NOT NULL DEFAULT 2
 		);
+		-- Real game: t_playoff_games links directly to t_game_results.
+		CREATE TABLE t_playoff_games (
+			playoffGUID  BLOB NOT NULL REFERENCES t_playoffs(GUID),
+			seriesNumber INTEGER NOT NULL,
+			gameID       INTEGER NOT NULL REFERENCES t_game_results(ID)
+		);
+		-- v_season_standings: teamGUID (blob) and seasonGUID (blob) per real schema.
 		CREATE VIEW v_season_standings AS
-			SELECT
-				homeTeamID   AS teamLocalId,
-				seasonID,
-				SUM(CASE WHEN gr.homeRunsScored > gr.awayRunsScored THEN 1 ELSE 0 END) AS gamesWon,
-				SUM(CASE WHEN gr.homeRunsScored < gr.awayRunsScored THEN 1 ELSE 0 END) AS gamesLost,
-				0.0 AS gamesBack,
-				SUM(COALESCE(gr.homeRunsScored, 0)) AS runsFor,
-				SUM(COALESCE(gr.awayRunsScored, 0)) AS runsAgainst
+		SELECT teamGUID, seasonGUID,
+		       SUM(won) AS gamesWon, SUM(lost) AS gamesLost,
+		       0.0 AS gamesBack, SUM(runsFor) AS runsFor, SUM(runsAgainst) AS runsAgainst
+		FROM (
+			SELECT htli.GUID AS teamGUID, ts.GUID AS seasonGUID,
+			       CASE WHEN gr.homeRunsScored > gr.awayRunsScored THEN 1 ELSE 0 END AS won,
+			       CASE WHEN gr.homeRunsScored < gr.awayRunsScored THEN 1 ELSE 0 END AS lost,
+			       COALESCE(gr.homeRunsScored, 0) AS runsFor,
+			       COALESCE(gr.awayRunsScored, 0) AS runsAgainst
 			FROM t_season_games sg
-			JOIN t_season_schedule sc ON sc.gameNumber = sg.gameNumber
-			LEFT JOIN t_game_results gr ON gr.gameNumber = sc.gameNumber
-			GROUP BY homeTeamID, seasonID;
+			JOIN t_game_results gr ON gr.ID = sg.gameID
+			JOIN t_team_local_ids htli ON htli.localID = gr.homeTeamLocalID
+			JOIN t_seasons ts ON ts.id = sg.seasonID
+			UNION ALL
+			SELECT atli.GUID AS teamGUID, ts.GUID AS seasonGUID,
+			       CASE WHEN gr.awayRunsScored > gr.homeRunsScored THEN 1 ELSE 0 END AS won,
+			       CASE WHEN gr.awayRunsScored < gr.homeRunsScored THEN 1 ELSE 0 END AS lost,
+			       COALESCE(gr.awayRunsScored, 0) AS runsFor,
+			       COALESCE(gr.homeRunsScored, 0) AS runsAgainst
+			FROM t_season_games sg
+			JOIN t_game_results gr ON gr.ID = sg.gameID
+			JOIN t_team_local_ids atli ON atli.localID = gr.awayTeamLocalID
+			JOIN t_seasons ts ON ts.id = sg.seasonID
+		) GROUP BY teamGUID, seasonGUID;
 	`)
 	return err
 }
@@ -229,17 +258,18 @@ func seedSaveGameData(db *sql.DB) error {
 		INSERT INTO t_leagues (GUID, name, allowedTeamType)
 		VALUES (X'EE000000000000000000000000000000', 'Test Franchise League', 1);
 
-		-- GUID is the franchise's own GUID; leagueGUID links to t_leagues.GUID
 		INSERT INTO t_franchise (GUID, leagueGUID, playerTeamGUID)
 		VALUES (X'FF000000000000000000000000000000', X'EE000000000000000000000000000000', X'01000000000000000000000000000000');
 
-		-- t_seasons: id is the integer key used by t_season_stats.seasonID
-		INSERT INTO t_seasons (id, historicalLeagueGUID, elimination) VALUES (100, X'EE000000000000000000000000000000', 0);
-		INSERT INTO t_seasons (id, historicalLeagueGUID, elimination) VALUES (101, X'EE000000000000000000000000000000', 0);
+		-- t_seasons.GUID is a blob linked by t_playoffs.seasonGUID.
+		-- Season 100 GUID matches the playoff entry below.
+		INSERT INTO t_seasons (id, GUID, historicalLeagueGUID, elimination)
+		VALUES (100, X'DD000000000000000000000000000000', X'EE000000000000000000000000000000', 0);
+		INSERT INTO t_seasons (id, GUID, historicalLeagueGUID, elimination)
+		VALUES (101, X'DE000000000000000000000000000000', X'EE000000000000000000000000000000', 0);
 
-		-- Two seasons for multi-season tracking tests
-		INSERT INTO t_franchise_seasons (seasonID, franchiseId) VALUES (100, 1);
-		INSERT INTO t_franchise_seasons (seasonID, franchiseId) VALUES (101, 1);
+		INSERT INTO t_franchise_seasons (seasonID, franchiseGUID) VALUES (100, X'FF000000000000000000000000000000');
+		INSERT INTO t_franchise_seasons (seasonID, franchiseGUID) VALUES (101, X'FF000000000000000000000000000000');
 
 		-- Teams
 		INSERT INTO t_teams (GUID, teamName) VALUES (X'01000000000000000000000000000000', 'Home Squad');
@@ -247,55 +277,59 @@ func seedSaveGameData(db *sql.DB) error {
 		INSERT INTO t_team_local_ids (GUID) VALUES (X'01000000000000000000000000000000'); -- localID 1
 		INSERT INTO t_team_local_ids (GUID) VALUES (X'02000000000000000000000000000000'); -- localID 2
 
-		-- Conferences and divisions
-		INSERT INTO t_conferences (conferenceName) VALUES ('East Conference');
-		INSERT INTO t_divisions (divisionName, conferenceId) VALUES ('East Division', 1);
-		INSERT INTO t_division_teams (teamLocalId, divisionId) VALUES (1, 1);
-		INSERT INTO t_division_teams (teamLocalId, divisionId) VALUES (2, 1);
+		-- Conferences and divisions (GUID-based, not rowid-based)
+		INSERT INTO t_conferences (GUID, name)
+		VALUES (X'A1000000000000000000000000000000', 'East Conference');
+		INSERT INTO t_divisions (GUID, name, conferenceGUID)
+		VALUES (X'B1000000000000000000000000000000', 'East Division', X'A1000000000000000000000000000000');
+		INSERT INTO t_division_teams (teamGUID, divisionGUID)
+		VALUES (X'01000000000000000000000000000000', X'B1000000000000000000000000000000');
+		INSERT INTO t_division_teams (teamGUID, divisionGUID)
+		VALUES (X'02000000000000000000000000000000', X'B1000000000000000000000000000000');
 
-		-- Player AA: outfielder (batter)
+		-- Player AA: outfielder (batter) — localID 1
 		INSERT INTO t_baseball_players (GUID, power, contact, speed, fielding, arm, velocity, junk, accuracy, age)
 		VALUES (X'AA000000000000000000000000000000', 80, 75, 60, 70, 65, 50, 50, 50, 27);
-		INSERT INTO t_baseball_player_local_ids (GUID) VALUES (X'AA000000000000000000000000000000'); -- localID 1
-		INSERT INTO t_baseball_player_traits (baseballPlayerGUID, traits) VALUES (X'AA000000000000000000000000000000', '[]');
+		INSERT INTO t_baseball_player_local_ids (GUID) VALUES (X'AA000000000000000000000000000000');
+		INSERT INTO t_baseball_player_traits (baseballPlayerLocalID, traits) VALUES (1, '[]');
 		INSERT INTO t_salary (baseballPlayerGUID, salary) VALUES (X'AA000000000000000000000000000000', 250);
 
-		-- Player BB: pitcher
+		-- Player BB: pitcher — localID 2
 		INSERT INTO t_baseball_players (GUID, power, contact, speed, fielding, arm, velocity, junk, accuracy, age)
 		VALUES (X'BB000000000000000000000000000000', 40, 40, 40, 50, 55, 88, 78, 82, 30);
-		INSERT INTO t_baseball_player_local_ids (GUID) VALUES (X'BB000000000000000000000000000000'); -- localID 2
-		INSERT INTO t_baseball_player_traits (baseballPlayerGUID, traits) VALUES (X'BB000000000000000000000000000000', '[]');
+		INSERT INTO t_baseball_player_local_ids (GUID) VALUES (X'BB000000000000000000000000000000');
+		INSERT INTO t_baseball_player_traits (baseballPlayerLocalID, traits) VALUES (2, '[]');
 		INSERT INTO t_salary (baseballPlayerGUID, salary) VALUES (X'BB000000000000000000000000000000', 300);
 
-		-- ── Season 100 stats ─────────────────────────────────────────────────
+		-- ── Season 100 stats ──────────────────────────────────────────────────
 
-		-- Batter (AA) — regular season
+		-- Batter (AA) — regular season; baseballPlayerLocalID = 1
 		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (1, 'Home Squad');
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerGUIDIfKnown, firstName, lastName, primaryPosition, age)
-		VALUES (1, X'AA000000000000000000000000000000', 'Test', 'Batter', 'CF', 27);
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPosition, age)
+		VALUES (1, 1, 'Test', 'Batter', 'CF', 27);
 		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, gamesBatting, atBats, runs, hits, doubles, triples, homeruns, rbi, baseOnBalls, strikeOuts)
 		VALUES (1, 50, 50, 180, 30, 54, 10, 2, 12, 40, 20, 35);
 		INSERT INTO t_season_stats (aggregatorID, seasonID) VALUES (1, 100);
 
-		-- Pitcher (BB) — regular season
+		-- Pitcher (BB) — regular season; baseballPlayerLocalID = 2
 		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (2, 'Home Squad');
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerGUIDIfKnown, firstName, lastName, primaryPosition, pitcherRole, age)
-		VALUES (2, X'BB000000000000000000000000000000', 'Test', 'Pitcher', 'P', 'SP', 30);
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPosition, pitcherRole, age)
+		VALUES (2, 2, 'Test', 'Pitcher', 'P', 'SP', 30);
 		INSERT INTO t_stats_pitching (aggregatorID, wins, losses, games, gamesStarted, outsPitched, hits, earnedRuns, homeRuns, baseOnBalls, strikeOuts, battersFaced, totalPitches)
 		VALUES (2, 12, 8, 25, 25, 540, 140, 55, 15, 40, 180, 740, 3200);
 		INSERT INTO t_season_stats (aggregatorID, seasonID) VALUES (2, 100);
 
-		-- Batter (AA) — playoff
+		-- Batter (AA) — playoff career stats aggregator
 		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (3, 'Home Squad');
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerGUIDIfKnown, firstName, lastName, primaryPosition, age)
-		VALUES (3, X'AA000000000000000000000000000000', 'Test', 'Batter', 'CF', 27);
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPosition, age)
+		VALUES (3, 1, 'Test', 'Batter', 'CF', 27);
 		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, gamesBatting, atBats, hits, homeruns, rbi)
 		VALUES (3, 5, 5, 18, 6, 2, 5);
 
-		-- Pitcher (BB) — playoff
+		-- Pitcher (BB) — playoff career stats aggregator
 		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (4, 'Home Squad');
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerGUIDIfKnown, firstName, lastName, primaryPosition, pitcherRole, age)
-		VALUES (4, X'BB000000000000000000000000000000', 'Test', 'Pitcher', 'P', 'SP', 30);
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPosition, pitcherRole, age)
+		VALUES (4, 2, 'Test', 'Pitcher', 'P', 'SP', 30);
 		INSERT INTO t_stats_pitching (aggregatorID, wins, losses, games, gamesStarted, outsPitched, hits, earnedRuns, strikeOuts)
 		VALUES (4, 2, 0, 2, 2, 54, 10, 3, 18);
 
@@ -303,48 +337,52 @@ func seedSaveGameData(db *sql.DB) error {
 		INSERT INTO t_career_season_stats (aggregatorID) VALUES (1);
 		INSERT INTO t_career_season_stats (aggregatorID) VALUES (2);
 
-		-- ── Season 100 schedule ──────────────────────────────────────────────
+		-- ── Season 100 regular season games ───────────────────────────────────
+		-- t_season_schedule: just homeTeamID + awayTeamID (no gameNumber/day)
+		INSERT INTO t_season_schedule (seasonID, homeTeamID, awayTeamID) VALUES (100, 1, 2);
+		INSERT INTO t_season_schedule (seasonID, homeTeamID, awayTeamID) VALUES (100, 2, 1);
 
-		INSERT INTO t_season_schedule (gameNumber, day, homeTeamID, awayTeamID) VALUES (1, 1, 1, 2);
-		INSERT INTO t_game_results (gameNumber, homeRunsScored, awayRunsScored, homePitcherLocalID, awayPitcherLocalID)
-		VALUES (1, 5, 3, 2, 1);
-		INSERT INTO t_season_games (gameNumber, seasonID) VALUES (1, 100);
+		-- t_game_results.ID is the integer PK
+		INSERT INTO t_game_results (ID, homeTeamLocalID, awayTeamLocalID, homeRunsScored, awayRunsScored, homePitcherLocalID, awayPitcherLocalID)
+		VALUES (1, 1, 2, 5, 3, 2, 1);
+		INSERT INTO t_game_results (ID, homeTeamLocalID, awayTeamLocalID, homeRunsScored, awayRunsScored, homePitcherLocalID, awayPitcherLocalID)
+		VALUES (2, 2, 1, 1, 4, 1, 2);
+		INSERT INTO t_season_games (seasonID, gameID) VALUES (100, 1);
+		INSERT INTO t_season_games (seasonID, gameID) VALUES (100, 2);
 
-		INSERT INTO t_season_schedule (gameNumber, day, homeTeamID, awayTeamID) VALUES (2, 2, 2, 1);
-		INSERT INTO t_game_results (gameNumber, homeRunsScored, awayRunsScored, homePitcherLocalID, awayPitcherLocalID)
-		VALUES (2, 1, 4, 1, 2);
-		INSERT INTO t_season_games (gameNumber, seasonID) VALUES (2, 100);
-
-		-- ── Season 100 playoffs ───────────────────────────────────────────────
-
-		INSERT INTO t_playoffs (GUID, seasonGUID) VALUES (X'CC000000000000000000000000000000', X'DD000000000000000000000000000000');
+		-- ── Season 100 playoffs ────────────────────────────────────────────────
+		-- t_playoffs.seasonGUID links to t_seasons.GUID for season 100
+		INSERT INTO t_playoffs (GUID, seasonGUID)
+		VALUES (X'CC000000000000000000000000000000', X'DD000000000000000000000000000000');
 		INSERT INTO t_playoff_series (playoffGUID, seriesNumber, team1GUID, team2GUID, team1Standing, team2Standing)
 		VALUES (X'CC000000000000000000000000000000', 1, X'01000000000000000000000000000000', X'02000000000000000000000000000000', 1, 2);
 
-		INSERT INTO t_season_schedule (gameNumber, day, homeTeamID, awayTeamID) VALUES (100, 1, 1, 2);
-		INSERT INTO t_game_results (gameNumber, homeRunsScored, awayRunsScored, homePitcherLocalID, awayPitcherLocalID)
-		VALUES (100, 3, 1, 2, 1);
-		INSERT INTO t_season_games (gameNumber, seasonID) VALUES (100, 100);
+		-- Playoff game result (ID=3) linked via t_playoff_games, not t_season_games
+		INSERT INTO t_game_results (ID, homeTeamLocalID, awayTeamLocalID, homeRunsScored, awayRunsScored, homePitcherLocalID, awayPitcherLocalID)
+		VALUES (3, 1, 2, 3, 1, 2, 1);
+		INSERT INTO t_playoff_games (playoffGUID, seriesNumber, gameID)
+		VALUES (X'CC000000000000000000000000000000', 1, 3);
 
-		-- ── Season 101 stats (same players, second season) ───────────────────
+		-- ── Season 101 stats (same players, second season) ────────────────────
 
 		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (5, 'Home Squad');
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerGUIDIfKnown, firstName, lastName, primaryPosition, age)
-		VALUES (5, X'AA000000000000000000000000000000', 'Test', 'Batter', 'CF', 28);
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPosition, age)
+		VALUES (5, 1, 'Test', 'Batter', 'CF', 28);
 		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, gamesBatting, atBats, runs, hits, homeruns, rbi)
 		VALUES (5, 52, 52, 190, 35, 60, 15, 48);
 		INSERT INTO t_season_stats (aggregatorID, seasonID) VALUES (5, 101);
 
 		INSERT INTO t_stats (aggregatorID, currentTeamName) VALUES (6, 'Home Squad');
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerGUIDIfKnown, firstName, lastName, primaryPosition, pitcherRole, age)
-		VALUES (6, X'BB000000000000000000000000000000', 'Test', 'Pitcher', 'P', 'SP', 31);
+		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPosition, pitcherRole, age)
+		VALUES (6, 2, 'Test', 'Pitcher', 'P', 'SP', 31);
 		INSERT INTO t_stats_pitching (aggregatorID, wins, losses, games, gamesStarted, outsPitched, hits, earnedRuns, strikeOuts)
 		VALUES (6, 14, 7, 25, 25, 570, 130, 50, 195);
 		INSERT INTO t_season_stats (aggregatorID, seasonID) VALUES (6, 101);
 
-		INSERT INTO t_season_schedule (gameNumber, day, homeTeamID, awayTeamID) VALUES (3, 1, 1, 2);
-		INSERT INTO t_game_results (gameNumber, homeRunsScored, awayRunsScored) VALUES (3, 6, 2);
-		INSERT INTO t_season_games (gameNumber, seasonID) VALUES (3, 101);
+		INSERT INTO t_season_schedule (seasonID, homeTeamID, awayTeamID) VALUES (101, 1, 2);
+		INSERT INTO t_game_results (ID, homeTeamLocalID, awayTeamLocalID, homeRunsScored, awayRunsScored)
+		VALUES (4, 1, 2, 6, 2);
+		INSERT INTO t_season_games (seasonID, gameID) VALUES (101, 4);
 	`)
 	return err
 }

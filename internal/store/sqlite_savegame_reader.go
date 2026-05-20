@@ -176,11 +176,11 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 			COALESCE(bpt.traits, '[]')                   AS traits
 		FROM t_baseball_players bp
 		JOIN t_baseball_player_local_ids bpli ON bpli.GUID = bp.GUID
-		JOIN t_stats_players sp ON sp.baseballPlayerGUIDIfKnown = bp.GUID
+		JOIN t_stats_players sp ON sp.baseballPlayerLocalID = bpli.localID
 		JOIN t_stats st ON st.aggregatorID = sp.aggregatorID
 		JOIN t_season_stats ss ON ss.aggregatorID = st.aggregatorID AND ss.seasonID = ?
 		LEFT JOIN t_salary s ON s.baseballPlayerGUID = bp.GUID
-		LEFT JOIN t_baseball_player_traits bpt ON bpt.baseballPlayerGUID = bp.GUID
+		LEFT JOIN t_baseball_player_traits bpt ON bpt.baseballPlayerLocalID = bpli.localID
 		ORDER BY sp.lastName, sp.firstName
 	`, seasonID, seasonID)
 	if err != nil {
@@ -216,8 +216,8 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonTeams(ctx context.Context, season
 			hex(t.GUID)                                         AS teamGUID,
 			t.teamName,
 			? AS seasonID,
-			COALESCE(d.divisionName, '')                        AS divisionName,
-			COALESCE(c.conferenceName, '')                      AS conferenceName,
+			COALESCE(d.name, '')                                AS divisionName,
+			COALESCE(c.name, '')                                AS conferenceName,
 			COALESCE(vs.gamesWon, 0),
 			COALESCE(vs.gamesLost, 0),
 			COALESCE(vs.gamesBack, 0.0),
@@ -228,12 +228,13 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonTeams(ctx context.Context, season
 			COALESCE(vs.runsAgainst, 0)
 		FROM t_team_local_ids tli
 		JOIN t_teams t ON t.GUID = tli.GUID
-		LEFT JOIN t_division_teams dt ON dt.teamLocalId = tli.localID
-		LEFT JOIN t_divisions d ON d.rowid = dt.divisionId
-		LEFT JOIN t_conferences c ON c.rowid = d.conferenceId
-		LEFT JOIN v_season_standings vs ON vs.teamLocalId = tli.localID
+		LEFT JOIN t_division_teams dt ON dt.teamGUID = t.GUID
+		LEFT JOIN t_divisions d ON d.GUID = dt.divisionGUID
+		LEFT JOIN t_conferences c ON c.GUID = d.conferenceGUID
+		LEFT JOIN v_season_standings vs ON vs.teamGUID = t.GUID
+			AND vs.seasonGUID = (SELECT ts.GUID FROM t_seasons ts WHERE ts.id = ?)
 		ORDER BY t.teamName
-	`, seasonID)
+	`, seasonID, seasonID)
 	if err != nil {
 		return nil, fmt.Errorf("querying season teams: %w", err)
 	}
@@ -256,16 +257,19 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonTeams(ctx context.Context, season
 }
 
 func (r *SqliteSaveGameReader) GetSeasonSchedule(ctx context.Context, seasonID int) ([]models.SaveGameGame, error) {
+	// In the real game t_season_schedule has no gameNumber or day columns — those
+	// are computed via RANK/ROW_NUMBER in SMB3Explorer. We derive game number from
+	// t_game_results.ID order and set day to 0 (not critical for the import).
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT
 			sg.seasonID,
-			sc.gameNumber,
-			sc.day,
-			sc.homeTeamID,
-			hex(ht.GUID)                             AS homeTeamGUID,
+			RANK() OVER (ORDER BY gr.ID)             AS gameNumber,
+			0                                        AS day,
+			gr.homeTeamLocalID                       AS homeTeamID,
+			hex(htli.GUID)                           AS homeTeamGUID,
 			COALESCE(ht.teamName, '')                AS homeTeamName,
-			sc.awayTeamID,
-			hex(at_.GUID)                            AS awayTeamGUID,
+			gr.awayTeamLocalID                       AS awayTeamID,
+			hex(atli.GUID)                           AS awayTeamGUID,
 			COALESCE(at_.teamName, '')               AS awayTeamName,
 			gr.homeRunsScored,
 			gr.awayRunsScored,
@@ -276,20 +280,19 @@ func (r *SqliteSaveGameReader) GetSeasonSchedule(ctx context.Context, seasonID i
 			hex(apbp.GUID),
 			COALESCE(apsp.firstName || ' ' || apsp.lastName, NULL)
 		FROM t_season_games sg
-		JOIN t_season_schedule sc ON sc.gameNumber = sg.gameNumber
-		JOIN t_team_local_ids htli ON htli.localID = sc.homeTeamID
+		JOIN t_game_results gr ON gr.ID = sg.gameID
+		JOIN t_team_local_ids htli ON htli.localID = gr.homeTeamLocalID
 		JOIN t_teams ht ON ht.GUID = htli.GUID
-		JOIN t_team_local_ids atli ON atli.localID = sc.awayTeamID
+		JOIN t_team_local_ids atli ON atli.localID = gr.awayTeamLocalID
 		JOIN t_teams at_ ON at_.GUID = atli.GUID
-		LEFT JOIN t_game_results gr ON gr.gameNumber = sc.gameNumber
 		LEFT JOIN t_baseball_player_local_ids hpbpli ON hpbpli.localID = gr.homePitcherLocalID
 		LEFT JOIN t_baseball_players hpbp ON hpbp.GUID = hpbpli.GUID
-		LEFT JOIN t_stats_players hpsp ON hpsp.baseballPlayerGUIDIfKnown = hpbp.GUID
+		LEFT JOIN t_stats_players hpsp ON hpsp.baseballPlayerLocalID = hpbpli.localID
 		LEFT JOIN t_baseball_player_local_ids apbpli ON apbpli.localID = gr.awayPitcherLocalID
 		LEFT JOIN t_baseball_players apbp ON apbp.GUID = apbpli.GUID
-		LEFT JOIN t_stats_players apsp ON apsp.baseballPlayerGUIDIfKnown = apbp.GUID
+		LEFT JOIN t_stats_players apsp ON apsp.baseballPlayerLocalID = apbpli.localID
 		WHERE sg.seasonID = ?
-		ORDER BY sc.gameNumber
+		ORDER BY gr.ID
 	`, seasonID)
 	if err != nil {
 		return nil, fmt.Errorf("querying season schedule: %w", err)
@@ -299,47 +302,41 @@ func (r *SqliteSaveGameReader) GetSeasonSchedule(ctx context.Context, seasonID i
 }
 
 func (r *SqliteSaveGameReader) GetPlayoffSchedule(ctx context.Context, seasonID int) ([]models.SaveGamePlayoffGame, error) {
-	// Get all playoff series for this season, then find the season games that
-	// involve those teams. We match by team membership in the playoff series
-	// since the save game links t_playoffs to seasons via a GUID chain that
-	// varies between SMB3 and SMB4. Matching on team GUID involvement is more
-	// robust across both versions.
+	// Playoff games are linked via t_playoffs.seasonGUID → t_seasons.GUID,
+	// then t_playoff_games.gameID → t_game_results.ID (not via t_season_games).
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT
-			? AS seasonID,
-			ps.seriesNumber,
-			hex(t1.GUID), COALESCE(t1.teamName, ''), ps.team1Standing,
-			hex(t2.GUID), COALESCE(t2.teamName, ''), ps.team2Standing,
-			sc.gameNumber,
-			hex(ht.GUID), COALESCE(ht.teamName, ''),
-			hex(at_.GUID), COALESCE(at_.teamName, ''),
+			ts.id                                                    AS seasonID,
+			tps.seriesNumber,
+			hex(tps.team1GUID), COALESCE(t1.teamName, ''), tps.team1Standing,
+			hex(tps.team2GUID), COALESCE(t2.teamName, ''), tps.team2Standing,
+			RANK() OVER (PARTITION BY tps.seriesNumber ORDER BY gr.ID) AS gameNumber,
+			hex(htli.GUID), COALESCE(ht.teamName, ''),
+			hex(atli.GUID), COALESCE(at_.teamName, ''),
 			gr.homeRunsScored, gr.awayRunsScored,
 			hex(hpbp.GUID), COALESCE(hpsp.firstName || ' ' || hpsp.lastName, NULL),
 			hex(apbp.GUID), COALESCE(apsp.firstName || ' ' || apsp.lastName, NULL)
-		FROM t_playoff_series ps
-		JOIN t_teams t1 ON t1.GUID = ps.team1GUID
-		JOIN t_teams t2 ON t2.GUID = ps.team2GUID
-		JOIN t_team_local_ids t1li ON t1li.GUID = ps.team1GUID
-		JOIN t_team_local_ids t2li ON t2li.GUID = ps.team2GUID
-		JOIN t_season_games sg ON sg.seasonID = ?
-		JOIN t_season_schedule sc ON sc.gameNumber = sg.gameNumber
-			AND (
-				(sc.homeTeamID = t1li.localID AND sc.awayTeamID = t2li.localID) OR
-				(sc.homeTeamID = t2li.localID AND sc.awayTeamID = t1li.localID)
-			)
-		JOIN t_team_local_ids htli ON htli.localID = sc.homeTeamID
+		FROM t_playoffs tp
+		JOIN t_seasons ts ON ts.GUID = tp.seasonGUID
+		JOIN t_playoff_series tps ON tps.playoffGUID = tp.GUID
+		JOIN t_playoff_games tpg ON tpg.playoffGUID = tp.GUID
+			AND tpg.seriesNumber = tps.seriesNumber
+		JOIN t_game_results gr ON gr.ID = tpg.gameID
+		JOIN t_teams t1 ON t1.GUID = tps.team1GUID
+		JOIN t_teams t2 ON t2.GUID = tps.team2GUID
+		JOIN t_team_local_ids htli ON htli.localID = gr.homeTeamLocalID
 		JOIN t_teams ht ON ht.GUID = htli.GUID
-		JOIN t_team_local_ids atli ON atli.localID = sc.awayTeamID
+		JOIN t_team_local_ids atli ON atli.localID = gr.awayTeamLocalID
 		JOIN t_teams at_ ON at_.GUID = atli.GUID
-		LEFT JOIN t_game_results gr ON gr.gameNumber = sc.gameNumber
 		LEFT JOIN t_baseball_player_local_ids hpbpli ON hpbpli.localID = gr.homePitcherLocalID
 		LEFT JOIN t_baseball_players hpbp ON hpbp.GUID = hpbpli.GUID
-		LEFT JOIN t_stats_players hpsp ON hpsp.baseballPlayerGUIDIfKnown = hpbp.GUID
+		LEFT JOIN t_stats_players hpsp ON hpsp.baseballPlayerLocalID = hpbpli.localID
 		LEFT JOIN t_baseball_player_local_ids apbpli ON apbpli.localID = gr.awayPitcherLocalID
 		LEFT JOIN t_baseball_players apbp ON apbp.GUID = apbpli.GUID
-		LEFT JOIN t_stats_players apsp ON apsp.baseballPlayerGUIDIfKnown = apbp.GUID
-		ORDER BY ps.seriesNumber, sc.gameNumber
-	`, seasonID, seasonID)
+		LEFT JOIN t_stats_players apsp ON apsp.baseballPlayerLocalID = apbpli.localID
+		WHERE ts.id = ?
+		ORDER BY tps.seriesNumber, gr.ID
+	`, seasonID)
 	if err != nil {
 		return nil, fmt.Errorf("querying playoff schedule: %w", err)
 	}
@@ -383,7 +380,7 @@ func (r *SqliteSaveGameReader) queryBattingStats(ctx context.Context, joinClause
 	query := `
 		SELECT
 			st.aggregatorID,
-			COALESCE(hex(sp.baseballPlayerGUIDIfKnown), '') AS playerGUID,
+			COALESCE(hex(bpli.GUID), '') AS playerGUID,
 			COALESCE(sp.firstName, ''), COALESCE(sp.lastName, ''),
 			COALESCE(st.currentTeamName, ''),
 			COALESCE(st.mostRecentTeamName, ''),
@@ -404,6 +401,7 @@ func (r *SqliteSaveGameReader) queryBattingStats(ctx context.Context, joinClause
 		FROM t_stats st
 		JOIN t_stats_players sp ON sp.aggregatorID = st.aggregatorID
 		JOIN t_stats_batting b ON b.aggregatorID = st.aggregatorID
+		LEFT JOIN t_baseball_player_local_ids bpli ON bpli.localID = sp.baseballPlayerLocalID
 		` + joinClause + `
 		ORDER BY sp.lastName, sp.firstName`
 
@@ -419,7 +417,7 @@ func (r *SqliteSaveGameReader) queryPitchingStats(ctx context.Context, joinClaus
 	query := `
 		SELECT
 			st.aggregatorID,
-			COALESCE(hex(sp.baseballPlayerGUIDIfKnown), '') AS playerGUID,
+			COALESCE(hex(bpli.GUID), '') AS playerGUID,
 			COALESCE(sp.firstName, ''), COALESCE(sp.lastName, ''),
 			COALESCE(st.currentTeamName, ''),
 			COALESCE(st.mostRecentTeamName, ''),
@@ -439,6 +437,7 @@ func (r *SqliteSaveGameReader) queryPitchingStats(ctx context.Context, joinClaus
 		FROM t_stats st
 		JOIN t_stats_players sp ON sp.aggregatorID = st.aggregatorID
 		JOIN t_stats_pitching p ON p.aggregatorID = st.aggregatorID
+		LEFT JOIN t_baseball_player_local_ids bpli ON bpli.localID = sp.baseballPlayerLocalID
 		` + joinClause + `
 		ORDER BY sp.lastName, sp.firstName`
 
