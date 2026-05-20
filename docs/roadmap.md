@@ -42,6 +42,7 @@ Check off phases as they are completed. Individual phases will be broken into de
 - [x] Basic franchise management UI (create new, select existing, last-used persistence)
 - [x] Save file auto-discovery: scan default paths, probe each .sav for league/franchise metadata (name, player team, season count) so user can identify the right file without a file browser
 - [x] Per-franchise save file re-indexing (ProbeFranchiseSaveFile) for live game state in the franchise list
+- [ ] **Franchise fork / multi-source support**: SMB4 lets users export a franchise snapshot to a new league, which creates a new `leagueGUID` and resets in-game season numbers to 1. The app must treat this as a continuation of the same franchise, not a new one. Requires replacing the single `saveFilePath`/`leagueGUID` fields on the franchise with a `franchise_sources` table in `registry.db` (columns: id, franchise_id, save_file_path, league_guid, season_offset, added_at). `season_offset` is the number of seasons already recorded in the franchise before this source was added — the app adds it to the save game's season number to produce the display season number. `SyncSeason` reads from the highest-offset source. The "Change save file" UI becomes "Add next save game source" when the user forks, with `season_offset` pre-filled from the current last-synced season. Replacing (not forking) should remain possible for corrections. See the companion app's season number calculation for prior art.
 
 ---
 
