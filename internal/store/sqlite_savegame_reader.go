@@ -33,30 +33,31 @@ func (r *SqliteSaveGameReader) Close() error {
 }
 
 func (r *SqliteSaveGameReader) GetLeagues(ctx context.Context) ([]models.SaveGameLeague, error) {
-	// Join pattern mirrors SMB3Explorer's Franchises.sql:
-	//   - t_franchise joined via leagueGUID = t_leagues.GUID (not the integer leagueId)
-	//   - t_seasons joined via historicalLeagueGUID for the elimination flag
-	// FranchiseID non-null → franchise mode
-	// FranchiseID null + elimination → elimination mode
-	// FranchiseID null + no elimination → season mode
+	// Column names match the real SMB save game schema (confirmed from SMB3Explorer):
+	//   t_leagues: GUID (blob PK), name, allowedTeamType
+	//   t_franchise: GUID (blob PK), leagueGUID (blob FK), playerTeamGUID (blob FK)
+	//   t_seasons: id (int PK), historicalLeagueGUID (blob FK), elimination
+	// Mode logic mirrors SMB3Explorer's LeagueModeExtensions.Parse:
+	//   franchise GUID present → franchise
+	//   no franchise + elimination flag → elimination
+	//   no franchise + seasons played → season
+	//   else → none
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT
 			COALESCE(hex(l.GUID), '')              AS leagueGUID,
-			l.leagueId,
-			l.leagueName,
-			l.leagueTeamTypeId,
+			l.name,
+			l.allowedTeamType,
 			COALESCE(tt.typeName, ''),
-			f.franchiseId,
+			f.GUID                                 AS franchiseGUID,
 			MAX(COALESCE(ts.elimination, 0))       AS elimination,
-			COUNT(DISTINCT fs.seasonID)            AS numSeasons,
+			COUNT(DISTINCT ts.id)                  AS numSeasons,
 			COALESCE(pt.teamName, '')              AS playerTeamName
 		FROM t_leagues l
-		LEFT JOIN t_team_types tt ON tt.teamType = l.leagueTeamTypeId
+		LEFT JOIN t_team_types tt ON tt.teamType = l.allowedTeamType
 		LEFT JOIN t_franchise f ON f.leagueGUID = l.GUID
 		LEFT JOIN t_seasons ts ON ts.historicalLeagueGUID = l.GUID
-		LEFT JOIN t_franchise_seasons fs ON fs.franchiseId = f.franchiseId
 		LEFT JOIN t_teams pt ON pt.GUID = f.playerTeamGUID
-		GROUP BY l.leagueId, l.leagueName, l.leagueTeamTypeId, f.franchiseId
+		GROUP BY hex(l.GUID), l.name, l.allowedTeamType, hex(f.GUID)
 	`)
 	if err != nil {
 		return nil, fmt.Errorf("querying leagues: %w", err)
@@ -66,16 +67,16 @@ func (r *SqliteSaveGameReader) GetLeagues(ctx context.Context) ([]models.SaveGam
 	var leagues []models.SaveGameLeague
 	for rows.Next() {
 		var lg models.SaveGameLeague
-		var franchiseID sql.NullInt64
+		var franchiseGUID sql.NullString
 		var elimination int
 		if err := rows.Scan(
-			&lg.GUID, &lg.ID, &lg.Name, &lg.TeamTypeID, &lg.TypeName,
-			&franchiseID, &elimination, &lg.NumSeasons, &lg.PlayerTeamName,
+			&lg.GUID, &lg.Name, &lg.AllowedTeamType, &lg.TypeName,
+			&franchiseGUID, &elimination, &lg.NumSeasons, &lg.PlayerTeamName,
 		); err != nil {
 			return nil, fmt.Errorf("scanning league: %w", err)
 		}
 		switch {
-		case franchiseID.Valid:
+		case franchiseGUID.Valid && franchiseGUID.String != "":
 			lg.Mode = models.LeagueModeFranchise
 		case elimination == 1:
 			lg.Mode = models.LeagueModeElimination
@@ -90,22 +91,25 @@ func (r *SqliteSaveGameReader) GetLeagues(ctx context.Context) ([]models.SaveGam
 }
 
 func (r *SqliteSaveGameReader) GetCurrentSeason(ctx context.Context, leagueGUID string) (models.SaveGameSeasonInfo, error) {
+	// Use t_seasons.id as the season key — it's the integer PK referenced by
+	// t_season_stats.seasonID throughout the save game. RANK() over id gives the
+	// human-facing season number. Matches SMB3Explorer's FranchiseSeasons.sql.
 	var row *sql.Row
 	if leagueGUID == "" {
-		// SMB3 / single-league: no league filter, just get the most recent season.
+		// SMB3 / single-league: no league filter needed.
 		row = r.db.QueryRowContext(ctx, `
-			SELECT seasonID, RANK() OVER (ORDER BY seasonID) AS seasonNum
-			FROM t_franchise_seasons
-			ORDER BY seasonID DESC
+			SELECT ts.id, RANK() OVER (ORDER BY ts.id) AS seasonNum
+			FROM t_seasons ts
+			ORDER BY ts.id DESC
 			LIMIT 1
 		`)
 	} else {
 		row = r.db.QueryRowContext(ctx, `
-			SELECT fs.seasonID, RANK() OVER (ORDER BY fs.seasonID) AS seasonNum
-			FROM t_franchise_seasons fs
-			JOIN t_franchise f ON f.franchiseId = fs.franchiseId
-			WHERE hex(f.leagueGUID) = ?
-			ORDER BY fs.seasonID DESC
+			SELECT ts.id, RANK() OVER (ORDER BY ts.id) AS seasonNum
+			FROM t_seasons ts
+			JOIN t_leagues tl ON ts.historicalLeagueGUID = tl.GUID
+			WHERE hex(tl.GUID) = ?
+			ORDER BY ts.id DESC
 			LIMIT 1
 		`, leagueGUID)
 	}
@@ -120,14 +124,16 @@ func (r *SqliteSaveGameReader) GetCurrentSeason(ctx context.Context, leagueGUID 
 }
 
 func (r *SqliteSaveGameReader) GetFranchiseSeasons(ctx context.Context, leagueGUID string) ([]models.SaveGameFranchiseSeason, error) {
+	// Mirrors SMB3Explorer's FranchiseSeasons.sql: join t_seasons → t_leagues by GUID.
+	// t_seasons.id is the integer PK used throughout the save game as the season key.
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT
-			fs.seasonID,
-			RANK() OVER (PARTITION BY f.franchiseId ORDER BY fs.seasonID) AS seasonNum
-		FROM t_franchise_seasons fs
-		JOIN t_franchise f ON f.franchiseId = fs.franchiseId
-		WHERE hex(f.leagueGUID) = ?
-		ORDER BY fs.seasonID
+			ts.id,
+			RANK() OVER (ORDER BY ts.id) AS seasonNum
+		FROM t_seasons ts
+		JOIN t_leagues tl ON ts.historicalLeagueGUID = tl.GUID
+		WHERE hex(tl.GUID) = ?
+		ORDER BY ts.id
 	`, leagueGUID)
 	if err != nil {
 		return nil, fmt.Errorf("querying franchise seasons: %w", err)

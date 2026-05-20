@@ -35,25 +35,28 @@ func NewTestSaveGameDB(t *testing.T) *sql.DB {
 
 func createSaveGameSchema(db *sql.DB) error {
 	_, err := db.Exec(`
+		-- Real SMB4 save game schema column names (confirmed from SMB3Explorer SQL files).
+		-- t_leagues uses GUID as the primary key — there is no integer leagueId column.
 		CREATE TABLE t_leagues (
-			leagueId          INTEGER PRIMARY KEY NOT NULL,
-			leagueName        TEXT NOT NULL,
-			leagueTeamTypeId  INTEGER NOT NULL,
-			GUID              BLOB
+			GUID              BLOB PRIMARY KEY NOT NULL,
+			name              TEXT NOT NULL,
+			allowedTeamType   INTEGER NOT NULL,
+			originalGUID      BLOB
 		);
 		CREATE TABLE t_team_types (
 			teamType  INTEGER PRIMARY KEY NOT NULL,
 			typeName  TEXT NOT NULL
 		);
 		CREATE TABLE t_franchise (
-			franchiseId     INTEGER PRIMARY KEY NOT NULL,
+			GUID            BLOB PRIMARY KEY NOT NULL,
 			leagueGUID      BLOB NOT NULL REFERENCES t_leagues(GUID),
 			playerTeamGUID  BLOB
 		);
-		-- t_seasons links season records to leagues and carries the elimination flag.
-		-- Distinct from t_franchise_seasons which links seasons to a specific franchise.
+		-- t_seasons: integer PK used as the season key throughout the save game
+		-- (t_season_stats.seasonID references this id).
 		CREATE TABLE t_seasons (
 			id                    INTEGER PRIMARY KEY NOT NULL,
+			GUID                  BLOB,
 			historicalLeagueGUID  BLOB NOT NULL REFERENCES t_leagues(GUID),
 			elimination           INTEGER NOT NULL DEFAULT 0
 		);
@@ -223,14 +226,14 @@ func seedSaveGameData(db *sql.DB) error {
 	_, err := db.Exec(`
 		INSERT INTO t_team_types (teamType, typeName) VALUES (1, 'franchise');
 
-		INSERT INTO t_leagues (leagueId, leagueName, leagueTeamTypeId, GUID)
-		VALUES (1, 'Test Franchise League', 1, X'EE000000000000000000000000000000');
+		INSERT INTO t_leagues (GUID, name, allowedTeamType)
+		VALUES (X'EE000000000000000000000000000000', 'Test Franchise League', 1);
 
-		-- leagueGUID matches t_leagues.GUID; playerTeamGUID is Home Squad
-		INSERT INTO t_franchise (franchiseId, leagueGUID, playerTeamGUID)
-		VALUES (1, X'EE000000000000000000000000000000', X'01000000000000000000000000000000');
+		-- GUID is the franchise's own GUID; leagueGUID links to t_leagues.GUID
+		INSERT INTO t_franchise (GUID, leagueGUID, playerTeamGUID)
+		VALUES (X'FF000000000000000000000000000000', X'EE000000000000000000000000000000', X'01000000000000000000000000000000');
 
-		-- t_seasons entries — franchise mode, not elimination
+		-- t_seasons: id is the integer key used by t_season_stats.seasonID
 		INSERT INTO t_seasons (id, historicalLeagueGUID, elimination) VALUES (100, X'EE000000000000000000000000000000', 0);
 		INSERT INTO t_seasons (id, historicalLeagueGUID, elimination) VALUES (101, X'EE000000000000000000000000000000', 0);
 
