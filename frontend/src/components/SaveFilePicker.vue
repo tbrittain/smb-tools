@@ -29,7 +29,9 @@ async function load() {
     const all = await GetSaveFileCandidates()
     // Only SMB4 franchise-mode saves may be associated with an app franchise.
     // Season and elimination saves are excluded.
-    candidates.value = all.filter((c) => c.gameVersion === 'smb4' && c.mode === 'franchise')
+    candidates.value = all
+      .filter((c) => c.gameVersion === 'smb4' && c.mode === 'franchise')
+      .sort((a, b) => b.numSeasons - a.numSeasons)
   } catch (e) {
     error.value = String(e)
   } finally {
