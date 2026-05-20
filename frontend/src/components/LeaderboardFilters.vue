@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import { ref, watch } from 'vue'
 import type { main } from '../../wailsjs/go/models'
+import { BAT_HANDS, BATTING_POSITIONS, CHEMISTRY_TYPES, PITCHING_ROLES, THROW_HANDS } from '../constants/domain'
+import FilterBar from './FilterBar.vue'
 
 const props = defineProps<{
   mode: 'batting' | 'pitching'
@@ -26,14 +28,10 @@ function update(patch: Partial<main.LeaderboardFiltersDTO>) {
   local.value = { ...local.value, ...patch }
   emit('update:modelValue', { ...local.value })
 }
-
-const BATTING_POSITIONS = ['', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF', 'DH']
-const PITCHING_ROLES = ['', 'SP', 'RP', 'CL']
-const CHEMISTRY_TYPES = ['', 'Competitive', 'Spirited', 'Disciplined', 'Scholarly', 'Crafty']
 </script>
 
 <template>
-  <div class="lb-filters">
+  <FilterBar>
     <label class="filter-item">
       <input
         type="checkbox"
@@ -60,7 +58,7 @@ const CHEMISTRY_TYPES = ['', 'Competitive', 'Spirited', 'Disciplined', 'Scholarl
       >
         <option value="">Any</option>
         <option
-          v-for="opt in mode === 'batting' ? BATTING_POSITIONS.slice(1) : PITCHING_ROLES.slice(1)"
+          v-for="opt in mode === 'batting' ? BATTING_POSITIONS : PITCHING_ROLES"
           :key="opt"
           :value="opt"
         >
@@ -77,9 +75,7 @@ const CHEMISTRY_TYPES = ['', 'Competitive', 'Spirited', 'Disciplined', 'Scholarl
         @change="update({ batHand: ($event.target as HTMLSelectElement).value })"
       >
         <option value="">Any</option>
-        <option value="L">Left</option>
-        <option value="R">Right</option>
-        <option value="S">Switch</option>
+        <option v-for="h in BAT_HANDS" :key="h" :value="h">{{ h }}</option>
       </select>
       <select
         v-else
@@ -87,8 +83,7 @@ const CHEMISTRY_TYPES = ['', 'Competitive', 'Spirited', 'Disciplined', 'Scholarl
         @change="update({ throwHand: ($event.target as HTMLSelectElement).value })"
       >
         <option value="">Any</option>
-        <option value="L">Left</option>
-        <option value="R">Right</option>
+        <option v-for="h in THROW_HANDS" :key="h" :value="h">{{ h }}</option>
       </select>
     </div>
 
@@ -98,9 +93,8 @@ const CHEMISTRY_TYPES = ['', 'Competitive', 'Spirited', 'Disciplined', 'Scholarl
         :value="local.chemistryType"
         @change="update({ chemistryType: ($event.target as HTMLSelectElement).value })"
       >
-        <option v-for="c in CHEMISTRY_TYPES" :key="c" :value="c">
-          {{ c === '' ? 'Any' : c }}
-        </option>
+        <option value="">Any</option>
+        <option v-for="c in CHEMISTRY_TYPES" :key="c" :value="c">{{ c }}</option>
       </select>
     </div>
 
@@ -129,21 +123,10 @@ const CHEMISTRY_TYPES = ['', 'Competitive', 'Spirited', 'Disciplined', 'Scholarl
         </option>
       </select>
     </div>
-  </div>
+  </FilterBar>
 </template>
 
 <style scoped>
-.lb-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem 1.25rem;
-  padding: 0.75rem 1rem;
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-}
-
 .filter-item {
   display: flex;
   align-items: center;

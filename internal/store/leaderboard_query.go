@@ -17,42 +17,49 @@ func NewLeaderboardQueryStore(db DBTX) *LeaderboardQueryStore {
 	return &LeaderboardQueryStore{db: db}
 }
 
-// buildLeaderboardConditions returns additional WHERE conditions and their args
-// for the given filters. positionCol is the fully-qualified column name for the
-// position filter ("ps.primary_position" for batting, "ps.pitcher_role" for pitching).
-// seasonAlias is the table alias for the seasons table (typically "s").
-// The returned conditions do NOT include the base is_regular_season condition.
-func buildLeaderboardConditions(f models.LeaderboardFilters, positionCol, seasonAlias string) ([]string, []any) {
-	var conds []string
-	var args []any
+// whereFragment holds the extra WHERE conditions and their positional args for
+// a leaderboard query. Args are []any because database/sql's QueryContext
+// requires interface{} for all parameter values regardless of concrete type.
+type whereFragment struct {
+	conds []string
+	args  []any
+}
+
+// buildLeaderboardConditions returns extra WHERE conditions for the given filters.
+// positionCol is the fully-qualified column name for the position filter
+// ("ps.primary_position" for batting, "ps.pitcher_role" for pitching).
+// seasonAlias is the seasons table alias (typically "s").
+// The base is_regular_season condition is NOT included — callers add it first.
+func buildLeaderboardConditions(f models.LeaderboardFilters, positionCol, seasonAlias string) whereFragment {
+	var w whereFragment
 	if f.OnlyHallOfFamers {
-		conds = append(conds, "p.is_hall_of_famer = 1")
+		w.conds = append(w.conds, "p.is_hall_of_famer = 1")
 	}
 	if f.Position != "" {
-		conds = append(conds, positionCol+" = ?")
-		args = append(args, f.Position)
+		w.conds = append(w.conds, positionCol+" = ?")
+		w.args = append(w.args, f.Position)
 	}
 	if f.BatHand != "" {
-		conds = append(conds, "ps.bat_hand = ?")
-		args = append(args, f.BatHand)
+		w.conds = append(w.conds, "ps.bat_hand = ?")
+		w.args = append(w.args, f.BatHand)
 	}
 	if f.ThrowHand != "" {
-		conds = append(conds, "ps.throw_hand = ?")
-		args = append(args, f.ThrowHand)
+		w.conds = append(w.conds, "ps.throw_hand = ?")
+		w.args = append(w.args, f.ThrowHand)
 	}
 	if f.ChemistryType != "" {
-		conds = append(conds, "ps.chemistry_type = ?")
-		args = append(args, f.ChemistryType)
+		w.conds = append(w.conds, "ps.chemistry_type = ?")
+		w.args = append(w.args, f.ChemistryType)
 	}
 	if f.SeasonStart > 0 {
-		conds = append(conds, seasonAlias+".season_num >= ?")
-		args = append(args, f.SeasonStart)
+		w.conds = append(w.conds, seasonAlias+".season_num >= ?")
+		w.args = append(w.args, f.SeasonStart)
 	}
 	if f.SeasonEnd > 0 {
-		conds = append(conds, seasonAlias+".season_num <= ?")
-		args = append(args, f.SeasonEnd)
+		w.conds = append(w.conds, seasonAlias+".season_num <= ?")
+		w.args = append(w.args, f.SeasonEnd)
 	}
-	return conds, args
+	return w
 }
 
 // GetBattingCareerLeaders returns one row per player with career batting totals
@@ -67,12 +74,12 @@ func (s *LeaderboardQueryStore) GetBattingCareerLeaders(
 	}
 
 	args := []any{isReg}
-	extra, extraArgs := buildLeaderboardConditions(f, "ps.primary_position", "s")
-	args = append(args, extraArgs...)
+	w := buildLeaderboardConditions(f, "ps.primary_position", "s")
+	args = append(args, w.args...)
 
 	whereExtra := ""
-	if len(extra) > 0 {
-		whereExtra = " AND " + strings.Join(extra, " AND ")
+	if len(w.conds) > 0 {
+		whereExtra = " AND " + strings.Join(w.conds, " AND ")
 	}
 
 	q := `
@@ -143,12 +150,12 @@ func (s *LeaderboardQueryStore) GetBattingSeasonLeaders(
 	}
 
 	args := []any{isReg}
-	extra, extraArgs := buildLeaderboardConditions(f, "ps.primary_position", "s")
-	args = append(args, extraArgs...)
+	w := buildLeaderboardConditions(f, "ps.primary_position", "s")
+	args = append(args, w.args...)
 
 	whereExtra := ""
-	if len(extra) > 0 {
-		whereExtra = " AND " + strings.Join(extra, " AND ")
+	if len(w.conds) > 0 {
+		whereExtra = " AND " + strings.Join(w.conds, " AND ")
 	}
 
 	q := `
@@ -211,14 +218,12 @@ func (s *LeaderboardQueryStore) GetPitchingCareerLeaders(
 	}
 
 	args := []any{isReg}
-	extra, extraArgs := buildLeaderboardConditions(f, "ps.pitcher_role", "s")
-	// BatHand is meaningless for pitching; ThrowHand is meaningful.
-	// buildLeaderboardConditions handles both — the caller sets only what applies.
-	args = append(args, extraArgs...)
+	w := buildLeaderboardConditions(f, "ps.pitcher_role", "s")
+	args = append(args, w.args...)
 
 	whereExtra := ""
-	if len(extra) > 0 {
-		whereExtra = " AND " + strings.Join(extra, " AND ")
+	if len(w.conds) > 0 {
+		whereExtra = " AND " + strings.Join(w.conds, " AND ")
 	}
 
 	q := `
@@ -291,12 +296,12 @@ func (s *LeaderboardQueryStore) GetPitchingSeasonLeaders(
 	}
 
 	args := []any{isReg}
-	extra, extraArgs := buildLeaderboardConditions(f, "ps.pitcher_role", "s")
-	args = append(args, extraArgs...)
+	w := buildLeaderboardConditions(f, "ps.pitcher_role", "s")
+	args = append(args, w.args...)
 
 	whereExtra := ""
-	if len(extra) > 0 {
-		whereExtra = " AND " + strings.Join(extra, " AND ")
+	if len(w.conds) > 0 {
+		whereExtra = " AND " + strings.Join(w.conds, " AND ")
 	}
 
 	q := `

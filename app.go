@@ -614,7 +614,7 @@ func (a *App) ListAllTeamSeasons() ([]TeamSeasonListDTO, error) {
 	return out, nil
 }
 
-// ---- Phase 6 leaderboard bindings -----------------------------------------
+// ---- Leaderboard query bindings --------------------------------------------
 
 // GetBattingCareerLeaders returns career batting totals for all players matching
 // the given filters. Rate stats are computed before returning. The full result
