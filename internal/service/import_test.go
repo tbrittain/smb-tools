@@ -518,6 +518,12 @@ func (r *erroringReader) GetSeasonBattingStats(ctx context.Context, id int) ([]m
 func (r *erroringReader) GetSeasonPitchingStats(ctx context.Context, id int) ([]models.SaveGamePitchingStat, error) {
 	return r.inner.GetSeasonPitchingStats(ctx, id)
 }
+func (r *erroringReader) GetPlayoffBattingStats(ctx context.Context, id int) ([]models.SaveGameBattingStat, error) {
+	return r.inner.GetPlayoffBattingStats(ctx, id)
+}
+func (r *erroringReader) GetPlayoffPitchingStats(ctx context.Context, id int) ([]models.SaveGamePitchingStat, error) {
+	return r.inner.GetPlayoffPitchingStats(ctx, id)
+}
 func (r *erroringReader) GetCareerBattingStats(ctx context.Context) ([]models.SaveGameBattingStat, error) {
 	return r.inner.GetCareerBattingStats(ctx)
 }

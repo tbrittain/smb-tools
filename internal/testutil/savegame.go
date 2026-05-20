@@ -102,6 +102,13 @@ func createSaveGameSchema(db *sql.DB) error {
 			localID  INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 			GUID     BLOB NOT NULL REFERENCES t_baseball_players(GUID)
 		);
+		-- SMB4-only player attributes stored as key-value pairs.
+		-- optionKey 4 = throw hand, 5 = bat hand, 107 = chemistry type.
+		CREATE TABLE t_baseball_player_options (
+			baseballPlayerLocalID INTEGER NOT NULL REFERENCES t_baseball_player_local_ids(localID),
+			optionKey             INTEGER NOT NULL,
+			optionValue           INTEGER NOT NULL
+		);
 		-- Real game: one row per trait; trait and subType are integer IDs.
 		-- The JSON representation is assembled at query time via json_group_array.
 		CREATE TABLE t_baseball_player_traits (
@@ -183,6 +190,10 @@ func createSaveGameSchema(db *sql.DB) error {
 		);
 		CREATE TABLE t_career_season_stats (
 			aggregatorID INTEGER NOT NULL REFERENCES t_stats(aggregatorID)
+		);
+		CREATE TABLE t_playoff_stats (
+			aggregatorID INTEGER NOT NULL REFERENCES t_stats(aggregatorID),
+			seasonID     INTEGER NOT NULL
 		);
 		-- Real game: t_season_schedule has no gameNumber or day — those are
 		-- computed via RANK/ROW_NUMBER in queries.
@@ -309,6 +320,13 @@ func seedSaveGameData(db *sql.DB) error {
 		FROM t_baseball_player_local_ids bpli
 		JOIN t_stats_players sp ON sp.baseballPlayerLocalID = bpli.localID;
 
+		-- Player options (SMB4-only): throw hand, bat hand, chemistry
+		INSERT INTO t_baseball_player_options (baseballPlayerLocalID, optionKey, optionValue) VALUES (1, 4, 1);   -- batter: throw R
+		INSERT INTO t_baseball_player_options (baseballPlayerLocalID, optionKey, optionValue) VALUES (1, 5, 1);   -- batter: bat R
+		INSERT INTO t_baseball_player_options (baseballPlayerLocalID, optionKey, optionValue) VALUES (1, 107, 0); -- batter: Competitive
+		INSERT INTO t_baseball_player_options (baseballPlayerLocalID, optionKey, optionValue) VALUES (2, 4, 1);   -- pitcher: throw R
+		INSERT INTO t_baseball_player_options (baseballPlayerLocalID, optionKey, optionValue) VALUES (2, 107, 1); -- pitcher: Spirited
+
 		-- no trait rows → query subquery returns NULL → COALESCE gives '[]'
 		INSERT INTO t_salary (baseballPlayerGUID, salary) VALUES (X'AA000000000000000000000000000000', 250);
 
@@ -349,6 +367,10 @@ func seedSaveGameData(db *sql.DB) error {
 		VALUES (4, 2, 'Test', 'Pitcher', 'P', 'SP', 30);
 		INSERT INTO t_stats_pitching (aggregatorID, wins, losses, games, gamesStarted, outsPitched, hits, earnedRuns, strikeOuts)
 		VALUES (4, 2, 0, 2, 2, 54, 10, 3, 18);
+
+		-- Playoff stats for season 100 (aggregators 3 and 4)
+		INSERT INTO t_playoff_stats (aggregatorID, seasonID) VALUES (3, 100);
+		INSERT INTO t_playoff_stats (aggregatorID, seasonID) VALUES (4, 100);
 
 		-- Career stats (aggregators 1 and 2)
 		INSERT INTO t_career_season_stats (aggregatorID) VALUES (1);

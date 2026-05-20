@@ -156,13 +156,13 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 		SELECT
 			hex(bp.GUID)                                  AS playerGUID,
 			? AS seasonID,
-			COALESCE(vbpi.firstName,       sp.firstName, '')  AS firstName,
-			COALESCE(vbpi.lastName,        sp.lastName,  '')  AS lastName,
-			COALESCE(vbpi.primaryPosition, sp.primaryPos,'')  AS primaryPos,
-			COALESCE(sp.secondaryPos, '')                     AS secondaryPos,
-			COALESCE(vbpi.pitcherRole,     sp.pitcherRole,'') AS pitcherRole,
-			COALESCE(ct.teamName, '')                         AS currentTeam,
-			COALESCE(mrt.teamName, '')                        AS previousTeam,
+			COALESCE(vbpi.firstName,       sp.firstName, '')           AS firstName,
+			COALESCE(vbpi.lastName,        sp.lastName,  '')           AS lastName,
+			COALESCE(vbpi.primaryPosition, sp.primaryPos, '')          AS rawPrimaryPos,
+			COALESCE(sp.secondaryPos, '')                              AS secondaryPos,
+			COALESCE(vbpi.pitcherRole,     sp.pitcherRole, '')         AS rawPitcherRole,
+			COALESCE(ct.teamName, '')                                  AS currentTeam,
+			COALESCE(mrt.teamName, '')                                 AS previousTeam,
 			COALESCE(bp.power, 0),
 			COALESCE(bp.contact, 0),
 			COALESCE(bp.speed, 0),
@@ -178,18 +178,27 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 				 FROM t_baseball_player_traits t
 				 WHERE t.baseballPlayerLocalID = bpli.localID),
 				'[]'
-			) AS traits
+			) AS traits,
+			bpo_throw.optionValue AS throwHandCode,
+			bpo_bat.optionValue   AS batHandCode,
+			bpo_chem.optionValue  AS chemCode
 		FROM t_baseball_players bp
 		JOIN t_baseball_player_local_ids bpli ON bpli.GUID = bp.GUID
 		JOIN t_stats_players sp ON sp.baseballPlayerLocalID = bpli.localID
 		JOIN t_stats st ON st.statsPlayerID = sp.statsPlayerID
 		JOIN t_season_stats ss ON ss.aggregatorID = st.aggregatorID AND ss.seasonID = ?
+		LEFT JOIN v_baseball_player_info vbpi ON vbpi.baseballPlayerGUID = bpli.GUID
 		LEFT JOIN t_team_local_ids ctli  ON ctli.localID  = st.currentTeamLocalID
 		LEFT JOIN t_teams ct             ON ct.GUID        = ctli.GUID
 		LEFT JOIN t_team_local_ids mrtli ON mrtli.localID = st.mostRecentlyPlayedTeamLocalID
 		LEFT JOIN t_teams mrt            ON mrt.GUID       = mrtli.GUID
-		LEFT JOIN v_baseball_player_info vbpi ON vbpi.baseballPlayerGUID = bpli.GUID
 		LEFT JOIN t_salary s ON s.baseballPlayerGUID = bp.GUID
+		LEFT JOIN t_baseball_player_options bpo_throw
+			ON bpo_throw.baseballPlayerLocalID = bpli.localID AND bpo_throw.optionKey = 4
+		LEFT JOIN t_baseball_player_options bpo_bat
+			ON bpo_bat.baseballPlayerLocalID   = bpli.localID AND bpo_bat.optionKey   = 5
+		LEFT JOIN t_baseball_player_options bpo_chem
+			ON bpo_chem.baseballPlayerLocalID  = bpli.localID AND bpo_chem.optionKey  = 107
 		ORDER BY sp.lastName, sp.firstName
 	`, seasonID, seasonID)
 	if err != nil {
@@ -201,18 +210,26 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 	for rows.Next() {
 		var p models.SaveGamePlayer
 		var traitsJSON string
+		var rawPrimaryPos, rawPitcherRole string
+		var throwCode, batCode, chemCode sql.NullInt64
 		if err := rows.Scan(
 			&p.PlayerGUID, &p.SeasonID,
 			&p.FirstName, &p.LastName,
-			&p.PrimaryPos, &p.SecondaryPos, &p.PitcherRole,
+			&rawPrimaryPos, &p.SecondaryPos, &rawPitcherRole,
 			&p.CurrentTeam, &p.PreviousTeam,
 			&p.Power, &p.Contact, &p.Speed, &p.Fielding, &p.Arm,
 			&p.Velocity, &p.Junk, &p.Accuracy,
 			&p.Age, &p.Salary, &traitsJSON,
+			&throwCode, &batCode, &chemCode,
 		); err != nil {
 			return nil, fmt.Errorf("scanning player: %w", err)
 		}
 		p.Traits = parseTraitJSON(traitsJSON)
+		p.PrimaryPos = saveGamePosition(rawPrimaryPos)
+		p.PitcherRole = saveGamePitcherRole(rawPitcherRole)
+		p.ThrowHand = saveGameHand(throwCode)
+		p.BatHand = saveGameHand(batCode)
+		p.ChemistryType = saveGameChemistry(chemCode)
 		players = append(players, p)
 	}
 	return players, rows.Err()
@@ -366,9 +383,23 @@ func (r *SqliteSaveGameReader) GetCareerBattingStats(ctx context.Context) ([]mod
 	)
 }
 
+func (r *SqliteSaveGameReader) GetPlayoffBattingStats(ctx context.Context, seasonID int) ([]models.SaveGameBattingStat, error) {
+	return r.queryBattingStats(ctx,
+		`JOIN t_playoff_stats tps ON tps.aggregatorID = st.aggregatorID AND tps.seasonID = ?`,
+		seasonID,
+	)
+}
+
 func (r *SqliteSaveGameReader) GetSeasonPitchingStats(ctx context.Context, seasonID int) ([]models.SaveGamePitchingStat, error) {
 	return r.queryPitchingStats(ctx,
 		`JOIN t_season_stats ss ON ss.aggregatorID = st.aggregatorID AND ss.seasonID = ?`,
+		seasonID,
+	)
+}
+
+func (r *SqliteSaveGameReader) GetPlayoffPitchingStats(ctx context.Context, seasonID int) ([]models.SaveGamePitchingStat, error) {
+	return r.queryPitchingStats(ctx,
+		`JOIN t_playoff_stats tps ON tps.aggregatorID = st.aggregatorID AND tps.seasonID = ?`,
 		seasonID,
 	)
 }
@@ -565,4 +596,96 @@ func parseTraitJSON(raw string) []string {
 		return nil
 	}
 	return []string{raw}
+}
+
+// ---- Save game code → domain value translators -------------------------
+//
+// These functions are the anti-corruption layer between the SMB save game's
+// raw integer codes and the meaningful string values stored in smb-tools.
+// Integer codes come from SMB3Explorer's enums (BaseballPlayerPosition,
+// PitcherRole, etc.) and the t_baseball_player_options option keys.
+
+// saveGamePosition maps the integer position code from v_baseball_player_info
+// to a display abbreviation. If the value is already a non-numeric string
+// (e.g., from the test fixture) it is returned unchanged.
+// Codes from SMB3Explorer's BaseballPlayerPosition enum.
+func saveGamePosition(raw string) string {
+	switch raw {
+	case "1":
+		return "P"
+	case "2":
+		return "C"
+	case "3":
+		return "1B"
+	case "4":
+		return "2B"
+	case "5":
+		return "3B"
+	case "6":
+		return "SS"
+	case "7":
+		return "LF"
+	case "8":
+		return "CF"
+	case "9":
+		return "RF"
+	default:
+		return raw // already a string (fixture) or unseen code
+	}
+}
+
+// saveGamePitcherRole maps the integer pitcher role code to SP/RP/CL.
+// Codes from SMB3Explorer's PitcherRole enum.
+func saveGamePitcherRole(raw string) string {
+	switch raw {
+	case "1":
+		return "SP"
+	case "2":
+		return "RP"
+	case "3":
+		return "CL"
+	default:
+		return raw
+	}
+}
+
+// saveGameHand maps a t_baseball_player_options hand value (optionKey 4 or 5)
+// to L, R, or S (switch). A NULL option (player has no entry) returns "".
+func saveGameHand(code sql.NullInt64) string {
+	if !code.Valid {
+		return ""
+	}
+	switch code.Int64 {
+	case 0:
+		return "L"
+	case 1:
+		return "R"
+	case 2:
+		return "S"
+	default:
+		return ""
+	}
+}
+
+// saveGameChemistry maps a t_baseball_player_options chemistry value
+// (optionKey 107) to the chemistry type name.
+// Values from SMB3Explorer's MostRecentSeasonPlayersSmb4.sql.
+func saveGameChemistry(code sql.NullInt64) string {
+	if !code.Valid {
+		return ""
+	}
+	switch code.Int64 {
+	case 0:
+		return "Competitive"
+	case 1:
+		return "Spirited"
+	case 2:
+		return "Disciplined"
+	case 3:
+		return "Scholarly"
+	case 4:
+		return "Crafty"
+	default:
+		return ""
+	}
 }

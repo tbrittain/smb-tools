@@ -36,12 +36,21 @@ type SaveGameReader interface {
 	// GetPlayoffSchedule returns the playoff schedule and results for a given season.
 	GetPlayoffSchedule(ctx context.Context, seasonID int) ([]models.SaveGamePlayoffGame, error)
 
-	// GetSeasonBattingStats returns all batting stat rows for the given season.
-	// Returns both regular season stats (linked via t_season_stats).
+	// GetSeasonBattingStats returns regular season batting stats for the given
+	// season (rows linked via t_season_stats).
 	GetSeasonBattingStats(ctx context.Context, seasonID int) ([]models.SaveGameBattingStat, error)
 
-	// GetSeasonPitchingStats returns all pitching stat rows for the given season.
+	// GetPlayoffBattingStats returns playoff batting stats for the given season
+	// (rows linked via t_playoff_stats).
+	GetPlayoffBattingStats(ctx context.Context, seasonID int) ([]models.SaveGameBattingStat, error)
+
+	// GetSeasonPitchingStats returns regular season pitching stats for the given
+	// season (rows linked via t_season_stats).
 	GetSeasonPitchingStats(ctx context.Context, seasonID int) ([]models.SaveGamePitchingStat, error)
+
+	// GetPlayoffPitchingStats returns playoff pitching stats for the given season
+	// (rows linked via t_playoff_stats).
+	GetPlayoffPitchingStats(ctx context.Context, seasonID int) ([]models.SaveGamePitchingStat, error)
 
 	// GetCareerBattingStats returns career-aggregated batting stats for all
 	// currently active players in the franchise.

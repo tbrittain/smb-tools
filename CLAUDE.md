@@ -198,6 +198,29 @@ Before writing any query that touches the save game database, verify every table
 
 The same requirement applies to the test fixture in `internal/testutil/savegame.go`. The fixture exists to run the import pipeline against a controlled dataset — it must use the real schema's column names, not invented ones. A fixture built with made-up column names produces tests that prove nothing about whether the real game will work.
 
+## Save Game Import — Anti-Corruption Layer
+
+**Raw save game values must never leak into the companion DB or the domain layer.** The SMB save game stores many values as opaque integer codes (position codes, hand codes, chemistry codes, option keys). These are implementation details of Metalhead's engine, not smb-tools domain concepts.
+
+The `SaveGameReader` and the import pipeline in `internal/service/import.go` form the **anti-corruption layer** (ACL): they translate raw codes into meaningful domain values before those values ever touch the companion database or a domain model struct.
+
+**The rule**: every field read from the save game that carries a coded integer value must be translated to a human-readable domain string (or typed constant) in Go — in the reader or import layer — before being stored or returned. SQL `CASE` expressions in the query are not an acceptable substitute; translation belongs in Go code.
+
+Examples of what this looks like in practice:
+
+```go
+// Raw integer code from save game → domain string in Go
+p.PrimaryPos    = saveGamePosition(rawPrimaryPos)    // "8" → "CF"
+p.PitcherRole   = saveGamePitcherRole(rawPitcherRole) // "1" → "SP"
+p.ThrowHand     = saveGameHand(throwCode)             // 0   → "L"
+p.BatHand       = saveGameHand(batCode)               // 2   → "S"
+p.ChemistryType = saveGameChemistry(chemCode)         // 0   → "Competitive"
+```
+
+The translation functions (`saveGamePosition`, `saveGamePitcherRole`, `saveGameHand`, `saveGameChemistry`) live in `internal/store/sqlite_savegame_reader.go` and are the canonical mapping between save game codes and domain values.
+
+**The test fixture must also use domain values, not raw codes.** `internal/testutil/savegame.go` seeds the fixture with domain strings (e.g., `"CF"`, `"SP"`, `"L"`, `"Competitive"`) — not the raw integers the save game stores. A fixture seeded with raw codes would only prove that translation was skipped, not that it worked correctly.
+
 ## Key Domain Knowledge
 
 The SMB save game is a **ZLib-compressed SQLite 3 database**. Decompressed, it is a standard SQLite file with ~67 tables and 22 views. The schema is documented in `docs/domain/save-game-schema.md`. The game does not support mods and uses a custom proprietary C++ engine (not Unity/Unreal) — see `docs/game-integration/investigation.md`.
