@@ -42,6 +42,8 @@ export function ListAllTeamSeasons():Promise<Array<main.TeamSeasonListDTO>>;
 
 export function ListFranchises():Promise<Array<main.FranchiseDTO>>;
 
+export function OpenAppDataDir():Promise<void>;
+
 export function ProbeFranchiseSaveFile(arg1:string):Promise<main.SaveFileCandidateDTO>;
 
 export function ProbeLeagues(arg1:string):Promise<Array<main.SaveFileCandidateDTO>>;

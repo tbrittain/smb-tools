@@ -8,6 +8,7 @@ import (
 
 	"os"
 
+	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"smb-tools/internal/config"
 	internaldb "smb-tools/internal/db"
@@ -39,12 +40,13 @@ type App struct {
 	activeFranchise  *models.Franchise
 	franchiseStore   *store.FranchiseStore
 	franchiseService *service.FranchiseService
-	importService    *service.ImportService
+	importService *service.ImportService
+	syncService   *service.SyncService
 	// Read-side query stores — initialised when a franchise is selected,
 	// cleared when it is deselected or switched.
-	seasonQueryStore    *store.SeasonQueryStore
-	playerQueryStore    *store.PlayerQueryStore
-	teamQueryStore      *store.TeamQueryStore
+	seasonQueryStore      *store.SeasonQueryStore
+	playerQueryStore      *store.PlayerQueryStore
+	teamQueryStore        *store.TeamQueryStore
 	leaderboardQueryStore *store.LeaderboardQueryStore
 }
 
@@ -71,6 +73,22 @@ func (a *App) startup(ctx context.Context) {
 	a.franchiseStore = store.NewFranchiseStore(registryDB)
 	a.franchiseService = service.NewFranchiseService(dirs, a.franchiseStore)
 	a.importService = service.NewImportService()
+
+	a.setupMenu(ctx)
+}
+
+func (a *App) setupMenu(ctx context.Context) {
+	appMenu := menu.NewMenu()
+	fileMenu := appMenu.AddSubmenu("File")
+	fileMenu.AddText("Open App Data Directory", nil, func(_ *menu.CallbackData) {
+		if a.dirs == nil {
+			return
+		}
+		if err := openDirectory(a.dirs.DataDir); err != nil {
+			log.Printf("open app data dir: %v", err)
+		}
+	})
+	runtime.MenuSetApplicationMenu(ctx, appMenu)
 }
 
 func (a *App) shutdown(_ context.Context) {
@@ -90,6 +108,14 @@ func (a *App) shutdown(_ context.Context) {
 
 // GetVersion returns the running app version.
 func (a *App) GetVersion() string { return a.version }
+
+// OpenAppDataDir opens the smb-tools app data directory in the OS file manager.
+func (a *App) OpenAppDataDir() error {
+	if a.dirs == nil {
+		return fmt.Errorf("app data directory not initialized")
+	}
+	return openDirectory(a.dirs.DataDir)
+}
 
 // ListFranchises returns all registered franchises.
 func (a *App) ListFranchises() ([]FranchiseDTO, error) {
@@ -135,6 +161,7 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 		}
 		a.companionDB = nil
 		a.activeFranchise = nil
+		a.syncService = nil
 		a.seasonQueryStore = nil
 		a.playerQueryStore = nil
 		a.teamQueryStore = nil
@@ -147,6 +174,11 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 	}
 	a.companionDB = companionDB
 	a.activeFranchise = &f
+	snapshotSvc := service.NewSnapshotService(
+		a.dirs.SnapshotsDir(id),
+		store.NewSnapshotStore(companionDB),
+	)
+	a.syncService = service.NewSyncService(snapshotSvc, a.importService)
 	a.seasonQueryStore = store.NewSeasonQueryStore(companionDB)
 	a.playerQueryStore = store.NewPlayerQueryStore(companionDB)
 	a.teamQueryStore = store.NewTeamQueryStore(companionDB)
@@ -213,19 +245,14 @@ func (a *App) SyncSeason() (SyncSeasonResult, error) {
 
 	reader := store.NewSqliteSaveGameReader(saveDB, "")
 
-	seasonInfo, err := reader.GetCurrentSeason(a.ctx, a.activeFranchise.LeagueGUID)
+	result, err := a.syncService.SyncSeason(a.ctx, a.companionDB, reader, tmpPath, a.activeFranchise.LeagueGUID)
 	if err != nil {
-		return SyncSeasonResult{}, fmt.Errorf("detecting current season: %w", err)
-	}
-
-	result, err := a.importService.ImportSeason(a.ctx, a.companionDB, reader, seasonInfo.SeasonID, seasonInfo.SeasonNum)
-	if err != nil {
-		return SyncSeasonResult{}, fmt.Errorf("importing season %d: %w", seasonInfo.SeasonNum, err)
+		return SyncSeasonResult{}, err
 	}
 	runtime.LogInfof(a.ctx, "SyncSeason: imported season %d — %d players, %d teams, %d games",
-		seasonInfo.SeasonNum, result.Players, result.Teams, result.Games)
+		result.SeasonNum, result.Players, result.Teams, result.Games)
 
-	if err := a.franchiseStore.RecordSync(a.ctx, a.activeFranchise.ID, seasonInfo.SeasonNum); err != nil {
+	if err := a.franchiseStore.RecordSync(a.ctx, a.activeFranchise.ID, result.SeasonNum); err != nil {
 		log.Printf("SyncSeason: recording sync: %v", err)
 	}
 

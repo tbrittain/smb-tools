@@ -1,10 +1,13 @@
 <script lang="ts" setup>
 import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import AppButton from './components/AppButton.vue'
 import FranchiseCreate from './components/FranchiseCreate.vue'
 import FranchiseSelector from './components/FranchiseSelector.vue'
 import { useFranchiseStore } from './stores/franchise'
 
+const router = useRouter()
+const route = useRoute()
 const franchiseStore = useFranchiseStore()
 const showCreate = ref(false)
 const error = ref<string | null>(null)
@@ -84,6 +87,9 @@ async function handleSelect(id: string) {
         </div>
       </aside>
       <main class="main-content">
+        <div v-if="route.path !== '/'" class="content-topbar">
+          <button class="back-btn" @click="router.go(-1)">&#8592; Back</button>
+        </div>
         <router-view />
       </main>
     </div>
@@ -217,5 +223,31 @@ async function handleSelect(id: string) {
   flex: 1;
   overflow-y: auto;
   background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.content-topbar {
+  padding: 0.5rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-1);
+  flex-shrink: 0;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.back-btn:hover {
+  color: var(--color-text-primary);
 }
 </style>

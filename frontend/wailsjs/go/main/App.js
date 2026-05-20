@@ -82,6 +82,10 @@ export function ListFranchises() {
   return window['go']['main']['App']['ListFranchises']();
 }
 
+export function OpenAppDataDir() {
+  return window['go']['main']['App']['OpenAppDataDir']();
+}
+
 export function ProbeFranchiseSaveFile(arg1) {
   return window['go']['main']['App']['ProbeFranchiseSaveFile'](arg1);
 }
