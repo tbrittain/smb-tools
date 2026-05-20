@@ -155,7 +155,11 @@ Check off phases as they are completed. Individual phases will be broken into de
 - [ ] Team colors
 - [ ] Player attribute history visualization (season-over-season progression)
 - [ ] League-average trend overlays on stat views
-- [ ] Bold league leaders in stat tables
+- [ ] Stat cell highlights in tables (Baseball Reference–style):
+  - **Bold** individual stat values when that player led the league in that category for the season
+  - **Gold cell background** when a value is a franchise all-time career record
+  - Legend displayed near the table explaining both indicators
+  - Applies to season stat tables (PlayerStatTable, roster tables); career totals rows are candidates for the gold record highlight
 
 ---
 
