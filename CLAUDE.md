@@ -162,6 +162,7 @@ docs/                     # All architecture decisions, domain knowledge, roadma
 - **No Options API in Vue** — Composition API with `<script setup>` only
 - **No writing to the SMB save game file** (except the team transfer tool, which writes to a copy)
 - **No skipping tests** because a feature "seems simple" — edge cases in stat calculations and import logic are where bugs live
+- **No inventing save game column names** — verify every name against the SMB3Explorer SQL files or a real decompressed save before writing it. A fixture built on made-up names produces tests that prove nothing. See "Save Game SQL — Real Schema Required" above.
 
 ## Development Commands
 
@@ -184,6 +185,18 @@ wails dev              # Full app in dev mode (hot reload)
 wails build            # Build for current platform — also regenerates wailsjs/ bindings
                        # Run this after any Go binding/DTO changes and before opening a PR
 ```
+
+## Save Game SQL — Real Schema Required
+
+**The only acceptable source of truth for save game table and column names is the real SMB save game schema.** Making tests pass is not the goal — the fixture must mirror the real schema, or passing tests are meaningless.
+
+Before writing any query that touches the save game database, verify every table and column name against one of these two authoritative sources:
+
+1. **SMB3Explorer SQL files** at `C:\Users\Trey\source\SMB3Explorer\SMB3Explorer\Resources\Sql\` — battle-tested queries against the real game. This is the fastest reference; check the relevant `.sql` file before using any column name.
+
+2. **A decompressed real save file** — decompress any `.sav` from `%LOCALAPPDATA%\Metalhead\Super Mega Baseball 4\` using `internal/db.DecompressAndOpen` and run `PRAGMA table_info(<table_name>)` to see the actual columns.
+
+The same requirement applies to the test fixture in `internal/testutil/savegame.go`. The fixture exists to run the import pipeline against a controlled dataset — it must use the real schema's column names, not invented ones. A fixture built with made-up column names produces tests that prove nothing about whether the real game will work.
 
 ## Key Domain Knowledge
 
