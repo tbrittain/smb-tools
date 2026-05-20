@@ -12,6 +12,7 @@ type Story = StoryObj<typeof TeamSeasonCard>
 
 const base: main.TeamSeasonSummaryDTO = {
   historyId: 1,
+  seasonId: 1,
   seasonNum: 5,
   teamName: 'Red Sox',
   divisionName: 'East',

@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { ref, watch, type Ref } from 'vue'
 
 /**
  * Wraps a search query string with debounced execution. The handler is called
@@ -9,7 +9,7 @@ import { ref, watch } from 'vue'
 export function useSearchDebounce(
   handler: (query: string) => Promise<void>,
   delayMs = 300,
-): { query: ReturnType<typeof ref<string>>; loading: ReturnType<typeof ref<boolean>> } {
+): { query: Ref<string>; loading: Ref<boolean> } {
   const query = ref('')
   const loading = ref(false)
 

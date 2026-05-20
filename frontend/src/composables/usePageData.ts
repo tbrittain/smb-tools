@@ -1,17 +1,15 @@
-import { ref } from 'vue'
-
-export interface PageDataState<T> {
-  data: ReturnType<typeof ref<T | null>>
-  loading: ReturnType<typeof ref<boolean>>
-  error: ReturnType<typeof ref<string | null>>
-  load: () => Promise<void>
-}
+import { ref, type Ref } from 'vue'
 
 /**
  * Generic composable for async page-level data fetching.
  * Pages call `load()` in onMounted; components receive data via props.
  */
-export function usePageData<T>(fetcher: () => Promise<T>): PageDataState<T> {
+export function usePageData<T>(fetcher: () => Promise<T>): {
+  data: Ref<T | null>
+  loading: Ref<boolean>
+  error: Ref<string | null>
+  load: () => Promise<void>
+} {
   const data = ref<T | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -28,5 +26,5 @@ export function usePageData<T>(fetcher: () => Promise<T>): PageDataState<T> {
     }
   }
 
-  return { data, loading, error, load }
+  return { data: data as Ref<T | null>, loading, error, load }
 }

@@ -22,6 +22,7 @@ const row = (
   seed?: number,
 ) => ({
   historyId: id,
+  teamId: id,
   teamName: name,
   conferenceName: conf,
   divisionName: div,
