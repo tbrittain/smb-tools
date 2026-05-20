@@ -58,11 +58,7 @@ async function handleSubmit() {
 
     <div class="field">
       <label>Save File</label>
-      <p class="field-hint">
-        Only franchise mode saves are shown. smb-tools temporarily connects to
-        each file to read its metadata — nothing is imported yet. Data is
-        imported when you click <strong>Sync Season</strong> on the dashboard.
-      </p>
+      <p class="field-hint">Only franchise mode saves are shown.</p>
       <SaveFilePicker :selected-path="selectedPath" @change="onSaveFileChange" />
     </div>
 

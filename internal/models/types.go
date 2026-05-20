@@ -15,3 +15,16 @@ func (v GameVersion) Valid() bool {
 }
 
 func (v GameVersion) String() string { return string(v) }
+
+// LeagueMode describes the game mode of a league in an SMB save file.
+type LeagueMode string
+
+const (
+	LeagueModeFranchise   LeagueMode = "franchise"
+	LeagueModeSeason      LeagueMode = "season"
+	LeagueModeElimination LeagueMode = "elimination"
+	// LeagueModeNone indicates the league exists but no games have been played.
+	LeagueModeNone LeagueMode = "none"
+)
+
+func (m LeagueMode) String() string { return string(m) }

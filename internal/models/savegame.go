@@ -11,13 +11,12 @@ package models
 
 // SaveGameLeague represents a league entry from t_leagues in the SMB save game.
 type SaveGameLeague struct {
-	GUID           string // hex-encoded GUID blob; stable identifier for league association
+	GUID           string     // hex-encoded GUID blob; stable identifier for league association
 	ID             int
 	Name           string
 	TeamTypeID     int
 	TypeName       string
-	FranchiseID    *int   // non-nil → franchise mode; nil → season or elimination mode
-	Elimination    bool   // true → elimination mode (only meaningful when FranchiseID is nil)
+	Mode           LeagueMode // franchise / season / elimination / none
 	NumSeasons     int
 	PlayerTeamName string // non-empty only in franchise mode
 }

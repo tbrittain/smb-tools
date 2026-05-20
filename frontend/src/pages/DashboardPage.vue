@@ -164,9 +164,7 @@ onMounted(loadDashboardData)
       <!-- Not configured, or currently editing -->
       <template v-else>
         <p v-if="!franchiseStore.active?.saveFilePath" class="hint-text">
-          Connect a franchise mode save file to enable syncing. smb-tools
-          reads the file temporarily to identify your league — no data is
-          imported until you click Sync Season.
+          Connect a save file to enable syncing.
         </p>
         <SaveFilePicker
           :selected-path="franchiseStore.active?.saveFilePath"
