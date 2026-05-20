@@ -311,6 +311,74 @@ ORDER BY ps.primary_position, p.last_name
 	return out, rows.Err()
 }
 
+// GetTeamSeasonSummaryByHistoryID returns the TeamSeasonSummary for a specific
+// team_season_history row, including the champion flag.
+// Returns sql.ErrNoRows wrapped in an error if the history ID does not exist.
+func (s *TeamQueryStore) GetTeamSeasonSummaryByHistoryID(ctx context.Context, historyID int64) (models.TeamSeasonSummary, error) {
+	q := championCTE + `
+SELECT
+    tsh.id,
+    s.season_num,
+    tsh.team_name,
+    tsh.division_name,
+    tsh.conference_name,
+    tsh.wins,
+    tsh.losses,
+    tsh.games_back,
+    tsh.runs_for,
+    tsh.runs_against,
+    tsh.budget,
+    tsh.payroll,
+    tsh.playoff_seed,
+    tsh.playoff_wins,
+    tsh.playoff_losses,
+    tsh.playoff_runs_for,
+    tsh.playoff_runs_against,
+    tsh.total_power,    tsh.total_contact,  tsh.total_speed,
+    tsh.total_fielding, tsh.total_arm,
+    tsh.total_velocity, tsh.total_junk,     tsh.total_accuracy,
+    CASE WHEN c.winner_history_id = tsh.id THEN 1 ELSE 0 END AS is_champion
+FROM team_season_history tsh
+JOIN seasons s ON s.id = tsh.season_id
+LEFT JOIN champion c ON c.season_id = tsh.season_id
+WHERE tsh.id = ?
+`
+	var ts models.TeamSeasonSummary
+	var seed, pw, pl, prf, pra sql.NullInt64
+	var isChampion int
+	err := s.db.QueryRowContext(ctx, q, historyID).Scan(
+		&ts.HistoryID, &ts.SeasonNum, &ts.TeamName,
+		&ts.DivisionName, &ts.ConferenceName,
+		&ts.Wins, &ts.Losses, &ts.GamesBack, &ts.RunsFor, &ts.RunsAgainst,
+		&ts.Budget, &ts.Payroll,
+		&seed, &pw, &pl, &prf, &pra,
+		&ts.TotalPower, &ts.TotalContact, &ts.TotalSpeed,
+		&ts.TotalFielding, &ts.TotalArm,
+		&ts.TotalVelocity, &ts.TotalJunk, &ts.TotalAccuracy,
+		&isChampion,
+	)
+	if err != nil {
+		return ts, fmt.Errorf("getting team season summary for history %d: %w", historyID, err)
+	}
+	if ts.Wins+ts.Losses > 0 {
+		ts.WinPct = float64(ts.Wins) / float64(ts.Wins+ts.Losses)
+	}
+	nullIntToPtr := func(n sql.NullInt64) *int {
+		if !n.Valid {
+			return nil
+		}
+		v := int(n.Int64)
+		return &v
+	}
+	ts.PlayoffSeed = nullIntToPtr(seed)
+	ts.PlayoffWins = nullIntToPtr(pw)
+	ts.PlayoffLosses = nullIntToPtr(pl)
+	ts.PlayoffRunsFor = nullIntToPtr(prf)
+	ts.PlayoffRunsAgainst = nullIntToPtr(pra)
+	ts.IsChampion = isChampion == 1
+	return ts, nil
+}
+
 // GetTeamSeasonSchedule returns all regular season games (home and away) for a
 // team in a given season, ordered by game number.
 func (s *TeamQueryStore) GetTeamSeasonSchedule(ctx context.Context, teamHistoryID int64, seasonID int) ([]models.ScheduleGameRow, error) {
