@@ -173,18 +173,22 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 			COALESCE(bp.accuracy, 0),
 			COALESCE(bp.age, 0),
 			COALESCE(CAST(s.salary * 200 AS INTEGER), 0) AS salary,
-			COALESCE(bpt.traits, '[]')                   AS traits
+			COALESCE(
+				(SELECT json_group_array(json_object('traitId', t.trait, 'subtypeId', t.subType))
+				 FROM t_baseball_player_traits t
+				 WHERE t.baseballPlayerLocalID = bpli.localID),
+				'[]'
+			) AS traits
 		FROM t_baseball_players bp
 		JOIN t_baseball_player_local_ids bpli ON bpli.GUID = bp.GUID
 		JOIN t_stats_players sp ON sp.baseballPlayerLocalID = bpli.localID
-		JOIN t_stats st ON st.aggregatorID = sp.aggregatorID
+		JOIN t_stats st ON st.statsPlayerID = sp.statsPlayerID
 		JOIN t_season_stats ss ON ss.aggregatorID = st.aggregatorID AND ss.seasonID = ?
 		LEFT JOIN t_team_local_ids ctli  ON ctli.localID  = st.currentTeamLocalID
 		LEFT JOIN t_teams ct             ON ct.GUID        = ctli.GUID
 		LEFT JOIN t_team_local_ids mrtli ON mrtli.localID = st.mostRecentlyPlayedTeamLocalID
 		LEFT JOIN t_teams mrt            ON mrt.GUID       = mrtli.GUID
 		LEFT JOIN t_salary s ON s.baseballPlayerGUID = bp.GUID
-		LEFT JOIN t_baseball_player_traits bpt ON bpt.baseballPlayerLocalID = bpli.localID
 		ORDER BY sp.lastName, sp.firstName
 	`, seasonID, seasonID)
 	if err != nil {
@@ -403,7 +407,7 @@ func (r *SqliteSaveGameReader) queryBattingStats(ctx context.Context, joinClause
 			COALESCE(b.sacrificeFlies, 0), COALESCE(b.errors, 0),
 			COALESCE(b.passedBalls, 0)
 		FROM t_stats st
-		JOIN t_stats_players sp ON sp.aggregatorID = st.aggregatorID
+		JOIN t_stats_players sp ON sp.statsPlayerID = st.statsPlayerID
 		JOIN t_stats_batting b ON b.aggregatorID = st.aggregatorID
 		LEFT JOIN t_baseball_player_local_ids bpli  ON bpli.localID  = sp.baseballPlayerLocalID
 		LEFT JOIN t_team_local_ids ctli             ON ctli.localID  = st.currentTeamLocalID
@@ -445,7 +449,7 @@ func (r *SqliteSaveGameReader) queryPitchingStats(ctx context.Context, joinClaus
 			COALESCE(p.gamesFinished, 0), COALESCE(p.runsAllowed, 0),
 			COALESCE(p.wildPitches, 0)
 		FROM t_stats st
-		JOIN t_stats_players sp ON sp.aggregatorID = st.aggregatorID
+		JOIN t_stats_players sp ON sp.statsPlayerID = st.statsPlayerID
 		JOIN t_stats_pitching p ON p.aggregatorID = st.aggregatorID
 		LEFT JOIN t_baseball_player_local_ids bpli  ON bpli.localID  = sp.baseballPlayerLocalID
 		LEFT JOIN t_team_local_ids ctli             ON ctli.localID  = st.currentTeamLocalID

@@ -102,10 +102,12 @@ func createSaveGameSchema(db *sql.DB) error {
 			localID  INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 			GUID     BLOB NOT NULL REFERENCES t_baseball_players(GUID)
 		);
-		-- Real game: traits linked by baseballPlayerLocalID (integer), not GUID.
+		-- Real game: one row per trait; trait and subType are integer IDs.
+		-- The JSON representation is assembled at query time via json_group_array.
 		CREATE TABLE t_baseball_player_traits (
 			baseballPlayerLocalID INTEGER NOT NULL REFERENCES t_baseball_player_local_ids(localID),
-			traits                TEXT NOT NULL DEFAULT '[]'
+			trait                 INTEGER NOT NULL,
+			subType               INTEGER NOT NULL DEFAULT 0
 		);
 		CREATE TABLE t_salary (
 			baseballPlayerGUID BLOB NOT NULL REFERENCES t_baseball_players(GUID),
@@ -113,6 +115,7 @@ func createSaveGameSchema(db *sql.DB) error {
 		);
 		CREATE TABLE t_stats (
 			aggregatorID                       INTEGER PRIMARY KEY NOT NULL,
+			statsPlayerID                      INTEGER,
 			currentTeamLocalID                 INTEGER,
 			mostRecentlyPlayedTeamLocalID      INTEGER,
 			previousRecentlyPlayedTeamLocalID  INTEGER
@@ -121,7 +124,7 @@ func createSaveGameSchema(db *sql.DB) error {
 		-- baseballPlayerGUIDIfKnown is only an output alias in SMB3Explorer SQL,
 		-- not a real column name.
 		CREATE TABLE t_stats_players (
-			aggregatorID          INTEGER PRIMARY KEY REFERENCES t_stats(aggregatorID),
+			statsPlayerID         INTEGER PRIMARY KEY NOT NULL,
 			baseballPlayerLocalID INTEGER REFERENCES t_baseball_player_local_ids(localID),
 			firstName             TEXT,
 			lastName              TEXT,
@@ -291,44 +294,43 @@ func seedSaveGameData(db *sql.DB) error {
 		INSERT INTO t_baseball_players (GUID, power, contact, speed, fielding, arm, velocity, junk, accuracy, age)
 		VALUES (X'AA000000000000000000000000000000', 80, 75, 60, 70, 65, 50, 50, 50, 27);
 		INSERT INTO t_baseball_player_local_ids (GUID) VALUES (X'AA000000000000000000000000000000');
-		INSERT INTO t_baseball_player_traits (baseballPlayerLocalID, traits) VALUES (1, '[]');
+		-- no trait rows → query subquery returns NULL → COALESCE gives '[]'
 		INSERT INTO t_salary (baseballPlayerGUID, salary) VALUES (X'AA000000000000000000000000000000', 250);
 
 		-- Player BB: pitcher — localID 2
 		INSERT INTO t_baseball_players (GUID, power, contact, speed, fielding, arm, velocity, junk, accuracy, age)
 		VALUES (X'BB000000000000000000000000000000', 40, 40, 40, 50, 55, 88, 78, 82, 30);
 		INSERT INTO t_baseball_player_local_ids (GUID) VALUES (X'BB000000000000000000000000000000');
-		INSERT INTO t_baseball_player_traits (baseballPlayerLocalID, traits) VALUES (2, '[]');
 		INSERT INTO t_salary (baseballPlayerGUID, salary) VALUES (X'BB000000000000000000000000000000', 300);
 
 		-- ── Season 100 stats ──────────────────────────────────────────────────
 
 		-- Batter (AA) — regular season; baseballPlayerLocalID = 1
-		INSERT INTO t_stats (aggregatorID, currentTeamLocalID) VALUES (1, 1);
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPos, age)
+		INSERT INTO t_stats (aggregatorID, statsPlayerID, currentTeamLocalID) VALUES (1, 1, 1);
+		INSERT INTO t_stats_players (statsPlayerID, baseballPlayerLocalID, firstName, lastName, primaryPos, age)
 		VALUES (1, 1, 'Test', 'Batter', 'CF', 27);
 		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, gamesBatting, atBats, runs, hits, doubles, triples, homeruns, rbi, baseOnBalls, strikeOuts)
 		VALUES (1, 50, 50, 180, 30, 54, 10, 2, 12, 40, 20, 35);
 		INSERT INTO t_season_stats (aggregatorID, seasonID) VALUES (1, 100);
 
 		-- Pitcher (BB) — regular season; baseballPlayerLocalID = 2
-		INSERT INTO t_stats (aggregatorID, currentTeamLocalID) VALUES (2, 1);
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPos, pitcherRole, age)
+		INSERT INTO t_stats (aggregatorID, statsPlayerID, currentTeamLocalID) VALUES (2, 2, 1);
+		INSERT INTO t_stats_players (statsPlayerID, baseballPlayerLocalID, firstName, lastName, primaryPos, pitcherRole, age)
 		VALUES (2, 2, 'Test', 'Pitcher', 'P', 'SP', 30);
 		INSERT INTO t_stats_pitching (aggregatorID, wins, losses, games, gamesStarted, outsPitched, hits, earnedRuns, homeRuns, baseOnBalls, strikeOuts, battersFaced, totalPitches)
 		VALUES (2, 12, 8, 25, 25, 540, 140, 55, 15, 40, 180, 740, 3200);
 		INSERT INTO t_season_stats (aggregatorID, seasonID) VALUES (2, 100);
 
 		-- Batter (AA) — playoff career stats aggregator
-		INSERT INTO t_stats (aggregatorID, currentTeamLocalID) VALUES (3, 1);
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPos, age)
+		INSERT INTO t_stats (aggregatorID, statsPlayerID, currentTeamLocalID) VALUES (3, 3, 1);
+		INSERT INTO t_stats_players (statsPlayerID, baseballPlayerLocalID, firstName, lastName, primaryPos, age)
 		VALUES (3, 1, 'Test', 'Batter', 'CF', 27);
 		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, gamesBatting, atBats, hits, homeruns, rbi)
 		VALUES (3, 5, 5, 18, 6, 2, 5);
 
 		-- Pitcher (BB) — playoff career stats aggregator
-		INSERT INTO t_stats (aggregatorID, currentTeamLocalID) VALUES (4, 1);
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPos, pitcherRole, age)
+		INSERT INTO t_stats (aggregatorID, statsPlayerID, currentTeamLocalID) VALUES (4, 4, 1);
+		INSERT INTO t_stats_players (statsPlayerID, baseballPlayerLocalID, firstName, lastName, primaryPos, pitcherRole, age)
 		VALUES (4, 2, 'Test', 'Pitcher', 'P', 'SP', 30);
 		INSERT INTO t_stats_pitching (aggregatorID, wins, losses, games, gamesStarted, outsPitched, hits, earnedRuns, strikeOuts)
 		VALUES (4, 2, 0, 2, 2, 54, 10, 3, 18);
@@ -365,15 +367,15 @@ func seedSaveGameData(db *sql.DB) error {
 
 		-- ── Season 101 stats (same players, second season) ────────────────────
 
-		INSERT INTO t_stats (aggregatorID, currentTeamLocalID) VALUES (5, 1);
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPos, age)
+		INSERT INTO t_stats (aggregatorID, statsPlayerID, currentTeamLocalID) VALUES (5, 5, 1);
+		INSERT INTO t_stats_players (statsPlayerID, baseballPlayerLocalID, firstName, lastName, primaryPos, age)
 		VALUES (5, 1, 'Test', 'Batter', 'CF', 28);
 		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, gamesBatting, atBats, runs, hits, homeruns, rbi)
 		VALUES (5, 52, 52, 190, 35, 60, 15, 48);
 		INSERT INTO t_season_stats (aggregatorID, seasonID) VALUES (5, 101);
 
-		INSERT INTO t_stats (aggregatorID, currentTeamLocalID) VALUES (6, 1);
-		INSERT INTO t_stats_players (aggregatorID, baseballPlayerLocalID, firstName, lastName, primaryPos, pitcherRole, age)
+		INSERT INTO t_stats (aggregatorID, statsPlayerID, currentTeamLocalID) VALUES (6, 6, 1);
+		INSERT INTO t_stats_players (statsPlayerID, baseballPlayerLocalID, firstName, lastName, primaryPos, pitcherRole, age)
 		VALUES (6, 2, 'Test', 'Pitcher', 'P', 'SP', 31);
 		INSERT INTO t_stats_pitching (aggregatorID, wins, losses, games, gamesStarted, outsPitched, hits, earnedRuns, strikeOuts)
 		VALUES (6, 14, 7, 25, 25, 570, 130, 50, 195);
