@@ -1,4 +1,4 @@
-import { ref, watch, type Ref } from 'vue'
+import { type Ref, ref, watch } from 'vue'
 
 /**
  * Wraps a search query string with debounced execution. The handler is called

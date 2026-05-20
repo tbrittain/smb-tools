@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { type Ref, ref } from 'vue'
 
 /**
  * Generic composable for async page-level data fetching.
