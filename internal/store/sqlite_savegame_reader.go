@@ -161,8 +161,8 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 			COALESCE(sp.primaryPos, '')              AS primaryPos,
 			COALESCE(sp.secondaryPos, '')            AS secondaryPos,
 			COALESCE(sp.pitcherRole, '')                  AS pitcherRole,
-			COALESCE(st.currentTeamName, '')              AS currentTeam,
-			COALESCE(st.mostRecentTeamName, '')           AS previousTeam,
+			COALESCE(ct.teamName, '')                     AS currentTeam,
+			COALESCE(mrt.teamName, '')                    AS previousTeam,
 			COALESCE(bp.power, 0),
 			COALESCE(bp.contact, 0),
 			COALESCE(bp.speed, 0),
@@ -179,6 +179,10 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 		JOIN t_stats_players sp ON sp.baseballPlayerLocalID = bpli.localID
 		JOIN t_stats st ON st.aggregatorID = sp.aggregatorID
 		JOIN t_season_stats ss ON ss.aggregatorID = st.aggregatorID AND ss.seasonID = ?
+		LEFT JOIN t_team_local_ids ctli  ON ctli.localID  = st.currentTeamLocalID
+		LEFT JOIN t_teams ct             ON ct.GUID        = ctli.GUID
+		LEFT JOIN t_team_local_ids mrtli ON mrtli.localID = st.mostRecentlyPlayedTeamLocalID
+		LEFT JOIN t_teams mrt            ON mrt.GUID       = mrtli.GUID
 		LEFT JOIN t_salary s ON s.baseballPlayerGUID = bp.GUID
 		LEFT JOIN t_baseball_player_traits bpt ON bpt.baseballPlayerLocalID = bpli.localID
 		ORDER BY sp.lastName, sp.firstName
@@ -382,9 +386,9 @@ func (r *SqliteSaveGameReader) queryBattingStats(ctx context.Context, joinClause
 			st.aggregatorID,
 			COALESCE(hex(bpli.GUID), '') AS playerGUID,
 			COALESCE(sp.firstName, ''), COALESCE(sp.lastName, ''),
-			COALESCE(st.currentTeamName, ''),
-			COALESCE(st.mostRecentTeamName, ''),
-			COALESCE(st.secondMostRecentTeamName, ''),
+			COALESCE(ct.teamName, ''),
+			COALESCE(mrt.teamName, ''),
+			COALESCE(pmrt.teamName, ''),
 			COALESCE(sp.primaryPos, ''),
 			COALESCE(sp.secondaryPos, ''),
 			COALESCE(sp.pitcherRole, ''),
@@ -401,7 +405,13 @@ func (r *SqliteSaveGameReader) queryBattingStats(ctx context.Context, joinClause
 		FROM t_stats st
 		JOIN t_stats_players sp ON sp.aggregatorID = st.aggregatorID
 		JOIN t_stats_batting b ON b.aggregatorID = st.aggregatorID
-		LEFT JOIN t_baseball_player_local_ids bpli ON bpli.localID = sp.baseballPlayerLocalID
+		LEFT JOIN t_baseball_player_local_ids bpli  ON bpli.localID  = sp.baseballPlayerLocalID
+		LEFT JOIN t_team_local_ids ctli             ON ctli.localID  = st.currentTeamLocalID
+		LEFT JOIN t_teams ct                        ON ct.GUID        = ctli.GUID
+		LEFT JOIN t_team_local_ids mrtli            ON mrtli.localID = st.mostRecentlyPlayedTeamLocalID
+		LEFT JOIN t_teams mrt                       ON mrt.GUID       = mrtli.GUID
+		LEFT JOIN t_team_local_ids pmrtli           ON pmrtli.localID = st.previousRecentlyPlayedTeamLocalID
+		LEFT JOIN t_teams pmrt                      ON pmrt.GUID      = pmrtli.GUID
 		` + joinClause + `
 		ORDER BY sp.lastName, sp.firstName`
 
@@ -419,9 +429,9 @@ func (r *SqliteSaveGameReader) queryPitchingStats(ctx context.Context, joinClaus
 			st.aggregatorID,
 			COALESCE(hex(bpli.GUID), '') AS playerGUID,
 			COALESCE(sp.firstName, ''), COALESCE(sp.lastName, ''),
-			COALESCE(st.currentTeamName, ''),
-			COALESCE(st.mostRecentTeamName, ''),
-			COALESCE(st.secondMostRecentTeamName, ''),
+			COALESCE(ct.teamName, ''),
+			COALESCE(mrt.teamName, ''),
+			COALESCE(pmrt.teamName, ''),
 			COALESCE(sp.pitcherRole, ''),
 			COALESCE(sp.age, 0), sp.retirementSeason,
 			COALESCE(p.wins, 0), COALESCE(p.losses, 0),
@@ -437,7 +447,13 @@ func (r *SqliteSaveGameReader) queryPitchingStats(ctx context.Context, joinClaus
 		FROM t_stats st
 		JOIN t_stats_players sp ON sp.aggregatorID = st.aggregatorID
 		JOIN t_stats_pitching p ON p.aggregatorID = st.aggregatorID
-		LEFT JOIN t_baseball_player_local_ids bpli ON bpli.localID = sp.baseballPlayerLocalID
+		LEFT JOIN t_baseball_player_local_ids bpli  ON bpli.localID  = sp.baseballPlayerLocalID
+		LEFT JOIN t_team_local_ids ctli             ON ctli.localID  = st.currentTeamLocalID
+		LEFT JOIN t_teams ct                        ON ct.GUID        = ctli.GUID
+		LEFT JOIN t_team_local_ids mrtli            ON mrtli.localID = st.mostRecentlyPlayedTeamLocalID
+		LEFT JOIN t_teams mrt                       ON mrt.GUID       = mrtli.GUID
+		LEFT JOIN t_team_local_ids pmrtli           ON pmrtli.localID = st.previousRecentlyPlayedTeamLocalID
+		LEFT JOIN t_teams pmrt                      ON pmrt.GUID      = pmrtli.GUID
 		` + joinClause + `
 		ORDER BY sp.lastName, sp.firstName`
 
