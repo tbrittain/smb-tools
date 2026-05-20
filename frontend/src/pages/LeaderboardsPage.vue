@@ -130,7 +130,7 @@ function setTab(tab: LeaderboardTab) {
 
     <LoadingSpinner v-if="loading" />
     <p v-else-if="error" class="error-text">{{ error }}</p>
-    <template v-else>
+    <div v-else class="grid-wrap">
       <BattingLeaderboardTable
         v-if="activeTab === 'batting-career'"
         :rows="battingCareerRows"
@@ -151,7 +151,7 @@ function setTab(tab: LeaderboardTab) {
         :rows="pitchingSeasonRows"
         :is-career="false"
       />
-    </template>
+    </div>
   </div>
 </template>
 
@@ -161,7 +161,16 @@ function setTab(tab: LeaderboardTab) {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-width: 1200px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.grid-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
 }
 
 .page-header h2 {

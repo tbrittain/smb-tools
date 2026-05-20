@@ -13,17 +13,19 @@ defineProps<{
 </script>
 
 <template>
-  <div>
+  <div class="table-wrap">
     <EmptyState v-if="rows.length === 0" message="No results — try adjusting the filters" />
     <DataTable
       v-else
       :value="rows"
       sort-field="strikeouts"
       :sort-order="-1"
-      :paginator="rows.length > 50"
-      :rows="50"
       size="small"
       removable-sort
+      scrollable
+      scroll-height="flex"
+      :paginator="rows.length > 50"
+      :rows="50"
     >
       <Column header="Player" sort-field="lastName" sortable style="min-width: 160px">
         <template #body="{ data: r }">
@@ -77,6 +79,12 @@ defineProps<{
 </template>
 
 <style scoped>
+.table-wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
 .player-link {
   color: var(--color-accent);
   text-decoration: none;
