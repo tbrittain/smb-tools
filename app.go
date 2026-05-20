@@ -41,9 +41,10 @@ type App struct {
 	importService    *service.ImportService
 	// Read-side query stores — initialised when a franchise is selected,
 	// cleared when it is deselected or switched.
-	seasonQueryStore *store.SeasonQueryStore
-	playerQueryStore *store.PlayerQueryStore
-	teamQueryStore   *store.TeamQueryStore
+	seasonQueryStore    *store.SeasonQueryStore
+	playerQueryStore    *store.PlayerQueryStore
+	teamQueryStore      *store.TeamQueryStore
+	leaderboardQueryStore *store.LeaderboardQueryStore
 }
 
 func NewApp(version string) *App {
@@ -135,6 +136,7 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 		a.seasonQueryStore = nil
 		a.playerQueryStore = nil
 		a.teamQueryStore = nil
+		a.leaderboardQueryStore = nil
 	}
 
 	companionDB, f, err := a.franchiseService.OpenFranchise(a.ctx, id)
@@ -146,6 +148,7 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 	a.seasonQueryStore = store.NewSeasonQueryStore(companionDB)
 	a.playerQueryStore = store.NewPlayerQueryStore(companionDB)
 	a.teamQueryStore = store.NewTeamQueryStore(companionDB)
+	a.leaderboardQueryStore = store.NewLeaderboardQueryStore(companionDB)
 	return franchiseToDTO(f), nil
 }
 
@@ -245,6 +248,7 @@ func (a *App) DeleteFranchise(id string) error {
 		a.seasonQueryStore = nil
 		a.playerQueryStore = nil
 		a.teamQueryStore = nil
+		a.leaderboardQueryStore = nil
 	}
 	return a.franchiseService.DeleteFranchise(a.ctx, id)
 }
@@ -606,6 +610,81 @@ func (a *App) ListAllTeamSeasons() ([]TeamSeasonListDTO, error) {
 			PlayoffLosses:  r.PlayoffLosses,
 			IsChampion:     r.IsChampion,
 		}
+	}
+	return out, nil
+}
+
+// ---- Leaderboard query bindings --------------------------------------------
+
+// GetBattingCareerLeaders returns career batting totals for all players matching
+// the given filters. Rate stats are computed before returning. The full result
+// set is returned; sorting and pagination are handled client-side.
+func (a *App) GetBattingCareerLeaders(filters LeaderboardFiltersDTO) ([]BattingLeaderRowDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	rows, err := a.leaderboardQueryStore.GetBattingCareerLeaders(a.ctx, leaderboardFiltersToDomain(filters))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]BattingLeaderRowDTO, len(rows))
+	for i := range rows {
+		service.ComputeBattingRates(&rows[i].CareerBattingStats)
+		out[i] = battingCareerLeaderToDTO(rows[i])
+	}
+	return out, nil
+}
+
+// GetBattingSeasonLeaders returns per-season batting stats for all player-seasons
+// matching the given filters. Rate stats are computed before returning.
+func (a *App) GetBattingSeasonLeaders(filters LeaderboardFiltersDTO) ([]BattingLeaderRowDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	rows, err := a.leaderboardQueryStore.GetBattingSeasonLeaders(a.ctx, leaderboardFiltersToDomain(filters))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]BattingLeaderRowDTO, len(rows))
+	for i := range rows {
+		service.ComputeBattingRates(&rows[i].CareerBattingStats)
+		out[i] = battingSeasonLeaderToDTO(rows[i])
+	}
+	return out, nil
+}
+
+// GetPitchingCareerLeaders returns career pitching totals for all players matching
+// the given filters. Rate stats are computed before returning.
+func (a *App) GetPitchingCareerLeaders(filters LeaderboardFiltersDTO) ([]PitchingLeaderRowDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	rows, err := a.leaderboardQueryStore.GetPitchingCareerLeaders(a.ctx, leaderboardFiltersToDomain(filters))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PitchingLeaderRowDTO, len(rows))
+	for i := range rows {
+		service.ComputePitchingRates(&rows[i].CareerPitchingStats)
+		out[i] = pitchingCareerLeaderToDTO(rows[i])
+	}
+	return out, nil
+}
+
+// GetPitchingSeasonLeaders returns per-season pitching stats for all player-seasons
+// matching the given filters. Rate stats are computed before returning.
+func (a *App) GetPitchingSeasonLeaders(filters LeaderboardFiltersDTO) ([]PitchingLeaderRowDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	rows, err := a.leaderboardQueryStore.GetPitchingSeasonLeaders(a.ctx, leaderboardFiltersToDomain(filters))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PitchingLeaderRowDTO, len(rows))
+	for i := range rows {
+		service.ComputePitchingRates(&rows[i].CareerPitchingStats)
+		out[i] = pitchingSeasonLeaderToDTO(rows[i])
 	}
 	return out, nil
 }

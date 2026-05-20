@@ -8,7 +8,15 @@ export function DeleteFranchise(arg1:string):Promise<void>;
 
 export function GetActiveFranchise():Promise<main.FranchiseDTO>;
 
+export function GetBattingCareerLeaders(arg1:main.LeaderboardFiltersDTO):Promise<Array<main.BattingLeaderRowDTO>>;
+
+export function GetBattingSeasonLeaders(arg1:main.LeaderboardFiltersDTO):Promise<Array<main.BattingLeaderRowDTO>>;
+
 export function GetCareerLeaders():Promise<main.CareerLeadersDTO>;
+
+export function GetPitchingCareerLeaders(arg1:main.LeaderboardFiltersDTO):Promise<Array<main.PitchingLeaderRowDTO>>;
+
+export function GetPitchingSeasonLeaders(arg1:main.LeaderboardFiltersDTO):Promise<Array<main.PitchingLeaderRowDTO>>;
 
 export function GetPlayerCareer(arg1:number):Promise<main.PlayerCareerDTO>;
 

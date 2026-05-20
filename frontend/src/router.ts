@@ -32,6 +32,10 @@ const router = createRouter({
       component: () => import('./pages/SearchPage.vue'),
       props: (route) => ({ q: String(route.query.q ?? '') }),
     },
+    {
+      path: '/leaderboards',
+      component: () => import('./pages/LeaderboardsPage.vue'),
+    },
   ],
 })
 
