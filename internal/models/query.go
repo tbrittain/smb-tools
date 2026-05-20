@@ -19,6 +19,7 @@ type SeasonSummary struct {
 // TeamStandingRow is one row in a season standings table.
 type TeamStandingRow struct {
 	HistoryID      int64
+	TeamID         int64
 	TeamName       string
 	DivisionName   string
 	ConferenceName string
@@ -217,6 +218,7 @@ type TeamSearchResult struct {
 // TeamSeasonSummary is one season entry in a team's history.
 type TeamSeasonSummary struct {
 	HistoryID      int64
+	SeasonID       int
 	SeasonNum      int
 	TeamName       string
 	DivisionName   string

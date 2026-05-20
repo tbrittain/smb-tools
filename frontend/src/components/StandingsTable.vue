@@ -58,7 +58,7 @@ function fmtPct(v: number): string {
               :class="{ active: row.historyId === activeHistoryId }"
             >
               <td class="col-team">
-                <RouterLink :to="`/teams/${row.historyId}/seasons/${row.historyId}`" class="team-link">
+                <RouterLink :to="`/teams/${row.teamId}/seasons/${row.historyId}`" class="team-link">
                   {{ row.teamName }}
                 </RouterLink>
                 <span v-if="row.playoffSeed" class="playoff-badge">P{{ row.playoffSeed }}</span>

@@ -17,6 +17,7 @@ type SeasonSummaryDTO struct {
 // TeamStandingDTO is one row in a season standings table.
 type TeamStandingDTO struct {
 	HistoryID      int64   `json:"historyId"`
+	TeamID         int64   `json:"teamId"`
 	TeamName       string  `json:"teamName"`
 	DivisionName   string  `json:"divisionName"`
 	ConferenceName string  `json:"conferenceName"`
@@ -203,6 +204,7 @@ type TeamSearchResultDTO struct {
 // TeamSeasonSummaryDTO is one season entry in a team's history.
 type TeamSeasonSummaryDTO struct {
 	HistoryID          int64   `json:"historyId"`
+	SeasonID           int     `json:"seasonId"`
 	SeasonNum          int     `json:"seasonNum"`
 	TeamName           string  `json:"teamName"`
 	DivisionName       string  `json:"divisionName"`
@@ -398,6 +400,7 @@ func pitchingToDTO(p *models.CareerPitchingStats) *CareerPitchingStatsDTO {
 func teamSeasonSummaryToDTO(ts models.TeamSeasonSummary) TeamSeasonSummaryDTO {
 	return TeamSeasonSummaryDTO{
 		HistoryID:          ts.HistoryID,
+		SeasonID:           ts.SeasonID,
 		SeasonNum:          ts.SeasonNum,
 		TeamName:           ts.TeamName,
 		DivisionName:       ts.DivisionName,

@@ -64,6 +64,7 @@ export namespace main {
 
   export class TeamStandingDTO {
     historyId: number
+    teamId: number
     teamName: string
     divisionName: string
     conferenceName: string
@@ -80,6 +81,7 @@ export namespace main {
     constructor(source: any = {}) {
       if ('string' === typeof source) source = JSON.parse(source)
       this.historyId = source['historyId']
+      this.teamId = source['teamId']
       this.teamName = source['teamName']
       this.divisionName = source['divisionName']
       this.conferenceName = source['conferenceName']
@@ -420,6 +422,7 @@ export namespace main {
 
   export class TeamSeasonSummaryDTO {
     historyId: number
+    seasonId: number
     seasonNum: number
     teamName: string
     divisionName: string
@@ -451,6 +454,7 @@ export namespace main {
     constructor(source: any = {}) {
       if ('string' === typeof source) source = JSON.parse(source)
       this.historyId = source['historyId']
+      this.seasonId = source['seasonId']
       this.seasonNum = source['seasonNum']
       this.teamName = source['teamName']
       this.divisionName = source['divisionName']

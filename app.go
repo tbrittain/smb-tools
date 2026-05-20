@@ -294,6 +294,7 @@ func (a *App) GetStandings(seasonID int) ([]TeamStandingDTO, error) {
 	for i, r := range rows {
 		out[i] = TeamStandingDTO{
 			HistoryID:      r.HistoryID,
+			TeamID:         r.TeamID,
 			TeamName:       r.TeamName,
 			DivisionName:   r.DivisionName,
 			ConferenceName: r.ConferenceName,
@@ -521,7 +522,8 @@ func (a *App) GetTeamHistory(teamID int64) (TeamHistoryDTO, error) {
 
 // GetTeamSeasonDetail returns the roster, schedule, and playoff results for one
 // team season. Rate stats are computed on roster players before returning.
-func (a *App) GetTeamSeasonDetail(teamHistoryID int64, seasonID int) (TeamSeasonDetailDTO, error) {
+// Only teamHistoryID is required — seasonID is derived from the team summary.
+func (a *App) GetTeamSeasonDetail(teamHistoryID int64) (TeamSeasonDetailDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
 		return TeamSeasonDetailDTO{}, err
 	}
@@ -530,6 +532,7 @@ func (a *App) GetTeamSeasonDetail(teamHistoryID int64, seasonID int) (TeamSeason
 	if err != nil {
 		return TeamSeasonDetailDTO{}, fmt.Errorf("team summary: %w", err)
 	}
+	seasonID := teamSummary.SeasonID
 
 	roster, err := a.teamQueryStore.GetTeamSeasonRoster(a.ctx, teamHistoryID)
 	if err != nil {

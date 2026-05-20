@@ -42,8 +42,8 @@ export function GetTeamHistory(arg1) {
   return window['go']['main']['App']['GetTeamHistory'](arg1);
 }
 
-export function GetTeamSeasonDetail(arg1, arg2) {
-  return window['go']['main']['App']['GetTeamSeasonDetail'](arg1, arg2);
+export function GetTeamSeasonDetail(arg1) {
+  return window['go']['main']['App']['GetTeamSeasonDetail'](arg1);
 }
 
 export function GetVersion() {

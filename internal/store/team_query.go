@@ -138,6 +138,7 @@ func (s *TeamQueryStore) GetTeamHistory(ctx context.Context, teamID int64) (mode
 	q := championCTE + `
 SELECT
     tsh.id,
+    s.id  AS season_id,
     s.season_num,
     tsh.team_name,
     tsh.division_name,
@@ -175,7 +176,7 @@ ORDER BY s.season_num ASC
 		var seed, pw, pl, prf, pra sql.NullInt64
 		var isChampion int
 		if err := rows.Scan(
-			&ts.HistoryID, &ts.SeasonNum, &ts.TeamName,
+			&ts.HistoryID, &ts.SeasonID, &ts.SeasonNum, &ts.TeamName,
 			&ts.DivisionName, &ts.ConferenceName,
 			&ts.Wins, &ts.Losses, &ts.GamesBack, &ts.RunsFor, &ts.RunsAgainst,
 			&ts.Budget, &ts.Payroll,
@@ -318,6 +319,7 @@ func (s *TeamQueryStore) GetTeamSeasonSummaryByHistoryID(ctx context.Context, hi
 	q := championCTE + `
 SELECT
     tsh.id,
+    s.id  AS season_id,
     s.season_num,
     tsh.team_name,
     tsh.division_name,
@@ -347,7 +349,7 @@ WHERE tsh.id = ?
 	var seed, pw, pl, prf, pra sql.NullInt64
 	var isChampion int
 	err := s.db.QueryRowContext(ctx, q, historyID).Scan(
-		&ts.HistoryID, &ts.SeasonNum, &ts.TeamName,
+		&ts.HistoryID, &ts.SeasonID, &ts.SeasonNum, &ts.TeamName,
 		&ts.DivisionName, &ts.ConferenceName,
 		&ts.Wins, &ts.Losses, &ts.GamesBack, &ts.RunsFor, &ts.RunsAgainst,
 		&ts.Budget, &ts.Payroll,

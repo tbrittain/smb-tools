@@ -131,6 +131,7 @@ func (s *SeasonQueryStore) GetStandings(ctx context.Context, seasonID int) ([]mo
 	rows, err := s.db.QueryContext(ctx, `
 SELECT
     tsh.id,
+    tsh.team_id,
     tsh.team_name,
     tsh.division_name,
     tsh.conference_name,
@@ -154,7 +155,7 @@ ORDER BY tsh.conference_name, tsh.division_name, tsh.wins DESC, tsh.losses ASC
 		var r models.TeamStandingRow
 		var playoffSeed sql.NullInt64
 		if err := rows.Scan(
-			&r.HistoryID, &r.TeamName, &r.DivisionName, &r.ConferenceName,
+			&r.HistoryID, &r.TeamID, &r.TeamName, &r.DivisionName, &r.ConferenceName,
 			&r.Wins, &r.Losses, &r.GamesBack,
 			&r.RunsFor, &r.RunsAgainst, &playoffSeed,
 		); err != nil {

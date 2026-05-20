@@ -106,7 +106,7 @@ onMounted(async () => {
           <Column field="teamName" header="Team" sortable style="min-width: 160px">
             <template #body="{ data }">
               <RouterLink
-                :to="`/teams/${data.historyId}/seasons/${data.historyId}`"
+                :to="`/teams/${data.teamId}/seasons/${data.historyId}`"
                 class="team-link"
               >
                 {{ data.teamName }}

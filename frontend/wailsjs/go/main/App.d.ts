@@ -22,7 +22,7 @@ export function GetStandings(arg1:number):Promise<Array<main.TeamStandingDTO>>;
 
 export function GetTeamHistory(arg1:number):Promise<main.TeamHistoryDTO>;
 
-export function GetTeamSeasonDetail(arg1:number,arg2:number):Promise<main.TeamSeasonDetailDTO>;
+export function GetTeamSeasonDetail(arg1:number):Promise<main.TeamSeasonDetailDTO>;
 
 export function GetVersion():Promise<string>;
 
