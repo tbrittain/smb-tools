@@ -11,12 +11,29 @@ import type { main } from '../../wailsjs/go/models'
 import AppButton from '../components/AppButton.vue'
 import CareerLeadersPanel from '../components/CareerLeadersPanel.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import SaveFilePicker from '../components/SaveFilePicker.vue'
 import SeasonSelector from '../components/SeasonSelector.vue'
 import StandingsTable from '../components/StandingsTable.vue'
 import StatLeadersPanel from '../components/StatLeadersPanel.vue'
 import { useFranchiseStore } from '../stores/franchise'
 
 const franchiseStore = useFranchiseStore()
+
+// ── Save file configuration ──────────────────────────────────────────────────
+
+const showSaveFilePicker = ref(false)
+const saveFileError = ref<string | null>(null)
+
+async function handleSaveFileChange(path: string, leagueGUID: string) {
+  if (!franchiseStore.active) return
+  saveFileError.value = null
+  try {
+    await franchiseStore.setSaveFile(franchiseStore.active.id, path, leagueGUID)
+    showSaveFilePicker.value = false
+  } catch (e) {
+    saveFileError.value = String(e)
+  }
+}
 
 // ── Sync form ────────────────────────────────────────────────────────────────
 
@@ -125,7 +142,48 @@ onMounted(loadDashboardData)
 
     <p v-if="dataError" class="error-text">{{ dataError }}</p>
 
-    <!-- Sync form -->
+    <!-- Save file configuration -->
+    <section class="save-file-section">
+      <div class="section-header-row">
+        <h3>Save File</h3>
+        <AppButton
+          v-if="franchiseStore.active?.saveFilePath && !showSaveFilePicker"
+          variant="ghost"
+          size="sm"
+          @click="showSaveFilePicker = true"
+        >
+          Change
+        </AppButton>
+      </div>
+
+      <!-- Configured and not editing -->
+      <template v-if="franchiseStore.active?.saveFilePath && !showSaveFilePicker">
+        <p class="save-path">{{ franchiseStore.active.saveFilePath }}</p>
+      </template>
+
+      <!-- Not configured, or currently editing -->
+      <template v-else>
+        <p v-if="!franchiseStore.active?.saveFilePath" class="hint-text">
+          Connect a save file to enable syncing.
+        </p>
+        <SaveFilePicker
+          :selected-path="franchiseStore.active?.saveFilePath"
+          @change="handleSaveFileChange"
+        />
+        <p v-if="saveFileError" class="error-text">{{ saveFileError }}</p>
+        <AppButton
+          v-if="showSaveFilePicker"
+          variant="ghost"
+          size="sm"
+          style="margin-top: 0.25rem"
+          @click="showSaveFilePicker = false"
+        >
+          Cancel
+        </AppButton>
+      </template>
+    </section>
+
+    <!-- Sync -->
     <section class="sync-section">
       <h3>Sync Season</h3>
       <p class="sync-help">
@@ -149,9 +207,6 @@ onMounted(loadDashboardData)
       >
         {{ syncing ? 'Syncing…' : 'Sync Season' }}
       </AppButton>
-      <p v-if="!franchiseStore.active?.saveFilePath" class="hint-text">
-        No save file configured. Edit this franchise to connect a save file.
-      </p>
     </section>
 
     <!-- Stats only shown once at least one season is synced -->
@@ -243,6 +298,7 @@ h3 {
   color: var(--color-text-secondary);
 }
 
+.save-file-section,
 .sync-section {
   background: var(--color-surface-1);
   border: 1px solid var(--color-border);
@@ -250,8 +306,22 @@ h3 {
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  max-width: 520px;
+  gap: 0.875rem;
+  max-width: 560px;
+}
+
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.save-path {
+  font-size: 0.8125rem;
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  word-break: break-all;
 }
 
 .sync-help {
