@@ -149,12 +149,13 @@ defineProps<{
 }
 
 .stat-cell {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.5rem 0.875rem;
+  padding: 0.5rem 0.5rem;
   border-right: 1px solid var(--color-border);
-  min-width: 52px;
+  min-width: 48px;
 }
 
 .stat-cell:last-child { border-right: none; }
