@@ -20,15 +20,13 @@ type SyncService struct {
 	importer *ImportService
 }
 
-// NewSyncService wires a franchise-scoped SnapshotService together with the
-// shared ImportService.
 func NewSyncService(snapshot *SnapshotService, importer *ImportService) *SyncService {
 	return &SyncService{snapshot: snapshot, importer: importer}
 }
 
 // SyncResult summarises the outcome of a full season sync.
 type SyncResult struct {
-	SeasonID      int
+	SeasonID      int64
 	SeasonNum     int
 	Players       int
 	Teams         int
@@ -40,28 +38,36 @@ type SyncResult struct {
 
 // SyncSeason detects the current season from the reader, captures a snapshot
 // of the decompressed save game at saveFilePath, then imports the season data
-// into the companion DB. The snapshot is taken before the import — if the
-// snapshot fails the import does not run and an error is returned.
+// into the companion DB. leagueGUID and seasonOffset come from the active
+// franchise_source row. The snapshot is taken before the import — if the
+// snapshot fails the import does not run.
 func (s *SyncService) SyncSeason(
 	ctx context.Context,
 	companionDB *sql.DB,
 	reader store.SaveGameReader,
 	saveFilePath string,
 	leagueGUID string,
+	seasonOffset int,
 ) (SyncResult, error) {
 	seasonInfo, err := reader.GetCurrentSeason(ctx, leagueGUID)
 	if err != nil {
 		return SyncResult{}, fmt.Errorf("detecting current season: %w", err)
 	}
 
-	snapshotID, isNew, err := s.snapshot.TakeSnapshotFromFile(ctx, saveFilePath, seasonInfo.SeasonNum)
+	displaySeasonNum := seasonInfo.SeasonNum + seasonOffset
+
+	snapshotID, isNew, err := s.snapshot.TakeSnapshotFromFile(ctx, saveFilePath, displaySeasonNum)
 	if err != nil {
-		return SyncResult{}, fmt.Errorf("taking snapshot for season %d: %w", seasonInfo.SeasonNum, err)
+		return SyncResult{}, fmt.Errorf("taking snapshot for season %d: %w", displaySeasonNum, err)
 	}
 
-	importResult, err := s.importer.ImportSeason(ctx, companionDB, reader, seasonInfo.SeasonID, seasonInfo.SeasonNum)
+	importResult, err := s.importer.ImportSeason(
+		ctx, companionDB, reader,
+		seasonInfo.SeasonID, seasonInfo.SeasonNum,
+		leagueGUID, seasonOffset,
+	)
 	if err != nil {
-		return SyncResult{}, fmt.Errorf("importing season %d: %w", seasonInfo.SeasonNum, err)
+		return SyncResult{}, fmt.Errorf("importing season %d: %w", displaySeasonNum, err)
 	}
 
 	return SyncResult{

@@ -383,7 +383,7 @@ WHERE tsh.id = ?
 
 // GetTeamSeasonSchedule returns all regular season games (home and away) for a
 // team in a given season, ordered by game number.
-func (s *TeamQueryStore) GetTeamSeasonSchedule(ctx context.Context, teamHistoryID int64, seasonID int) ([]models.ScheduleGameRow, error) {
+func (s *TeamQueryStore) GetTeamSeasonSchedule(ctx context.Context, teamHistoryID int64, seasonID int64) ([]models.ScheduleGameRow, error) {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT
     g.game_number,
@@ -417,7 +417,7 @@ ORDER BY g.game_number ASC
 
 // GetTeamSeasonPlayoffSchedule returns all playoff games for a team in a given
 // season, ordered by series number then game number.
-func (s *TeamQueryStore) GetTeamSeasonPlayoffSchedule(ctx context.Context, teamHistoryID int64, seasonID int) ([]models.PlayoffGameRow, error) {
+func (s *TeamQueryStore) GetTeamSeasonPlayoffSchedule(ctx context.Context, teamHistoryID int64, seasonID int64) ([]models.PlayoffGameRow, error) {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT
     g.series_number,

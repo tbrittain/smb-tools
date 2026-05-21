@@ -127,7 +127,7 @@ ORDER BY s.season_num ASC
 
 // GetStandings returns all teams' standings for the given season, ordered by
 // conference, then division, then wins descending.
-func (s *SeasonQueryStore) GetStandings(ctx context.Context, seasonID int) ([]models.TeamStandingRow, error) {
+func (s *SeasonQueryStore) GetStandings(ctx context.Context, seasonID int64) ([]models.TeamStandingRow, error) {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT
     tsh.id,
@@ -180,7 +180,7 @@ ORDER BY tsh.conference_name, tsh.division_name, tsh.wins DESC, tsh.losses ASC
 // Qualification thresholds (applied to avoid outliers):
 //   - Batting: at_bats >= num_games * 3  (≈ 3 PA per team game)
 //   - ERA:     outs_pitched >= num_games * 3  (≈ 1 IP per team game)
-func (s *SeasonQueryStore) GetSeasonStatLeaders(ctx context.Context, seasonID int) (models.StatLeaders, error) {
+func (s *SeasonQueryStore) GetSeasonStatLeaders(ctx context.Context, seasonID int64) (models.StatLeaders, error) {
 	var leaders models.StatLeaders
 
 	// Fetch season_num for the response

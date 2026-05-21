@@ -10,22 +10,33 @@ import (
 	"smb-tools/internal/testutil"
 )
 
+const testLG = "TESTLEAGUE000000000000000000000000"
+
 func TestSeasonStore_UpsertAndGet(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	s := store.NewSeasonStore(db)
 	ctx := context.Background()
 
-	season := store.Season{ID: 100, SeasonNum: 1, NumGames: 50}
-	if err := s.Upsert(ctx, season); err != nil {
+	id, err := s.Upsert(ctx, store.Season{LeagueGUID: testLG, SaveGameSeasonID: 100, SeasonNum: 1, NumGames: 50})
+	if err != nil {
 		t.Fatalf("Upsert: %v", err)
 	}
+	if id == 0 {
+		t.Fatal("expected non-zero companion DB ID")
+	}
 
-	got, err := s.GetByID(ctx, 100)
+	got, err := s.GetByID(ctx, id)
 	if err != nil {
 		t.Fatalf("GetByID: %v", err)
 	}
 	if got.SeasonNum != 1 || got.NumGames != 50 {
 		t.Errorf("got %+v, want SeasonNum=1 NumGames=50", got)
+	}
+	if got.LeagueGUID != testLG {
+		t.Errorf("league_guid: got %q, want %q", got.LeagueGUID, testLG)
+	}
+	if got.SaveGameSeasonID != 100 {
+		t.Errorf("save_game_season_id: got %d, want 100", got.SaveGameSeasonID)
 	}
 }
 
@@ -34,14 +45,38 @@ func TestSeasonStore_Upsert_Idempotent(t *testing.T) {
 	s := store.NewSeasonStore(db)
 	ctx := context.Background()
 
-	_ = s.Upsert(ctx, store.Season{ID: 1, SeasonNum: 1, NumGames: 50})
-	// Re-upsert with updated values
-	if err := s.Upsert(ctx, store.Season{ID: 1, SeasonNum: 1, NumGames: 60}); err != nil {
+	id1, _ := s.Upsert(ctx, store.Season{LeagueGUID: testLG, SaveGameSeasonID: 1, SeasonNum: 1, NumGames: 50})
+	// Re-upsert same (league_guid, save_game_season_id) with updated values
+	id2, err := s.Upsert(ctx, store.Season{LeagueGUID: testLG, SaveGameSeasonID: 1, SeasonNum: 1, NumGames: 60})
+	if err != nil {
 		t.Fatalf("second Upsert: %v", err)
 	}
-	got, _ := s.GetByID(ctx, 1)
+	if id1 != id2 {
+		t.Errorf("expected same companion ID on re-upsert, got %d then %d", id1, id2)
+	}
+	got, _ := s.GetByID(ctx, id2)
 	if got.NumGames != 60 {
 		t.Errorf("expected NumGames=60 after re-upsert, got %d", got.NumGames)
+	}
+}
+
+func TestSeasonStore_ForkNoCollision(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	s := store.NewSeasonStore(db)
+	ctx := context.Background()
+
+	// Two different leagues both have a season with save_game_season_id=1
+	// — they must not collide.
+	id1, err := s.Upsert(ctx, store.Season{LeagueGUID: "LEAGUE-A", SaveGameSeasonID: 1, SeasonNum: 1})
+	if err != nil {
+		t.Fatalf("Upsert LEAGUE-A: %v", err)
+	}
+	id2, err := s.Upsert(ctx, store.Season{LeagueGUID: "LEAGUE-B", SaveGameSeasonID: 1, SeasonNum: 16})
+	if err != nil {
+		t.Fatalf("Upsert LEAGUE-B: %v", err)
+	}
+	if id1 == id2 {
+		t.Error("expected different companion IDs for same save_game_season_id from different leagues")
 	}
 }
 
@@ -59,8 +94,8 @@ func TestSeasonStore_List(t *testing.T) {
 	s := store.NewSeasonStore(db)
 	ctx := context.Background()
 
-	_ = s.Upsert(ctx, store.Season{ID: 2, SeasonNum: 2, NumGames: 50})
-	_ = s.Upsert(ctx, store.Season{ID: 1, SeasonNum: 1, NumGames: 50})
+	_, _ = s.Upsert(ctx, store.Season{LeagueGUID: testLG, SaveGameSeasonID: 2, SeasonNum: 2, NumGames: 50})
+	_, _ = s.Upsert(ctx, store.Season{LeagueGUID: testLG, SaveGameSeasonID: 1, SeasonNum: 1, NumGames: 50})
 
 	seasons, err := s.List(ctx)
 	if err != nil {

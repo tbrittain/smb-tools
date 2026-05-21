@@ -15,7 +15,7 @@ type Team struct {
 type TeamSeasonHistory struct {
 	ID             int64
 	TeamID         int64
-	SeasonID       int
+	SeasonID       int64
 	TeamName       string
 	DivisionName   string
 	ConferenceName string
@@ -50,21 +50,57 @@ func NewTeamHistoryStore(db DBTX) *TeamHistoryStore {
 	return &TeamHistoryStore{db: db}
 }
 
-// UpsertTeam inserts or returns the existing team for a given save game GUID.
-// Returns the internal team ID.
-func (s *TeamHistoryStore) UpsertTeam(ctx context.Context, gameGUID string) (int64, error) {
-	_, err := s.db.ExecContext(ctx,
-		`INSERT OR IGNORE INTO teams (game_guid) VALUES (?)`, gameGUID)
-	if err != nil {
-		return 0, fmt.Errorf("upserting team %s: %w", gameGUID, err)
-	}
+// UpsertTeam resolves or creates a team record using a three-tier lookup:
+//  1. Exact match on teams.game_guid.
+//  2. Exact match on team_alt_guids.game_guid (GUIDs from prior forks).
+//  3. Name match on the team's most-recent team_season_history.team_name
+//     (handles the case where a league fork assigned new GUIDs to existing teams).
+//     On a name match, the new GUID is added to team_alt_guids.
+//
+// teamName is only used for the tier-3 fallback and may be empty for non-fork imports.
+func (s *TeamHistoryStore) UpsertTeam(ctx context.Context, gameGUID, teamName string) (int64, error) {
+	// Tier 1: primary GUID
 	var id int64
-	if err := s.db.QueryRowContext(ctx,
+	err := s.db.QueryRowContext(ctx,
 		`SELECT id FROM teams WHERE game_guid = ?`, gameGUID,
-	).Scan(&id); err != nil {
-		return 0, fmt.Errorf("getting team id for %s: %w", gameGUID, err)
+	).Scan(&id)
+	if err == nil {
+		return id, nil
 	}
-	return id, nil
+
+	// Tier 2: alt GUID table
+	err = s.db.QueryRowContext(ctx,
+		`SELECT team_id FROM team_alt_guids WHERE game_guid = ?`, gameGUID,
+	).Scan(&id)
+	if err == nil {
+		return id, nil
+	}
+
+	// Tier 3: name match against most-recent team_season_history row per team
+	if teamName != "" {
+		err = s.db.QueryRowContext(ctx, `
+			SELECT t.id FROM teams t
+			JOIN team_season_history tsh ON tsh.team_id = t.id
+			WHERE tsh.team_name = ?
+			ORDER BY tsh.season_id DESC
+			LIMIT 1
+		`, teamName).Scan(&id)
+		if err == nil {
+			_, _ = s.db.ExecContext(ctx,
+				`INSERT OR IGNORE INTO team_alt_guids (team_id, game_guid) VALUES (?, ?)`,
+				id, gameGUID)
+			return id, nil
+		}
+	}
+
+	// No match — new team
+	res, err := s.db.ExecContext(ctx,
+		`INSERT INTO teams (game_guid) VALUES (?)`, gameGUID)
+	if err != nil {
+		return 0, fmt.Errorf("inserting team %s: %w", gameGUID, err)
+	}
+	newID, _ := res.LastInsertId()
+	return newID, nil
 }
 
 // UpsertSeasonHistory inserts or replaces a team's season history record.
@@ -129,7 +165,7 @@ func (s *TeamHistoryStore) UpsertSeasonHistory(ctx context.Context, h TeamSeason
 }
 
 // GetHistoryID returns the team_season_history.id for a given team and season.
-func (s *TeamHistoryStore) GetHistoryID(ctx context.Context, teamID int64, seasonID int) (int64, error) {
+func (s *TeamHistoryStore) GetHistoryID(ctx context.Context, teamID int64, seasonID int64) (int64, error) {
 	var id int64
 	err := s.db.QueryRowContext(ctx,
 		`SELECT id FROM team_season_history WHERE team_id = ? AND season_id = ?`,

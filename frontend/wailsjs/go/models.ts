@@ -282,7 +282,8 @@ export namespace main {
 	    id: string;
 	    name: string;
 	    gameVersion: string;
-	    saveFilePath: string;
+	    hasActiveSource: boolean;
+	    activeSourcePath: string;
 	    lastSynced: string;
 	    lastSeason: number;
 	
@@ -295,9 +296,30 @@ export namespace main {
 	        this.id = source["id"];
 	        this.name = source["name"];
 	        this.gameVersion = source["gameVersion"];
-	        this.saveFilePath = source["saveFilePath"];
+	        this.hasActiveSource = source["hasActiveSource"];
+	        this.activeSourcePath = source["activeSourcePath"];
 	        this.lastSynced = source["lastSynced"];
 	        this.lastSeason = source["lastSeason"];
+	    }
+	}
+	export class FranchiseSourceDTO {
+	    id: number;
+	    saveFilePath: string;
+	    leagueGUID: string;
+	    seasonOffset: number;
+	    addedAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FranchiseSourceDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.saveFilePath = source["saveFilePath"];
+	        this.leagueGUID = source["leagueGUID"];
+	        this.seasonOffset = source["seasonOffset"];
+	        this.addedAt = source["addedAt"];
 	    }
 	}
 	export class LeaderboardFiltersDTO {

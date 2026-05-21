@@ -168,7 +168,7 @@ func (s *PlayerQueryStore) GetPlayerSeasonLog(ctx context.Context, playerID int6
 // season_id to slice index (used by the caller to merge playoff stats).
 func (s *PlayerQueryStore) scanSeasonLogRows(
 	ctx context.Context, playerID int64, isRegularSeason int,
-) ([]models.PlayerSeasonLogRow, map[int]int, error) {
+) ([]models.PlayerSeasonLogRow, map[int64]int, error) {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT
     s.id                              AS season_id,
@@ -222,7 +222,7 @@ ORDER BY s.season_num ASC
 	defer func() { _ = rows.Close() }()
 
 	var out []models.PlayerSeasonLogRow
-	index := map[int]int{}
+	index := map[int64]int{}
 
 	for rows.Next() {
 		var row models.PlayerSeasonLogRow

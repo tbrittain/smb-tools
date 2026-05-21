@@ -54,7 +54,7 @@ func TestSyncSeason_TakesSnapshotOnFirstSync(t *testing.T) {
 	reader := newTestReader(t)
 	saveFilePath := writeSaveFile(t, []byte("save game bytes v1"))
 
-	result, err := svc.SyncSeason(context.Background(), companionDB, reader, saveFilePath, leagueGUIDFixture)
+	result, err := svc.SyncSeason(context.Background(), companionDB, reader, saveFilePath, leagueGUIDFixture, 0)
 	if err != nil {
 		t.Fatalf("SyncSeason: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestSyncSeason_SnapshotFailureBlocksImport(t *testing.T) {
 	reader := newTestReader(t)
 
 	// Pass a path that does not exist — TakeSnapshotFromFile will fail to open it.
-	_, err := svc.SyncSeason(context.Background(), companionDB, reader, "/nonexistent/save.sqlite", leagueGUIDFixture)
+	_, err := svc.SyncSeason(context.Background(), companionDB, reader, "/nonexistent/save.sqlite", leagueGUIDFixture, 0)
 	if err == nil {
 		t.Fatal("expected error when snapshot cannot be taken, got nil")
 	}
@@ -132,7 +132,7 @@ func TestSyncSeason_DeduplicatesIdenticalSave(t *testing.T) {
 
 	// First sync.
 	r1 := newTestReader(t)
-	result1, err := svc.SyncSeason(ctx, companionDB, r1, saveFilePath, leagueGUIDFixture)
+	result1, err := svc.SyncSeason(ctx, companionDB, r1, saveFilePath, leagueGUIDFixture, 0)
 	if err != nil {
 		t.Fatalf("first SyncSeason: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestSyncSeason_DeduplicatesIdenticalSave(t *testing.T) {
 
 	// Second sync with the same file content.
 	r2 := newTestReader(t)
-	result2, err := svc.SyncSeason(ctx, companionDB, r2, saveFilePath, leagueGUIDFixture)
+	result2, err := svc.SyncSeason(ctx, companionDB, r2, saveFilePath, leagueGUIDFixture, 0)
 	if err != nil {
 		t.Fatalf("second SyncSeason: %v", err)
 	}
@@ -172,14 +172,14 @@ func TestSyncSeason_NewSnapshotWhenSaveChanges(t *testing.T) {
 	// First sync.
 	save1 := writeSaveFile(t, []byte("save game version 1"))
 	r1 := newTestReader(t)
-	if _, err := svc.SyncSeason(ctx, companionDB, r1, save1, leagueGUIDFixture); err != nil {
+	if _, err := svc.SyncSeason(ctx, companionDB, r1, save1, leagueGUIDFixture, 0); err != nil {
 		t.Fatalf("first SyncSeason: %v", err)
 	}
 
 	// Second sync with different file content (save game changed between syncs).
 	save2 := writeSaveFile(t, []byte("save game version 2 — different content"))
 	r2 := newTestReader(t)
-	result2, err := svc.SyncSeason(ctx, companionDB, r2, save2, leagueGUIDFixture)
+	result2, err := svc.SyncSeason(ctx, companionDB, r2, save2, leagueGUIDFixture, 0)
 	if err != nil {
 		t.Fatalf("second SyncSeason: %v", err)
 	}

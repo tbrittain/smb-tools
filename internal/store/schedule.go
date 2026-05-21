@@ -7,7 +7,7 @@ import (
 
 // ScheduleGame is one regular season game.
 type ScheduleGame struct {
-	SeasonID           int
+	SeasonID           int64
 	GameNumber         int
 	Day                int
 	HomeTeamHistoryID  int64
@@ -20,7 +20,7 @@ type ScheduleGame struct {
 
 // PlayoffGame is one playoff game with series context.
 type PlayoffGame struct {
-	SeasonID           int
+	SeasonID           int64
 	SeriesNumber       int
 	GameNumber         int
 	HomeTeamHistoryID  int64
@@ -92,7 +92,7 @@ func (s *ScheduleStore) UpsertPlayoffGame(ctx context.Context, g PlayoffGame) er
 }
 
 // DeleteSeasonSchedule removes all schedule records for a season (used during re-import).
-func (s *ScheduleStore) DeleteSeasonSchedule(ctx context.Context, seasonID int) error {
+func (s *ScheduleStore) DeleteSeasonSchedule(ctx context.Context, seasonID int64) error {
 	if _, err := s.db.ExecContext(ctx,
 		`DELETE FROM team_season_schedules WHERE season_id = ?`, seasonID); err != nil {
 		return fmt.Errorf("deleting season schedules for season %d: %w", seasonID, err)

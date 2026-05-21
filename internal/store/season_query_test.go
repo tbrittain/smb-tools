@@ -11,13 +11,18 @@ import (
 
 // ── shared seed helpers ───────────────────────────────────────────────────────
 
-func seedSeason(t *testing.T, db *sql.DB, id, num, numGames int) {
+// seedSeason inserts a season row using save_game_season_id as the game-side key
+// and returns the companion DB autoincrement id.
+func seedSeason(t *testing.T, db *sql.DB, sgID, num, numGames int) int64 {
 	t.Helper()
-	_, err := db.ExecContext(context.Background(),
-		`INSERT INTO seasons (id, season_num, num_games) VALUES (?,?,?)`, id, num, numGames)
+	res, err := db.ExecContext(context.Background(),
+		`INSERT INTO seasons (league_guid, save_game_season_id, season_num, num_games) VALUES ('TESTLEAGUE',?,?,?)`,
+		sgID, num, numGames)
 	if err != nil {
 		t.Fatalf("seedSeason: %v", err)
 	}
+	id, _ := res.LastInsertId()
+	return id
 }
 
 func seedTeam(t *testing.T, db *sql.DB, guid string) int64 {
@@ -31,7 +36,7 @@ func seedTeam(t *testing.T, db *sql.DB, guid string) int64 {
 	return id
 }
 
-func seedTeamHistory(t *testing.T, db *sql.DB, teamID int64, seasonID int, name, div, conf string, wins, losses int) int64 {
+func seedTeamHistory(t *testing.T, db *sql.DB, teamID int64, seasonID int64, name, div, conf string, wins, losses int) int64 {
 	t.Helper()
 	res, err := db.ExecContext(context.Background(), `
 INSERT INTO team_season_history
@@ -48,7 +53,7 @@ VALUES (?,?,?,?,?,?,?,0,0,0,0,0,0,0,0,0,0,0)
 	return id
 }
 
-func seedPlayoffGame(t *testing.T, db *sql.DB, seasonID, seriesNum, gameNum int, homeHistID, awayHistID int64, homeScore, awayScore int) {
+func seedPlayoffGame(t *testing.T, db *sql.DB, seasonID int64, seriesNum, gameNum int, homeHistID, awayHistID int64, homeScore, awayScore int) {
 	t.Helper()
 	_, err := db.ExecContext(context.Background(), `
 INSERT INTO team_playoff_schedules
@@ -73,7 +78,7 @@ func seedPlayer(t *testing.T, db *sql.DB, guid, first, last string) int64 {
 	return id
 }
 
-func seedPlayerSeason(t *testing.T, db *sql.DB, playerID int64, seasonID int, teamHistID *int64) int64 {
+func seedPlayerSeason(t *testing.T, db *sql.DB, playerID int64, seasonID int64, teamHistID *int64) int64 {
 	t.Helper()
 	res, err := db.ExecContext(context.Background(), `
 INSERT INTO player_seasons
@@ -129,7 +134,7 @@ VALUES (?,?,?,?,?,?,0,0,0,?,0,?,0,0,?,0,?,0,0,0,0)
 
 // ── SeasonQueryStore tests ────────────────────────────────────────────────────
 
-func seedPlayoffGameNullScore(t *testing.T, db *sql.DB, seasonID, seriesNum, gameNum int, homeHistID, awayHistID int64) {
+func seedPlayoffGameNullScore(t *testing.T, db *sql.DB, seasonID int64, seriesNum, gameNum int, homeHistID, awayHistID int64) {
 	t.Helper()
 	_, err := db.ExecContext(context.Background(), `
 INSERT INTO team_playoff_schedules
@@ -146,9 +151,9 @@ func TestListWithChampion_NoPlayoffs(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
 
-	seedSeason(t, db, 1, 1, 40)
+	s1 := seedSeason(t, db, 1, 1, 40)
 	teamID := seedTeam(t, db, "team-guid-a")
-	seedTeamHistory(t, db, teamID, 1, "Team A", "East", "American", 30, 10)
+	seedTeamHistory(t, db, teamID, s1, "Team A", "East", "American", 30, 10)
 
 	store := store.NewSeasonQueryStore(db)
 	seasons, err := store.ListWithChampion(ctx)
@@ -170,17 +175,17 @@ func TestListWithChampion_WithPlayoffs(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
 
-	seedSeason(t, db, 1, 1, 40)
+	s1 := seedSeason(t, db, 1, 1, 40)
 	homeTeamID := seedTeam(t, db, "team-home")
 	awayTeamID := seedTeam(t, db, "team-away")
-	homeHistID := seedTeamHistory(t, db, homeTeamID, 1, "Home Team", "West", "National", 35, 5)
-	awayHistID := seedTeamHistory(t, db, awayTeamID, 1, "Away Team", "East", "National", 25, 15)
+	homeHistID := seedTeamHistory(t, db, homeTeamID, s1, "Home Team", "West", "National", 35, 5)
+	awayHistID := seedTeamHistory(t, db, awayTeamID, s1, "Away Team", "East", "National", 25, 15)
 
 	// Final series (series 2): home wins 3 games, away wins 1
-	seedPlayoffGame(t, db, 1, 2, 1, homeHistID, awayHistID, 5, 2) // home wins
-	seedPlayoffGame(t, db, 1, 2, 2, homeHistID, awayHistID, 4, 3) // home wins
-	seedPlayoffGame(t, db, 1, 2, 3, awayHistID, homeHistID, 3, 1) // away team hosts but home team is the "homeHistID" team — actually let's use consistent IDs
-	seedPlayoffGame(t, db, 1, 2, 4, homeHistID, awayHistID, 2, 1) // home wins again → 3 wins total
+	seedPlayoffGame(t, db, s1, 2, 1, homeHistID, awayHistID, 5, 2)
+	seedPlayoffGame(t, db, s1, 2, 2, homeHistID, awayHistID, 4, 3)
+	seedPlayoffGame(t, db, s1, 2, 3, awayHistID, homeHistID, 3, 1)
+	seedPlayoffGame(t, db, s1, 2, 4, homeHistID, awayHistID, 2, 1)
 
 	store := store.NewSeasonQueryStore(db)
 	seasons, err := store.ListWithChampion(ctx)
@@ -207,18 +212,17 @@ func TestListWithChampion_PartialPlayoffs_NoChampion(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
 
-	seedSeason(t, db, 1, 1, 40)
+	s1 := seedSeason(t, db, 1, 1, 40)
 	homeTeamID := seedTeam(t, db, "team-home-partial")
 	awayTeamID := seedTeam(t, db, "team-away-partial")
-	homeHistID := seedTeamHistory(t, db, homeTeamID, 1, "Home Partial", "W", "NL", 90, 52)
-	awayHistID := seedTeamHistory(t, db, awayTeamID, 1, "Away Partial", "E", "NL", 75, 67)
+	homeHistID := seedTeamHistory(t, db, homeTeamID, s1, "Home Partial", "W", "NL", 90, 52)
+	awayHistID := seedTeamHistory(t, db, awayTeamID, s1, "Away Partial", "E", "NL", 75, 67)
 
-	// Home leads 3-1 in the final series, but game 6 is unplayed (NULL score)
-	seedPlayoffGame(t, db, 1, 2, 1, homeHistID, awayHistID, 4, 1)
-	seedPlayoffGame(t, db, 1, 2, 2, homeHistID, awayHistID, 3, 2)
-	seedPlayoffGame(t, db, 1, 2, 3, awayHistID, homeHistID, 5, 2)
-	seedPlayoffGame(t, db, 1, 2, 4, homeHistID, awayHistID, 2, 1)
-	seedPlayoffGameNullScore(t, db, 1, 2, 5, awayHistID, homeHistID) // not yet played
+	seedPlayoffGame(t, db, s1, 2, 1, homeHistID, awayHistID, 4, 1)
+	seedPlayoffGame(t, db, s1, 2, 2, homeHistID, awayHistID, 3, 2)
+	seedPlayoffGame(t, db, s1, 2, 3, awayHistID, homeHistID, 5, 2)
+	seedPlayoffGame(t, db, s1, 2, 4, homeHistID, awayHistID, 2, 1)
+	seedPlayoffGameNullScore(t, db, s1, 2, 5, awayHistID, homeHistID)
 
 	sq := store.NewSeasonQueryStore(db)
 	seasons, err := sq.ListWithChampion(ctx)
@@ -243,6 +247,7 @@ func TestListWithChampion_OrderedBySeasonNum(t *testing.T) {
 	seedSeason(t, db, 10, 3, 40)
 	seedSeason(t, db, 5, 1, 40)
 	seedSeason(t, db, 7, 2, 40)
+	_ = struct{}{} // IDs not needed — only ordering is tested
 
 	sq := store.NewSeasonQueryStore(db)
 	seasons, err := sq.ListWithChampion(ctx)
@@ -261,14 +266,14 @@ func TestGetStandings(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
 
-	seedSeason(t, db, 1, 1, 40)
+	s1 := seedSeason(t, db, 1, 1, 40)
 	t1 := seedTeam(t, db, "t1")
 	t2 := seedTeam(t, db, "t2")
-	seedTeamHistory(t, db, t1, 1, "Alpha", "East", "AL", 30, 10)
-	seedTeamHistory(t, db, t2, 1, "Beta", "East", "AL", 20, 20)
+	seedTeamHistory(t, db, t1, s1, "Alpha", "East", "AL", 30, 10)
+	seedTeamHistory(t, db, t2, s1, "Beta", "East", "AL", 20, 20)
 
 	sq := store.NewSeasonQueryStore(db)
-	standings, err := sq.GetStandings(ctx, 1)
+	standings, err := sq.GetStandings(ctx, s1)
 	if err != nil {
 		t.Fatalf("GetStandings: %v", err)
 	}
@@ -291,17 +296,17 @@ func TestGetSeasonStatLeaders_BALeader(t *testing.T) {
 	ctx := context.Background()
 
 	// 40-game season → BA threshold is 40*3 = 120 AB
-	seedSeason(t, db, 1, 1, 40)
+	s1 := seedSeason(t, db, 1, 1, 40)
 	t1 := seedTeam(t, db, "t1")
-	hist1 := seedTeamHistory(t, db, t1, 1, "Team A", "E", "AL", 20, 20)
+	hist1 := seedTeamHistory(t, db, t1, s1, "Team A", "E", "AL", 20, 20)
 
 	pHigh := seedPlayer(t, db, "phigh", "High", "BA")
 	pLow := seedPlayer(t, db, "plow", "Low", "BA")
 	pDQ := seedPlayer(t, db, "pdq", "DQ", "Short") // disqualified — too few AB
 
-	psHigh := seedPlayerSeason(t, db, pHigh, 1, &hist1)
-	psLow := seedPlayerSeason(t, db, pLow, 1, &hist1)
-	psDQ := seedPlayerSeason(t, db, pDQ, 1, &hist1)
+	psHigh := seedPlayerSeason(t, db, pHigh, s1, &hist1)
+	psLow := seedPlayerSeason(t, db, pLow, s1, &hist1)
+	psDQ := seedPlayerSeason(t, db, pDQ, s1, &hist1)
 
 	// High: 150 AB, 50 H → BA .333
 	seedBatting(t, db, psHigh, true, 150, 50, 0, 0)
@@ -311,7 +316,7 @@ func TestGetSeasonStatLeaders_BALeader(t *testing.T) {
 	seedBatting(t, db, psDQ, true, 10, 9, 0, 0)
 
 	sq := store.NewSeasonQueryStore(db)
-	leaders, err := sq.GetSeasonStatLeaders(ctx, 1)
+	leaders, err := sq.GetSeasonStatLeaders(ctx, s1)
 	if err != nil {
 		t.Fatalf("GetSeasonStatLeaders: %v", err)
 	}
@@ -327,10 +332,10 @@ func TestGetSeasonStatLeaders_NoData(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
 
-	seedSeason(t, db, 1, 1, 40)
+	s1 := seedSeason(t, db, 1, 1, 40)
 
 	sq := store.NewSeasonQueryStore(db)
-	leaders, err := sq.GetSeasonStatLeaders(ctx, 1)
+	leaders, err := sq.GetSeasonStatLeaders(ctx, s1)
 	if err != nil {
 		t.Fatalf("GetSeasonStatLeaders on empty season: %v", err)
 	}
@@ -343,15 +348,14 @@ func TestGetCareerLeaders(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
 
-	seedSeason(t, db, 1, 1, 40)
+	s1 := seedSeason(t, db, 1, 1, 40)
 	t1 := seedTeam(t, db, "t1")
-	hist1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+	hist1 := seedTeamHistory(t, db, t1, s1, "Team", "E", "AL", 20, 20)
 
-	// Seed three hitters with different career HR
 	for i, hr := range []int{40, 30, 20} {
 		guid := string(rune('a' + i))
 		pid := seedPlayer(t, db, "guid-"+guid, "Player", guid)
-		psid := seedPlayerSeason(t, db, pid, 1, &hist1)
+		psid := seedPlayerSeason(t, db, pid, s1, &hist1)
 		seedBatting(t, db, psid, true, 500, 150, hr, 100)
 	}
 

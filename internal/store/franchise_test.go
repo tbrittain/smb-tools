@@ -10,6 +10,15 @@ import (
 	"smb-tools/internal/testutil"
 )
 
+func franchiseFixture(id string) models.Franchise {
+	return models.Franchise{
+		ID:          id,
+		Name:        "Fixture Franchise " + id,
+		GameVersion: models.GameVersionSMB4,
+		DBPath:      "/data/" + id + "/companion.db",
+	}
+}
+
 func TestFranchiseStore_CreateAndList(t *testing.T) {
 	db := testutil.NewTestRegistryDB(t)
 	s := store.NewFranchiseStore(db)

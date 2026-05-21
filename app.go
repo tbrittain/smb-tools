@@ -20,28 +20,39 @@ import (
 // FranchiseDTO is the data transfer object returned to the frontend for
 // franchise list and selection operations.
 type FranchiseDTO struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	GameVersion  string `json:"gameVersion"`
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	GameVersion      string `json:"gameVersion"`
+	HasActiveSource  bool   `json:"hasActiveSource"`
+	ActiveSourcePath string `json:"activeSourcePath"` // empty when no source configured
+	LastSynced       string `json:"lastSynced"`        // ISO-8601 or ""
+	LastSeason       int    `json:"lastSeason"`        // 0 if never synced
+}
+
+// FranchiseSourceDTO represents one save game source associated with a franchise.
+type FranchiseSourceDTO struct {
+	ID           int64  `json:"id"`
 	SaveFilePath string `json:"saveFilePath"`
-	LastSynced   string `json:"lastSynced"`   // ISO-8601 or ""
-	LastSeason   int    `json:"lastSeason"`   // 0 if never synced
+	LeagueGUID   string `json:"leagueGUID"`
+	SeasonOffset int    `json:"seasonOffset"`
+	AddedAt      string `json:"addedAt"` // ISO-8601
 }
 
 // App is the Wails application struct. It is intentionally thin: it wires
 // dependencies at startup and exposes bindings to the frontend. All business
 // logic lives in internal/service and internal/store.
 type App struct {
-	ctx              context.Context
-	version          string
-	dirs             *config.AppDirs
-	registryDB       *sql.DB
-	companionDB      *sql.DB     // active franchise companion DB; nil if none selected
-	activeFranchise  *models.Franchise
-	franchiseStore   *store.FranchiseStore
-	franchiseService *service.FranchiseService
-	importService *service.ImportService
-	syncService   *service.SyncService
+	ctx                 context.Context
+	version             string
+	dirs                *config.AppDirs
+	registryDB          *sql.DB
+	companionDB         *sql.DB // active franchise companion DB; nil if none selected
+	activeFranchise     *models.Franchise
+	franchiseStore      *store.FranchiseStore
+	franchiseSourceStore *store.FranchiseSourceStore
+	franchiseService    *service.FranchiseService
+	importService       *service.ImportService
+	syncService         *service.SyncService
 	// Read-side query stores — initialised when a franchise is selected,
 	// cleared when it is deselected or switched.
 	seasonQueryStore      *store.SeasonQueryStore
@@ -71,7 +82,8 @@ func (a *App) startup(ctx context.Context) {
 	}
 	a.registryDB = registryDB
 	a.franchiseStore = store.NewFranchiseStore(registryDB)
-	a.franchiseService = service.NewFranchiseService(dirs, a.franchiseStore)
+	a.franchiseSourceStore = store.NewFranchiseSourceStore(registryDB)
+	a.franchiseService = service.NewFranchiseService(dirs, a.franchiseStore, a.franchiseSourceStore)
 	a.importService = service.NewImportService()
 
 	a.setupMenu(ctx)
@@ -117,7 +129,7 @@ func (a *App) OpenAppDataDir() error {
 	return openDirectory(a.dirs.DataDir)
 }
 
-// ListFranchises returns all registered franchises.
+// ListFranchises returns all registered franchises enriched with active source info.
 func (a *App) ListFranchises() ([]FranchiseDTO, error) {
 	if a.franchiseStore == nil {
 		return nil, fmt.Errorf("app not initialized")
@@ -126,15 +138,27 @@ func (a *App) ListFranchises() ([]FranchiseDTO, error) {
 	if err != nil {
 		return nil, err
 	}
+	allSources, err := a.franchiseSourceStore.ListAll(a.ctx)
+	if err != nil {
+		return nil, err
+	}
+	// Build a map of franchiseID → active source (highest season_offset)
+	activeSource := make(map[string]models.FranchiseSource)
+	for _, src := range allSources {
+		existing, ok := activeSource[src.FranchiseID]
+		if !ok || src.SeasonOffset > existing.SeasonOffset {
+			activeSource[src.FranchiseID] = src
+		}
+	}
 	dtos := make([]FranchiseDTO, len(franchises))
 	for i, f := range franchises {
-		dtos[i] = franchiseToDTO(f)
+		dtos[i] = franchiseToDTO(f, activeSource[f.ID])
 	}
 	return dtos, nil
 }
 
 // CreateFranchise creates a new franchise. saveFilePath and leagueGUID may be
-// empty if the user wants to configure the save file later via SetFranchiseSaveFile.
+// empty if the user wants to configure the save file later via SetInitialSource.
 func (a *App) CreateFranchise(name, gameVersion, saveFilePath, leagueGUID string) (FranchiseDTO, error) {
 	if a.franchiseService == nil {
 		return FranchiseDTO{}, fmt.Errorf("app not initialized")
@@ -144,7 +168,8 @@ func (a *App) CreateFranchise(name, gameVersion, saveFilePath, leagueGUID string
 	if err != nil {
 		return FranchiseDTO{}, err
 	}
-	return franchiseToDTO(f), nil
+	src, _ := a.franchiseSourceStore.GetActive(a.ctx, f.ID)
+	return franchiseToDTO(f, src), nil
 }
 
 // SelectFranchise opens the companion DB for the given franchise and sets it
@@ -183,7 +208,9 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 	a.playerQueryStore = store.NewPlayerQueryStore(companionDB)
 	a.teamQueryStore = store.NewTeamQueryStore(companionDB)
 	a.leaderboardQueryStore = store.NewLeaderboardQueryStore(companionDB)
-	return franchiseToDTO(f), nil
+
+	src, _ := a.franchiseSourceStore.GetActive(a.ctx, id)
+	return franchiseToDTO(f, src), nil
 }
 
 // GetActiveFranchise returns the currently active franchise, or an empty DTO
@@ -192,7 +219,8 @@ func (a *App) GetActiveFranchise() FranchiseDTO {
 	if a.activeFranchise == nil {
 		return FranchiseDTO{}
 	}
-	return franchiseToDTO(*a.activeFranchise)
+	src, _ := a.franchiseSourceStore.GetActive(a.ctx, a.activeFranchise.ID)
+	return franchiseToDTO(*a.activeFranchise, src)
 }
 
 // RenameFranchise updates the display name of a franchise.
@@ -212,7 +240,7 @@ func (a *App) RenameFranchise(id, newName string) error {
 
 // SyncSeasonResult is the DTO returned after a successful sync.
 type SyncSeasonResult struct {
-	SeasonID     int    `json:"seasonId"`
+	SeasonID     int64  `json:"seasonId"`
 	SeasonNum    int    `json:"seasonNum"`
 	Players      int    `json:"players"`
 	Teams        int    `json:"teams"`
@@ -220,9 +248,9 @@ type SyncSeasonResult struct {
 	PlayoffGames int    `json:"playoffGames"`
 }
 
-// SyncSeason reads the active franchise's save file, auto-detects the current
-// season, and imports it into the companion database. Safe to call multiple
-// times — existing data is replaced with the latest save game state.
+// SyncSeason reads the active franchise's current save file source, auto-detects
+// the current season, and imports it into the companion database. Safe to call
+// multiple times — existing data is replaced with the latest save game state.
 func (a *App) SyncSeason() (SyncSeasonResult, error) {
 	if a.activeFranchise == nil {
 		return SyncSeasonResult{}, fmt.Errorf("no active franchise selected")
@@ -230,11 +258,13 @@ func (a *App) SyncSeason() (SyncSeasonResult, error) {
 	if a.companionDB == nil {
 		return SyncSeasonResult{}, fmt.Errorf("companion database not open")
 	}
-	if a.activeFranchise.SaveFilePath == "" {
-		return SyncSeasonResult{}, fmt.Errorf("no save file configured for this franchise — set one via franchise settings")
+
+	src, err := a.franchiseSourceStore.GetActive(a.ctx, a.activeFranchise.ID)
+	if err != nil {
+		return SyncSeasonResult{}, fmt.Errorf("no save file configured for this franchise — add one via franchise settings")
 	}
 
-	saveDB, tmpPath, err := internaldb.DecompressAndOpen(a.ctx, a.activeFranchise.SaveFilePath)
+	saveDB, tmpPath, err := internaldb.DecompressAndOpen(a.ctx, src.SaveFilePath)
 	if err != nil {
 		return SyncSeasonResult{}, fmt.Errorf("opening save game: %w", err)
 	}
@@ -245,7 +275,7 @@ func (a *App) SyncSeason() (SyncSeasonResult, error) {
 
 	reader := store.NewSqliteSaveGameReader(saveDB, "")
 
-	result, err := a.syncService.SyncSeason(a.ctx, a.companionDB, reader, tmpPath, a.activeFranchise.LeagueGUID)
+	result, err := a.syncService.SyncSeason(a.ctx, a.companionDB, reader, tmpPath, src.LeagueGUID, src.SeasonOffset)
 	if err != nil {
 		return SyncSeasonResult{}, err
 	}
@@ -330,31 +360,31 @@ func (a *App) GetSaveFileCandidates() ([]SaveFileCandidateDTO, error) {
 	return out, nil
 }
 
-// ProbeFranchiseSaveFile probes the save file currently associated with the
-// given franchise and returns its live metadata. Use this to show "game has N
-// seasons" alongside the last-synced state in the franchise list — call it for
-// each franchise on load and whenever the user wants a refresh.
+// ProbeFranchiseSaveFile probes the active source's save file for the given
+// franchise and returns live metadata. Use this to show "game has N seasons"
+// alongside the last-synced state in the franchise list.
 func (a *App) ProbeFranchiseSaveFile(franchiseID string) (SaveFileCandidateDTO, error) {
-	if a.franchiseStore == nil {
+	if a.franchiseSourceStore == nil {
 		return SaveFileCandidateDTO{}, fmt.Errorf("app not initialized")
+	}
+	src, err := a.franchiseSourceStore.GetActive(a.ctx, franchiseID)
+	if err != nil {
+		return SaveFileCandidateDTO{}, nil // no source configured — not an error
 	}
 	f, err := a.franchiseStore.GetByID(a.ctx, franchiseID)
 	if err != nil {
 		return SaveFileCandidateDTO{}, fmt.Errorf("franchise not found: %w", err)
 	}
-	if f.SaveFilePath == "" {
-		return SaveFileCandidateDTO{}, nil
-	}
 	dto := SaveFileCandidateDTO{
-		Path:        f.SaveFilePath,
+		Path:        src.SaveFilePath,
 		GameVersion: string(f.GameVersion),
 	}
-	leagues, err := a.probeLeaguesFromPath(f.SaveFilePath)
+	leagues, err := a.probeLeaguesFromPath(src.SaveFilePath)
 	if err != nil {
 		return dto, nil // non-fatal — caller gets basic path info
 	}
 	for _, lg := range leagues {
-		if lg.GUID == f.LeagueGUID || f.LeagueGUID == "" {
+		if lg.GUID == src.LeagueGUID || src.LeagueGUID == "" {
 			dto.LeagueName     = lg.Name
 			dto.NumSeasons     = lg.NumSeasons
 			dto.Mode           = leagueMode(lg)
@@ -367,21 +397,65 @@ func (a *App) ProbeFranchiseSaveFile(franchiseID string) (SaveFileCandidateDTO, 
 	return dto, nil
 }
 
-// SetFranchiseSaveFile updates the save file path and league GUID for an
-// existing franchise. Use this when the user changes their save file location
-// or initially configures a save file after franchise creation.
-func (a *App) SetFranchiseSaveFile(franchiseID, saveFilePath, leagueGUID string) error {
-	if a.franchiseStore == nil {
+// ListFranchiseSources returns all save game sources for a franchise, ordered
+// by season_offset ascending (oldest source first).
+func (a *App) ListFranchiseSources(franchiseID string) ([]FranchiseSourceDTO, error) {
+	if a.franchiseSourceStore == nil {
+		return nil, fmt.Errorf("app not initialized")
+	}
+	sources, err := a.franchiseSourceStore.ListByFranchise(a.ctx, franchiseID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]FranchiseSourceDTO, len(sources))
+	for i, s := range sources {
+		out[i] = sourceToDTO(s)
+	}
+	return out, nil
+}
+
+// SetInitialSource adds or replaces the first (season_offset = 0) source for a
+// franchise that has no source configured yet. If a source already exists this
+// returns an error — use ReplaceActiveFranchiseSource or AddFranchiseSource instead.
+func (a *App) SetInitialSource(franchiseID, saveFilePath, leagueGUID string) error {
+	if a.franchiseSourceStore == nil {
 		return fmt.Errorf("app not initialized")
 	}
-	if err := a.franchiseStore.UpdateSaveFile(a.ctx, franchiseID, saveFilePath, leagueGUID); err != nil {
-		return fmt.Errorf("updating save file: %w", err)
-	}
-	if a.activeFranchise != nil && a.activeFranchise.ID == franchiseID {
-		a.activeFranchise.SaveFilePath = saveFilePath
-		a.activeFranchise.LeagueGUID = leagueGUID
+	_, err := a.franchiseSourceStore.Add(a.ctx, franchiseID, saveFilePath, leagueGUID, 0)
+	if err != nil {
+		return fmt.Errorf("setting initial source: %w", err)
 	}
 	return nil
+}
+
+// AddFranchiseSource registers a new save game source for a forked league.
+// seasonOffset should be the number of seasons already recorded in the franchise
+// before this fork (i.e., the current last_synced_season). After this call,
+// SyncSeason will read from the new source.
+func (a *App) AddFranchiseSource(franchiseID, saveFilePath, leagueGUID string, seasonOffset int) error {
+	if a.franchiseSourceStore == nil {
+		return fmt.Errorf("app not initialized")
+	}
+	_, err := a.franchiseSourceStore.Add(a.ctx, franchiseID, saveFilePath, leagueGUID, seasonOffset)
+	if err != nil {
+		return fmt.Errorf("adding franchise source: %w", err)
+	}
+	return nil
+}
+
+// ReplaceActiveFranchiseSource updates the save file path and league GUID of
+// the active (highest season_offset) source in-place. Use this for corrections
+// only — e.g., the save file was moved, or the wrong file was linked. This does
+// NOT change season_offset or create a new source row.
+func (a *App) ReplaceActiveFranchiseSource(franchiseID, saveFilePath, leagueGUID string) error {
+	if a.franchiseSourceStore == nil {
+		return fmt.Errorf("app not initialized")
+	}
+	src, err := a.franchiseSourceStore.GetActive(a.ctx, franchiseID)
+	if err != nil {
+		return fmt.Errorf("no source configured for franchise: %w", err)
+	}
+	return a.franchiseSourceStore.Replace(a.ctx, src.ID, saveFilePath, leagueGUID)
 }
 
 // BrowseSaveFile opens the OS file picker filtered to .sav files and returns
@@ -496,7 +570,7 @@ func (a *App) GetSeasonList() ([]SeasonSummaryDTO, error) {
 }
 
 // GetStandings returns all teams' standings for the given season.
-func (a *App) GetStandings(seasonID int) ([]TeamStandingDTO, error) {
+func (a *App) GetStandings(seasonID int64) ([]TeamStandingDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
 		return nil, err
 	}
@@ -526,7 +600,7 @@ func (a *App) GetStandings(seasonID int) ([]TeamStandingDTO, error) {
 }
 
 // GetSeasonStatLeaders returns the six title-leader categories for a season.
-func (a *App) GetSeasonStatLeaders(seasonID int) (StatLeadersDTO, error) {
+func (a *App) GetSeasonStatLeaders(seasonID int64) (StatLeadersDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
 		return StatLeadersDTO{}, err
 	}
@@ -909,12 +983,13 @@ func removePath(p string) {
 	}
 }
 
-func franchiseToDTO(f models.Franchise) FranchiseDTO {
+func franchiseToDTO(f models.Franchise, src models.FranchiseSource) FranchiseDTO {
 	dto := FranchiseDTO{
 		ID:          f.ID,
 		Name:        f.Name,
 		GameVersion: f.GameVersion.String(),
-		SaveFilePath: f.SaveFilePath,
+		HasActiveSource:  src.SaveFilePath != "",
+		ActiveSourcePath: src.SaveFilePath,
 	}
 	if f.LastSyncedAt != nil {
 		dto.LastSynced = f.LastSyncedAt.Format("2006-01-02T15:04:05Z")
@@ -923,4 +998,14 @@ func franchiseToDTO(f models.Franchise) FranchiseDTO {
 		dto.LastSeason = *f.LastSyncedSeason
 	}
 	return dto
+}
+
+func sourceToDTO(s models.FranchiseSource) FranchiseSourceDTO {
+	return FranchiseSourceDTO{
+		ID:           s.ID,
+		SaveFilePath: s.SaveFilePath,
+		LeagueGUID:   s.LeagueGUID,
+		SeasonOffset: s.SeasonOffset,
+		AddedAt:      s.AddedAt.Format("2006-01-02T15:04:05Z"),
+	}
 }

@@ -24,23 +24,30 @@ func NewImportService() *ImportService {
 
 // ImportResult summarises the outcome of a season import.
 type ImportResult struct {
-	SeasonID   int
-	SeasonNum  int
-	Players    int
-	Teams      int
-	Games      int
+	SeasonID     int64 // companion DB seasons.id (autoincrement)
+	SeasonNum    int   // display season number (save game num + offset)
+	Players      int
+	Teams        int
+	Games        int
 	PlayoffGames int
 }
 
 // ImportSeason imports all data for the given season from reader into the
 // companion database. The entire import runs in a single transaction — either
 // all data lands or none does.
+//
+// saveGameSeasonID is the raw t_seasons.id from the save file (used to query
+// the save game reader). leagueGUID identifies which franchise_source produced
+// this season and forms part of the companion DB uniqueness key. seasonOffset
+// is added to the save game's season number to produce the display season number.
 func (svc *ImportService) ImportSeason(
 	ctx context.Context,
 	companionDB *sql.DB,
 	reader store.SaveGameReader,
-	seasonID int,
-	seasonNum int,
+	saveGameSeasonID int,
+	saveGameSeasonNum int,
+	leagueGUID string,
+	seasonOffset int,
 ) (ImportResult, error) {
 	tx, err := companionDB.BeginTx(ctx, nil)
 	if err != nil {
@@ -52,7 +59,7 @@ func (svc *ImportService) ImportSeason(
 		}
 	}()
 
-	result, err := svc.importInTx(ctx, tx, reader, seasonID, seasonNum)
+	result, err := svc.importInTx(ctx, tx, reader, saveGameSeasonID, saveGameSeasonNum, leagueGUID, seasonOffset)
 	if err != nil {
 		return ImportResult{}, err
 	}
@@ -68,26 +75,32 @@ func (svc *ImportService) importInTx(
 	ctx context.Context,
 	tx *sql.Tx,
 	reader store.SaveGameReader,
-	seasonID int,
-	seasonNum int,
+	saveGameSeasonID int,
+	saveGameSeasonNum int,
+	leagueGUID string,
+	seasonOffset int,
 ) (ImportResult, error) {
-	// Wrap all stores in the transaction
 	seasons := store.NewSeasonStore(tx)
 	teams := store.NewTeamHistoryStore(tx)
 	players := store.NewPlayerSeasonStore(tx)
 	schedule := store.NewScheduleStore(tx)
 
-	result := ImportResult{SeasonID: seasonID, SeasonNum: seasonNum}
+	displaySeasonNum := saveGameSeasonNum + seasonOffset
+	result := ImportResult{SeasonNum: displaySeasonNum}
 
 	// ── 1. Season record ────────────────────────────────────────────────────
-	if err := seasons.Upsert(ctx, store.Season{
-		ID: seasonID, SeasonNum: seasonNum,
-	}); err != nil {
+	companionSeasonID, err := seasons.Upsert(ctx, store.Season{
+		LeagueGUID:       leagueGUID,
+		SaveGameSeasonID: saveGameSeasonID,
+		SeasonNum:        displaySeasonNum,
+	})
+	if err != nil {
 		return result, fmt.Errorf("upserting season: %w", err)
 	}
+	result.SeasonID = companionSeasonID
 
 	// ── 2. Teams ────────────────────────────────────────────────────────────
-	saveTeams, err := reader.GetCurrentSeasonTeams(ctx, seasonID)
+	saveTeams, err := reader.GetCurrentSeasonTeams(ctx, saveGameSeasonID)
 	if err != nil {
 		return result, fmt.Errorf("reading teams: %w", err)
 	}
@@ -95,13 +108,13 @@ func (svc *ImportService) importInTx(
 	// teamGUIDToHistoryID maps save game team GUID → companion team_season_history.id
 	teamGUIDToHistoryID := make(map[string]int64, len(saveTeams))
 	for _, t := range saveTeams {
-		teamID, err := teams.UpsertTeam(ctx, t.TeamGUID)
+		teamID, err := teams.UpsertTeam(ctx, t.TeamGUID, t.TeamName)
 		if err != nil {
 			return result, fmt.Errorf("upserting team %s: %w", t.TeamGUID, err)
 		}
 		histID, err := teams.UpsertSeasonHistory(ctx, store.TeamSeasonHistory{
 			TeamID:         teamID,
-			SeasonID:       seasonID,
+			SeasonID:       companionSeasonID,
 			TeamName:       t.TeamName,
 			DivisionName:   t.DivisionName,
 			ConferenceName: t.ConferenceName,
@@ -121,7 +134,7 @@ func (svc *ImportService) importInTx(
 	result.Teams = len(saveTeams)
 
 	// ── 3. Players ──────────────────────────────────────────────────────────
-	savePlayers, err := reader.GetCurrentSeasonPlayers(ctx, seasonID)
+	savePlayers, err := reader.GetCurrentSeasonPlayers(ctx, saveGameSeasonID)
 	if err != nil {
 		return result, fmt.Errorf("reading players: %w", err)
 	}
@@ -129,10 +142,13 @@ func (svc *ImportService) importInTx(
 	// playerGUIDToSeasonID maps save game player GUID → companion player_seasons.id
 	playerGUIDToSeasonID := make(map[string]int64, len(savePlayers))
 	for _, p := range savePlayers {
-		playerID, err := players.UpsertPlayer(ctx, store.Player{
-			GameGUID:  p.PlayerGUID,
-			FirstName: p.FirstName,
-			LastName:  p.LastName,
+		playerID, err := players.UpsertPlayer(ctx, store.PlayerIdentity{
+			GameGUID:      p.PlayerGUID,
+			FirstName:     p.FirstName,
+			LastName:      p.LastName,
+			BatHand:       p.BatHand,
+			ThrowHand:     p.ThrowHand,
+			ChemistryType: p.ChemistryType,
 		})
 		if err != nil {
 			return result, fmt.Errorf("upserting player %s: %w", p.PlayerGUID, err)
@@ -145,7 +161,7 @@ func (svc *ImportService) importInTx(
 
 		psID, err := players.UpsertSeason(ctx, store.PlayerSeason{
 			PlayerID:          playerID,
-			SeasonID:          seasonID,
+			SeasonID:          companionSeasonID,
 			TeamHistoryID:     teamHistID,
 			Age:               p.Age,
 			Salary:            p.Salary,
@@ -180,31 +196,31 @@ func (svc *ImportService) importInTx(
 	result.Players = len(savePlayers)
 
 	// ── 4. Batting stats (regular season) ──────────────────────────────────
-	if err := svc.importBattingStats(ctx, players, reader, seasonID, true, playerGUIDToSeasonID); err != nil {
+	if err := svc.importBattingStats(ctx, players, reader, saveGameSeasonID, true, playerGUIDToSeasonID); err != nil {
 		return result, fmt.Errorf("importing regular season batting stats: %w", err)
 	}
 
 	// ── 5. Pitching stats (regular season) ─────────────────────────────────
-	if err := svc.importPitchingStats(ctx, players, reader, seasonID, true, playerGUIDToSeasonID); err != nil {
+	if err := svc.importPitchingStats(ctx, players, reader, saveGameSeasonID, true, playerGUIDToSeasonID); err != nil {
 		return result, fmt.Errorf("importing regular season pitching stats: %w", err)
 	}
 
 	// ── 6. Batting stats (playoffs) ─────────────────────────────────────────
-	if err := svc.importBattingStats(ctx, players, reader, seasonID, false, playerGUIDToSeasonID); err != nil {
+	if err := svc.importBattingStats(ctx, players, reader, saveGameSeasonID, false, playerGUIDToSeasonID); err != nil {
 		return result, fmt.Errorf("importing playoff batting stats: %w", err)
 	}
 
 	// ── 7. Pitching stats (playoffs) ────────────────────────────────────────
-	if err := svc.importPitchingStats(ctx, players, reader, seasonID, false, playerGUIDToSeasonID); err != nil {
+	if err := svc.importPitchingStats(ctx, players, reader, saveGameSeasonID, false, playerGUIDToSeasonID); err != nil {
 		return result, fmt.Errorf("importing playoff pitching stats: %w", err)
 	}
 
 	// ── 8. Regular season schedule ──────────────────────────────────────────
-	if err := schedule.DeleteSeasonSchedule(ctx, seasonID); err != nil {
+	if err := schedule.DeleteSeasonSchedule(ctx, companionSeasonID); err != nil {
 		return result, fmt.Errorf("clearing old schedule: %w", err)
 	}
 
-	games, err := reader.GetSeasonSchedule(ctx, seasonID)
+	games, err := reader.GetSeasonSchedule(ctx, saveGameSeasonID)
 	if err != nil {
 		return result, fmt.Errorf("reading season schedule: %w", err)
 	}
@@ -212,7 +228,7 @@ func (svc *ImportService) importInTx(
 		homeHistID := teamGUIDToHistoryID[g.HomeTeamGUID]
 		awayHistID := teamGUIDToHistoryID[g.AwayTeamGUID]
 		if homeHistID == 0 || awayHistID == 0 {
-			continue // skip games for teams not in this season's roster
+			continue
 		}
 		var homePitcherID, awayPitcherID *int64
 		if g.HomePitcherGUID != nil {
@@ -226,15 +242,15 @@ func (svc *ImportService) importInTx(
 			}
 		}
 		if err := schedule.UpsertGame(ctx, store.ScheduleGame{
-			SeasonID:             seasonID,
-			GameNumber:           g.GameNumber,
-			Day:                  g.Day,
-			HomeTeamHistoryID:    homeHistID,
-			AwayTeamHistoryID:    awayHistID,
+			SeasonID:            companionSeasonID,
+			GameNumber:          g.GameNumber,
+			Day:                 g.Day,
+			HomeTeamHistoryID:   homeHistID,
+			AwayTeamHistoryID:   awayHistID,
 			HomePitcherSeasonID: homePitcherID,
 			AwayPitcherSeasonID: awayPitcherID,
-			HomeScore:            g.HomeScore,
-			AwayScore:            g.AwayScore,
+			HomeScore:           g.HomeScore,
+			AwayScore:           g.AwayScore,
 		}); err != nil {
 			return result, fmt.Errorf("upserting game %d: %w", g.GameNumber, err)
 		}
@@ -242,7 +258,7 @@ func (svc *ImportService) importInTx(
 	result.Games = len(games)
 
 	// ── 9. Playoff schedule ──────────────────────────────────────────────────
-	playoffGames, err := reader.GetPlayoffSchedule(ctx, seasonID)
+	playoffGames, err := reader.GetPlayoffSchedule(ctx, saveGameSeasonID)
 	if err != nil {
 		return result, fmt.Errorf("reading playoff schedule: %w", err)
 	}
@@ -264,15 +280,15 @@ func (svc *ImportService) importInTx(
 			}
 		}
 		if err := schedule.UpsertPlayoffGame(ctx, store.PlayoffGame{
-			SeasonID:             seasonID,
-			SeriesNumber:         g.SeriesNum,
-			GameNumber:           g.GameNumber,
-			HomeTeamHistoryID:    homeHistID,
-			AwayTeamHistoryID:    awayHistID,
+			SeasonID:            companionSeasonID,
+			SeriesNumber:        g.SeriesNum,
+			GameNumber:          g.GameNumber,
+			HomeTeamHistoryID:   homeHistID,
+			AwayTeamHistoryID:   awayHistID,
 			HomePitcherSeasonID: homePitcherID,
 			AwayPitcherSeasonID: awayPitcherID,
-			HomeScore:            g.HomeScore,
-			AwayScore:            g.AwayScore,
+			HomeScore:           g.HomeScore,
+			AwayScore:           g.AwayScore,
 		}); err != nil {
 			return result, fmt.Errorf("upserting playoff game %d: %w", g.GameNumber, err)
 		}
@@ -286,16 +302,16 @@ func (svc *ImportService) importBattingStats(
 	ctx context.Context,
 	players *store.PlayerSeasonStore,
 	reader store.SaveGameReader,
-	seasonID int,
+	saveGameSeasonID int,
 	isRegularSeason bool,
 	playerGUIDToSeasonID map[string]int64,
 ) error {
 	var stats []models.SaveGameBattingStat
 	var err error
 	if isRegularSeason {
-		stats, err = reader.GetSeasonBattingStats(ctx, seasonID)
+		stats, err = reader.GetSeasonBattingStats(ctx, saveGameSeasonID)
 	} else {
-		stats, err = reader.GetPlayoffBattingStats(ctx, seasonID)
+		stats, err = reader.GetPlayoffBattingStats(ctx, saveGameSeasonID)
 	}
 	if err != nil {
 		return err
@@ -304,7 +320,7 @@ func (svc *ImportService) importBattingStats(
 	for _, s := range stats {
 		psID, ok := playerGUIDToSeasonID[s.PlayerGUID]
 		if !ok {
-			continue // player not in this season's roster
+			continue
 		}
 		if err := players.UpsertBattingStats(ctx, store.PlayerSeasonBattingStats{
 			PlayerSeasonID:  psID,
@@ -338,16 +354,16 @@ func (svc *ImportService) importPitchingStats(
 	ctx context.Context,
 	players *store.PlayerSeasonStore,
 	reader store.SaveGameReader,
-	seasonID int,
+	saveGameSeasonID int,
 	isRegularSeason bool,
 	playerGUIDToSeasonID map[string]int64,
 ) error {
 	var stats []models.SaveGamePitchingStat
 	var err error
 	if isRegularSeason {
-		stats, err = reader.GetSeasonPitchingStats(ctx, seasonID)
+		stats, err = reader.GetSeasonPitchingStats(ctx, saveGameSeasonID)
 	} else {
-		stats, err = reader.GetPlayoffPitchingStats(ctx, seasonID)
+		stats, err = reader.GetPlayoffPitchingStats(ctx, saveGameSeasonID)
 	}
 	if err != nil {
 		return err
@@ -389,8 +405,6 @@ func (svc *ImportService) importPitchingStats(
 
 // ---- helpers ---------------------------------------------------------------
 
-// teamGUIDFromName finds a team's GUID by matching on team name — a fallback
-// for when the player record only carries the team name, not the GUID.
 func teamGUIDFromName(teams []models.SaveGameTeam, name string) string {
 	for _, t := range teams {
 		if t.TeamName == name {
@@ -406,4 +420,3 @@ func joinStrings(ss []string) string {
 	}
 	return "[\"" + strings.Join(ss, "\",\"") + "\"]"
 }
-
