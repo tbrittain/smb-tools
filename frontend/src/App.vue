@@ -108,9 +108,10 @@ async function handleSelect(id: string) {
 .fullscreen-center {
   flex: 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 2rem;
+  padding: 3rem 2rem;
+  overflow-y: auto;
 }
 
 .franchise-setup-panel {
