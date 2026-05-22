@@ -87,7 +87,7 @@ Check off phases as they are completed. Individual phases will be broken into de
 - [x] Sorting by any stat column
 - [x] Pagination
 
-> **Known limitation — leaderboard default sort order:** All four leaderboard queries (`GetBattingCareerLeaders`, `GetBattingSeasonLeaders`, `GetPitchingCareerLeaders`, `GetPitchingSeasonLeaders` in `internal/store/leaderboard_query.go`) currently default to alphabetical order by player name. The initial load should present the best players first, but there is no volume-weighted composite metric yet to sort by. **Once smbWAR is implemented, update the `ORDER BY` clause in each query to `smbWAR DESC` as the default, and mirror that in the frontend's initial sort state.**
+> **Known limitation — leaderboard default sort order:** All four leaderboard queries (`GetBattingCareerLeaders`, `GetBattingSeasonLeaders`, `GetPitchingCareerLeaders`, `GetPitchingSeasonLeaders` in `internal/store/leaderboard_query.go`) currently default to alphabetical order by player name. The initial load should present the best players first, but there is no volume-weighted composite metric yet to sort by. **Once smbWAR is implemented (Phase 8.5), update the `ORDER BY` clause in each query to `smbWAR DESC` as the default, and mirror that in the frontend's initial sort state.**
 
 ---
 
@@ -101,11 +101,33 @@ Check off phases as they are completed. Individual phases will be broken into de
 - [x] Hall of Fame eligibility evaluation and induction
 - [x] Custom user-defined awards
 
-> **Known limitation — award candidate ranking:** The awards delegation page currently ranks batters by OPS and pitchers by ERA. Raw OPS is not PA-weighted, so a player with 3 AB and 3 HR can outrank a player with 600 AB and 60 HR — the latter clearly contributed more. The legacy companion app used smbWAR (a weighted OPS+/FIP- metric) to rank candidates, which naturally handles sample-size differences. **Once smbWAR, OPS+, and ERA+ are implemented (Phase 12 or a dedicated context-stats phase), update `AwardStore.queryBattingCandidates` and `queryPitchingCandidates` in `internal/store/award_candidates.go` to sort by those metrics instead.**
+> **Known limitation — award candidate ranking:** The awards delegation page currently ranks batters by OPS and pitchers by ERA. Raw OPS is not PA-weighted, so a player with 3 AB and 3 HR can outrank a player with 600 AB and 60 HR — the latter clearly contributed more. The legacy companion app used smbWAR (a weighted OPS+/FIP- metric) to rank candidates, which naturally handles sample-size differences. **Once smbWAR, OPS+, and ERA+ are implemented (Phase 8.5), update `AwardStore.queryBattingCandidates` and `queryPitchingCandidates` in `internal/store/award_candidates.go` to sort by those metrics instead.**
 
 ---
 
-## Phase 8 — Visualizations
+## Phase 8 — Legacy Migration
+*One-time migration path for existing SmbExplorerCompanion users. Brings historical data forward into the new schema.*
+
+- [ ] Schema analysis and mapping doc (`docs/architecture/schema-analysis.md`)
+- [ ] LegacyMigrationService: reads old SmbExplorerCompanion.db, writes to new franchise DB
+- [ ] Migration UI: detect existing companion DB, confirm, run, report results
+- [ ] Integration tests covering full-franchise, minimal, and edge-case scenarios
+
+---
+
+## Phase 8.5 — Context Stats (smbWAR, OPS+, ERA+)
+*The weighted metrics that unlock meaningful candidate ranking in awards, leaderboard default sort, and future visualizations. Unblocks the known limitations called out in Phases 6 and 7.*
+
+- [ ] smbWAR custom metric (weighted OPS+/FIP- composite, PA/IP-weighted)
+- [ ] OPS+ (park- and league-adjusted OPS)
+- [ ] ERA+ (park- and league-adjusted ERA)
+- [ ] Persist all three as computed-at-sync columns on season stat rows (league context required at import time — not generatable columns)
+- [ ] Update `GetBattingCareerLeaders` / `GetBattingSeasonLeaders` / `GetPitchingCareerLeaders` / `GetPitchingSeasonLeaders` default `ORDER BY` to `smbWAR DESC`
+- [ ] Update `AwardStore.queryBattingCandidates` / `queryPitchingCandidates` to rank by smbWAR / ERA+
+
+---
+
+## Phase 9 — Visualizations
 *Charts, plots, and percentile rankings throughout the app.*
 
 - [ ] Player attribute radar/spider chart (percentile visualization)
@@ -113,16 +135,6 @@ Check off phases as they are completed. Individual phases will be broken into de
 - [ ] Team season performance trend chart (margin of victory over season)
 - [ ] Similar players recommendations
 - [ ] Franchise-level stat trend charts (era averages, season-over-season)
-
----
-
-## Phase 9 — Legacy Migration
-*One-time migration path for existing SmbExplorerCompanion users. Brings historical data forward into the new schema.*
-
-- [ ] Schema analysis and mapping doc (`docs/architecture/schema-analysis.md`)
-- [ ] LegacyMigrationService: reads old SmbExplorerCompanion.db, writes to new franchise DB
-- [ ] Migration UI: detect existing companion DB, confirm, run, report results
-- [ ] Integration tests covering full-franchise, minimal, and edge-case scenarios
 
 ---
 
@@ -157,7 +169,6 @@ Check off phases as they are completed. Individual phases will be broken into de
 
 - [ ] Stat scaling per 162 games (context for non-162-game seasons)
 - [ ] 30/30 and 40/40 season tracking
-- [ ] smbWAR custom metric
 - [ ] HoF career standards test (Baseball Reference–style)
 - [ ] Player nicknames
 - [ ] Team colors
