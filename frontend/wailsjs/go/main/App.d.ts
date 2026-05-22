@@ -6,6 +6,10 @@ export function AddFranchiseSource(arg1:string,arg2:string,arg3:string,arg4:numb
 
 export function BrowseSaveFile():Promise<string>;
 
+export function ComputeSeasonStatLeaderAwards(arg1:number):Promise<void>;
+
+export function CreateCustomAward(arg1:main.AwardDTO):Promise<main.AwardDTO>;
+
 export function CreateFranchise(arg1:string,arg2:string,arg3:string,arg4:string):Promise<main.FranchiseDTO>;
 
 export function DeleteFranchise(arg1:string):Promise<void>;
@@ -18,17 +22,29 @@ export function GetBattingSeasonLeaders(arg1:main.LeaderboardFiltersDTO):Promise
 
 export function GetCareerLeaders():Promise<main.CareerLeadersDTO>;
 
+export function GetHoFCandidates():Promise<Array<main.HoFCandidateDTO>>;
+
+export function GetHoFInducted():Promise<Array<main.HoFCandidateDTO>>;
+
 export function GetPitchingCareerLeaders(arg1:main.LeaderboardFiltersDTO):Promise<Array<main.PitchingLeaderRowDTO>>;
 
 export function GetPitchingSeasonLeaders(arg1:main.LeaderboardFiltersDTO):Promise<Array<main.PitchingLeaderRowDTO>>;
 
 export function GetPlayerCareer(arg1:number):Promise<main.PlayerCareerDTO>;
 
+export function GetPlayerCareerAwards(arg1:number):Promise<Record<string, Array<main.AwardDTO>>>;
+
 export function GetPlayerSeasonLog(arg1:number):Promise<Array<main.PlayerSeasonLogDTO>>;
 
 export function GetSaveFileCandidates():Promise<Array<main.SaveFileCandidateDTO>>;
 
+export function GetSeasonAwardCandidates(arg1:number):Promise<main.SeasonAwardCandidatesDTO>;
+
+export function GetSeasonChampionTeamHistoryID(arg1:number):Promise<any>;
+
 export function GetSeasonList():Promise<Array<main.SeasonSummaryDTO>>;
+
+export function GetSeasonPlayerAwards(arg1:number):Promise<Array<main.SeasonPlayerAwardRowDTO>>;
 
 export function GetSeasonStatLeaders(arg1:number):Promise<main.StatLeadersDTO>;
 
@@ -40,7 +56,11 @@ export function GetTeamSeasonDetail(arg1:number):Promise<main.TeamSeasonDetailDT
 
 export function GetVersion():Promise<string>;
 
+export function ListAllAwards():Promise<Array<main.AwardDTO>>;
+
 export function ListAllTeamSeasons():Promise<Array<main.TeamSeasonListDTO>>;
+
+export function ListAwards(arg1:boolean):Promise<Array<main.AwardDTO>>;
 
 export function ListFranchiseSources(arg1:string):Promise<Array<main.FranchiseSourceDTO>>;
 
@@ -62,6 +82,12 @@ export function SearchTeams(arg1:string):Promise<Array<main.TeamSearchResultDTO>
 
 export function SelectFranchise(arg1:string):Promise<main.FranchiseDTO>;
 
+export function SetHallOfFamer(arg1:number,arg2:boolean):Promise<void>;
+
 export function SetInitialSource(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function SetPlayerSeasonAwards(arg1:main.SetPlayerAwardsRequestDTO):Promise<void>;
+
+export function SubmitSeasonAwards(arg1:main.SubmitSeasonAwardsDTO):Promise<void>;
 
 export function SyncSeason():Promise<main.SyncSeasonResult>;

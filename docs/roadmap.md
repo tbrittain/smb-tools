@@ -58,7 +58,7 @@ Check off phases as they are completed. Individual phases will be broken into de
 - [ ] Team logo extraction (binary blob storage + rendering; deferred until Phase 5/6 when the UI that displays logos exists)
 - [x] Sync UI: trigger button, last-synced indicator, progress feedback
 - [x] Season auto-detection: SyncSeason reads the most recent season from the save game; user no longer needs to supply internal season IDs
-- [ ] Championship winner detection (post-import query over completed playoff data; deferred to Phase 5 where leaderboard queries will also be written)
+- [x] Championship winner detection (post-import query over completed playoff data; deferred to Phase 5 where leaderboard queries will also be written)
 
 ---
 
@@ -87,17 +87,21 @@ Check off phases as they are completed. Individual phases will be broken into de
 - [x] Sorting by any stat column
 - [x] Pagination
 
+> **Known limitation — leaderboard default sort order:** All four leaderboard queries (`GetBattingCareerLeaders`, `GetBattingSeasonLeaders`, `GetPitchingCareerLeaders`, `GetPitchingSeasonLeaders` in `internal/store/leaderboard_query.go`) currently default to alphabetical order by player name. The initial load should present the best players first, but there is no volume-weighted composite metric yet to sort by. **Once smbWAR is implemented, update the `ORDER BY` clause in each query to `smbWAR DESC` as the default, and mirror that in the frontend's initial sort state.**
+
 ---
 
 ## Phase 7 — Awards & Hall of Fame
 *Season-level award tracking and Hall of Fame management.*
 
-- [ ] Manual award assignment (MVP, Cy Young, Gold Glove, Silver Slugger, ROY, All-Star, Playoff/Championship MVP)
-- [ ] Runner-up award support (MVP-2 through MVP-5, etc.)
-- [ ] Auto-calculated title awards (BA, HR, RBI, ERA, W, K leaders)
-- [ ] Auto-calculated Triple Crown (batting and pitching)
-- [ ] Hall of Fame eligibility evaluation and induction
-- [ ] Custom user-defined awards
+- [x] Manual award assignment (MVP, Cy Young, Gold Glove, Silver Slugger, ROY, All-Star, Playoff/Championship MVP)
+- [x] Runner-up award support (MVP-2 through MVP-5, etc.)
+- [x] Auto-calculated title awards (BA, HR, RBI, ERA, W, K leaders)
+- [x] Auto-calculated Triple Crown (batting and pitching)
+- [x] Hall of Fame eligibility evaluation and induction
+- [x] Custom user-defined awards
+
+> **Known limitation — award candidate ranking:** The awards delegation page currently ranks batters by OPS and pitchers by ERA. Raw OPS is not PA-weighted, so a player with 3 AB and 3 HR can outrank a player with 600 AB and 60 HR — the latter clearly contributed more. The legacy companion app used smbWAR (a weighted OPS+/FIP- metric) to rank candidates, which naturally handles sample-size differences. **Once smbWAR, OPS+, and ERA+ are implemented (Phase 12 or a dedicated context-stats phase), update `AwardStore.queryBattingCandidates` and `queryPitchingCandidates` in `internal/store/award_candidates.go` to sort by those metrics instead.**
 
 ---
 

@@ -197,6 +197,30 @@ CREATE TABLE player_season_pitching_stats (
     UNIQUE(player_season_id, is_regular_season)
 );
 
+-- ── Awards ────────────────────────────────────────────────────────────────────
+
+-- award definitions (built-in + user-created custom awards)
+CREATE TABLE awards (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                TEXT    NOT NULL UNIQUE,
+    original_name       TEXT    NOT NULL,
+    importance          INTEGER NOT NULL DEFAULT 0,
+    omit_from_groupings INTEGER NOT NULL DEFAULT 0,
+    is_batting_award    INTEGER NOT NULL DEFAULT 0,
+    is_pitching_award   INTEGER NOT NULL DEFAULT 0,
+    is_fielding_award   INTEGER NOT NULL DEFAULT 0,
+    is_playoff_award    INTEGER NOT NULL DEFAULT 0,
+    is_user_assignable  INTEGER NOT NULL DEFAULT 1,
+    is_built_in         INTEGER NOT NULL DEFAULT 1
+);
+
+-- many-to-many: awards assigned to player-seasons
+CREATE TABLE player_season_awards (
+    player_season_id INTEGER NOT NULL REFERENCES player_seasons(id),
+    award_id         INTEGER NOT NULL REFERENCES awards(id),
+    PRIMARY KEY (player_season_id, award_id)
+);
+
 -- ── Schedules ─────────────────────────────────────────────────────────────────
 
 CREATE TABLE team_season_schedules (
@@ -238,6 +262,71 @@ CREATE INDEX idx_batting_stats_season      ON player_season_batting_stats(player
 CREATE INDEX idx_pitching_stats_season     ON player_season_pitching_stats(player_season_id);
 CREATE INDEX idx_schedules_season          ON team_season_schedules(season_id);
 CREATE INDEX idx_playoff_schedules_season  ON team_playoff_schedules(season_id);
+CREATE INDEX idx_psa_player_season ON player_season_awards(player_season_id);
+CREATE INDEX idx_psa_award         ON player_season_awards(award_id);
+
+-- ── Built-in awards ───────────────────────────────────────────────────────────
+-- Columns: name, original_name, importance, omit_from_groupings,
+--          is_batting_award, is_pitching_award, is_fielding_award,
+--          is_playoff_award, is_user_assignable, is_built_in
+
+-- Importance 0 — most prestigious
+INSERT INTO awards
+    (name, original_name, importance, omit_from_groupings, is_batting_award, is_pitching_award, is_fielding_award, is_playoff_award, is_user_assignable, is_built_in)
+VALUES
+    ('MVP',                    'MVP',                    0, 0, 1, 1, 0, 0, 1, 1),
+    ('Triple Crown (Batting)', 'Triple Crown (Batting)', 0, 0, 1, 0, 0, 0, 0, 1),
+    ('Triple Crown (Pitching)','Triple Crown (Pitching)',0, 0, 0, 1, 0, 0, 0, 1);
+
+-- Importance 1
+INSERT INTO awards
+    (name, original_name, importance, omit_from_groupings, is_batting_award, is_pitching_award, is_fielding_award, is_playoff_award, is_user_assignable, is_built_in)
+VALUES
+    ('Cy Young',      'Cy Young',      1, 0, 0, 1, 0, 0, 1, 1),
+    ('Silver Slugger','Silver Slugger', 1, 0, 1, 0, 0, 0, 1, 1),
+    ('ROY',           'ROY',           1, 0, 1, 1, 0, 0, 1, 1);
+
+-- Importance 2
+INSERT INTO awards
+    (name, original_name, importance, omit_from_groupings, is_batting_award, is_pitching_award, is_fielding_award, is_playoff_award, is_user_assignable, is_built_in)
+VALUES
+    ('Gold Glove',       'Gold Glove',       2, 0, 0, 0, 1, 0, 1, 1),
+    ('Playoff MVP',      'Playoff MVP',       2, 0, 1, 1, 0, 1, 1, 1),
+    ('Championship MVP', 'Championship MVP',  2, 0, 1, 1, 0, 1, 1, 1);
+
+-- Importance 3 — auto-computed stat titles
+INSERT INTO awards
+    (name, original_name, importance, omit_from_groupings, is_batting_award, is_pitching_award, is_fielding_award, is_playoff_award, is_user_assignable, is_built_in)
+VALUES
+    ('Batting Title',    'Batting Title',    3, 0, 1, 0, 0, 0, 0, 1),
+    ('Home Run Title',   'Home Run Title',   3, 0, 1, 0, 0, 0, 0, 1),
+    ('RBI Title',        'RBI Title',        3, 0, 1, 0, 0, 0, 0, 1),
+    ('ERA Title',        'ERA Title',        3, 0, 0, 1, 0, 0, 0, 1),
+    ('Wins Title',       'Wins Title',       3, 0, 0, 1, 0, 0, 0, 1),
+    ('Strikeouts Title', 'Strikeouts Title', 3, 0, 0, 1, 0, 0, 0, 1);
+
+-- Importance 4
+INSERT INTO awards
+    (name, original_name, importance, omit_from_groupings, is_batting_award, is_pitching_award, is_fielding_award, is_playoff_award, is_user_assignable, is_built_in)
+VALUES
+    ('All-Star', 'All-Star', 4, 0, 1, 1, 0, 0, 1, 1);
+
+-- Importance 5 — runner-ups (omit_from_groupings = 1)
+INSERT INTO awards
+    (name, original_name, importance, omit_from_groupings, is_batting_award, is_pitching_award, is_fielding_award, is_playoff_award, is_user_assignable, is_built_in)
+VALUES
+    ('MVP-2',      'MVP-2',      5, 1, 1, 1, 0, 0, 1, 1),
+    ('MVP-3',      'MVP-3',      5, 1, 1, 1, 0, 0, 1, 1),
+    ('MVP-4',      'MVP-4',      5, 1, 1, 1, 0, 0, 1, 1),
+    ('MVP-5',      'MVP-5',      5, 1, 1, 1, 0, 0, 1, 1),
+    ('Cy Young-2', 'Cy Young-2', 5, 1, 0, 1, 0, 0, 1, 1),
+    ('Cy Young-3', 'Cy Young-3', 5, 1, 0, 1, 0, 0, 1, 1),
+    ('Cy Young-4', 'Cy Young-4', 5, 1, 0, 1, 0, 0, 1, 1),
+    ('Cy Young-5', 'Cy Young-5', 5, 1, 0, 1, 0, 0, 1, 1),
+    ('ROY-2',      'ROY-2',      5, 1, 1, 1, 0, 0, 1, 1),
+    ('ROY-3',      'ROY-3',      5, 1, 1, 1, 0, 0, 1, 1),
+    ('ROY-4',      'ROY-4',      5, 1, 1, 1, 0, 0, 1, 1),
+    ('ROY-5',      'ROY-5',      5, 1, 1, 1, 0, 0, 1, 1);
 
 -- ── Rate stat views ───────────────────────────────────────────────────────────
 --

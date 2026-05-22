@@ -446,4 +446,5 @@ h3 {
 
 .placeholder-section { padding: 1rem 0; }
 .placeholder { color: var(--color-text-secondary); font-size: 0.9375rem; }
+
 </style>

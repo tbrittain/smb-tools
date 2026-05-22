@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import Toast from 'primevue/toast'
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppButton from './components/AppButton.vue'
@@ -39,6 +40,7 @@ async function handleSelect(id: string) {
 
 <template>
   <div id="app-root">
+    <Toast position="bottom-center" />
     <!-- Loading state -->
     <div v-if="franchiseStore.loading" class="fullscreen-center">
       <span class="loading-text">Loading…</span>
@@ -79,6 +81,8 @@ async function handleSelect(id: string) {
           <router-link to="/">Dashboard</router-link>
           <router-link to="/teams">Teams</router-link>
           <router-link to="/leaderboards">Leaderboards</router-link>
+          <router-link to="/awards">Awards</router-link>
+          <router-link to="/hall-of-fame">Hall of Fame</router-link>
           <router-link to="/search">Search</router-link>
         </nav>
         <div class="sidebar-footer">

@@ -702,3 +702,282 @@ func pitchingSeasonLeaderToDTO(r models.PitchingSeasonLeaderRow) PitchingLeaderR
 		KPerBB: kperbb, KPct: kpct, WinPct: winpct, PPerIP: pperip,
 	}
 }
+
+// ── Awards ────────────────────────────────────────────────────────────────────
+
+// AwardDTO is the data transfer object for an award definition.
+type AwardDTO struct {
+	ID                int64  `json:"id"`
+	Name              string `json:"name"`
+	OriginalName      string `json:"originalName"`
+	Importance        int    `json:"importance"`
+	OmitFromGroupings bool   `json:"omitFromGroupings"`
+	IsBattingAward    bool   `json:"isBattingAward"`
+	IsPitchingAward   bool   `json:"isPitchingAward"`
+	IsFieldingAward   bool   `json:"isFieldingAward"`
+	IsPlayoffAward    bool   `json:"isPlayoffAward"`
+	IsUserAssignable  bool   `json:"isUserAssignable"`
+	IsBuiltIn         bool   `json:"isBuiltIn"`
+}
+
+// SeasonPlayerAwardRowDTO is one player-season row on the awards delegation page.
+type SeasonPlayerAwardRowDTO struct {
+	PlayerSeasonID int64      `json:"playerSeasonId"`
+	PlayerID       int64      `json:"playerId"`
+	FirstName      string     `json:"firstName"`
+	LastName       string     `json:"lastName"`
+	TeamName       string     `json:"teamName"`
+	PrimaryPos     string     `json:"primaryPosition"`
+	PitcherRole    string     `json:"pitcherRole"`
+	Awards         []AwardDTO `json:"awards"`
+}
+
+// SetPlayerAwardsRequestDTO is the payload for SetPlayerSeasonAwards.
+type SetPlayerAwardsRequestDTO struct {
+	PlayerSeasonID int64   `json:"playerSeasonId"`
+	AwardIDs       []int64 `json:"awardIds"`
+}
+
+// HoFCandidateDTO carries career stats for a Hall of Fame candidate or inductee.
+type HoFCandidateDTO struct {
+	PlayerID      int64  `json:"playerId"`
+	FirstName     string `json:"firstName"`
+	LastName      string `json:"lastName"`
+	IsHallOfFamer bool   `json:"isHallOfFamer"`
+	FirstSeason   int    `json:"firstSeason"`
+	LastSeason    int    `json:"lastSeason"`
+	Seasons       int    `json:"seasons"`
+	Hits          int    `json:"hits"`
+	HomeRuns      int    `json:"homeRuns"`
+	RBI           int    `json:"rbi"`
+	StolenBases   int    `json:"stolenBases"`
+	AtBats        int    `json:"atBats"`
+	Walks         int    `json:"walks"`
+	Wins          int    `json:"wins"`
+	Losses        int    `json:"losses"`
+	OutsPitched   int    `json:"outsPitched"`
+	Strikeouts    int    `json:"strikeouts"`
+	EarnedRuns    int    `json:"earnedRuns"`
+}
+
+// ── Award delegation candidates ───────────────────────────────────────────────
+
+// BattingCandidateDTO is one player row in an award delegation batting section.
+type BattingCandidateDTO struct {
+	PlayerSeasonID int64   `json:"playerSeasonId"`
+	PlayerID       int64   `json:"playerId"`
+	FirstName      string  `json:"firstName"`
+	LastName       string  `json:"lastName"`
+	TeamName       string  `json:"teamName"`
+	PrimaryPos     string  `json:"primaryPosition"`
+	PitcherRole    string  `json:"pitcherRole"`
+	AtBats         int     `json:"atBats"`
+	Hits           int     `json:"hits"`
+	HomeRuns       int     `json:"homeRuns"`
+	RBI            int     `json:"rbi"`
+	Walks          int     `json:"walks"`
+	Runs           int     `json:"runs"`
+	StolenBases    int     `json:"stolenBases"`
+	Strikeouts     int     `json:"strikeouts"`
+	Doubles        int     `json:"doubles"`
+	Triples        int     `json:"triples"`
+	BA             float64 `json:"ba"`
+	OBP            float64 `json:"obp"`
+	SLG            float64 `json:"slg"`
+	OPS                 float64 `json:"ops"`
+	IsChampionTeam      bool    `json:"isChampionTeam"`
+	AwardIDs            []int64 `json:"awardIds"`
+}
+
+// PitchingCandidateDTO is one player row in an award delegation pitching section.
+type PitchingCandidateDTO struct {
+	PlayerSeasonID  int64   `json:"playerSeasonId"`
+	PlayerID        int64   `json:"playerId"`
+	FirstName       string  `json:"firstName"`
+	LastName        string  `json:"lastName"`
+	TeamName        string  `json:"teamName"`
+	PrimaryPos      string  `json:"primaryPosition"`
+	PitcherRole     string  `json:"pitcherRole"`
+	Wins            int     `json:"wins"`
+	Losses          int     `json:"losses"`
+	Saves           int     `json:"saves"`
+	OutsPitched     int     `json:"outsPitched"`
+	HitsAllowed     int     `json:"hitsAllowed"`
+	EarnedRuns      int     `json:"earnedRuns"`
+	Walks           int     `json:"walks"`
+	Strikeouts      int     `json:"strikeouts"`
+	HomeRunsAllowed int     `json:"homeRunsAllowed"`
+	CompleteGames   int     `json:"completeGames"`
+	Shutouts        int     `json:"shutouts"`
+	ERA             float64 `json:"era"`
+	WHIP            float64 `json:"whip"`
+	K9              float64 `json:"k9"`
+	BB9             float64 `json:"bb9"`
+	H9              float64 `json:"h9"`
+	HR9             float64 `json:"hr9"`
+	KPerBB              float64 `json:"kPerBb"`
+	IsChampionTeam      bool    `json:"isChampionTeam"`
+	AwardIDs            []int64 `json:"awardIds"`
+}
+
+// TeamAwardCandidatesDTO groups the top batters and pitchers for one team.
+type TeamAwardCandidatesDTO struct {
+	HistoryID int64                  `json:"historyId"`
+	TeamName  string                 `json:"teamName"`
+	Batters   []BattingCandidateDTO  `json:"batters"`
+	Pitchers  []PitchingCandidateDTO `json:"pitchers"`
+}
+
+// PositionAwardCandidatesDTO groups the top batters for one fielding position.
+type PositionAwardCandidatesDTO struct {
+	Position string                `json:"position"`
+	Batters  []BattingCandidateDTO `json:"batters"`
+}
+
+// SeasonAwardCandidatesDTO is the full payload for the award delegation page.
+type SeasonAwardCandidatesDTO struct {
+	SeasonID          int64                        `json:"seasonId"`
+	SeasonNum         int                          `json:"seasonNum"`
+	TopBatters        []BattingCandidateDTO        `json:"topBatters"`
+	TopPitchers       []PitchingCandidateDTO       `json:"topPitchers"`
+	TopRookieBatters  []BattingCandidateDTO        `json:"topRookieBatters"`
+	TopRookiePitchers []PitchingCandidateDTO       `json:"topRookiePitchers"`
+	ByTeam            []TeamAwardCandidatesDTO     `json:"byTeam"`
+	ByPosition        []PositionAwardCandidatesDTO `json:"byPosition"`
+	PlayoffBatters    []BattingCandidateDTO        `json:"playoffBatters"`
+	PlayoffPitchers   []PitchingCandidateDTO       `json:"playoffPitchers"`
+	ChampionBatters   []BattingCandidateDTO        `json:"championBatters"`
+	ChampionPitchers  []PitchingCandidateDTO       `json:"championPitchers"`
+	AutoSuggested     bool                         `json:"autoSuggested"`
+}
+
+// SubmitSeasonAwardsDTO is the payload for SubmitSeasonAwards.
+type SubmitSeasonAwardsDTO struct {
+	SeasonID     int64                  `json:"seasonId"`
+	PlayerAwards []PlayerAwardEntryDTO  `json:"playerAwards"`
+}
+
+// PlayerAwardEntryDTO is one (playerSeasonId, awardIds) pair in a submission.
+type PlayerAwardEntryDTO struct {
+	PlayerSeasonID int64   `json:"playerSeasonId"`
+	AwardIDs       []int64 `json:"awardIds"`
+}
+
+func battingCandidateToDTO(c models.BattingCandidate) BattingCandidateDTO {
+	ids := c.AwardIDs
+	if ids == nil {
+		ids = []int64{}
+	}
+	return BattingCandidateDTO{
+		PlayerSeasonID: c.PlayerSeasonID, PlayerID: c.PlayerID,
+		FirstName: c.FirstName, LastName: c.LastName,
+		TeamName: c.TeamName, PrimaryPos: c.PrimaryPos, PitcherRole: c.PitcherRole,
+		AtBats: c.AtBats, Hits: c.Hits, HomeRuns: c.HomeRuns, RBI: c.RBI,
+		Walks: c.Walks, Runs: c.Runs, StolenBases: c.StolenBases,
+		Strikeouts: c.Strikeouts, Doubles: c.Doubles, Triples: c.Triples,
+		BA: c.BA, OBP: c.OBP, SLG: c.SLG, OPS: c.OPS,
+		IsChampionTeam: c.IsChampionTeam,
+		AwardIDs:            ids,
+	}
+}
+
+func pitchingCandidateToDTO(c models.PitchingCandidate) PitchingCandidateDTO {
+	ids := c.AwardIDs
+	if ids == nil {
+		ids = []int64{}
+	}
+	return PitchingCandidateDTO{
+		PlayerSeasonID: c.PlayerSeasonID, PlayerID: c.PlayerID,
+		FirstName: c.FirstName, LastName: c.LastName,
+		TeamName: c.TeamName, PrimaryPos: c.PrimaryPos, PitcherRole: c.PitcherRole,
+		Wins: c.Wins, Losses: c.Losses, Saves: c.Saves, OutsPitched: c.OutsPitched,
+		HitsAllowed: c.HitsAllowed, EarnedRuns: c.EarnedRuns,
+		Walks: c.Walks, Strikeouts: c.Strikeouts,
+		HomeRunsAllowed: c.HomeRunsAllowed, CompleteGames: c.CompleteGames, Shutouts: c.Shutouts,
+		ERA: c.ERA, WHIP: c.WHIP, K9: c.K9, BB9: c.BB9, H9: c.H9, HR9: c.HR9, KPerBB: c.KPerBB,
+		IsChampionTeam: c.IsChampionTeam,
+		AwardIDs:            ids,
+	}
+}
+
+func seasonAwardCandidatesToDTO(m models.SeasonAwardCandidates) SeasonAwardCandidatesDTO {
+	mapB := func(bs []models.BattingCandidate) []BattingCandidateDTO {
+		out := make([]BattingCandidateDTO, len(bs))
+		for i, b := range bs {
+			out[i] = battingCandidateToDTO(b)
+		}
+		return out
+	}
+	mapP := func(ps []models.PitchingCandidate) []PitchingCandidateDTO {
+		out := make([]PitchingCandidateDTO, len(ps))
+		for i, p := range ps {
+			out[i] = pitchingCandidateToDTO(p)
+		}
+		return out
+	}
+	byTeam := make([]TeamAwardCandidatesDTO, len(m.ByTeam))
+	for i, t := range m.ByTeam {
+		byTeam[i] = TeamAwardCandidatesDTO{
+			HistoryID: t.HistoryID, TeamName: t.TeamName,
+			Batters: mapB(t.Batters), Pitchers: mapP(t.Pitchers),
+		}
+	}
+	byPos := make([]PositionAwardCandidatesDTO, len(m.ByPosition))
+	for i, p := range m.ByPosition {
+		byPos[i] = PositionAwardCandidatesDTO{Position: p.Position, Batters: mapB(p.Batters)}
+	}
+	return SeasonAwardCandidatesDTO{
+		SeasonID:          m.SeasonID,
+		SeasonNum:         m.SeasonNum,
+		TopBatters:        mapB(m.TopBatters),
+		TopPitchers:       mapP(m.TopPitchers),
+		TopRookieBatters:  mapB(m.TopRookieBatters),
+		TopRookiePitchers: mapP(m.TopRookiePitchers),
+		ByTeam:          byTeam,
+		ByPosition:      byPos,
+		PlayoffBatters:   mapB(m.PlayoffBatters),
+		PlayoffPitchers:  mapP(m.PlayoffPitchers),
+		ChampionBatters:  mapB(m.ChampionBatters),
+		ChampionPitchers: mapP(m.ChampionPitchers),
+		AutoSuggested:    m.AutoSuggested,
+	}
+}
+
+func awardToDTO(a models.Award) AwardDTO {
+	return AwardDTO{
+		ID:                a.ID,
+		Name:              a.Name,
+		OriginalName:      a.OriginalName,
+		Importance:        a.Importance,
+		OmitFromGroupings: a.OmitFromGroupings,
+		IsBattingAward:    a.IsBattingAward,
+		IsPitchingAward:   a.IsPitchingAward,
+		IsFieldingAward:   a.IsFieldingAward,
+		IsPlayoffAward:    a.IsPlayoffAward,
+		IsUserAssignable:  a.IsUserAssignable,
+		IsBuiltIn:         a.IsBuiltIn,
+	}
+}
+
+func hofCandidateToDTO(c models.HoFCandidate) HoFCandidateDTO {
+	return HoFCandidateDTO{
+		PlayerID:      c.PlayerID,
+		FirstName:     c.FirstName,
+		LastName:      c.LastName,
+		IsHallOfFamer: c.IsHallOfFamer,
+		FirstSeason:   c.FirstSeason,
+		LastSeason:    c.LastSeason,
+		Seasons:       c.Seasons,
+		Hits:          c.Hits,
+		HomeRuns:      c.HomeRuns,
+		RBI:           c.RBI,
+		StolenBases:   c.StolenBases,
+		AtBats:        c.AtBats,
+		Walks:         c.Walks,
+		Wins:          c.Wins,
+		Losses:        c.Losses,
+		OutsPitched:   c.OutsPitched,
+		Strikeouts:    c.Strikeouts,
+		EarnedRuns:    c.EarnedRuns,
+	}
+}

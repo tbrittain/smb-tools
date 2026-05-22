@@ -10,6 +10,14 @@ export function BrowseSaveFile() {
   return window['go']['main']['App']['BrowseSaveFile']();
 }
 
+export function ComputeSeasonStatLeaderAwards(arg1) {
+  return window['go']['main']['App']['ComputeSeasonStatLeaderAwards'](arg1);
+}
+
+export function CreateCustomAward(arg1) {
+  return window['go']['main']['App']['CreateCustomAward'](arg1);
+}
+
 export function CreateFranchise(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['CreateFranchise'](arg1, arg2, arg3, arg4);
 }
@@ -34,6 +42,14 @@ export function GetCareerLeaders() {
   return window['go']['main']['App']['GetCareerLeaders']();
 }
 
+export function GetHoFCandidates() {
+  return window['go']['main']['App']['GetHoFCandidates']();
+}
+
+export function GetHoFInducted() {
+  return window['go']['main']['App']['GetHoFInducted']();
+}
+
 export function GetPitchingCareerLeaders(arg1) {
   return window['go']['main']['App']['GetPitchingCareerLeaders'](arg1);
 }
@@ -46,6 +62,10 @@ export function GetPlayerCareer(arg1) {
   return window['go']['main']['App']['GetPlayerCareer'](arg1);
 }
 
+export function GetPlayerCareerAwards(arg1) {
+  return window['go']['main']['App']['GetPlayerCareerAwards'](arg1);
+}
+
 export function GetPlayerSeasonLog(arg1) {
   return window['go']['main']['App']['GetPlayerSeasonLog'](arg1);
 }
@@ -54,8 +74,20 @@ export function GetSaveFileCandidates() {
   return window['go']['main']['App']['GetSaveFileCandidates']();
 }
 
+export function GetSeasonAwardCandidates(arg1) {
+  return window['go']['main']['App']['GetSeasonAwardCandidates'](arg1);
+}
+
+export function GetSeasonChampionTeamHistoryID(arg1) {
+  return window['go']['main']['App']['GetSeasonChampionTeamHistoryID'](arg1);
+}
+
 export function GetSeasonList() {
   return window['go']['main']['App']['GetSeasonList']();
+}
+
+export function GetSeasonPlayerAwards(arg1) {
+  return window['go']['main']['App']['GetSeasonPlayerAwards'](arg1);
 }
 
 export function GetSeasonStatLeaders(arg1) {
@@ -78,8 +110,16 @@ export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
 }
 
+export function ListAllAwards() {
+  return window['go']['main']['App']['ListAllAwards']();
+}
+
 export function ListAllTeamSeasons() {
   return window['go']['main']['App']['ListAllTeamSeasons']();
+}
+
+export function ListAwards(arg1) {
+  return window['go']['main']['App']['ListAwards'](arg1);
 }
 
 export function ListFranchiseSources(arg1) {
@@ -122,8 +162,20 @@ export function SelectFranchise(arg1) {
   return window['go']['main']['App']['SelectFranchise'](arg1);
 }
 
+export function SetHallOfFamer(arg1, arg2) {
+  return window['go']['main']['App']['SetHallOfFamer'](arg1, arg2);
+}
+
 export function SetInitialSource(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetInitialSource'](arg1, arg2, arg3);
+}
+
+export function SetPlayerSeasonAwards(arg1) {
+  return window['go']['main']['App']['SetPlayerSeasonAwards'](arg1);
+}
+
+export function SubmitSeasonAwards(arg1) {
+  return window['go']['main']['App']['SubmitSeasonAwards'](arg1);
 }
 
 export function SyncSeason() {
