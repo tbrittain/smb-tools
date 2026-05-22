@@ -41,9 +41,9 @@ onMounted(async () => {
   try {
     seasons.value = await GetSeasonList()
     if (seasons.value.length > 0) {
-      const nums = seasons.value.map((s) => s.seasonNum)
-      seasonStart.value = Math.min(...nums)
-      seasonEnd.value = Math.max(...nums)
+      const latest = Math.max(...seasons.value.map((s) => s.seasonNum))
+      seasonStart.value = latest
+      seasonEnd.value = latest
     }
   } catch (e) {
     error.value = String(e)
