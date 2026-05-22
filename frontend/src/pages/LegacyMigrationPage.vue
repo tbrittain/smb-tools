@@ -123,7 +123,7 @@ function backToSelector() {
     </div>
 
     <!-- ── Source step ─────────────────────────────────────────────── -->
-    <div v-if="step === 'source'">
+    <div v-if="step === 'source'" class="step">
       <p class="step-desc">
         Locate your <code>SmbExplorerCompanion.db</code> file to bring your franchise history into smb-tools.
         Team logos are not migrated.
@@ -156,7 +156,7 @@ function backToSelector() {
     </div>
 
     <!-- ── Franchise selection step ───────────────────────────────── -->
-    <div v-else-if="step === 'select'">
+    <div v-else-if="step === 'select'" class="step">
       <p class="step-desc">Select the franchises to import. Each becomes a separate franchise in smb-tools.</p>
 
       <ul class="franchise-list">
@@ -182,7 +182,7 @@ function backToSelector() {
     </div>
 
     <!-- ── Name step ──────────────────────────────────────────────── -->
-    <div v-else-if="step === 'names'">
+    <div v-else-if="step === 'names'" class="step">
       <p class="step-desc">Confirm or rename each franchise before importing.</p>
 
       <div class="names-form">
@@ -208,7 +208,7 @@ function backToSelector() {
     </div>
 
     <!-- ── Confirm step ───────────────────────────────────────────── -->
-    <div v-else-if="step === 'confirm'">
+    <div v-else-if="step === 'confirm'" class="step">
       <p class="step-desc">The following will be imported as new franchises. Your original data is not modified.</p>
 
       <ul class="confirm-list">
@@ -233,7 +233,7 @@ function backToSelector() {
     </div>
 
     <!-- ── Done step ──────────────────────────────────────────────── -->
-    <div v-else-if="step === 'done'">
+    <div v-else-if="step === 'done'" class="step">
       <h2>Import complete</h2>
 
       <ul class="results-list">
@@ -272,13 +272,19 @@ function backToSelector() {
   max-width: 520px;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 2rem;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
 .page-header {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.625rem;
 }
 
 .back-btn {
@@ -314,7 +320,7 @@ h2 {
   font-size: 0.9rem;
   color: var(--color-text-secondary);
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .error-text {
@@ -543,6 +549,7 @@ input[type='text']:focus {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+  margin-top: 0.5rem;
 }
 
 code {
