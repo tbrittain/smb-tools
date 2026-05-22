@@ -137,7 +137,7 @@ async function handleSelect(id: string) {
 
 .franchise-setup-panel {
   width: 100%;
-  max-width: 560px;
+  max-width: 680px;
   display: flex;
   flex-direction: column;
   gap: 2rem;

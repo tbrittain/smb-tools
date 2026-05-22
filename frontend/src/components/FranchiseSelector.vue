@@ -193,7 +193,7 @@ function liveLabel(f: main.FranchiseDTO): string | null {
 
 <style scoped>
 .franchise-selector {
-  max-width: 620px;
+  max-width: 100%;
   margin: 0 auto;
 }
 
@@ -202,11 +202,12 @@ function liveLabel(f: main.FranchiseDTO): string | null {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  gap: 2rem;
 }
 
 .header-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
   align-items: center;
 }
 
