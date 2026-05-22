@@ -13,6 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [id: string]
   create: []
+  import: []
 }>()
 
 // ── Live save file probe state ────────────────────────────────────────────────
@@ -120,12 +121,13 @@ function liveLabel(f: main.FranchiseDTO): string | null {
         >
           {{ anyProbing ? 'Refreshing…' : 'Refresh' }}
         </AppButton>
+        <AppButton variant="ghost" size="sm" @click="emit('import')">Import legacy…</AppButton>
         <AppButton variant="primary" size="sm" @click="emit('create')">+ New Franchise</AppButton>
       </div>
     </div>
 
     <div v-if="props.franchises.length === 0" class="empty-state">
-      <p>No franchises yet. Create one to get started.</p>
+      <p>No franchises yet. Create one to get started, or import from SmbExplorerCompanion.</p>
     </div>
 
     <ul v-else class="franchise-list">

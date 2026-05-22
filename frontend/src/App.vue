@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import Toast from 'primevue/toast'
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppButton from './components/AppButton.vue'
 import FranchiseCreate from './components/FranchiseCreate.vue'
@@ -16,6 +16,17 @@ const error = ref<string | null>(null)
 onMounted(async () => {
   await franchiseStore.loadFranchises()
 })
+
+// Reload the franchise list whenever the user navigates back to the selector
+// (e.g. returning from /migrate-legacy after importing a franchise).
+watch(
+  () => route.path,
+  async (path) => {
+    if (path === '/' && !franchiseStore.active) {
+      await franchiseStore.loadFranchises()
+    }
+  },
+)
 
 async function handleCreate(name: string, gameVersion: string, saveFilePath: string, leagueGUID: string) {
   error.value = null
@@ -67,6 +78,7 @@ async function handleSelect(id: string) {
           :franchises="franchiseStore.franchises"
           @select="handleSelect"
           @create="showCreate = true"
+          @import="router.push('/migrate-legacy')"
         />
       </div>
     </div>
