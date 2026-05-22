@@ -1,14 +1,16 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import {
+  AddFranchiseSource,
   CreateFranchise,
   DeleteFranchise,
   GetActiveFranchise,
   ListFranchises,
   ProbeFranchiseSaveFile,
   RenameFranchise,
+  ReplaceActiveFranchiseSource,
   SelectFranchise,
-  SetFranchiseSaveFile,
+  SetInitialSource,
 } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 
@@ -42,14 +44,48 @@ export const useFranchiseStore = defineStore('franchise', () => {
     return ProbeFranchiseSaveFile(franchiseID)
   }
 
-  // Updates the save file association for the active franchise without
-  // reopening the companion DB (no SelectFranchise round-trip needed).
-  async function setSaveFile(franchiseID: string, saveFilePath: string, leagueGUID: string) {
-    await SetFranchiseSaveFile(franchiseID, saveFilePath, leagueGUID)
+  // Sets the initial save game source for a franchise that has none configured.
+  async function setInitialSource(franchiseID: string, saveFilePath: string, leagueGUID: string) {
+    await SetInitialSource(franchiseID, saveFilePath, leagueGUID)
+    const refreshed = franchises.value.map((f) => {
+      if (f.id !== franchiseID) return f
+      return { ...f, hasActiveSource: true, activeSourcePath: saveFilePath }
+    })
+    franchises.value = refreshed
     if (active.value?.id === franchiseID) {
-      active.value = { ...active.value, saveFilePath }
+      active.value = { ...active.value, hasActiveSource: true, activeSourcePath: saveFilePath }
     }
-    franchises.value = franchises.value.map((f) => (f.id === franchiseID ? { ...f, saveFilePath } : f))
+  }
+
+  // Adds a fork source for a franchise whose save game was exported to a new league.
+  async function addFranchiseSource(
+    franchiseID: string,
+    saveFilePath: string,
+    leagueGUID: string,
+    seasonOffset: number,
+  ) {
+    await AddFranchiseSource(franchiseID, saveFilePath, leagueGUID, seasonOffset)
+    const refreshed = franchises.value.map((f) => {
+      if (f.id !== franchiseID) return f
+      return { ...f, hasActiveSource: true, activeSourcePath: saveFilePath }
+    })
+    franchises.value = refreshed
+    if (active.value?.id === franchiseID) {
+      active.value = { ...active.value, hasActiveSource: true, activeSourcePath: saveFilePath }
+    }
+  }
+
+  // Corrects the path/league for the active source without adding a new source.
+  async function replaceActiveFranchiseSource(franchiseID: string, saveFilePath: string, leagueGUID: string) {
+    await ReplaceActiveFranchiseSource(franchiseID, saveFilePath, leagueGUID)
+    const refreshed = franchises.value.map((f) => {
+      if (f.id !== franchiseID) return f
+      return { ...f, activeSourcePath: saveFilePath }
+    })
+    franchises.value = refreshed
+    if (active.value?.id === franchiseID) {
+      active.value = { ...active.value, activeSourcePath: saveFilePath }
+    }
   }
 
   async function selectFranchise(id: string) {
@@ -85,6 +121,8 @@ export const useFranchiseStore = defineStore('franchise', () => {
     renameFranchise,
     deleteFranchise,
     probeSaveFile,
-    setSaveFile,
+    setInitialSource,
+    addFranchiseSource,
+    replaceActiveFranchiseSource,
   }
 })

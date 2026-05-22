@@ -25,11 +25,19 @@ CREATE TABLE save_game_snapshots (
 
 -- ── Seasons ───────────────────────────────────────────────────────────────────
 
+-- season_num is the franchise-level display number (save game season number +
+-- source season_offset), stored at import time so no runtime join is needed.
+-- league_guid ties each season back to the franchise_sources row in registry.db
+-- that produced it, and forms half of the uniqueness key so that forked leagues
+-- (whose save game season IDs reset to 1) never collide with prior seasons.
 CREATE TABLE seasons (
-    id              INTEGER PRIMARY KEY NOT NULL, -- save game seasonID
-    season_num      INTEGER NOT NULL,
-    num_games       INTEGER NOT NULL DEFAULT 0,   -- regular season length
-    imported_at     DATETIME NOT NULL DEFAULT (datetime('now'))
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    league_guid         TEXT    NOT NULL,
+    save_game_season_id INTEGER NOT NULL,
+    season_num          INTEGER NOT NULL,
+    num_games           INTEGER NOT NULL DEFAULT 0,
+    imported_at         DATETIME NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(league_guid, save_game_season_id)
 );
 
 -- ── Teams ─────────────────────────────────────────────────────────────────────
@@ -37,6 +45,15 @@ CREATE TABLE seasons (
 CREATE TABLE teams (
     id        INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
     game_guid TEXT    NOT NULL UNIQUE -- hex GUID from t_teams
+);
+
+-- Additional GUIDs acquired when a franchise is forked to a new league and
+-- team GUIDs change. Lookup checks teams.game_guid first, then this table,
+-- then falls back to matching by most-recent team name.
+CREATE TABLE team_alt_guids (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    team_id   INTEGER NOT NULL REFERENCES teams(id),
+    game_guid TEXT    NOT NULL UNIQUE
 );
 
 CREATE TABLE team_season_history (
@@ -81,6 +98,16 @@ CREATE TABLE players (
     first_name     TEXT    NOT NULL,
     last_name      TEXT    NOT NULL,
     is_hall_of_famer INTEGER NOT NULL DEFAULT 0
+);
+
+-- Additional GUIDs acquired when a franchise is forked to a new league and
+-- player GUIDs change. Lookup checks players.game_guid first, then this table,
+-- then falls back to matching by first_name + last_name + bat_hand +
+-- throw_hand + chemistry_type from the incoming player_season data.
+CREATE TABLE player_alt_guids (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    player_id INTEGER NOT NULL REFERENCES players(id),
+    game_guid TEXT    NOT NULL UNIQUE
 );
 
 -- One record per player per season. Captures the snapshot at import time.
@@ -203,6 +230,8 @@ CREATE TABLE team_playoff_schedules (
 
 CREATE INDEX idx_player_seasons_season     ON player_seasons(season_id);
 CREATE INDEX idx_player_seasons_player     ON player_seasons(player_id);
+CREATE INDEX idx_player_alt_guids_player   ON player_alt_guids(player_id);
+CREATE INDEX idx_team_alt_guids_team       ON team_alt_guids(team_id);
 CREATE INDEX idx_team_history_season       ON team_season_history(season_id);
 CREATE INDEX idx_team_history_team         ON team_season_history(team_id);
 CREATE INDEX idx_batting_stats_season      ON player_season_batting_stats(player_season_id);

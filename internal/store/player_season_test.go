@@ -8,12 +8,18 @@ import (
 	"smb-tools/internal/testutil"
 )
 
-func seedPlayerSeasonPrereqs(t *testing.T, db interface{ Close() error }) (
-	*store.SeasonStore, *store.TeamHistoryStore, *store.PlayerSeasonStore,
-) {
+// testSeason is a convenience helper for the new Season schema.
+func upsertTestSeason(t *testing.T, ss *store.SeasonStore, leagueGUID string, sgSeasonID, seasonNum int) int64 {
 	t.Helper()
-	// db is already opened — grab it from a separate path
-	return nil, nil, nil
+	id, err := ss.Upsert(context.Background(), store.Season{
+		LeagueGUID:       leagueGUID,
+		SaveGameSeasonID: sgSeasonID,
+		SeasonNum:        seasonNum,
+	})
+	if err != nil {
+		t.Fatalf("upsert season: %v", err)
+	}
+	return id
 }
 
 func TestPlayerSeasonStore_UpsertPlayer_CreatesAndReuses(t *testing.T) {
@@ -21,17 +27,58 @@ func TestPlayerSeasonStore_UpsertPlayer_CreatesAndReuses(t *testing.T) {
 	s := store.NewPlayerSeasonStore(db)
 	ctx := context.Background()
 
-	id1, err := s.UpsertPlayer(ctx, store.Player{GameGUID: "AABB", FirstName: "John", LastName: "Doe"})
+	id1, err := s.UpsertPlayer(ctx, store.PlayerIdentity{GameGUID: "AABB", FirstName: "John", LastName: "Doe"})
 	if err != nil {
 		t.Fatalf("first UpsertPlayer: %v", err)
 	}
 	// Same GUID, different name (e.g., nickname update) — should reuse ID
-	id2, err := s.UpsertPlayer(ctx, store.Player{GameGUID: "AABB", FirstName: "Johnny", LastName: "Doe"})
+	id2, err := s.UpsertPlayer(ctx, store.PlayerIdentity{GameGUID: "AABB", FirstName: "Johnny", LastName: "Doe"})
 	if err != nil {
 		t.Fatalf("second UpsertPlayer: %v", err)
 	}
 	if id1 != id2 {
 		t.Errorf("expected same player ID on re-upsert, got %d and %d", id1, id2)
+	}
+}
+
+func TestPlayerSeasonStore_UpsertPlayer_FuzzyMatch(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	s := store.NewPlayerSeasonStore(db)
+	ss := store.NewSeasonStore(db)
+	ctx := context.Background()
+
+	seasonID := upsertTestSeason(t, ss, "LEAGUE1", 1, 1)
+
+	// Create a player with GUID1 and a season row (needed for fuzzy match)
+	id1, _ := s.UpsertPlayer(ctx, store.PlayerIdentity{
+		GameGUID: "GUID1", FirstName: "Mike", LastName: "Jones",
+		BatHand: "R", ThrowHand: "R", ChemistryType: "Competitive",
+	})
+	_, _ = s.UpsertSeason(ctx, store.PlayerSeason{
+		PlayerID: id1, SeasonID: seasonID,
+		BatHand: "R", ThrowHand: "R", ChemistryType: "Competitive",
+		TraitsJSON: "[]", PitchesJSON: "[]",
+	})
+
+	// Same player arrives with a new GUID (franchise fork) — should resolve via fuzzy match
+	id2, err := s.UpsertPlayer(ctx, store.PlayerIdentity{
+		GameGUID: "GUID2", FirstName: "Mike", LastName: "Jones",
+		BatHand: "R", ThrowHand: "R", ChemistryType: "Competitive",
+	})
+	if err != nil {
+		t.Fatalf("fuzzy UpsertPlayer: %v", err)
+	}
+	if id1 != id2 {
+		t.Errorf("expected fuzzy match to return same player ID (%d), got %d", id1, id2)
+	}
+
+	// Third import with GUID2 should now hit tier-2 (alt_guids), no fuzzy needed
+	id3, err := s.UpsertPlayer(ctx, store.PlayerIdentity{GameGUID: "GUID2", FirstName: "Mike", LastName: "Jones"})
+	if err != nil {
+		t.Fatalf("alt GUID UpsertPlayer: %v", err)
+	}
+	if id1 != id3 {
+		t.Errorf("expected alt GUID lookup to return same player ID (%d), got %d", id1, id3)
 	}
 }
 
@@ -41,32 +88,32 @@ func TestPlayerSeasonStore_UpsertSeason(t *testing.T) {
 	ss := store.NewSeasonStore(db)
 	ctx := context.Background()
 
-	_ = ss.Upsert(ctx, store.Season{ID: 100, SeasonNum: 1})
-	playerID, _ := ps.UpsertPlayer(ctx, store.Player{GameGUID: "GUID1", FirstName: "A", LastName: "B"})
+	seasonID := upsertTestSeason(t, ss, "LEAGUE1", 100, 1)
+	playerID, _ := ps.UpsertPlayer(ctx, store.PlayerIdentity{GameGUID: "GUID1", FirstName: "A", LastName: "B"})
 
-	seasonID, err := ps.UpsertSeason(ctx, store.PlayerSeason{
-		PlayerID: playerID, SeasonID: 100,
+	psID, err := ps.UpsertSeason(ctx, store.PlayerSeason{
+		PlayerID: playerID, SeasonID: seasonID,
 		Age: 25, Salary: 500, PrimaryPosition: "CF",
 		TraitsJSON: "[]", PitchesJSON: "[]",
 	})
 	if err != nil {
 		t.Fatalf("UpsertSeason: %v", err)
 	}
-	if seasonID == 0 {
+	if psID == 0 {
 		t.Error("expected non-zero player season ID")
 	}
 
 	// Re-upsert with different age — same ID returned
-	seasonID2, err := ps.UpsertSeason(ctx, store.PlayerSeason{
-		PlayerID: playerID, SeasonID: 100,
+	psID2, err := ps.UpsertSeason(ctx, store.PlayerSeason{
+		PlayerID: playerID, SeasonID: seasonID,
 		Age: 26, Salary: 550, PrimaryPosition: "CF",
 		TraitsJSON: "[]", PitchesJSON: "[]",
 	})
 	if err != nil {
 		t.Fatalf("re-upsert: %v", err)
 	}
-	if seasonID != seasonID2 {
-		t.Errorf("expected same player_season ID on re-upsert (%d), got %d", seasonID, seasonID2)
+	if psID != psID2 {
+		t.Errorf("expected same player_season ID on re-upsert (%d), got %d", psID, psID2)
 	}
 }
 
@@ -76,10 +123,10 @@ func TestPlayerSeasonStore_UpsertGameStats(t *testing.T) {
 	ss := store.NewSeasonStore(db)
 	ctx := context.Background()
 
-	_ = ss.Upsert(ctx, store.Season{ID: 100, SeasonNum: 1})
-	playerID, _ := ps.UpsertPlayer(ctx, store.Player{GameGUID: "GUID1", FirstName: "A", LastName: "B"})
+	seasonID := upsertTestSeason(t, ss, "LEAGUE1", 100, 1)
+	playerID, _ := ps.UpsertPlayer(ctx, store.PlayerIdentity{GameGUID: "GUID1", FirstName: "A", LastName: "B"})
 	psID, _ := ps.UpsertSeason(ctx, store.PlayerSeason{
-		PlayerID: playerID, SeasonID: 100, TraitsJSON: "[]", PitchesJSON: "[]",
+		PlayerID: playerID, SeasonID: seasonID, TraitsJSON: "[]", PitchesJSON: "[]",
 	})
 
 	if err := ps.UpsertGameStats(ctx, store.PlayerSeasonGameStats{
@@ -88,7 +135,6 @@ func TestPlayerSeasonStore_UpsertGameStats(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("UpsertGameStats: %v", err)
 	}
-	// Re-upsert should not error
 	if err := ps.UpsertGameStats(ctx, store.PlayerSeasonGameStats{
 		PlayerSeasonID: psID, Power: 82,
 	}); err != nil {
@@ -102,10 +148,10 @@ func TestPlayerSeasonStore_UpsertBattingStats(t *testing.T) {
 	ss := store.NewSeasonStore(db)
 	ctx := context.Background()
 
-	_ = ss.Upsert(ctx, store.Season{ID: 100, SeasonNum: 1})
-	playerID, _ := ps.UpsertPlayer(ctx, store.Player{GameGUID: "GUID1", FirstName: "A", LastName: "B"})
+	seasonID := upsertTestSeason(t, ss, "LEAGUE1", 100, 1)
+	playerID, _ := ps.UpsertPlayer(ctx, store.PlayerIdentity{GameGUID: "GUID1", FirstName: "A", LastName: "B"})
 	psID, _ := ps.UpsertSeason(ctx, store.PlayerSeason{
-		PlayerID: playerID, SeasonID: 100, TraitsJSON: "[]", PitchesJSON: "[]",
+		PlayerID: playerID, SeasonID: seasonID, TraitsJSON: "[]", PitchesJSON: "[]",
 	})
 
 	bs := store.PlayerSeasonBattingStats{
@@ -116,7 +162,6 @@ func TestPlayerSeasonStore_UpsertBattingStats(t *testing.T) {
 		t.Fatalf("UpsertBattingStats (regular): %v", err)
 	}
 
-	// Playoff stats stored separately
 	bs.IsRegularSeason = false
 	bs.AtBats = 18
 	bs.Hits = 6
@@ -131,10 +176,10 @@ func TestPlayerSeasonStore_UpsertPitchingStats(t *testing.T) {
 	ss := store.NewSeasonStore(db)
 	ctx := context.Background()
 
-	_ = ss.Upsert(ctx, store.Season{ID: 100, SeasonNum: 1})
-	playerID, _ := ps.UpsertPlayer(ctx, store.Player{GameGUID: "GUID2", FirstName: "P", LastName: "Pitcher"})
+	seasonID := upsertTestSeason(t, ss, "LEAGUE1", 100, 1)
+	playerID, _ := ps.UpsertPlayer(ctx, store.PlayerIdentity{GameGUID: "GUID2", FirstName: "P", LastName: "Pitcher"})
 	psID, _ := ps.UpsertSeason(ctx, store.PlayerSeason{
-		PlayerID: playerID, SeasonID: 100,
+		PlayerID: playerID, SeasonID: seasonID,
 		PrimaryPosition: "P", PitcherRole: "SP",
 		TraitsJSON: "[]", PitchesJSON: "[]",
 	})
@@ -155,19 +200,19 @@ func TestPlayerSeasonStore_MultipleSeasonsSamePlayer(t *testing.T) {
 	ss := store.NewSeasonStore(db)
 	ctx := context.Background()
 
-	_ = ss.Upsert(ctx, store.Season{ID: 1, SeasonNum: 1})
-	_ = ss.Upsert(ctx, store.Season{ID: 2, SeasonNum: 2})
+	s1ID := upsertTestSeason(t, ss, "LEAGUE1", 1, 1)
+	s2ID := upsertTestSeason(t, ss, "LEAGUE1", 2, 2)
 
-	playerID, _ := ps.UpsertPlayer(ctx, store.Player{GameGUID: "PLAYER1", FirstName: "Same", LastName: "Player"})
+	playerID, _ := ps.UpsertPlayer(ctx, store.PlayerIdentity{GameGUID: "PLAYER1", FirstName: "Same", LastName: "Player"})
 
 	id1, err := ps.UpsertSeason(ctx, store.PlayerSeason{
-		PlayerID: playerID, SeasonID: 1, Age: 25, TraitsJSON: "[]", PitchesJSON: "[]",
+		PlayerID: playerID, SeasonID: s1ID, Age: 25, TraitsJSON: "[]", PitchesJSON: "[]",
 	})
 	if err != nil {
 		t.Fatalf("season 1 upsert: %v", err)
 	}
 	id2, err := ps.UpsertSeason(ctx, store.PlayerSeason{
-		PlayerID: playerID, SeasonID: 2, Age: 26, TraitsJSON: "[]", PitchesJSON: "[]",
+		PlayerID: playerID, SeasonID: s2ID, Age: 26, TraitsJSON: "[]", PitchesJSON: "[]",
 	})
 	if err != nil {
 		t.Fatalf("season 2 upsert: %v", err)

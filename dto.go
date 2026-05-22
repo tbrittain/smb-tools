@@ -8,7 +8,7 @@ import (
 
 // SeasonSummaryDTO is the frontend representation of one franchise season.
 type SeasonSummaryDTO struct {
-	ID                int    `json:"id"`
+	ID                int64  `json:"id"`
 	SeasonNum         int    `json:"seasonNum"`
 	NumGames          int    `json:"numGames"`
 	ImportedAt        string `json:"importedAt"`
@@ -166,7 +166,7 @@ type PlayerCareerDTO struct {
 // PlayerSeasonLogDTO is one row in a player's season-by-season breakdown.
 type PlayerSeasonLogDTO struct {
 	SeasonNum         int                     `json:"seasonNum"`
-	SeasonID          int                     `json:"seasonId"`
+	SeasonID          int64                   `json:"seasonId"`
 	TeamName          string                  `json:"teamName"`
 	Age               int                     `json:"age"`
 	Salary            int                     `json:"salary"`
@@ -206,7 +206,7 @@ type TeamSearchResultDTO struct {
 // TeamSeasonSummaryDTO is one season entry in a team's history.
 type TeamSeasonSummaryDTO struct {
 	HistoryID          int64   `json:"historyId"`
-	SeasonID           int     `json:"seasonId"`
+	SeasonID           int64   `json:"seasonId"`
 	SeasonNum          int     `json:"seasonNum"`
 	TeamName           string  `json:"teamName"`
 	DivisionName       string  `json:"divisionName"`

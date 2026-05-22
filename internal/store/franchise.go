@@ -22,9 +22,9 @@ func NewFranchiseStore(db DBTX) *FranchiseStore {
 // Create inserts a new franchise record. id must be a unique string (use UUID).
 func (s *FranchiseStore) Create(ctx context.Context, f models.Franchise) error {
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO franchises (id, name, game_version, save_file_path, league_guid, db_path)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`, f.ID, f.Name, f.GameVersion, nilIfEmpty(f.SaveFilePath), nilIfEmpty(f.LeagueGUID), f.DBPath)
+		INSERT INTO franchises (id, name, game_version, db_path)
+		VALUES (?, ?, ?, ?)
+	`, f.ID, f.Name, f.GameVersion, f.DBPath)
 	if err != nil {
 		return fmt.Errorf("creating franchise %q: %w", f.Name, err)
 	}
@@ -34,8 +34,7 @@ func (s *FranchiseStore) Create(ctx context.Context, f models.Franchise) error {
 // List returns all franchises ordered by creation time ascending.
 func (s *FranchiseStore) List(ctx context.Context) ([]models.Franchise, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, game_version, COALESCE(save_file_path, ''),
-		       COALESCE(league_guid, ''), db_path, created_at,
+		SELECT id, name, game_version, db_path, created_at,
 		       last_synced_at, last_synced_season
 		FROM franchises
 		ORDER BY created_at ASC
@@ -50,8 +49,7 @@ func (s *FranchiseStore) List(ctx context.Context) ([]models.Franchise, error) {
 // GetByID returns the franchise with the given ID, or sql.ErrNoRows if not found.
 func (s *FranchiseStore) GetByID(ctx context.Context, id string) (models.Franchise, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, game_version, COALESCE(save_file_path, ''),
-		       COALESCE(league_guid, ''), db_path, created_at,
+		SELECT id, name, game_version, db_path, created_at,
 		       last_synced_at, last_synced_season
 		FROM franchises
 		WHERE id = ?
@@ -77,20 +75,6 @@ func (s *FranchiseStore) Rename(ctx context.Context, id, newName string) error {
 		`UPDATE franchises SET name = ? WHERE id = ?`, newName, id)
 	if err != nil {
 		return fmt.Errorf("renaming franchise %q: %w", id, err)
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
-}
-
-// UpdateSaveFile sets the save file path and league GUID for a franchise.
-func (s *FranchiseStore) UpdateSaveFile(ctx context.Context, id, saveFilePath, leagueGUID string) error {
-	res, err := s.db.ExecContext(ctx,
-		`UPDATE franchises SET save_file_path = ?, league_guid = ? WHERE id = ?`,
-		nilIfEmpty(saveFilePath), nilIfEmpty(leagueGUID), id)
-	if err != nil {
-		return fmt.Errorf("updating save file for franchise %q: %w", id, err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return sql.ErrNoRows
@@ -136,8 +120,7 @@ func scanFranchises(rows *sql.Rows) ([]models.Franchise, error) {
 		var gameVersion string
 		if err := rows.Scan(
 			&f.ID, &f.Name, &gameVersion,
-			&f.SaveFilePath, &f.LeagueGUID, &f.DBPath,
-			&createdAt, &lastSyncedAt, &lastSyncedSeason,
+			&f.DBPath, &createdAt, &lastSyncedAt, &lastSyncedSeason,
 		); err != nil {
 			return nil, fmt.Errorf("scanning franchise: %w", err)
 		}

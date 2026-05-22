@@ -15,15 +15,15 @@ func newTestFranchiseService(t *testing.T) (*service.FranchiseService, *store.Fr
 	t.Helper()
 	registryDB := testutil.NewTestRegistryDB(t)
 	franchiseStore := store.NewFranchiseStore(registryDB)
+	sourceStore := store.NewFranchiseSourceStore(registryDB)
 
-	// Use t.TempDir() as the data root so filesystem operations are isolated
 	dirs := &config.AppDirs{
 		DataDir:       t.TempDir(),
 		FranchisesDir: t.TempDir(),
 	}
 	dirs.RegistryPath = dirs.DataDir + "/registry.db"
 
-	svc := service.NewFranchiseService(dirs, franchiseStore)
+	svc := service.NewFranchiseService(dirs, franchiseStore, sourceStore)
 	return svc, franchiseStore
 }
 

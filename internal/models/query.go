@@ -6,7 +6,7 @@ import "time"
 
 // SeasonSummary is returned by SeasonQueryStore.ListWithChampion.
 type SeasonSummary struct {
-	ID                int
+	ID                int64
 	SeasonNum         int
 	NumGames          int
 	ImportedAt        time.Time
@@ -172,7 +172,7 @@ type PlayerCareer struct {
 // PlayerSeasonLogRow is one row in a player's season-by-season breakdown.
 type PlayerSeasonLogRow struct {
 	SeasonNum         int
-	SeasonID          int
+	SeasonID          int64
 	TeamName          string
 	Age               int
 	Salary            int
@@ -218,7 +218,7 @@ type TeamSearchResult struct {
 // TeamSeasonSummary is one season entry in a team's history.
 type TeamSeasonSummary struct {
 	HistoryID      int64
-	SeasonID       int
+	SeasonID       int64
 	SeasonNum      int
 	TeamName       string
 	DivisionName   string

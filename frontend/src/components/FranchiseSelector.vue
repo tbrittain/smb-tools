@@ -22,7 +22,7 @@ const probing = ref<Record<string, boolean>>({})
 const anyProbing = ref(false)
 
 async function probeAll() {
-  const toProbe = props.franchises.filter((f) => f.saveFilePath)
+  const toProbe = props.franchises.filter((f) => f.hasActiveSource)
   if (toProbe.length === 0) return
 
   anyProbing.value = true
@@ -73,7 +73,7 @@ interface SyncInfo {
 }
 
 function syncInfo(f: main.FranchiseDTO): SyncInfo {
-  if (!f.saveFilePath) {
+  if (!f.hasActiveSource) {
     return {
       syncedLine: f.lastSynced ? `Synced Season ${f.lastSeason} · ${formatDate(f.lastSynced)}` : 'Never synced',
       gameLine: null,
@@ -154,7 +154,7 @@ function liveLabel(f: main.FranchiseDTO): string | null {
           <template v-else-if="liveLabel(f)">
             <span class="live-label">{{ liveLabel(f) }}</span>
           </template>
-          <template v-else-if="!f.saveFilePath">
+          <template v-else-if="!f.hasActiveSource">
             <span class="hint warn-text">No save file configured</span>
           </template>
         </div>

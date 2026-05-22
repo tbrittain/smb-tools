@@ -12,31 +12,40 @@ import (
 	"smb-tools/internal/testutil"
 )
 
+const testLeagueGUID = "TESTLEAGUEGUID00000000000000000000"
+
 // newTestImportService builds an ImportService backed by a fresh in-memory companion DB.
-// Returns the service, the companion DB, and a SaveGameReader over the test save game DB.
 func newTestImportService(t *testing.T) (*service.ImportService, *sql.DB, store.SaveGameReader) {
 	t.Helper()
 	companionDB := testutil.NewTestDB(t)
 	saveGameDB := testutil.NewTestSaveGameDB(t)
 	reader := store.NewSqliteSaveGameReader(saveGameDB, "")
-
 	svc := service.NewImportService()
 	return svc, companionDB, reader
+}
+
+// importSeason1 is a helper that imports save game season 100 as display season 1.
+func importSeason1(t *testing.T, svc *service.ImportService, companionDB *sql.DB, reader store.SaveGameReader) service.ImportResult {
+	t.Helper()
+	result, err := svc.ImportSeason(context.Background(), companionDB, reader, 100, 1, testLeagueGUID, 0)
+	if err != nil {
+		t.Fatalf("ImportSeason (season 1): %v", err)
+	}
+	return result
 }
 
 // ── Basic flow ───────────────────────────────────────────────────────────────
 
 func TestImportSeason_BasicFlow(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
-	ctx := context.Background()
 
-	result, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1)
-	if err != nil {
-		t.Fatalf("ImportSeason: %v", err)
+	result := importSeason1(t, svc, companionDB, reader)
+
+	if result.SeasonID == 0 {
+		t.Error("expected non-zero companion DB season ID")
 	}
-
-	if result.SeasonID != 100 {
-		t.Errorf("SeasonID: got %d, want 100", result.SeasonID)
+	if result.SeasonNum != 1 {
+		t.Errorf("SeasonNum: got %d, want 1", result.SeasonNum)
 	}
 	if result.Players < 1 {
 		t.Errorf("expected at least 1 player, got %d", result.Players)
@@ -50,18 +59,37 @@ func TestImportSeason_SeasonRecordCreated(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
 
-	_, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1)
-	if err != nil {
-		t.Fatalf("ImportSeason: %v", err)
-	}
+	result := importSeason1(t, svc, companionDB, reader)
 
 	ss := store.NewSeasonStore(companionDB)
-	season, err := ss.GetByID(ctx, 100)
+	season, err := ss.GetByID(ctx, result.SeasonID)
 	if err != nil {
 		t.Fatalf("GetByID after import: %v", err)
 	}
 	if season.SeasonNum != 1 {
 		t.Errorf("season_num: got %d, want 1", season.SeasonNum)
+	}
+	if season.SaveGameSeasonID != 100 {
+		t.Errorf("save_game_season_id: got %d, want 100", season.SaveGameSeasonID)
+	}
+	if season.LeagueGUID != testLeagueGUID {
+		t.Errorf("league_guid: got %q, want %q", season.LeagueGUID, testLeagueGUID)
+	}
+}
+
+func TestImportSeason_SeasonOffsetApplied(t *testing.T) {
+	svc, companionDB, _ := newTestImportService(t)
+	ctx := context.Background()
+
+	// Simulate a fork: save game season 1 with offset 15 → display season 16
+	saveGameDB := testutil.NewTestSaveGameDB(t)
+	reader := store.NewSqliteSaveGameReader(saveGameDB, "")
+	result, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1, "FORKED-LEAGUE-GUID0000000000000000", 15)
+	if err != nil {
+		t.Fatalf("ImportSeason with offset: %v", err)
+	}
+	if result.SeasonNum != 16 {
+		t.Errorf("season_num with offset: got %d, want 16 (1 + 15)", result.SeasonNum)
 	}
 }
 
@@ -69,10 +97,7 @@ func TestImportSeason_PlayersCreated(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
 
-	_, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1)
-	if err != nil {
-		t.Fatalf("ImportSeason: %v", err)
-	}
+	importSeason1(t, svc, companionDB, reader)
 
 	var count int
 	if err := companionDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM players`).Scan(&count); err != nil {
@@ -87,10 +112,7 @@ func TestImportSeason_BattingStatsImported(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
 
-	_, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1)
-	if err != nil {
-		t.Fatalf("ImportSeason: %v", err)
-	}
+	importSeason1(t, svc, companionDB, reader)
 
 	var count int
 	if err := companionDB.QueryRowContext(ctx,
@@ -107,10 +129,7 @@ func TestImportSeason_PitchingStatsImported(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
 
-	_, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1)
-	if err != nil {
-		t.Fatalf("ImportSeason: %v", err)
-	}
+	importSeason1(t, svc, companionDB, reader)
 
 	var count int
 	if err := companionDB.QueryRowContext(ctx,
@@ -127,14 +146,11 @@ func TestImportSeason_BattingStatValues(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
 
-	_, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1)
-	if err != nil {
-		t.Fatalf("ImportSeason: %v", err)
-	}
+	importSeason1(t, svc, companionDB, reader)
 
 	// The fixture seeds player AA with 180 AB, 54 H, 12 HR, 40 RBI
 	var atBats, hits, homeRuns, rbi int
-	err = companionDB.QueryRowContext(ctx, `
+	err := companionDB.QueryRowContext(ctx, `
 		SELECT bs.at_bats, bs.hits, bs.home_runs, bs.rbi
 		FROM player_season_batting_stats bs
 		JOIN player_seasons ps ON ps.id = bs.player_season_id
@@ -163,14 +179,11 @@ func TestImportSeason_PitchingStatValues(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
 
-	_, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1)
-	if err != nil {
-		t.Fatalf("ImportSeason: %v", err)
-	}
+	importSeason1(t, svc, companionDB, reader)
 
 	// Fixture: pitcher BB with W=12, L=8, outsPitched=540 (= 180 IP), K=180
 	var wins, losses, outsPitched, strikeouts int
-	err = companionDB.QueryRowContext(ctx, `
+	err := companionDB.QueryRowContext(ctx, `
 		SELECT ps2.wins, ps2.losses, ps2.outs_pitched, ps2.strikeouts
 		FROM player_season_pitching_stats ps2
 		JOIN player_seasons ps ON ps.id = ps2.player_season_id
@@ -199,14 +212,11 @@ func TestImportSeason_ScheduleImported(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
 
-	_, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1)
-	if err != nil {
-		t.Fatalf("ImportSeason: %v", err)
-	}
+	result := importSeason1(t, svc, companionDB, reader)
 
 	var count int
 	if err := companionDB.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM team_season_schedules WHERE season_id = 100`,
+		`SELECT COUNT(*) FROM team_season_schedules WHERE season_id = ?`, result.SeasonID,
 	).Scan(&count); err != nil {
 		t.Fatalf("counting schedule: %v", err)
 	}
@@ -219,14 +229,11 @@ func TestImportSeason_GameStatAttributesImported(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
 
-	_, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1)
-	if err != nil {
-		t.Fatalf("ImportSeason: %v", err)
-	}
+	importSeason1(t, svc, companionDB, reader)
 
 	// Fixture: player AA has Power=80, Contact=75
 	var power, contact int
-	err = companionDB.QueryRowContext(ctx, `
+	err := companionDB.QueryRowContext(ctx, `
 		SELECT gs.power, gs.contact
 		FROM player_season_game_stats gs
 		JOIN player_seasons ps ON ps.id = gs.player_season_id
@@ -250,13 +257,19 @@ func TestImportSeason_Idempotent(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
 
+	var firstID int64
 	for i := range 3 {
-		if _, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1); err != nil {
+		result, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1, testLeagueGUID, 0)
+		if err != nil {
 			t.Fatalf("import attempt %d failed: %v", i+1, err)
+		}
+		if i == 0 {
+			firstID = result.SeasonID
+		} else if result.SeasonID != firstID {
+			t.Errorf("expected same season ID on re-import, got %d then %d", firstID, result.SeasonID)
 		}
 	}
 
-	// After 3 imports, should still have exactly the right number of records
 	var playerCount, seasonCount int
 	_ = companionDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM players`).Scan(&playerCount)
 	_ = companionDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM seasons`).Scan(&seasonCount)
@@ -264,7 +277,6 @@ func TestImportSeason_Idempotent(t *testing.T) {
 	if seasonCount != 1 {
 		t.Errorf("idempotency: expected 1 season record after 3 imports, got %d", seasonCount)
 	}
-	// Players created once and reused
 	if playerCount < 1 {
 		t.Errorf("idempotency: expected players after 3 imports, got %d", playerCount)
 	}
@@ -274,15 +286,14 @@ func TestImportSeason_IdempotentBattingStats(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
 
-	_, _ = svc.ImportSeason(ctx, companionDB, reader, 100, 1)
-	_, _ = svc.ImportSeason(ctx, companionDB, reader, 100, 1)
+	_, _ = svc.ImportSeason(ctx, companionDB, reader, 100, 1, testLeagueGUID, 0)
+	_, _ = svc.ImportSeason(ctx, companionDB, reader, 100, 1, testLeagueGUID, 0)
 
 	var count int
 	_ = companionDB.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM player_season_batting_stats WHERE is_regular_season = 1`,
 	).Scan(&count)
 
-	// Should not have doubled up
 	if count > 10 {
 		t.Errorf("idempotency: batting stats look doubled — got %d rows (expected ~2 for 2 players)", count)
 	}
@@ -294,17 +305,15 @@ func TestImportSeason_PlayerTrackedAcrossSeasons(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
 
-	// Import season 100 and 101 — both have the same two players
-	_, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1)
+	_, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1, testLeagueGUID, 0)
 	if err != nil {
 		t.Fatalf("ImportSeason 100: %v", err)
 	}
-	_, err = svc.ImportSeason(ctx, companionDB, reader, 101, 2)
+	_, err = svc.ImportSeason(ctx, companionDB, reader, 101, 2, testLeagueGUID, 0)
 	if err != nil {
 		t.Fatalf("ImportSeason 101: %v", err)
 	}
 
-	// There should be exactly 2 player records (same players, different seasons)
 	var playerCount int
 	if err := companionDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM players`).Scan(&playerCount); err != nil {
 		t.Fatalf("counting players: %v", err)
@@ -313,7 +322,6 @@ func TestImportSeason_PlayerTrackedAcrossSeasons(t *testing.T) {
 		t.Errorf("expected 2 unique players across 2 seasons, got %d", playerCount)
 	}
 
-	// But 4 player_season records (2 players × 2 seasons)
 	var psCount int
 	if err := companionDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM player_seasons`).Scan(&psCount); err != nil {
 		t.Fatalf("counting player_seasons: %v", err)
@@ -323,28 +331,20 @@ func TestImportSeason_PlayerTrackedAcrossSeasons(t *testing.T) {
 	}
 }
 
-
-// TestImportSeason_MidSeasonThenEndOfSeason verifies that importing mid-season
-// (partial stats) followed by an end-of-season import (full stats) correctly
-// reflects the final state. This is the core idempotency guarantee: the last
-// import wins, so users can sync freely during the season and the final
-// end-of-season sync will always produce the definitive record.
 func TestImportSeason_MidSeasonThenEndOfSeason(t *testing.T) {
 	companionDB := testutil.NewTestDB(t)
 	ctx := context.Background()
 	svc := service.NewImportService()
 
-	// First import: mid-season (player AA has 10 hits, 35 AB, 2 HR)
 	midSeasonDB := testutil.NewTestSaveGameDB_MidSeason(t, testutil.MidSeasonStats{
 		Hits: 10, AtBats: 35, HomeRuns: 2,
 	})
 	midReader := store.NewSqliteSaveGameReader(midSeasonDB, "")
-	_, err := svc.ImportSeason(ctx, companionDB, midReader, 100, 1)
+	_, err := svc.ImportSeason(ctx, companionDB, midReader, 100, 1, testLeagueGUID, 0)
 	if err != nil {
 		t.Fatalf("mid-season import: %v", err)
 	}
 
-	// Verify mid-season stats were recorded
 	var midHits int
 	_ = companionDB.QueryRowContext(ctx, `
 		SELECT bs.hits
@@ -357,16 +357,13 @@ func TestImportSeason_MidSeasonThenEndOfSeason(t *testing.T) {
 		t.Errorf("mid-season hits: got %d, want 10", midHits)
 	}
 
-	// Second import: end of season (player AA has the full 54 hits, 180 AB, 12 HR)
 	endSeasonDB := testutil.NewTestSaveGameDB(t)
 	endReader := store.NewSqliteSaveGameReader(endSeasonDB, "")
-	_, err = svc.ImportSeason(ctx, companionDB, endReader, 100, 1)
+	_, err = svc.ImportSeason(ctx, companionDB, endReader, 100, 1, testLeagueGUID, 0)
 	if err != nil {
 		t.Fatalf("end-of-season import: %v", err)
 	}
 
-	// Final values must reflect the end-of-season snapshot, not the mid-season one.
-	// The mid-season 10 hits should be gone; 54 hits is the truth.
 	var finalHits, finalAtBats, finalHR int
 	err = companionDB.QueryRowContext(ctx, `
 		SELECT bs.hits, bs.at_bats, bs.home_runs
@@ -379,7 +376,7 @@ func TestImportSeason_MidSeasonThenEndOfSeason(t *testing.T) {
 		t.Fatalf("querying end-of-season stats: %v", err)
 	}
 	if finalHits != 54 {
-		t.Errorf("end-of-season hits: got %d, want 54 (mid-season value should be overwritten)", finalHits)
+		t.Errorf("end-of-season hits: got %d, want 54", finalHits)
 	}
 	if finalAtBats != 180 {
 		t.Errorf("end-of-season at_bats: got %d, want 180", finalAtBats)
@@ -388,21 +385,23 @@ func TestImportSeason_MidSeasonThenEndOfSeason(t *testing.T) {
 		t.Errorf("end-of-season home_runs: got %d, want 12", finalHR)
 	}
 
-	// Only one season record (no duplication from two imports)
 	var seasonCount int
-	_ = companionDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM seasons WHERE id = 100`).Scan(&seasonCount)
+	_ = companionDB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM seasons WHERE league_guid = ? AND save_game_season_id = 100`,
+		testLeagueGUID,
+	).Scan(&seasonCount)
 	if seasonCount != 1 {
 		t.Errorf("expected 1 season record, got %d", seasonCount)
 	}
 }
+
 func TestImportSeason_TeamTrackedAcrossSeasons(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
 
-	_, _ = svc.ImportSeason(ctx, companionDB, reader, 100, 1)
-	_, _ = svc.ImportSeason(ctx, companionDB, reader, 101, 2)
+	_, _ = svc.ImportSeason(ctx, companionDB, reader, 100, 1, testLeagueGUID, 0)
+	_, _ = svc.ImportSeason(ctx, companionDB, reader, 101, 2, testLeagueGUID, 0)
 
-	// 2 unique teams, 4 team_season_history records (2 teams × 2 seasons)
 	var teamCount, histCount int
 	_ = companionDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM teams`).Scan(&teamCount)
 	_ = companionDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM team_season_history`).Scan(&histCount)
@@ -419,10 +418,10 @@ func TestImportSeason_MultiSeasonStatValues(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
 
-	_, _ = svc.ImportSeason(ctx, companionDB, reader, 100, 1)
-	_, _ = svc.ImportSeason(ctx, companionDB, reader, 101, 2)
+	_, _ = svc.ImportSeason(ctx, companionDB, reader, 100, 1, testLeagueGUID, 0)
+	r2, _ := svc.ImportSeason(ctx, companionDB, reader, 101, 2, testLeagueGUID, 0)
 
-	// Season 101 fixture: player AA has 190 AB, 60 H, 15 HR, 48 RBI
+	// Season 101 fixture: player AA has 190 AB, 60 H, 15 HR
 	var atBats, hits, homeRuns int
 	err := companionDB.QueryRowContext(ctx, `
 		SELECT bs.at_bats, bs.hits, bs.home_runs
@@ -430,33 +429,30 @@ func TestImportSeason_MultiSeasonStatValues(t *testing.T) {
 		JOIN player_seasons ps ON ps.id = bs.player_season_id
 		JOIN players p ON p.id = ps.player_id
 		WHERE p.game_guid = 'AA000000000000000000000000000000'
-		  AND ps.season_id = 101
+		  AND ps.season_id = ?
 		  AND bs.is_regular_season = 1
-	`).Scan(&atBats, &hits, &homeRuns)
+	`, r2.SeasonID).Scan(&atBats, &hits, &homeRuns)
 	if err != nil {
-		t.Fatalf("querying season 101 batting stats: %v", err)
+		t.Fatalf("querying season 2 batting stats: %v", err)
 	}
 	if atBats != 190 {
-		t.Errorf("season 101 at_bats: got %d, want 190", atBats)
+		t.Errorf("season 2 at_bats: got %d, want 190", atBats)
 	}
 	if hits != 60 {
-		t.Errorf("season 101 hits: got %d, want 60", hits)
+		t.Errorf("season 2 hits: got %d, want 60", hits)
 	}
 	if homeRuns != 15 {
-		t.Errorf("season 101 home_runs: got %d, want 15", homeRuns)
+		t.Errorf("season 2 home_runs: got %d, want 15", homeRuns)
 	}
 }
 
 // ── Transaction atomicity ────────────────────────────────────────────────────
 
 func TestImportSeason_TransactionRollbackOnError(t *testing.T) {
-	// Use a closed/broken companion DB to trigger a mid-import failure.
-	// All partial data should be rolled back.
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
 
-	// First import succeeds
-	_, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1)
+	_, err := svc.ImportSeason(ctx, companionDB, reader, 100, 1, testLeagueGUID, 0)
 	if err != nil {
 		t.Fatalf("baseline import failed: %v", err)
 	}
@@ -464,31 +460,28 @@ func TestImportSeason_TransactionRollbackOnError(t *testing.T) {
 	var before int
 	_ = companionDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM players`).Scan(&before)
 
-	// Simulate a broken reader that errors partway through
-	_, err = svc.ImportSeason(ctx, companionDB, &erroringReader{inner: reader}, 101, 2)
+	_, err = svc.ImportSeason(ctx, companionDB, &erroringReader{inner: reader}, 101, 2, testLeagueGUID, 0)
 	if err == nil {
 		t.Error("expected error from erroring reader, got nil")
 	}
 
-	// Player count should be unchanged (transaction rolled back)
 	var after int
 	_ = companionDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM players`).Scan(&after)
-	// After rollback, no NEW season records should exist for season 101
+
 	var s101count int
 	_ = companionDB.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM seasons WHERE id = 101`,
+		`SELECT COUNT(*) FROM seasons WHERE league_guid = ? AND save_game_season_id = 101`,
+		testLeagueGUID,
 	).Scan(&s101count)
 	if s101count != 0 {
 		t.Errorf("expected season 101 to not exist after rollback, found %d records", s101count)
 	}
-	// Players from season 100 should still be intact
 	if after != before {
 		t.Errorf("player count changed after failed import: before=%d after=%d", before, after)
 	}
 }
 
-// erroringReader wraps a real reader but injects an error on GetCurrentSeasonTeams
-// to simulate a mid-import failure for rollback testing.
+// erroringReader wraps a real reader but injects an error on GetCurrentSeasonTeams.
 type erroringReader struct {
 	inner store.SaveGameReader
 }

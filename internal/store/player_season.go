@@ -18,7 +18,7 @@ type Player struct {
 type PlayerSeason struct {
 	ID              int64
 	PlayerID        int64
-	SeasonID        int
+	SeasonID        int64
 	TeamHistoryID   *int64
 	Age             int
 	Salary          int
@@ -94,6 +94,17 @@ type PlayerSeasonPitchingStats struct {
 	TotalPitches    int
 }
 
+// PlayerIdentity holds the GUID for primary lookup plus the semantic fields
+// used for fuzzy re-association when a franchise is forked and player GUIDs change.
+type PlayerIdentity struct {
+	GameGUID      string
+	FirstName     string
+	LastName      string
+	BatHand       string
+	ThrowHand     string
+	ChemistryType string
+}
+
 // PlayerSeasonStore manages player and player_season records.
 type PlayerSeasonStore struct {
 	db DBTX
@@ -103,26 +114,75 @@ func NewPlayerSeasonStore(db DBTX) *PlayerSeasonStore {
 	return &PlayerSeasonStore{db: db}
 }
 
-// UpsertPlayer inserts or returns the existing player for a given save game GUID.
-// If the player already exists, first/last name are updated to the latest values.
-func (s *PlayerSeasonStore) UpsertPlayer(ctx context.Context, p Player) (int64, error) {
-	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO players (game_guid, first_name, last_name)
-		VALUES (?, ?, ?)
-		ON CONFLICT(game_guid) DO UPDATE SET
-			first_name = excluded.first_name,
-			last_name  = excluded.last_name
-	`, p.GameGUID, p.FirstName, p.LastName)
-	if err != nil {
-		return 0, fmt.Errorf("upserting player %s: %w", p.GameGUID, err)
-	}
+// UpsertPlayer resolves or creates a player record using a three-tier lookup:
+//  1. Exact match on players.game_guid.
+//  2. Exact match on player_alt_guids.game_guid (GUIDs from prior forks).
+//  3. Fuzzy match on first_name + last_name + bat_hand + throw_hand + chemistry_type
+//     (handles the case where a league fork assigned new GUIDs to existing players).
+//     On a fuzzy match, the new GUID is added to player_alt_guids so subsequent
+//     imports skip the fuzzy scan.
+//
+// If none of the three tiers match, a new player row is inserted.
+// Always updates first_name/last_name to the latest values from the save game.
+func (s *PlayerSeasonStore) UpsertPlayer(ctx context.Context, identity PlayerIdentity) (int64, error) {
+	// Tier 1: primary GUID
 	var id int64
-	if err := s.db.QueryRowContext(ctx,
-		`SELECT id FROM players WHERE game_guid = ?`, p.GameGUID,
-	).Scan(&id); err != nil {
-		return 0, fmt.Errorf("getting player id for %s: %w", p.GameGUID, err)
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id FROM players WHERE game_guid = ?`, identity.GameGUID,
+	).Scan(&id)
+	if err == nil {
+		_, _ = s.db.ExecContext(ctx,
+			`UPDATE players SET first_name = ?, last_name = ? WHERE id = ?`,
+			identity.FirstName, identity.LastName, id)
+		return id, nil
 	}
-	return id, nil
+
+	// Tier 2: alt GUID table
+	err = s.db.QueryRowContext(ctx,
+		`SELECT player_id FROM player_alt_guids WHERE game_guid = ?`, identity.GameGUID,
+	).Scan(&id)
+	if err == nil {
+		_, _ = s.db.ExecContext(ctx,
+			`UPDATE players SET first_name = ?, last_name = ? WHERE id = ?`,
+			identity.FirstName, identity.LastName, id)
+		return id, nil
+	}
+
+	// Tier 3: fuzzy match — only when chemistry and handedness are present
+	if identity.BatHand != "" && identity.ThrowHand != "" && identity.ChemistryType != "" {
+		err = s.db.QueryRowContext(ctx, `
+			SELECT p.id FROM players p
+			JOIN player_seasons ps ON ps.player_id = p.id
+			WHERE p.first_name     = ?
+			  AND p.last_name      = ?
+			  AND ps.bat_hand      = ?
+			  AND ps.throw_hand    = ?
+			  AND ps.chemistry_type = ?
+			LIMIT 1
+		`, identity.FirstName, identity.LastName,
+			identity.BatHand, identity.ThrowHand, identity.ChemistryType,
+		).Scan(&id)
+		if err == nil {
+			// Register the new GUID so future lookups hit tier 1/2
+			_, _ = s.db.ExecContext(ctx,
+				`INSERT OR IGNORE INTO player_alt_guids (player_id, game_guid) VALUES (?, ?)`,
+				id, identity.GameGUID)
+			_, _ = s.db.ExecContext(ctx,
+				`UPDATE players SET first_name = ?, last_name = ? WHERE id = ?`,
+				identity.FirstName, identity.LastName, id)
+			return id, nil
+		}
+	}
+
+	// No match — new player
+	res, err := s.db.ExecContext(ctx,
+		`INSERT INTO players (game_guid, first_name, last_name) VALUES (?, ?, ?)`,
+		identity.GameGUID, identity.FirstName, identity.LastName)
+	if err != nil {
+		return 0, fmt.Errorf("inserting player %s: %w", identity.GameGUID, err)
+	}
+	newID, _ := res.LastInsertId()
+	return newID, nil
 }
 
 // UpsertSeason inserts or replaces a player_season record. Returns the ID.

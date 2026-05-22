@@ -7,9 +7,11 @@ import (
 
 // Season is the companion DB representation of a franchise season.
 type Season struct {
-	ID       int // save game seasonID
-	SeasonNum int
-	NumGames int
+	ID                int64  // autoincrement companion DB PK
+	LeagueGUID        string // leagueGUID from the franchise_source that produced this season
+	SaveGameSeasonID  int    // raw t_seasons.id from the save game
+	SeasonNum         int    // display number: save game season num + source season_offset
+	NumGames          int
 }
 
 // SeasonStore manages season records in the companion DB.
@@ -21,28 +23,38 @@ func NewSeasonStore(db DBTX) *SeasonStore {
 	return &SeasonStore{db: db}
 }
 
-// Upsert inserts or replaces a season record. Safe to call multiple times
-// for the same season (idempotent).
-func (s *SeasonStore) Upsert(ctx context.Context, season Season) error {
+// Upsert inserts or replaces a season record. Safe to call multiple times for
+// the same (league_guid, save_game_season_id) pair — idempotent.
+func (s *SeasonStore) Upsert(ctx context.Context, season Season) (int64, error) {
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO seasons (id, season_num, num_games)
-		VALUES (?, ?, ?)
-		ON CONFLICT(id) DO UPDATE SET
+		INSERT INTO seasons (league_guid, save_game_season_id, season_num, num_games)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(league_guid, save_game_season_id) DO UPDATE SET
 			season_num = excluded.season_num,
 			num_games  = excluded.num_games
-	`, season.ID, season.SeasonNum, season.NumGames)
+	`, season.LeagueGUID, season.SaveGameSeasonID, season.SeasonNum, season.NumGames)
 	if err != nil {
-		return fmt.Errorf("upserting season %d: %w", season.ID, err)
+		return 0, fmt.Errorf("upserting season (league=%s sgID=%d): %w",
+			season.LeagueGUID, season.SaveGameSeasonID, err)
 	}
-	return nil
+	var id int64
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT id FROM seasons WHERE league_guid = ? AND save_game_season_id = ?`,
+		season.LeagueGUID, season.SaveGameSeasonID,
+	).Scan(&id); err != nil {
+		return 0, fmt.Errorf("fetching season id after upsert: %w", err)
+	}
+	return id, nil
 }
 
-// GetByID returns the season with the given ID, or sql.ErrNoRows.
-func (s *SeasonStore) GetByID(ctx context.Context, id int) (Season, error) {
+// GetByID returns the season with the given companion DB id.
+func (s *SeasonStore) GetByID(ctx context.Context, id int64) (Season, error) {
 	var season Season
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, season_num, num_games FROM seasons WHERE id = ?`, id,
-	).Scan(&season.ID, &season.SeasonNum, &season.NumGames)
+		`SELECT id, league_guid, save_game_season_id, season_num, num_games
+		 FROM seasons WHERE id = ?`, id,
+	).Scan(&season.ID, &season.LeagueGUID, &season.SaveGameSeasonID,
+		&season.SeasonNum, &season.NumGames)
 	if err != nil {
 		return Season{}, fmt.Errorf("getting season %d: %w", id, err)
 	}
@@ -52,7 +64,8 @@ func (s *SeasonStore) GetByID(ctx context.Context, id int) (Season, error) {
 // List returns all seasons ordered by season number ascending.
 func (s *SeasonStore) List(ctx context.Context) ([]Season, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, season_num, num_games FROM seasons ORDER BY season_num ASC`)
+		`SELECT id, league_guid, save_game_season_id, season_num, num_games
+		 FROM seasons ORDER BY season_num ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("listing seasons: %w", err)
 	}
@@ -61,7 +74,8 @@ func (s *SeasonStore) List(ctx context.Context) ([]Season, error) {
 	var seasons []Season
 	for rows.Next() {
 		var season Season
-		if err := rows.Scan(&season.ID, &season.SeasonNum, &season.NumGames); err != nil {
+		if err := rows.Scan(&season.ID, &season.LeagueGUID, &season.SaveGameSeasonID,
+			&season.SeasonNum, &season.NumGames); err != nil {
 			return nil, fmt.Errorf("scanning season: %w", err)
 		}
 		seasons = append(seasons, season)
