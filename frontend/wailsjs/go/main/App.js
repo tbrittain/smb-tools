@@ -6,6 +6,10 @@ export function AddFranchiseSource(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['AddFranchiseSource'](arg1, arg2, arg3, arg4);
 }
 
+export function BrowseLegacyDB() {
+  return window['go']['main']['App']['BrowseLegacyDB']();
+}
+
 export function BrowseSaveFile() {
   return window['go']['main']['App']['BrowseSaveFile']();
 }
@@ -24,6 +28,10 @@ export function CreateFranchise(arg1, arg2, arg3, arg4) {
 
 export function DeleteFranchise(arg1) {
   return window['go']['main']['App']['DeleteFranchise'](arg1);
+}
+
+export function DetectLegacyDB() {
+  return window['go']['main']['App']['DetectLegacyDB']();
 }
 
 export function GetActiveFranchise() {
@@ -128,6 +136,14 @@ export function ListFranchiseSources(arg1) {
 
 export function ListFranchises() {
   return window['go']['main']['App']['ListFranchises']();
+}
+
+export function ListLegacyFranchises(arg1) {
+  return window['go']['main']['App']['ListLegacyFranchises'](arg1);
+}
+
+export function MigrateLegacyFranchise(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['MigrateLegacyFranchise'](arg1, arg2, arg3, arg4);
 }
 
 export function OpenAppDataDir() {

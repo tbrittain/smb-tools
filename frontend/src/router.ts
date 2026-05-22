@@ -47,6 +47,10 @@ const router = createRouter({
       path: '/hall-of-fame',
       component: () => import('./pages/HallOfFamePage.vue'),
     },
+    {
+      path: '/migrate-legacy',
+      component: () => import('./pages/LegacyMigrationPage.vue'),
+    },
   ],
 })
 

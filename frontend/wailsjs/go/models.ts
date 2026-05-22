@@ -482,6 +482,46 @@ export namespace main {
 	        this.seasonEnd = source["seasonEnd"];
 	    }
 	}
+	export class LegacyFranchiseDTO {
+	    id: number;
+	    name: string;
+	    isSmb3: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new LegacyFranchiseDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.isSmb3 = source["isSmb3"];
+	    }
+	}
+	export class MigrateLegacyResult {
+	    franchiseId: string;
+	    franchiseName: string;
+	    seasonsMigrated: number;
+	    teamsMigrated: number;
+	    playersMigrated: number;
+	    awardsMigrated: number;
+	    logosSkipped: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new MigrateLegacyResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.franchiseId = source["franchiseId"];
+	        this.franchiseName = source["franchiseName"];
+	        this.seasonsMigrated = source["seasonsMigrated"];
+	        this.teamsMigrated = source["teamsMigrated"];
+	        this.playersMigrated = source["playersMigrated"];
+	        this.awardsMigrated = source["awardsMigrated"];
+	        this.logosSkipped = source["logosSkipped"];
+	    }
+	}
 	export class PitchingCandidateDTO {
 	    playerSeasonId: number;
 	    playerId: number;
