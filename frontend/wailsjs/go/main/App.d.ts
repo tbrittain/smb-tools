@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function AddFranchiseSource(arg1:string,arg2:string,arg3:string,arg4:number):Promise<void>;
 
+export function BrowseLegacyDB():Promise<string>;
+
 export function BrowseSaveFile():Promise<string>;
 
 export function ComputeSeasonStatLeaderAwards(arg1:number):Promise<void>;
@@ -13,6 +15,8 @@ export function CreateCustomAward(arg1:main.AwardDTO):Promise<main.AwardDTO>;
 export function CreateFranchise(arg1:string,arg2:string,arg3:string,arg4:string):Promise<main.FranchiseDTO>;
 
 export function DeleteFranchise(arg1:string):Promise<void>;
+
+export function DetectLegacyDB():Promise<string>;
 
 export function GetActiveFranchise():Promise<main.FranchiseDTO>;
 
@@ -65,6 +69,10 @@ export function ListAwards(arg1:boolean):Promise<Array<main.AwardDTO>>;
 export function ListFranchiseSources(arg1:string):Promise<Array<main.FranchiseSourceDTO>>;
 
 export function ListFranchises():Promise<Array<main.FranchiseDTO>>;
+
+export function ListLegacyFranchises(arg1:string):Promise<Array<main.LegacyFranchiseDTO>>;
+
+export function MigrateLegacyFranchise(arg1:string,arg2:number,arg3:string,arg4:string):Promise<main.MigrateLegacyResult>;
 
 export function OpenAppDataDir():Promise<void>;
 

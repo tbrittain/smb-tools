@@ -13,6 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [id: string]
   create: []
+  import: []
 }>()
 
 // ── Live save file probe state ────────────────────────────────────────────────
@@ -125,7 +126,7 @@ function liveLabel(f: main.FranchiseDTO): string | null {
     </div>
 
     <div v-if="props.franchises.length === 0" class="empty-state">
-      <p>No franchises yet. Create one to get started.</p>
+      <p>No franchises yet.</p>
     </div>
 
     <ul v-else class="franchise-list">
@@ -182,12 +183,17 @@ function liveLabel(f: main.FranchiseDTO): string | null {
         </div>
       </li>
     </ul>
+
+    <div class="import-footer">
+      <span class="import-hint">Have a SmbExplorerCompanion database?</span>
+      <button class="import-link" @click="emit('import')">Import franchise</button>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .franchise-selector {
-  max-width: 620px;
+  max-width: 100%;
   margin: 0 auto;
 }
 
@@ -196,11 +202,12 @@ function liveLabel(f: main.FranchiseDTO): string | null {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  gap: 2rem;
 }
 
 .header-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.75rem;
   align-items: center;
 }
 
@@ -348,5 +355,33 @@ h2 {
 
 .warn-text {
   color: color-mix(in srgb, #f59e0b 80%, var(--color-text-secondary));
+}
+
+.import-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.8125rem;
+}
+
+.import-hint {
+  color: var(--color-text-secondary);
+}
+
+.import-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-accent);
+  font-size: 0.8125rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.import-link:hover {
+  text-decoration: underline;
 }
 </style>
