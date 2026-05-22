@@ -273,6 +273,40 @@ type TeamSeasonListRow struct {
 	IsChampion     bool
 }
 
+// HistoricalTeamRow is one row in the aggregated historical teams page.
+// Each row represents one team's totals across a user-selected season range.
+type HistoricalTeamRow struct {
+	TeamID              int64
+	TeamName            string
+	NumSeasons          int
+	FirstSeason         int
+	LastSeason          int
+	Wins                int
+	Losses              int
+	PlayoffWins         int
+	PlayoffLosses       int
+	PlayoffAppearances  int
+	DivisionTitles      int
+	ConferenceTitles    int
+	Championships       int
+	ChampionshipDrought int
+	RunsFor             int
+	RunsAgainst         int
+	TotalAB             int
+	TotalHits           int
+	TotalHR             int
+	NumPlayers          int
+	NumHoF              int
+	TotalEarnedRuns     int
+	TotalOutsPitched    int
+
+	// Computed in Go after scanning
+	WinPct       float64
+	GamesOver500 int
+	BA           *float64
+	ERA          *float64
+}
+
 // ── Roster & schedule ─────────────────────────────────────────────────────────
 
 // RosterPlayer is one player row in a team season roster.
