@@ -36,6 +36,17 @@ const router = createRouter({
       path: '/leaderboards',
       component: () => import('./pages/LeaderboardsPage.vue'),
     },
+    {
+      path: '/awards',
+      component: () => import('./pages/SeasonAwardsPage.vue'),
+      props: (route) => ({
+        initialSeasonId: route.query.seasonId ? Number(route.query.seasonId) : undefined,
+      }),
+    },
+    {
+      path: '/hall-of-fame',
+      component: () => import('./pages/HallOfFamePage.vue'),
+    },
   ],
 })
 

@@ -291,3 +291,17 @@ ORDER BY s.season_num ASC
 	}
 	return out, index, rows.Err()
 }
+
+// SetHallOfFamer updates the is_hall_of_famer flag for the given player.
+func (s *PlayerQueryStore) SetHallOfFamer(ctx context.Context, playerID int64, isHoF bool) error {
+	v := 0
+	if isHoF {
+		v = 1
+	}
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE players SET is_hall_of_famer = ? WHERE id = ?`, v, playerID)
+	if err != nil {
+		return fmt.Errorf("setting hall of famer for player %d: %w", playerID, err)
+	}
+	return nil
+}

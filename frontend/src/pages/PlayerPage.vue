@@ -1,11 +1,13 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue'
-import { GetPlayerCareer, GetPlayerSeasonLog } from '../../wailsjs/go/main/App'
+import { GetPlayerCareer, GetPlayerCareerAwards, GetPlayerSeasonLog } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AttributesTable from '../components/AttributesTable.vue'
+import AwardBadge from '../components/AwardBadge.vue'
 import CareerStatSummary from '../components/CareerStatSummary.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import PlayerAwardsList from '../components/PlayerAwardsList.vue'
 import PlayerBioCard from '../components/PlayerBioCard.vue'
 import PlayerStatTable from '../components/PlayerStatTable.vue'
 
@@ -13,6 +15,7 @@ const props = defineProps<{ playerId: number }>()
 
 const career = ref<main.PlayerCareerDTO | null>(null)
 const seasonLog = ref<main.PlayerSeasonLogDTO[]>([])
+const awardsBySeason = ref<Record<string, main.AwardDTO[]>>({})
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -39,9 +42,14 @@ onMounted(async () => {
   loading.value = true
   error.value = null
   try {
-    const [c, log] = await Promise.all([GetPlayerCareer(props.playerId), GetPlayerSeasonLog(props.playerId)])
+    const [c, log, awards] = await Promise.all([
+      GetPlayerCareer(props.playerId),
+      GetPlayerSeasonLog(props.playerId),
+      GetPlayerCareerAwards(props.playerId),
+    ])
     career.value = c
     seasonLog.value = log ?? []
+    awardsBySeason.value = awards ?? {}
     // Default tab
     statMode.value = isPitcher.value && !hasBatting.value ? 'pitching' : 'batting'
   } catch (e) {
@@ -80,6 +88,12 @@ onMounted(async () => {
           :accuracy="latestAttrs.accuracy"
           :show-pitching="isPitcher"
         />
+      </section>
+
+      <!-- Awards -->
+      <section v-if="Object.keys(awardsBySeason).length > 0" class="section">
+        <h3>Awards</h3>
+        <PlayerAwardsList :awards-by-season="awardsBySeason" />
       </section>
 
       <!-- Season log -->
