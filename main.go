@@ -20,8 +20,8 @@ func main() {
 
 	err := wails.Run(&options.App{
 		Title:  "smb-tools",
-		Width:  1280,
-		Height: 720,
+		Width:  1920,
+		Height: 1080,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
