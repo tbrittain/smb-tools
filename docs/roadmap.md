@@ -108,10 +108,10 @@ Check off phases as they are completed. Individual phases will be broken into de
 ## Phase 8 — Legacy Migration
 *One-time migration path for existing SmbExplorerCompanion users. Brings historical data forward into the new schema.*
 
-- [ ] Schema analysis and mapping doc (`docs/architecture/schema-analysis.md`)
-- [ ] LegacyMigrationService: reads old SmbExplorerCompanion.db, writes to new franchise DB
-- [ ] Migration UI: detect existing companion DB, confirm, run, report results
-- [ ] Integration tests covering full-franchise, minimal, and edge-case scenarios
+- [x] Schema analysis and mapping doc (`docs/architecture/schema-analysis.md`)
+- [x] LegacyMigrationService: reads old SmbExplorerCompanion.db, writes to new franchise DB
+- [x] Migration UI: detect existing companion DB, confirm, run, report results
+- [x] Integration tests covering full-franchise, minimal, and edge-case scenarios
 
 ---
 
