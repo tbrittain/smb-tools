@@ -57,6 +57,11 @@ async function handleSelect(id: string) {
       <span class="loading-text">Loading…</span>
     </div>
 
+    <!-- Legacy migration — accessible without an active franchise -->
+    <div v-else-if="route.path === '/migrate-legacy'" class="fullscreen-center">
+      <router-view />
+    </div>
+
     <!-- Franchise selection / creation -->
     <div v-else-if="!franchiseStore.active" class="fullscreen-center">
       <div class="franchise-setup-panel">
