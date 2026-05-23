@@ -242,6 +242,36 @@ type TeamHistoryDTO struct {
 	Seasons  []TeamSeasonSummaryDTO `json:"seasons"`
 }
 
+// HistoricalTeamDTO is one row in the aggregated historical teams page.
+// Each row represents one team's totals across a user-selected season range.
+type HistoricalTeamDTO struct {
+	TeamID              int64    `json:"teamId"`
+	TeamName            string   `json:"teamName"`
+	NumSeasons          int      `json:"numSeasons"`
+	FirstSeason         int      `json:"firstSeason"`
+	LastSeason          int      `json:"lastSeason"`
+	Wins                int      `json:"wins"`
+	Losses              int      `json:"losses"`
+	WinPct              float64  `json:"winPct"`
+	GamesOver500        int      `json:"gamesOver500"`
+	PlayoffWins         int      `json:"playoffWins"`
+	PlayoffLosses       int      `json:"playoffLosses"`
+	PlayoffAppearances  int      `json:"playoffAppearances"`
+	DivisionTitles      int      `json:"divisionTitles"`
+	ConferenceTitles    int      `json:"conferenceTitles"`
+	Championships       int      `json:"championships"`
+	ChampionshipDrought int      `json:"championshipDrought"`
+	RunsFor             int      `json:"runsFor"`
+	RunsAgainst         int      `json:"runsAgainst"`
+	TotalAB             int      `json:"totalAB"`
+	TotalHits           int      `json:"totalHits"`
+	TotalHR             int      `json:"totalHR"`
+	NumPlayers          int      `json:"numPlayers"`
+	NumHoF              int      `json:"numHoF"`
+	BA                  *float64 `json:"ba"`
+	ERA                 *float64 `json:"era"`
+}
+
 // TeamSeasonListDTO is one row in the historical teams list page.
 type TeamSeasonListDTO struct {
 	SeasonNum      int     `json:"seasonNum"`

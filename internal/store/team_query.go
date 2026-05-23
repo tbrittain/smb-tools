@@ -124,6 +124,199 @@ ORDER BY s.season_num DESC, tsh.team_name ASC
 	return out, rows.Err()
 }
 
+// GetHistoricalTeams returns one aggregated row per team covering the given
+// inclusive season range. Stats are summed across all seasons in the range;
+// rate stats (BA, ERA) and GamesOver500 are computed in Go after scanning.
+func (s *TeamQueryStore) GetHistoricalTeams(ctx context.Context, seasonStart, seasonEnd int) ([]models.HistoricalTeamRow, error) {
+	q := `
+WITH
+complete_playoff_seasons AS (
+    SELECT season_id
+    FROM team_playoff_schedules
+    GROUP BY season_id
+    HAVING MIN(CASE WHEN home_score IS NOT NULL AND away_score IS NOT NULL THEN 1 ELSE 0 END) = 1
+),
+final_series AS (
+    SELECT season_id, MAX(series_number) AS max_series
+    FROM team_playoff_schedules
+    WHERE season_id IN (SELECT season_id FROM complete_playoff_seasons)
+    GROUP BY season_id
+),
+series_wins AS (
+    SELECT
+        g.season_id,
+        CASE WHEN g.home_score > g.away_score
+             THEN g.home_team_history_id
+             ELSE g.away_team_history_id
+        END AS winner_history_id,
+        COUNT(*) AS wins
+    FROM team_playoff_schedules g
+    JOIN final_series fs ON g.season_id = fs.season_id AND g.series_number = fs.max_series
+    GROUP BY g.season_id,
+             CASE WHEN g.home_score > g.away_score
+                  THEN g.home_team_history_id
+                  ELSE g.away_team_history_id END
+),
+series_totals AS (
+    SELECT season_id, SUM(wins) AS total_games FROM series_wins GROUP BY season_id
+),
+champion AS (
+    SELECT sw.season_id, sw.winner_history_id
+    FROM series_wins sw
+    JOIN series_totals st ON st.season_id = sw.season_id
+    WHERE sw.wins * 2 > st.total_games
+      AND sw.wins = (SELECT MAX(wins) FROM series_wins sw2 WHERE sw2.season_id = sw.season_id)
+),
+conf_champs AS (
+    SELECT DISTINCT tsh.team_id, tsh.season_id
+    FROM (
+        SELECT season_id, MAX(series_number) AS max_series
+        FROM team_playoff_schedules
+        GROUP BY season_id
+    ) fs
+    JOIN team_playoff_schedules tps ON tps.season_id = fs.season_id AND tps.series_number = fs.max_series
+    JOIN team_season_history tsh ON tsh.id = tps.home_team_history_id OR tsh.id = tps.away_team_history_id
+    JOIN seasons s ON s.id = tsh.season_id
+    WHERE s.season_num BETWEEN ? AND ?
+),
+batting_agg AS (
+    SELECT
+        tsh.team_id,
+        SUM(COALESCE(b.at_bats, 0))    AS total_ab,
+        SUM(COALESCE(b.hits, 0))        AS total_hits,
+        SUM(COALESCE(b.home_runs, 0))   AS total_hr,
+        COUNT(DISTINCT ps.player_id)    AS num_players,
+        COUNT(DISTINCT CASE WHEN p.is_hall_of_famer = 1 THEN ps.player_id END) AS num_hof
+    FROM team_season_history tsh
+    JOIN seasons s ON s.id = tsh.season_id
+    JOIN player_seasons ps ON ps.team_history_id = tsh.id
+    JOIN players p ON p.id = ps.player_id
+    LEFT JOIN player_season_batting_stats b ON b.player_season_id = ps.id AND b.is_regular_season = 1
+    WHERE s.season_num BETWEEN ? AND ?
+    GROUP BY tsh.team_id
+),
+pitching_agg AS (
+    SELECT
+        tsh.team_id,
+        SUM(COALESCE(pit.earned_runs, 0))  AS total_er,
+        SUM(COALESCE(pit.outs_pitched, 0)) AS total_outs
+    FROM team_season_history tsh
+    JOIN seasons s ON s.id = tsh.season_id
+    JOIN player_seasons ps ON ps.team_history_id = tsh.id
+    LEFT JOIN player_season_pitching_stats pit ON pit.player_season_id = ps.id AND pit.is_regular_season = 1
+    WHERE s.season_num BETWEEN ? AND ?
+    GROUP BY tsh.team_id
+)
+SELECT
+    t.id AS team_id,
+    (
+        SELECT tsh2.team_name
+        FROM team_season_history tsh2
+        JOIN seasons s2 ON s2.id = tsh2.season_id
+        WHERE tsh2.team_id = t.id AND s2.season_num BETWEEN ? AND ?
+        ORDER BY s2.season_num DESC
+        LIMIT 1
+    ) AS current_name,
+    COUNT(DISTINCT tsh.id)                                           AS num_seasons,
+    MIN(s.season_num)                                                AS first_season,
+    MAX(s.season_num)                                                AS last_season,
+    SUM(tsh.wins)                                                    AS wins,
+    SUM(tsh.losses)                                                  AS losses,
+    SUM(COALESCE(tsh.playoff_wins, 0))                               AS playoff_wins,
+    SUM(COALESCE(tsh.playoff_losses, 0))                             AS playoff_losses,
+    COUNT(CASE WHEN tsh.playoff_seed IS NOT NULL THEN 1 END)         AS playoff_appearances,
+    COUNT(CASE WHEN tsh.games_back = 0 THEN 1 END)                   AS division_titles,
+    COUNT(DISTINCT CASE WHEN cc.season_id IS NOT NULL
+                        THEN tsh.season_id END)                      AS conference_titles,
+    COUNT(CASE WHEN c.winner_history_id = tsh.id THEN 1 END)         AS championships,
+    SUM(tsh.runs_for + COALESCE(tsh.playoff_runs_for, 0))            AS runs_for,
+    SUM(tsh.runs_against + COALESCE(tsh.playoff_runs_against, 0))    AS runs_against,
+    COALESCE(ba.total_ab, 0)                                         AS total_ab,
+    COALESCE(ba.total_hits, 0)                                       AS total_hits,
+    COALESCE(ba.total_hr, 0)                                         AS total_hr,
+    COALESCE(ba.num_players, 0)                                      AS num_players,
+    COALESCE(ba.num_hof, 0)                                          AS num_hof,
+    COALESCE(pit.total_er, 0)                                        AS total_er,
+    COALESCE(pit.total_outs, 0)                                      AS total_outs,
+    -- Championship drought: seasons since last title (or since the franchise began)
+    (
+        SELECT COALESCE(MAX(s2.season_num), 0)
+        FROM seasons s2
+        WHERE s2.season_num <= ?
+    ) - COALESCE(
+        (
+            SELECT MAX(s3.season_num)
+            FROM team_season_history tsh3
+            JOIN seasons s3 ON s3.id = tsh3.season_id
+            WHERE tsh3.team_id = t.id
+              AND s3.season_num <= ?
+              AND tsh3.id IN (SELECT winner_history_id FROM champion)
+        ), 0
+    )                                                                AS championship_drought
+FROM teams t
+JOIN team_season_history tsh ON tsh.team_id = t.id
+JOIN seasons s ON s.id = tsh.season_id
+LEFT JOIN champion c ON c.season_id = tsh.season_id
+LEFT JOIN conf_champs cc ON cc.team_id = tsh.team_id AND cc.season_id = tsh.season_id
+LEFT JOIN batting_agg ba ON ba.team_id = t.id
+LEFT JOIN pitching_agg pit ON pit.team_id = t.id
+WHERE s.season_num BETWEEN ? AND ?
+GROUP BY t.id
+ORDER BY SUM(tsh.wins) DESC
+`
+	rows, err := s.db.QueryContext(ctx, q,
+		seasonStart, seasonEnd, // conf_champs BETWEEN
+		seasonStart, seasonEnd, // batting_agg BETWEEN
+		seasonStart, seasonEnd, // pitching_agg BETWEEN
+		seasonStart, seasonEnd, // current_name subquery BETWEEN
+		seasonEnd,              // drought: max season_num in range
+		seasonEnd,              // drought: last champ season for this team
+		seasonStart, seasonEnd, // main WHERE BETWEEN
+	)
+	if err != nil {
+		return nil, fmt.Errorf("getting historical teams: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []models.HistoricalTeamRow
+	for rows.Next() {
+		var r models.HistoricalTeamRow
+		if err := rows.Scan(
+			&r.TeamID, &r.TeamName,
+			&r.NumSeasons, &r.FirstSeason, &r.LastSeason,
+			&r.Wins, &r.Losses,
+			&r.PlayoffWins, &r.PlayoffLosses,
+			&r.PlayoffAppearances,
+			&r.DivisionTitles, &r.ConferenceTitles, &r.Championships,
+			&r.RunsFor, &r.RunsAgainst,
+			&r.TotalAB, &r.TotalHits, &r.TotalHR,
+			&r.NumPlayers, &r.NumHoF,
+			&r.TotalEarnedRuns, &r.TotalOutsPitched,
+			&r.ChampionshipDrought,
+		); err != nil {
+			return nil, fmt.Errorf("scanning historical team row: %w", err)
+		}
+
+		total := r.Wins + r.Losses
+		if total > 0 {
+			r.WinPct = float64(r.Wins) / float64(total)
+		}
+		r.GamesOver500 = r.Wins - r.Losses
+
+		if r.TotalAB > 0 {
+			ba := float64(r.TotalHits) / float64(r.TotalAB)
+			r.BA = &ba
+		}
+		if r.TotalOutsPitched > 0 {
+			era := float64(r.TotalEarnedRuns) / float64(r.TotalOutsPitched) * 27.0
+			r.ERA = &era
+		}
+
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // GetTeamHistory returns all seasons played by the given team, enriched with
 // the champion flag, ordered by season number ascending.
 // Returns sql.ErrNoRows wrapped in an error if the team does not exist.
