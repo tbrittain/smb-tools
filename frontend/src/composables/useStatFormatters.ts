@@ -35,6 +35,24 @@ export function formatIP(outsPitched: number): string {
   return `${whole}.${remainder}`
 }
 
+/** Formats OPS+, ERA+, FIP- as an integer (e.g. 115, 87). */
+export function formatAdjustedStat(v: number | null | undefined): string {
+  if (v == null) return '—'
+  return Math.round(v).toString()
+}
+
+/** Formats FIP like ERA: two decimal places. */
+export function formatFIP(v: number | null | undefined): string {
+  if (v == null) return '—'
+  return v.toFixed(2)
+}
+
+/** Formats smbWAR to one decimal place. */
+export function formatWAR(v: number | null | undefined): string {
+  if (v == null) return '—'
+  return v.toFixed(1)
+}
+
 export function formatSalary(v: number): string {
   return `$${v.toLocaleString()}`
 }

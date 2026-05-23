@@ -446,6 +446,129 @@ func TestImportSeason_MultiSeasonStatValues(t *testing.T) {
 	}
 }
 
+// ── Context stats (Phase 8.5) ────────────────────────────────────────────────
+
+func TestImportSeason_ContextStatsPopulated(t *testing.T) {
+	svc, companionDB, reader := newTestImportService(t)
+	ctx := context.Background()
+
+	result := importSeason1(t, svc, companionDB, reader)
+
+	// league_season_stats should have one row for the regular season.
+	var lssCount int
+	if err := companionDB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM league_season_stats WHERE season_id = ? AND is_regular_season = 1`,
+		result.SeasonID,
+	).Scan(&lssCount); err != nil {
+		t.Fatalf("querying league_season_stats: %v", err)
+	}
+	if lssCount != 1 {
+		t.Errorf("expected 1 league_season_stats row, got %d", lssCount)
+	}
+
+	// Batter AA (AB=180 > 0) should have non-NULL ops_plus and smb_war.
+	var opsPlus, smbWARBat *float64
+	if err := companionDB.QueryRowContext(ctx, `
+		SELECT bs.ops_plus, bs.smb_war
+		FROM player_season_batting_stats bs
+		JOIN player_seasons ps ON ps.id = bs.player_season_id
+		JOIN players p ON p.id = ps.player_id
+		WHERE p.game_guid = 'AA000000000000000000000000000000'
+		  AND bs.is_regular_season = 1
+	`).Scan(&opsPlus, &smbWARBat); err != nil {
+		t.Fatalf("querying batter context stats: %v", err)
+	}
+	if opsPlus == nil {
+		t.Error("expected non-NULL ops_plus for batter AA (AB=180)")
+	}
+	if smbWARBat == nil {
+		t.Error("expected non-NULL smb_war for batter AA")
+	}
+
+	// Pitcher BB (outs_pitched=540 > 0) should have non-NULL era_plus, fip, fip_minus, smb_war.
+	var eraPlus, fip, fipMinus, smbWARPit *float64
+	if err := companionDB.QueryRowContext(ctx, `
+		SELECT ps2.era_plus, ps2.fip, ps2.fip_minus, ps2.smb_war
+		FROM player_season_pitching_stats ps2
+		JOIN player_seasons ps ON ps.id = ps2.player_season_id
+		JOIN players p ON p.id = ps.player_id
+		WHERE p.game_guid = 'BB000000000000000000000000000000'
+		  AND ps2.is_regular_season = 1
+	`).Scan(&eraPlus, &fip, &fipMinus, &smbWARPit); err != nil {
+		t.Fatalf("querying pitcher context stats: %v", err)
+	}
+	if eraPlus == nil {
+		t.Error("expected non-NULL era_plus for pitcher BB (outs_pitched=540)")
+	}
+	if fip == nil {
+		t.Error("expected non-NULL fip for pitcher BB")
+	}
+	if fipMinus == nil {
+		t.Error("expected non-NULL fip_minus for pitcher BB")
+	}
+	if smbWARPit == nil {
+		t.Error("expected non-NULL smb_war for pitcher BB")
+	}
+}
+
+func TestImportSeason_ContextStatsLeagueAverage(t *testing.T) {
+	// With only one batter and one pitcher, each player IS the league average.
+	// So OPS+ = 100 and ERA+ = 100 (they equal the league).
+	svc, companionDB, reader := newTestImportService(t)
+	ctx := context.Background()
+
+	importSeason1(t, svc, companionDB, reader)
+
+	var opsPlus, eraPlus float64
+	if err := companionDB.QueryRowContext(ctx, `
+		SELECT bs.ops_plus
+		FROM player_season_batting_stats bs
+		JOIN player_seasons ps ON ps.id = bs.player_season_id
+		JOIN players p ON p.id = ps.player_id
+		WHERE p.game_guid = 'AA000000000000000000000000000000'
+		  AND bs.is_regular_season = 1
+	`).Scan(&opsPlus); err != nil {
+		t.Fatalf("querying ops_plus: %v", err)
+	}
+	// Single-player league: lgOBP == playerOBP, lgSLG == playerSLG → OPS+ = 100
+	if opsPlus < 99.9 || opsPlus > 100.1 {
+		t.Errorf("expected OPS+ ≈ 100 for sole batter, got %.2f", opsPlus)
+	}
+
+	if err := companionDB.QueryRowContext(ctx, `
+		SELECT ps2.era_plus
+		FROM player_season_pitching_stats ps2
+		JOIN player_seasons ps ON ps.id = ps2.player_season_id
+		JOIN players p ON p.id = ps.player_id
+		WHERE p.game_guid = 'BB000000000000000000000000000000'
+		  AND ps2.is_regular_season = 1
+	`).Scan(&eraPlus); err != nil {
+		t.Fatalf("querying era_plus: %v", err)
+	}
+	// Single-pitcher league: lgERA == pitcher ERA → ERA+ = 100
+	if eraPlus < 99.9 || eraPlus > 100.1 {
+		t.Errorf("expected ERA+ ≈ 100 for sole pitcher, got %.2f", eraPlus)
+	}
+}
+
+func TestImportSeason_ContextStatsIdempotent(t *testing.T) {
+	svc, companionDB, reader := newTestImportService(t)
+	ctx := context.Background()
+
+	importSeason1(t, svc, companionDB, reader)
+	importSeason1(t, svc, companionDB, reader) // second import should overwrite cleanly
+
+	var lssCount int
+	if err := companionDB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM league_season_stats WHERE is_regular_season = 1`,
+	).Scan(&lssCount); err != nil {
+		t.Fatalf("querying league_season_stats: %v", err)
+	}
+	if lssCount != 1 {
+		t.Errorf("idempotency: expected 1 league_season_stats row after 2 imports, got %d", lssCount)
+	}
+}
+
 // ── Transaction atomicity ────────────────────────────────────────────────────
 
 func TestImportSeason_TransactionRollbackOnError(t *testing.T) {

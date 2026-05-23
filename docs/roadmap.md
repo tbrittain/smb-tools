@@ -87,7 +87,7 @@ Check off phases as they are completed. Individual phases will be broken into de
 - [x] Sorting by any stat column
 - [x] Pagination
 
-> **Known limitation — leaderboard default sort order:** All four leaderboard queries (`GetBattingCareerLeaders`, `GetBattingSeasonLeaders`, `GetPitchingCareerLeaders`, `GetPitchingSeasonLeaders` in `internal/store/leaderboard_query.go`) currently default to alphabetical order by player name. The initial load should present the best players first, but there is no volume-weighted composite metric yet to sort by. **Once smbWAR is implemented (Phase 8.5), update the `ORDER BY` clause in each query to `smbWAR DESC` as the default, and mirror that in the frontend's initial sort state.**
+> ~~**Known limitation — leaderboard default sort order:** All four leaderboard queries currently default to alphabetical order by player name.~~ **Resolved in Phase 8.5**: leaderboards now default to `smbWAR DESC` (career and season), with alphabetical tiebreaker for seasons where smbWAR has not yet been computed.
 
 ---
 
@@ -101,7 +101,7 @@ Check off phases as they are completed. Individual phases will be broken into de
 - [x] Hall of Fame eligibility evaluation and induction
 - [x] Custom user-defined awards
 
-> **Known limitation — award candidate ranking:** The awards delegation page currently ranks batters by OPS and pitchers by ERA. Raw OPS is not PA-weighted, so a player with 3 AB and 3 HR can outrank a player with 600 AB and 60 HR — the latter clearly contributed more. The legacy companion app used smbWAR (a weighted OPS+/FIP- metric) to rank candidates, which naturally handles sample-size differences. **Once smbWAR, OPS+, and ERA+ are implemented (Phase 8.5), update `AwardStore.queryBattingCandidates` and `queryPitchingCandidates` in `internal/store/award_candidates.go` to sort by those metrics instead.**
+> ~~**Known limitation — award candidate ranking:** The awards delegation page currently ranks batters by OPS and pitchers by ERA.~~ **Resolved in Phase 8.5**: award candidates now rank by `smbWAR DESC`, which is PA/IP-weighted and handles sample-size differences correctly.
 
 ---
 
@@ -118,12 +118,12 @@ Check off phases as they are completed. Individual phases will be broken into de
 ## Phase 8.5 — Context Stats (smbWAR, OPS+, ERA+)
 *The weighted metrics that unlock meaningful candidate ranking in awards, leaderboard default sort, and future visualizations. Unblocks the known limitations called out in Phases 6 and 7.*
 
-- [ ] smbWAR custom metric (weighted OPS+/FIP- composite, PA/IP-weighted)
-- [ ] OPS+ (park- and league-adjusted OPS)
-- [ ] ERA+ (park- and league-adjusted ERA)
-- [ ] Persist all three as computed-at-sync columns on season stat rows (league context required at import time — not generatable columns)
-- [ ] Update `GetBattingCareerLeaders` / `GetBattingSeasonLeaders` / `GetPitchingCareerLeaders` / `GetPitchingSeasonLeaders` default `ORDER BY` to `smbWAR DESC`
-- [ ] Update `AwardStore.queryBattingCandidates` / `queryPitchingCandidates` to rank by smbWAR / ERA+
+- [x] smbWAR custom metric (weighted OPS+/FIP- composite, PA/IP-weighted)
+- [x] OPS+ (park- and league-adjusted OPS)
+- [x] ERA+ (park- and league-adjusted ERA)
+- [x] Persist all three as computed-at-sync columns on season stat rows (league context required at import time — not generatable columns)
+- [x] Update `GetBattingCareerLeaders` / `GetBattingSeasonLeaders` / `GetPitchingCareerLeaders` / `GetPitchingSeasonLeaders` default `ORDER BY` to `smbWAR DESC`
+- [x] Update `AwardStore.queryBattingCandidates` / `queryPitchingCandidates` to rank by smbWAR / ERA+
 
 ---
 

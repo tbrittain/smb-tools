@@ -3,7 +3,15 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import { RouterLink } from 'vue-router'
 import type { main } from '../../wailsjs/go/models'
-import { formatERA, formatIP, formatK9, formatWHIP } from '../composables/useStatFormatters'
+import {
+  formatAdjustedStat,
+  formatERA,
+  formatFIP,
+  formatIP,
+  formatK9,
+  formatWAR,
+  formatWHIP,
+} from '../composables/useStatFormatters'
 import EmptyState from './EmptyState.vue'
 
 defineProps<{
@@ -18,7 +26,7 @@ defineProps<{
     <DataTable
       v-else
       :value="rows"
-      sort-field="strikeouts"
+      sort-field="smbWar"
       :sort-order="-1"
       size="small"
       removable-sort
@@ -73,6 +81,18 @@ defineProps<{
       </Column>
       <Column header="K/BB" sort-field="kPerBb" sortable style="width: 65px" class="col-rate">
         <template #body="{ data: r }">{{ formatK9(r.kPerBb) }}</template>
+      </Column>
+      <Column v-if="!isCareer" header="ERA+" sort-field="eraPlus" sortable style="width: 68px" class="col-rate">
+        <template #body="{ data: r }">{{ formatAdjustedStat(r.eraPlus) }}</template>
+      </Column>
+      <Column v-if="!isCareer" header="FIP" sort-field="fip" sortable style="width: 65px" class="col-rate">
+        <template #body="{ data: r }">{{ formatFIP(r.fip) }}</template>
+      </Column>
+      <Column v-if="!isCareer" header="FIP-" sort-field="fipMinus" sortable style="width: 65px" class="col-rate">
+        <template #body="{ data: r }">{{ formatAdjustedStat(r.fipMinus) }}</template>
+      </Column>
+      <Column header="smbWAR" sort-field="smbWar" sortable style="width: 80px" class="col-rate">
+        <template #body="{ data: r }">{{ formatWAR(r.smbWar) }}</template>
       </Column>
     </DataTable>
   </div>

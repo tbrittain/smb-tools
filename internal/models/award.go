@@ -55,6 +55,9 @@ type BattingCandidate struct {
 	OBP float64
 	SLG float64
 	OPS float64
+	// Context stats (nil for pre-Phase-8.5 seasons)
+	OPSPlus *float64
+	SmbWAR  *float64
 	// IsChampionTeam is true when this player's team won the championship.
 	IsChampionTeam bool
 	// Current user-assignable award IDs (pre-populated from DB or auto-suggested)
@@ -90,6 +93,10 @@ type PitchingCandidate struct {
 	H9     float64
 	HR9    float64
 	KPerBB float64
+	// Context stats (nil for pre-Phase-8.5 seasons)
+	ERAPlus  *float64
+	FIPMinus *float64
+	SmbWAR   *float64
 	// IsChampionTeam is true when this player's team won the championship.
 	IsChampionTeam bool
 	// Current user-assignable award IDs

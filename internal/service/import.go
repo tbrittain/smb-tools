@@ -215,7 +215,16 @@ func (svc *ImportService) importInTx(
 		return result, fmt.Errorf("importing playoff pitching stats: %w", err)
 	}
 
-	// ── 8. Regular season schedule ──────────────────────────────────────────
+	// ── 8. Context stats (OPS+, ERA+, FIP, FIP-, smbWAR) ───────────────────
+	// Runs after all counting stats are written so league aggregates are complete.
+	if err := ApplyContextStats(ctx, tx, companionSeasonID, true); err != nil {
+		return result, fmt.Errorf("computing context stats (regular season): %w", err)
+	}
+	if err := ApplyContextStats(ctx, tx, companionSeasonID, false); err != nil {
+		return result, fmt.Errorf("computing context stats (playoffs): %w", err)
+	}
+
+	// ── 9. Regular season schedule ──────────────────────────────────────────
 	if err := schedule.DeleteSeasonSchedule(ctx, companionSeasonID); err != nil {
 		return result, fmt.Errorf("clearing old schedule: %w", err)
 	}
