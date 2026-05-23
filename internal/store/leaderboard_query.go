@@ -103,15 +103,40 @@ SELECT
     COALESCE(SUM(b.sac_hits),        0),
     COALESCE(SUM(b.sac_flies),       0),
     COALESCE(SUM(b.errors),          0),
-    COALESCE(SUM(b.passed_balls),    0)
+    COALESCE(SUM(b.passed_balls),    0),
+    SUM(b.smb_war),
+    -- Career OPS+: career totals vs career-weighted league averages from league_season_stats.
+    -- NULL when no league_season_stats rows exist (seasons not yet re-synced post-8.5).
+    CASE
+        WHEN COALESCE(SUM(b.at_bats), 0) > 0
+         AND COALESCE(SUM(b.at_bats + b.walks + b.hit_by_pitch + b.sac_flies), 0) > 0
+         AND COALESCE(SUM(lss.total_at_bats), 0) > 0
+         AND COALESCE(SUM(lss.total_at_bats + lss.total_walks + lss.total_hbp + lss.total_sac_flies), 0) > 0
+        THEN 100.0 * (
+            CAST(SUM(b.hits + b.walks + b.hit_by_pitch) AS REAL)
+                / SUM(b.at_bats + b.walks + b.hit_by_pitch + b.sac_flies)
+                / (CAST(SUM(lss.total_hits + lss.total_walks + lss.total_hbp) AS REAL)
+                   / SUM(lss.total_at_bats + lss.total_walks + lss.total_hbp + lss.total_sac_flies))
+            + CAST(SUM(b.hits - b.doubles - b.triples - b.home_runs
+                        + b.doubles * 2 + b.triples * 3 + b.home_runs * 4) AS REAL)
+                / SUM(b.at_bats)
+                / (CAST(SUM(lss.total_hits - lss.total_doubles - lss.total_triples - lss.total_home_runs
+                             + lss.total_doubles * 2 + lss.total_triples * 3 + lss.total_home_runs * 4) AS REAL)
+                   / SUM(lss.total_at_bats))
+            - 1.0
+        )
+        ELSE NULL
+    END AS career_ops_plus
 FROM player_season_batting_stats b
 JOIN player_seasons ps ON ps.id = b.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
 JOIN players p         ON p.id  = ps.player_id
+LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
+    AND lss.is_regular_season = b.is_regular_season
 WHERE b.is_regular_season = ?` + whereExtra + `
 GROUP BY p.id
 HAVING COALESCE(SUM(b.at_bats), 0) > 0
-ORDER BY p.last_name, p.first_name`
+ORDER BY COALESCE(SUM(b.smb_war), -9999.0) DESC, p.last_name, p.first_name`
 
 	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
@@ -130,6 +155,7 @@ ORDER BY p.last_name, p.first_name`
 			&r.AtBats, &r.Runs, &r.Hits, &r.Doubles, &r.Triples, &r.HomeRuns, &r.RBI,
 			&r.StolenBases, &r.CaughtStealing, &r.Walks, &r.Strikeouts,
 			&r.HitByPitch, &r.SacHits, &r.SacFlies, &r.Errors, &r.PassedBalls,
+			&r.SmbWAR, &r.OPSPlus,
 		); err != nil {
 			return nil, fmt.Errorf("GetBattingCareerLeaders scan: %w", err)
 		}
@@ -170,7 +196,8 @@ SELECT
     b.games_played, b.games_batting,
     b.at_bats, b.runs, b.hits, b.doubles, b.triples, b.home_runs, b.rbi,
     b.stolen_bases, b.caught_stealing, b.walks, b.strikeouts,
-    b.hit_by_pitch, b.sac_hits, b.sac_flies, b.errors, b.passed_balls
+    b.hit_by_pitch, b.sac_hits, b.sac_flies, b.errors, b.passed_balls,
+    b.ops_plus, b.smb_war
 FROM player_season_batting_stats b
 JOIN player_seasons ps ON ps.id = b.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
@@ -178,7 +205,7 @@ JOIN players p         ON p.id  = ps.player_id
 LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
 WHERE b.is_regular_season = ?
   AND b.at_bats > 0` + whereExtra + `
-ORDER BY p.last_name, p.first_name, s.season_num`
+ORDER BY COALESCE(b.smb_war, -9999.0) DESC, p.last_name, p.first_name, s.season_num`
 
 	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
@@ -198,6 +225,7 @@ ORDER BY p.last_name, p.first_name, s.season_num`
 			&r.AtBats, &r.Runs, &r.Hits, &r.Doubles, &r.Triples, &r.HomeRuns, &r.RBI,
 			&r.StolenBases, &r.CaughtStealing, &r.Walks, &r.Strikeouts,
 			&r.HitByPitch, &r.SacHits, &r.SacFlies, &r.Errors, &r.PassedBalls,
+			&r.OPSPlus, &r.SmbWAR,
 		); err != nil {
 			return nil, fmt.Errorf("GetBattingSeasonLeaders scan: %w", err)
 		}
@@ -248,15 +276,29 @@ SELECT
     COALESCE(SUM(pit.games_finished),   0),
     COALESCE(SUM(pit.runs_allowed),     0),
     COALESCE(SUM(pit.wild_pitches),     0),
-    COALESCE(SUM(pit.total_pitches),    0)
+    COALESCE(SUM(pit.total_pitches),    0),
+    SUM(pit.smb_war),
+    -- Career ERA+: career ERA vs career-weighted league ERA from league_season_stats.
+    -- NULL when no league_season_stats rows exist (seasons not yet re-synced post-8.5).
+    CASE
+        WHEN COALESCE(SUM(pit.outs_pitched), 0) > 0
+         AND COALESCE(SUM(pit.earned_runs),  0) > 0
+         AND COALESCE(SUM(lss.total_outs_pitched), 0) > 0
+        THEN CAST(SUM(lss.total_earned_runs) AS REAL) * 27.0 / SUM(lss.total_outs_pitched)
+             / (CAST(SUM(pit.earned_runs) AS REAL) * 27.0 / SUM(pit.outs_pitched))
+             * 100.0
+        ELSE NULL
+    END AS career_era_plus
 FROM player_season_pitching_stats pit
 JOIN player_seasons ps ON ps.id = pit.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
 JOIN players p         ON p.id  = ps.player_id
+LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
+    AND lss.is_regular_season = pit.is_regular_season
 WHERE pit.is_regular_season = ?` + whereExtra + `
 GROUP BY p.id
 HAVING COALESCE(SUM(pit.outs_pitched), 0) > 0
-ORDER BY p.last_name, p.first_name`
+ORDER BY COALESCE(SUM(pit.smb_war), -9999.0) DESC, p.last_name, p.first_name`
 
 	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
@@ -276,6 +318,7 @@ ORDER BY p.last_name, p.first_name`
 			&r.HitsAllowed, &r.EarnedRuns, &r.HomeRunsAllowed, &r.Walks,
 			&r.Strikeouts, &r.HitBatters, &r.BattersFaced, &r.GamesFinished,
 			&r.RunsAllowed, &r.WildPitches, &r.TotalPitches,
+			&r.SmbWAR, &r.ERAPlus,
 		); err != nil {
 			return nil, fmt.Errorf("GetPitchingCareerLeaders scan: %w", err)
 		}
@@ -317,7 +360,8 @@ SELECT
     pit.complete_games, pit.shutouts, pit.saves, pit.outs_pitched,
     pit.hits_allowed, pit.earned_runs, pit.home_runs_allowed, pit.walks,
     pit.strikeouts, pit.hit_batters, pit.batters_faced, pit.games_finished,
-    pit.runs_allowed, pit.wild_pitches, pit.total_pitches
+    pit.runs_allowed, pit.wild_pitches, pit.total_pitches,
+    pit.era_plus, pit.fip, pit.fip_minus, pit.smb_war
 FROM player_season_pitching_stats pit
 JOIN player_seasons ps ON ps.id = pit.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
@@ -325,7 +369,7 @@ JOIN players p         ON p.id  = ps.player_id
 LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
 WHERE pit.is_regular_season = ?
   AND pit.outs_pitched > 0` + whereExtra + `
-ORDER BY p.last_name, p.first_name, s.season_num`
+ORDER BY COALESCE(pit.smb_war, -9999.0) DESC, p.last_name, p.first_name, s.season_num`
 
 	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
@@ -346,6 +390,7 @@ ORDER BY p.last_name, p.first_name, s.season_num`
 			&r.HitsAllowed, &r.EarnedRuns, &r.HomeRunsAllowed, &r.Walks,
 			&r.Strikeouts, &r.HitBatters, &r.BattersFaced, &r.GamesFinished,
 			&r.RunsAllowed, &r.WildPitches, &r.TotalPitches,
+			&r.ERAPlus, &r.FIP, &r.FIPMinus, &r.SmbWAR,
 		); err != nil {
 			return nil, fmt.Errorf("GetPitchingSeasonLeaders scan: %w", err)
 		}

@@ -282,13 +282,15 @@ SELECT
     COALESCE(b.ba,  0.0),
     COALESCE(b.obp, 0.0),
     COALESCE(b.slg, 0.0),
-    COALESCE(b.ops, 0.0)
+    COALESCE(b.ops, 0.0),
+    b.ops_plus,
+    b.smb_war
 FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
 LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
 JOIN v_batting_stats b ON b.player_season_id = ps.id
 WHERE ` + strings.Join(conds, " AND ") + `
-ORDER BY COALESCE(b.ops, 0.0) DESC
+ORDER BY COALESCE(b.smb_war, -9999.0) DESC
 LIMIT ?`
 	args = append(args, limit)
 
@@ -307,6 +309,7 @@ LIMIT ?`
 			&c.AtBats, &c.Hits, &c.HomeRuns, &c.RBI, &c.Walks, &c.Runs,
 			&c.StolenBases, &c.Strikeouts, &c.Doubles, &c.Triples,
 			&c.BA, &c.OBP, &c.SLG, &c.OPS,
+			&c.OPSPlus, &c.SmbWAR,
 		); err != nil {
 			return nil, fmt.Errorf("scanning batting candidate: %w", err)
 		}
@@ -370,16 +373,16 @@ SELECT
     COALESCE(pit.bb_per_9, 0.0),
     COALESCE(pit.h_per_9,  0.0),
     COALESCE(pit.hr_per_9, 0.0),
-    COALESCE(pit.k_per_bb, 0.0)
+    COALESCE(pit.k_per_bb, 0.0),
+    pit.era_plus,
+    pit.fip_minus,
+    pit.smb_war
 FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
 LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
 JOIN v_pitching_stats pit ON pit.player_season_id = ps.id
 WHERE ` + strings.Join(conds, " AND ") + `
-ORDER BY
-    CASE WHEN COALESCE(pit.era, 0.0) = 0.0 THEN 1 ELSE 0 END ASC,
-    COALESCE(pit.era, 999.0) ASC,
-    pit.wins DESC
+ORDER BY COALESCE(pit.smb_war, -9999.0) DESC
 LIMIT ?`
 	args = append(args, limit)
 
@@ -399,6 +402,7 @@ LIMIT ?`
 			&c.HitsAllowed, &c.EarnedRuns, &c.Walks, &c.Strikeouts,
 			&c.HomeRunsAllowed, &c.CompleteGames, &c.Shutouts,
 			&c.ERA, &c.WHIP, &c.K9, &c.BB9, &c.H9, &c.HR9, &c.KPerBB,
+			&c.ERAPlus, &c.FIPMinus, &c.SmbWAR,
 		); err != nil {
 			return nil, fmt.Errorf("scanning pitching candidate: %w", err)
 		}

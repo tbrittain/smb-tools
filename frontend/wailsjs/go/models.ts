@@ -127,6 +127,8 @@ export namespace main {
 	    kPct?: number;
 	    bbPct?: number;
 	    abPerHr?: number;
+	    opsPlus?: number;
+	    smbWar?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new BattingLeaderRowDTO(source);
@@ -172,6 +174,8 @@ export namespace main {
 	        this.kPct = source["kPct"];
 	        this.bbPct = source["bbPct"];
 	        this.abPerHr = source["abPerHr"];
+	        this.opsPlus = source["opsPlus"];
+	        this.smbWar = source["smbWar"];
 	    }
 	}
 	export class CareerBattingStatsDTO {
@@ -202,6 +206,8 @@ export namespace main {
 	    kPct?: number;
 	    bbPct?: number;
 	    abPerHr?: number;
+	    opsPlus?: number;
+	    smbWar?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new CareerBattingStatsDTO(source);
@@ -236,6 +242,8 @@ export namespace main {
 	        this.kPct = source["kPct"];
 	        this.bbPct = source["bbPct"];
 	        this.abPerHr = source["abPerHr"];
+	        this.opsPlus = source["opsPlus"];
+	        this.smbWar = source["smbWar"];
 	    }
 	}
 	export class CareerLeaderDTO {
@@ -328,6 +336,10 @@ export namespace main {
 	    kPct?: number;
 	    winPct?: number;
 	    pPerIp?: number;
+	    eraPlus?: number;
+	    fip?: number;
+	    fipMinus?: number;
+	    smbWar?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new CareerPitchingStatsDTO(source);
@@ -364,6 +376,10 @@ export namespace main {
 	        this.kPct = source["kPct"];
 	        this.winPct = source["winPct"];
 	        this.pPerIp = source["pPerIp"];
+	        this.eraPlus = source["eraPlus"];
+	        this.fip = source["fip"];
+	        this.fipMinus = source["fipMinus"];
+	        this.smbWar = source["smbWar"];
 	    }
 	}
 	export class FranchiseDTO {
@@ -687,6 +703,10 @@ export namespace main {
 	    kPct?: number;
 	    winPct?: number;
 	    pPerIp?: number;
+	    eraPlus?: number;
+	    fip?: number;
+	    fipMinus?: number;
+	    smbWar?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new PitchingLeaderRowDTO(source);
@@ -734,6 +754,10 @@ export namespace main {
 	        this.kPct = source["kPct"];
 	        this.winPct = source["winPct"];
 	        this.pPerIp = source["pPerIp"];
+	        this.eraPlus = source["eraPlus"];
+	        this.fip = source["fip"];
+	        this.fipMinus = source["fipMinus"];
+	        this.smbWar = source["smbWar"];
 	    }
 	}
 	export class PlayerAwardEntryDTO {

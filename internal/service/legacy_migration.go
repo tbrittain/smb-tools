@@ -527,6 +527,18 @@ func (svc *LegacyMigrationService) migrateInTx(
 		}
 	}
 
+	// ── 12. Context stats (OPS+, ERA+, FIP, FIP-, smbWAR) ───────────────────────
+	// ImportSeason computes these immediately after writing counting stats.
+	// The legacy migration must do the same after all batting/pitching rows land.
+	for _, newSeasonID := range legacySeasonIDToNew {
+		if err := ApplyContextStats(ctx, tx, newSeasonID, true); err != nil {
+			return result, fmt.Errorf("computing context stats for season %d (regular): %w", newSeasonID, err)
+		}
+		if err := ApplyContextStats(ctx, tx, newSeasonID, false); err != nil {
+			return result, fmt.Errorf("computing context stats for season %d (playoffs): %w", newSeasonID, err)
+		}
+	}
+
 	return result, nil
 }
 

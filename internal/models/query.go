@@ -108,6 +108,10 @@ type CareerBattingStats struct {
 	KPct    *float64
 	BBPct   *float64
 	ABPerHR *float64
+
+	// Context-dependent stats stored at sync time (nil for pre-Phase-8.5 seasons)
+	OPSPlus *float64 // 100 × (OBP/lgOBP + SLG/lgSLG − 1); higher = better
+	SmbWAR  *float64 // legacy-formula smbWAR: PA-weighted OPS+ + baserunning
 }
 
 // CareerPitchingStats holds summed pitching counting stats with computed rates.
@@ -144,6 +148,12 @@ type CareerPitchingStats struct {
 	KPct    *float64
 	WinPct  *float64
 	PPerIP  *float64
+
+	// Context-dependent stats stored at sync time (nil for pre-Phase-8.5 seasons)
+	ERAPlus  *float64 // 100 × lgERA / ERA; higher = better
+	FIP      *float64 // Fielding Independent Pitching (league-constant adjusted)
+	FIPMinus *float64 // 100 × FIP / lgERA; lower = better
+	SmbWAR   *float64 // legacy-formula smbWAR: IP-weighted avg of ERA+ and FIP+
 }
 
 // ── Player ────────────────────────────────────────────────────────────────────

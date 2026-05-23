@@ -3,7 +3,7 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import { RouterLink } from 'vue-router'
 import type { main } from '../../wailsjs/go/models'
-import { formatBA } from '../composables/useStatFormatters'
+import { formatAdjustedStat, formatBA, formatWAR } from '../composables/useStatFormatters'
 import EmptyState from './EmptyState.vue'
 
 defineProps<{
@@ -18,7 +18,7 @@ defineProps<{
     <DataTable
       v-else
       :value="rows"
-      sort-field="hits"
+      sort-field="smbWar"
       :sort-order="-1"
       size="small"
       removable-sort
@@ -68,6 +68,12 @@ defineProps<{
       </Column>
       <Column header="OPS" sort-field="ops" sortable style="width: 72px" class="col-rate">
         <template #body="{ data: r }">{{ formatBA(r.ops) }}</template>
+      </Column>
+      <Column header="OPS+" sort-field="opsPlus" sortable style="width: 68px" class="col-rate">
+        <template #body="{ data: r }">{{ formatAdjustedStat(r.opsPlus) }}</template>
+      </Column>
+      <Column header="smbWAR" sort-field="smbWar" sortable style="width: 80px" class="col-rate">
+        <template #body="{ data: r }">{{ formatWAR(r.smbWar) }}</template>
       </Column>
     </DataTable>
   </div>

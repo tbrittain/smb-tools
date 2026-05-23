@@ -104,6 +104,9 @@ type CareerBattingStatsDTO struct {
 	KPct           *float64 `json:"kPct"`
 	BBPct          *float64 `json:"bbPct"`
 	ABPerHR        *float64 `json:"abPerHr"`
+	// Context stats (nil for pre-Phase-8.5 seasons)
+	OPSPlus        *float64 `json:"opsPlus"`
+	SmbWAR         *float64 `json:"smbWar"`
 }
 
 // CareerPitchingStatsDTO contains counting stats and computed rate fields.
@@ -138,6 +141,11 @@ type CareerPitchingStatsDTO struct {
 	KPct            *float64 `json:"kPct"`
 	WinPct          *float64 `json:"winPct"`
 	PPerIP          *float64 `json:"pPerIp"`
+	// Context stats (nil for pre-Phase-8.5 seasons)
+	ERAPlus         *float64 `json:"eraPlus"`
+	FIP             *float64 `json:"fip"`
+	FIPMinus        *float64 `json:"fipMinus"`
+	SmbWAR          *float64 `json:"smbWar"`
 }
 
 // ── Players ───────────────────────────────────────────────────────────────────
@@ -389,6 +397,8 @@ func battingToDTO(b *models.CareerBattingStats) *CareerBattingStatsDTO {
 		KPct:           b.KPct,
 		BBPct:          b.BBPct,
 		ABPerHR:        b.ABPerHR,
+		OPSPlus:        b.OPSPlus,
+		SmbWAR:         b.SmbWAR,
 	}
 }
 
@@ -426,6 +436,10 @@ func pitchingToDTO(p *models.CareerPitchingStats) *CareerPitchingStatsDTO {
 		KPct:            p.KPct,
 		WinPct:          p.WinPct,
 		PPerIP:          p.PPerIP,
+		ERAPlus:         p.ERAPlus,
+		FIP:             p.FIP,
+		FIPMinus:        p.FIPMinus,
+		SmbWAR:          p.SmbWAR,
 	}
 }
 
@@ -580,6 +594,9 @@ type BattingLeaderRowDTO struct {
 	KPct    *float64 `json:"kPct"`
 	BBPct   *float64 `json:"bbPct"`
 	ABPerHR *float64 `json:"abPerHr"`
+	// Context stats (nil for seasons synced before Phase 8.5)
+	OPSPlus *float64 `json:"opsPlus"`
+	SmbWAR  *float64 `json:"smbWar"`
 }
 
 // PitchingLeaderRowDTO is one row in a pitching leaderboard (career or season).
@@ -627,6 +644,11 @@ type PitchingLeaderRowDTO struct {
 	KPct   *float64 `json:"kPct"`
 	WinPct *float64 `json:"winPct"`
 	PPerIP *float64 `json:"pPerIp"`
+	// Context stats (nil for seasons synced before Phase 8.5)
+	ERAPlus  *float64 `json:"eraPlus"`
+	FIP      *float64 `json:"fip"`
+	FIPMinus *float64 `json:"fipMinus"`
+	SmbWAR   *float64 `json:"smbWar"`
 }
 
 // ── Leaderboard mapping helpers ───────────────────────────────────────────────
@@ -644,92 +666,79 @@ func leaderboardFiltersToDomain(f LeaderboardFiltersDTO) models.LeaderboardFilte
 	}
 }
 
-func battingStatsToLeaderDTO(b models.CareerBattingStats) (
-	gp, gb, ab, r, h, d, tr, hr, rbi, sb, cs, bb, k, hbp, sh, sf, e, pb int,
-	ba, obp, slg, ops, iso, babip, kpct, bbpct, abhr *float64,
-) {
-	return b.GamesPlayed, b.GamesBatting,
-		b.AtBats, b.Runs, b.Hits, b.Doubles, b.Triples, b.HomeRuns, b.RBI,
-		b.StolenBases, b.CaughtStealing, b.Walks, b.Strikeouts,
-		b.HitByPitch, b.SacHits, b.SacFlies, b.Errors, b.PassedBalls,
-		b.BA, b.OBP, b.SLG, b.OPS, b.ISO, b.BABIP, b.KPct, b.BBPct, b.ABPerHR
-}
-
 func battingCareerLeaderToDTO(r models.BattingCareerLeaderRow) BattingLeaderRowDTO {
-	gp, gb, ab, runs, h, d, tr, hr, rbi, sb, cs, bb, k, hbp, sh, sf, e, pb,
-		ba, obp, slg, ops, iso, babip, kpct, bbpct, abhr := battingStatsToLeaderDTO(r.CareerBattingStats)
+	b := r.CareerBattingStats
 	return BattingLeaderRowDTO{
 		PlayerID: r.PlayerID, FirstName: r.FirstName, LastName: r.LastName,
 		IsHallOfFamer: r.IsHallOfFamer, SeasonsPlayed: r.SeasonsPlayed,
-		GamesPlayed: gp, GamesBatting: gb,
-		AtBats: ab, Runs: runs, Hits: h, Doubles: d, Triples: tr, HomeRuns: hr, RBI: rbi,
-		StolenBases: sb, CaughtStealing: cs, Walks: bb, Strikeouts: k,
-		HitByPitch: hbp, SacHits: sh, SacFlies: sf, Errors: e, PassedBalls: pb,
-		BA: ba, OBP: obp, SLG: slg, OPS: ops, ISO: iso,
-		BABIP: babip, KPct: kpct, BBPct: bbpct, ABPerHR: abhr,
+		GamesPlayed: b.GamesPlayed, GamesBatting: b.GamesBatting,
+		AtBats: b.AtBats, Runs: b.Runs, Hits: b.Hits,
+		Doubles: b.Doubles, Triples: b.Triples, HomeRuns: b.HomeRuns, RBI: b.RBI,
+		StolenBases: b.StolenBases, CaughtStealing: b.CaughtStealing,
+		Walks: b.Walks, Strikeouts: b.Strikeouts,
+		HitByPitch: b.HitByPitch, SacHits: b.SacHits, SacFlies: b.SacFlies,
+		Errors: b.Errors, PassedBalls: b.PassedBalls,
+		BA: b.BA, OBP: b.OBP, SLG: b.SLG, OPS: b.OPS, ISO: b.ISO,
+		BABIP: b.BABIP, KPct: b.KPct, BBPct: b.BBPct, ABPerHR: b.ABPerHR,
+		OPSPlus: b.OPSPlus, SmbWAR: b.SmbWAR,
 	}
 }
 
 func battingSeasonLeaderToDTO(r models.BattingSeasonLeaderRow) BattingLeaderRowDTO {
-	gp, gb, ab, runs, h, d, tr, hr, rbi, sb, cs, bb, k, hbp, sh, sf, e, pb,
-		ba, obp, slg, ops, iso, babip, kpct, bbpct, abhr := battingStatsToLeaderDTO(r.CareerBattingStats)
+	b := r.CareerBattingStats
 	return BattingLeaderRowDTO{
 		PlayerID: r.PlayerID, FirstName: r.FirstName, LastName: r.LastName,
 		IsHallOfFamer: r.IsHallOfFamer,
 		SeasonNum: r.SeasonNum, TeamName: r.TeamName, Age: r.Age,
 		PrimaryPosition: r.PrimaryPosition, BatHand: r.BatHand, ChemistryType: r.ChemistryType,
-		GamesPlayed: gp, GamesBatting: gb,
-		AtBats: ab, Runs: runs, Hits: h, Doubles: d, Triples: tr, HomeRuns: hr, RBI: rbi,
-		StolenBases: sb, CaughtStealing: cs, Walks: bb, Strikeouts: k,
-		HitByPitch: hbp, SacHits: sh, SacFlies: sf, Errors: e, PassedBalls: pb,
-		BA: ba, OBP: obp, SLG: slg, OPS: ops, ISO: iso,
-		BABIP: babip, KPct: kpct, BBPct: bbpct, ABPerHR: abhr,
+		GamesPlayed: b.GamesPlayed, GamesBatting: b.GamesBatting,
+		AtBats: b.AtBats, Runs: b.Runs, Hits: b.Hits,
+		Doubles: b.Doubles, Triples: b.Triples, HomeRuns: b.HomeRuns, RBI: b.RBI,
+		StolenBases: b.StolenBases, CaughtStealing: b.CaughtStealing,
+		Walks: b.Walks, Strikeouts: b.Strikeouts,
+		HitByPitch: b.HitByPitch, SacHits: b.SacHits, SacFlies: b.SacFlies,
+		Errors: b.Errors, PassedBalls: b.PassedBalls,
+		BA: b.BA, OBP: b.OBP, SLG: b.SLG, OPS: b.OPS, ISO: b.ISO,
+		BABIP: b.BABIP, KPct: b.KPct, BBPct: b.BBPct, ABPerHR: b.ABPerHR,
+		OPSPlus: b.OPSPlus, SmbWAR: b.SmbWAR,
 	}
 }
 
-func pitchingStatsToLeaderDTO(p models.CareerPitchingStats) (
-	w, l, g, gs, cg, sho, sv, outs, h, er, hra, bb, k, hb, bf, gf, ra, wp, tp int,
-	era, whip, k9, bb9, h9, hr9, kperbb, kpct, winpct, pperip *float64,
-) {
-	return p.Wins, p.Losses, p.Games, p.GamesStarted,
-		p.CompleteGames, p.Shutouts, p.Saves, p.OutsPitched,
-		p.HitsAllowed, p.EarnedRuns, p.HomeRunsAllowed, p.Walks,
-		p.Strikeouts, p.HitBatters, p.BattersFaced, p.GamesFinished,
-		p.RunsAllowed, p.WildPitches, p.TotalPitches,
-		p.ERA, p.WHIP, p.K9, p.BB9, p.H9, p.HR9, p.KPerBB, p.KPct, p.WinPct, p.PPerIP
-}
-
 func pitchingCareerLeaderToDTO(r models.PitchingCareerLeaderRow) PitchingLeaderRowDTO {
-	w, l, g, gs, cg, sho, sv, outs, h, er, hra, bb, k, hb, bf, gf, ra, wp, tp,
-		era, whip, k9, bb9, h9, hr9, kperbb, kpct, winpct, pperip := pitchingStatsToLeaderDTO(r.CareerPitchingStats)
+	p := r.CareerPitchingStats
 	return PitchingLeaderRowDTO{
 		PlayerID: r.PlayerID, FirstName: r.FirstName, LastName: r.LastName,
 		IsHallOfFamer: r.IsHallOfFamer, SeasonsPlayed: r.SeasonsPlayed,
-		Wins: w, Losses: l, Games: g, GamesStarted: gs,
-		CompleteGames: cg, Shutouts: sho, Saves: sv, OutsPitched: outs,
-		HitsAllowed: h, EarnedRuns: er, HomeRunsAllowed: hra, Walks: bb,
-		Strikeouts: k, HitBatters: hb, BattersFaced: bf, GamesFinished: gf,
-		RunsAllowed: ra, WildPitches: wp, TotalPitches: tp,
-		ERA: era, WHIP: whip, K9: k9, BB9: bb9, H9: h9, HR9: hr9,
-		KPerBB: kperbb, KPct: kpct, WinPct: winpct, PPerIP: pperip,
+		Wins: p.Wins, Losses: p.Losses, Games: p.Games, GamesStarted: p.GamesStarted,
+		CompleteGames: p.CompleteGames, Shutouts: p.Shutouts, Saves: p.Saves,
+		OutsPitched: p.OutsPitched,
+		HitsAllowed: p.HitsAllowed, EarnedRuns: p.EarnedRuns, HomeRunsAllowed: p.HomeRunsAllowed,
+		Walks: p.Walks, Strikeouts: p.Strikeouts, HitBatters: p.HitBatters,
+		BattersFaced: p.BattersFaced, GamesFinished: p.GamesFinished,
+		RunsAllowed: p.RunsAllowed, WildPitches: p.WildPitches, TotalPitches: p.TotalPitches,
+		ERA: p.ERA, WHIP: p.WHIP, K9: p.K9, BB9: p.BB9, H9: p.H9, HR9: p.HR9,
+		KPerBB: p.KPerBB, KPct: p.KPct, WinPct: p.WinPct, PPerIP: p.PPerIP,
+		SmbWAR: p.SmbWAR,
 	}
 }
 
 func pitchingSeasonLeaderToDTO(r models.PitchingSeasonLeaderRow) PitchingLeaderRowDTO {
-	w, l, g, gs, cg, sho, sv, outs, h, er, hra, bb, k, hb, bf, gf, ra, wp, tp,
-		era, whip, k9, bb9, h9, hr9, kperbb, kpct, winpct, pperip := pitchingStatsToLeaderDTO(r.CareerPitchingStats)
+	p := r.CareerPitchingStats
 	return PitchingLeaderRowDTO{
 		PlayerID: r.PlayerID, FirstName: r.FirstName, LastName: r.LastName,
 		IsHallOfFamer: r.IsHallOfFamer,
 		SeasonNum: r.SeasonNum, TeamName: r.TeamName, Age: r.Age,
 		PitcherRole: r.PitcherRole, ThrowHand: r.ThrowHand, ChemistryType: r.ChemistryType,
-		Wins: w, Losses: l, Games: g, GamesStarted: gs,
-		CompleteGames: cg, Shutouts: sho, Saves: sv, OutsPitched: outs,
-		HitsAllowed: h, EarnedRuns: er, HomeRunsAllowed: hra, Walks: bb,
-		Strikeouts: k, HitBatters: hb, BattersFaced: bf, GamesFinished: gf,
-		RunsAllowed: ra, WildPitches: wp, TotalPitches: tp,
-		ERA: era, WHIP: whip, K9: k9, BB9: bb9, H9: h9, HR9: hr9,
-		KPerBB: kperbb, KPct: kpct, WinPct: winpct, PPerIP: pperip,
+		Wins: p.Wins, Losses: p.Losses, Games: p.Games, GamesStarted: p.GamesStarted,
+		CompleteGames: p.CompleteGames, Shutouts: p.Shutouts, Saves: p.Saves,
+		OutsPitched: p.OutsPitched,
+		HitsAllowed: p.HitsAllowed, EarnedRuns: p.EarnedRuns, HomeRunsAllowed: p.HomeRunsAllowed,
+		Walks: p.Walks, Strikeouts: p.Strikeouts, HitBatters: p.HitBatters,
+		BattersFaced: p.BattersFaced, GamesFinished: p.GamesFinished,
+		RunsAllowed: p.RunsAllowed, WildPitches: p.WildPitches, TotalPitches: p.TotalPitches,
+		ERA: p.ERA, WHIP: p.WHIP, K9: p.K9, BB9: p.BB9, H9: p.H9, HR9: p.HR9,
+		KPerBB: p.KPerBB, KPct: p.KPct, WinPct: p.WinPct, PPerIP: p.PPerIP,
+		ERAPlus: p.ERAPlus, FIP: p.FIP, FIPMinus: p.FIPMinus, SmbWAR: p.SmbWAR,
 	}
 }
 
