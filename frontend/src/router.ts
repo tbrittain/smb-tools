@@ -8,6 +8,7 @@ const router = createRouter({
     {
       path: '/teams',
       component: () => import('./pages/TeamsPage.vue'),
+      meta: { fullWidth: true },
     },
     {
       path: '/teams/:teamId',
@@ -35,6 +36,7 @@ const router = createRouter({
     {
       path: '/leaderboards',
       component: () => import('./pages/LeaderboardsPage.vue'),
+      meta: { fullWidth: true },
     },
     {
       path: '/awards',

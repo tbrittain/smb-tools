@@ -309,7 +309,6 @@ onMounted(loadDashboardData)
   display: flex;
   flex-direction: column;
   gap: 2rem;
-  max-width: 1000px;
 }
 
 .page-header {
