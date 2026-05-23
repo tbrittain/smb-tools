@@ -101,6 +101,7 @@ async function handleSelect(id: string) {
           <router-link to="/awards">Awards</router-link>
           <router-link to="/hall-of-fame">Hall of Fame</router-link>
           <router-link to="/search">Search</router-link>
+          <router-link to="/setup">Setup</router-link>
         </nav>
         <div class="sidebar-footer">
           <span class="active-franchise-name">{{ franchiseStore.active.name }}</span>

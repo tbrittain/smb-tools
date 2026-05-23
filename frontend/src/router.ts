@@ -50,6 +50,10 @@ const router = createRouter({
       component: () => import('./pages/HallOfFamePage.vue'),
     },
     {
+      path: '/setup',
+      component: () => import('./pages/SetupPage.vue'),
+    },
+    {
       path: '/migrate-legacy',
       component: () => import('./pages/LegacyMigrationPage.vue'),
     },

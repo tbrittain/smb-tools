@@ -17,6 +17,11 @@ import (
 	"smb-tools/internal/store"
 )
 
+// legacyMigrationSourcePath is the placeholder path stored in franchise_source
+// for franchises imported via legacy migration. It is not a real file path and
+// must never be opened as one.
+const legacyMigrationSourcePath = "(legacy migration)"
+
 // FranchiseDTO is the data transfer object returned to the frontend for
 // franchise list and selection operations.
 type FranchiseDTO struct {
@@ -1038,7 +1043,7 @@ func franchiseToDTO(f models.Franchise, src models.FranchiseSource) FranchiseDTO
 		ID:          f.ID,
 		Name:        f.Name,
 		GameVersion: f.GameVersion.String(),
-		HasActiveSource:  src.SaveFilePath != "",
+		HasActiveSource:  src.SaveFilePath != "" && src.SaveFilePath != legacyMigrationSourcePath,
 		ActiveSourcePath: src.SaveFilePath,
 	}
 	if f.LastSyncedAt != nil {
@@ -1375,7 +1380,7 @@ func (a *App) MigrateLegacyFranchise(
 
 	// Register the synthetic source so the franchise has a source entry.
 	if _, err := a.franchiseSourceStore.Add(a.ctx, newFranchise.ID,
-		"(legacy migration)", leagueGUID, 0); err != nil {
+		legacyMigrationSourcePath, leagueGUID, 0); err != nil {
 		return MigrateLegacyResult{}, fmt.Errorf("registering legacy source: %w", err)
 	}
 
