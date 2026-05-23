@@ -3,7 +3,16 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import { computed } from 'vue'
 import type { main } from '../../wailsjs/go/models'
-import { formatBA, formatERA, formatIP, formatK9, formatWHIP } from '../composables/useStatFormatters'
+import {
+  formatAdjustedStat,
+  formatBA,
+  formatERA,
+  formatFIP,
+  formatIP,
+  formatK9,
+  formatWAR,
+  formatWHIP,
+} from '../composables/useStatFormatters'
 import EmptyState from './EmptyState.vue'
 
 const props = defineProps<{
@@ -74,6 +83,12 @@ const data = computed(() =>
       <Column header="OPS" sortable sort-field="_b.ops" style="width: 72px" class="col-rate">
         <template #body="{ data: r }">{{ formatBA(r._b?.ops) }}</template>
       </Column>
+      <Column header="OPS+" sortable sort-field="_b.opsPlus" style="width: 68px" class="col-rate">
+        <template #body="{ data: r }">{{ formatAdjustedStat(r._b?.opsPlus) }}</template>
+      </Column>
+      <Column header="smbWAR" sortable sort-field="_b.smbWar" style="width: 80px" class="col-rate">
+        <template #body="{ data: r }">{{ formatWAR(r._b?.smbWar) }}</template>
+      </Column>
     </DataTable>
 
     <!-- Pitching mode -->
@@ -126,6 +141,18 @@ const data = computed(() =>
       </Column>
       <Column header="K/9" sortable sort-field="_p.k9" style="width: 65px" class="col-rate">
         <template #body="{ data: r }">{{ formatK9(r._p?.k9) }}</template>
+      </Column>
+      <Column header="ERA+" sortable sort-field="_p.eraPlus" style="width: 68px" class="col-rate">
+        <template #body="{ data: r }">{{ formatAdjustedStat(r._p?.eraPlus) }}</template>
+      </Column>
+      <Column header="FIP" sortable sort-field="_p.fip" style="width: 65px" class="col-rate">
+        <template #body="{ data: r }">{{ formatFIP(r._p?.fip) }}</template>
+      </Column>
+      <Column header="FIP-" sortable sort-field="_p.fipMinus" style="width: 65px" class="col-rate">
+        <template #body="{ data: r }">{{ formatAdjustedStat(r._p?.fipMinus) }}</template>
+      </Column>
+      <Column header="smbWAR" sortable sort-field="_p.smbWar" style="width: 80px" class="col-rate">
+        <template #body="{ data: r }">{{ formatWAR(r._p?.smbWar) }}</template>
       </Column>
     </DataTable>
   </div>

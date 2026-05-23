@@ -104,6 +104,9 @@ type CareerBattingStatsDTO struct {
 	KPct           *float64 `json:"kPct"`
 	BBPct          *float64 `json:"bbPct"`
 	ABPerHR        *float64 `json:"abPerHr"`
+	// Context stats (nil for pre-Phase-8.5 seasons)
+	OPSPlus        *float64 `json:"opsPlus"`
+	SmbWAR         *float64 `json:"smbWar"`
 }
 
 // CareerPitchingStatsDTO contains counting stats and computed rate fields.
@@ -138,6 +141,11 @@ type CareerPitchingStatsDTO struct {
 	KPct            *float64 `json:"kPct"`
 	WinPct          *float64 `json:"winPct"`
 	PPerIP          *float64 `json:"pPerIp"`
+	// Context stats (nil for pre-Phase-8.5 seasons)
+	ERAPlus         *float64 `json:"eraPlus"`
+	FIP             *float64 `json:"fip"`
+	FIPMinus        *float64 `json:"fipMinus"`
+	SmbWAR          *float64 `json:"smbWar"`
 }
 
 // ── Players ───────────────────────────────────────────────────────────────────
@@ -389,6 +397,8 @@ func battingToDTO(b *models.CareerBattingStats) *CareerBattingStatsDTO {
 		KPct:           b.KPct,
 		BBPct:          b.BBPct,
 		ABPerHR:        b.ABPerHR,
+		OPSPlus:        b.OPSPlus,
+		SmbWAR:         b.SmbWAR,
 	}
 }
 
@@ -426,6 +436,10 @@ func pitchingToDTO(p *models.CareerPitchingStats) *CareerPitchingStatsDTO {
 		KPct:            p.KPct,
 		WinPct:          p.WinPct,
 		PPerIP:          p.PPerIP,
+		ERAPlus:         p.ERAPlus,
+		FIP:             p.FIP,
+		FIPMinus:        p.FIPMinus,
+		SmbWAR:          p.SmbWAR,
 	}
 }
 

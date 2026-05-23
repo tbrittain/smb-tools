@@ -1,6 +1,15 @@
 <script lang="ts" setup>
 import type { main } from '../../wailsjs/go/models'
-import { formatBA, formatERA, formatIP, formatK9, formatWHIP } from '../composables/useStatFormatters'
+import {
+  formatAdjustedStat,
+  formatBA,
+  formatERA,
+  formatFIP,
+  formatIP,
+  formatK9,
+  formatWAR,
+  formatWHIP,
+} from '../composables/useStatFormatters'
 
 defineProps<{
   batting: main.CareerBattingStatsDTO | null | undefined
@@ -57,6 +66,14 @@ defineProps<{
           <span class="stat-label">OPS</span>
           <span class="stat-val">{{ formatBA(batting.ops) }}</span>
         </div>
+        <div v-if="batting.opsPlus != null" class="stat-cell highlight">
+          <span class="stat-label">OPS+</span>
+          <span class="stat-val">{{ formatAdjustedStat(batting.opsPlus) }}</span>
+        </div>
+        <div v-if="batting.smbWar != null" class="stat-cell highlight">
+          <span class="stat-label">smbWAR</span>
+          <span class="stat-val">{{ formatWAR(batting.smbWar) }}</span>
+        </div>
       </div>
     </div>
 
@@ -106,6 +123,22 @@ defineProps<{
         <div class="stat-cell highlight">
           <span class="stat-label">K/9</span>
           <span class="stat-val">{{ formatK9(pitching.k9) }}</span>
+        </div>
+        <div v-if="pitching.eraPlus != null" class="stat-cell highlight">
+          <span class="stat-label">ERA+</span>
+          <span class="stat-val">{{ formatAdjustedStat(pitching.eraPlus) }}</span>
+        </div>
+        <div v-if="pitching.fip != null" class="stat-cell highlight">
+          <span class="stat-label">FIP</span>
+          <span class="stat-val">{{ formatFIP(pitching.fip) }}</span>
+        </div>
+        <div v-if="pitching.fipMinus != null" class="stat-cell highlight">
+          <span class="stat-label">FIP-</span>
+          <span class="stat-val">{{ formatAdjustedStat(pitching.fipMinus) }}</span>
+        </div>
+        <div v-if="pitching.smbWar != null" class="stat-cell highlight">
+          <span class="stat-label">smbWAR</span>
+          <span class="stat-val">{{ formatWAR(pitching.smbWar) }}</span>
         </div>
       </div>
     </div>
