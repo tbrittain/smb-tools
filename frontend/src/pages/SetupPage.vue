@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
-import { SyncSeason } from '../../wailsjs/go/main/App'
+import { computed, onMounted, ref } from 'vue'
+import { ListFranchiseSources, SyncSeason } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppButton from '../components/AppButton.vue'
 import SaveFilePicker from '../components/SaveFilePicker.vue'
@@ -8,27 +8,96 @@ import { useFranchiseStore } from '../stores/franchise'
 
 const franchiseStore = useFranchiseStore()
 
-// ── Save file configuration ──────────────────────────────────────────────────
+// ── Source history ────────────────────────────────────────────────────────────
 
-const showSaveFilePicker = ref(false)
-const saveFileError = ref<string | null>(null)
-const showForkPicker = ref(false)
-const forkSeasonOffset = ref(0)
-const forkError = ref<string | null>(null)
+const sources = ref<main.FranchiseSourceDTO[]>([])
+
+const sortedSources = computed(() => [...sources.value].sort((a, b) => a.seasonOffset - b.seasonOffset))
+
+const lastSeason = computed(() => franchiseStore.active?.lastSeason ?? 0)
+
+const sourcesWithRanges = computed(() => {
+  const s = sortedSources.value
+  return s.map((src, i) => {
+    const start = src.seasonOffset + 1
+    const nextOffset = i + 1 < s.length ? s[i + 1].seasonOffset : null
+    const end = nextOffset ?? lastSeason.value
+    return { ...src, start, end }
+  })
+})
+
+// Passed to SaveFilePicker so previously-used paths show a usage label.
+const usedSourceLabels = computed<Record<string, string>>(() => {
+  const map: Record<string, string> = {}
+  for (const s of sourcesWithRanges.value) {
+    if (s.saveFilePath === '(legacy migration)') continue
+    const label =
+      s.end === 0 || s.start > s.end
+        ? 'Previously used — no seasons synced yet'
+        : s.start === s.end
+          ? `Previously used · Season ${s.start}`
+          : `Previously used · Seasons ${s.start}–${s.end}`
+    map[s.saveFilePath] = label
+  }
+  return map
+})
+
+async function loadSources() {
+  if (!franchiseStore.active) return
+  try {
+    sources.value = await ListFranchiseSources(franchiseStore.active.id)
+  } catch {
+    // non-fatal — source history just won't display
+  }
+}
+
+onMounted(loadSources)
+
+function sourceDisplayName(path: string): string {
+  if (path === '(legacy migration)') return 'Legacy import'
+  return path.split(/[\\/]/).pop() ?? path
+}
+
+function formatRange(start: number, end: number): string {
+  if (end === 0 || start > end) return 'No seasons synced yet'
+  if (start === end) return `Season ${start}`
+  return `Seasons ${start}–${end}`
+}
+
+function formatDate(iso: string): string {
+  return iso ? new Date(iso).toLocaleDateString() : ''
+}
+
+// ── Replace active source ────────────────────────────────────────────────────
+
+const showReplacePicker = ref(false)
+const replaceError = ref<string | null>(null)
 
 async function handleSaveFileChange(path: string, leagueGUID: string) {
   if (!franchiseStore.active) return
-  saveFileError.value = null
+  replaceError.value = null
   try {
     if (franchiseStore.active.hasActiveSource) {
       await franchiseStore.replaceActiveFranchiseSource(franchiseStore.active.id, path, leagueGUID)
     } else {
       await franchiseStore.setInitialSource(franchiseStore.active.id, path, leagueGUID)
     }
-    showSaveFilePicker.value = false
+    showReplacePicker.value = false
+    await loadSources()
   } catch (e) {
-    saveFileError.value = String(e)
+    replaceError.value = String(e)
   }
+}
+
+// ── Fork source ──────────────────────────────────────────────────────────────
+
+const showForkForm = ref(false)
+const forkSeasonOffset = ref(0)
+const forkError = ref<string | null>(null)
+
+function openForkForm() {
+  forkSeasonOffset.value = franchiseStore.active?.lastSeason ?? 0
+  showForkForm.value = true
 }
 
 async function handleForkSourceChange(path: string, leagueGUID: string) {
@@ -36,15 +105,11 @@ async function handleForkSourceChange(path: string, leagueGUID: string) {
   forkError.value = null
   try {
     await franchiseStore.addFranchiseSource(franchiseStore.active.id, path, leagueGUID, forkSeasonOffset.value)
-    showForkPicker.value = false
+    showForkForm.value = false
+    await loadSources()
   } catch (e) {
     forkError.value = String(e)
   }
-}
-
-function openForkPicker() {
-  forkSeasonOffset.value = franchiseStore.active?.lastSeason ?? 0
-  showForkPicker.value = true
 }
 
 // ── Sync ────────────────────────────────────────────────────────────────────
@@ -77,54 +142,98 @@ async function handleSync() {
       <span class="subtitle">{{ franchiseStore.active?.name }}</span>
     </header>
 
-    <!-- Save file configuration -->
+    <!-- Connected save files -->
     <section class="card-section">
-      <div class="section-header-row">
-        <h3>Save File</h3>
-        <div v-if="franchiseStore.active?.hasActiveSource && !showSaveFilePicker && !showForkPicker" class="source-actions">
-          <AppButton variant="ghost" size="sm" @click="showSaveFilePicker = true">Replace file</AppButton>
-          <AppButton variant="ghost" size="sm" @click="openForkPicker">Add fork source</AppButton>
+      <h3>Connected Save Files</h3>
+
+      <!-- No source yet — show picker to connect one -->
+      <template v-if="!franchiseStore.active?.hasActiveSource && !sourcesWithRanges.length">
+        <p class="hint-text">Connect a save file to enable syncing.</p>
+        <SaveFilePicker @change="handleSaveFileChange" />
+        <p v-if="replaceError" class="error-text">{{ replaceError }}</p>
+      </template>
+
+      <!-- Source history list -->
+      <template v-else>
+        <div class="source-list">
+          <div
+            v-for="(src, i) in sourcesWithRanges"
+            :key="src.id"
+            class="source-row"
+          >
+            <div class="source-info">
+              <span class="source-name" :class="{ 'source-name--legacy': src.saveFilePath === '(legacy migration)' }">
+                {{ sourceDisplayName(src.saveFilePath) }}
+              </span>
+              <span class="source-meta">
+                <template v-if="src.saveFilePath !== '(legacy migration)'">
+                  {{ formatRange(src.start, src.end) }} ·
+                </template>
+                Added {{ formatDate(src.addedAt) }}
+              </span>
+            </div>
+            <!-- Replace link only on the active (last) real source -->
+            <button
+              v-if="i === sourcesWithRanges.length - 1 && src.saveFilePath !== '(legacy migration)' && !showReplacePicker"
+              class="replace-link"
+              @click="showReplacePicker = true"
+            >
+              replace
+            </button>
+          </div>
         </div>
+
+        <!-- Inline replace picker -->
+        <template v-if="showReplacePicker">
+          <p class="hint-text">
+            Select the corrected save file. This replaces the current active source in-place —
+            use this only to fix a wrong file selection, not to add a new league.
+          </p>
+          <SaveFilePicker
+            :selected-path="franchiseStore.active?.activeSourcePath"
+            :used-source-labels="usedSourceLabels"
+            @change="handleSaveFileChange"
+          />
+          <p v-if="replaceError" class="error-text">{{ replaceError }}</p>
+          <AppButton variant="ghost" size="sm" @click="showReplacePicker = false">Cancel</AppButton>
+        </template>
+      </template>
+    </section>
+
+    <!-- Fork to new league — deliberately separate, below, with explanation -->
+    <section
+      v-if="franchiseStore.active?.hasActiveSource && !showReplacePicker"
+      class="card-section card-section--fork"
+    >
+      <div class="fork-header">
+        <div class="fork-title-group">
+          <h3>Fork to New League</h3>
+          <span class="advanced-badge">Advanced</span>
+        </div>
+        <AppButton v-if="!showForkForm" variant="ghost" size="sm" @click="openForkForm">
+          Add Fork Source
+        </AppButton>
       </div>
 
-      <template v-if="franchiseStore.active?.hasActiveSource && !showSaveFilePicker && !showForkPicker">
-        <p class="save-path">{{ franchiseStore.active.activeSourcePath }}</p>
-      </template>
+      <p class="fork-description">
+        Use this if your franchise was exported to a new SMB4 league — for example after
+        the game prompted you to start fresh in a new save. Connect the new save file here
+        and smb-tools will continue numbering imported seasons sequentially after your last
+        synced season, keeping your franchise history continuous.
+      </p>
 
-      <template v-else-if="!showForkPicker">
-        <p v-if="!franchiseStore.active?.hasActiveSource" class="hint-text">
-          Connect a save file to enable syncing.
-        </p>
-        <SaveFilePicker
-          :selected-path="franchiseStore.active?.activeSourcePath"
-          @change="handleSaveFileChange"
-        />
-        <p v-if="saveFileError" class="error-text">{{ saveFileError }}</p>
-        <AppButton
-          v-if="showSaveFilePicker"
-          variant="ghost"
-          size="sm"
-          style="margin-top: 0.25rem"
-          @click="showSaveFilePicker = false"
-        >
-          Cancel
-        </AppButton>
-      </template>
-
-      <template v-else>
-        <p class="hint-text">
-          Select the save game file for the forked league. Seasons from this source will
-          be numbered starting after Season {{ forkSeasonOffset }}.
-        </p>
+      <template v-if="showForkForm">
         <div class="fork-offset-row">
           <label class="fork-label">Season offset</label>
           <input v-model.number="forkSeasonOffset" type="number" min="0" class="fork-offset-input" />
         </div>
-        <SaveFilePicker @change="handleForkSourceChange" />
+        <p class="hint-text">
+          Seasons from this source will be numbered starting after Season {{ forkSeasonOffset }}.
+          This should match your last synced season ({{ lastSeason }}).
+        </p>
+        <SaveFilePicker :used-source-labels="usedSourceLabels" @change="handleForkSourceChange" />
         <p v-if="forkError" class="error-text">{{ forkError }}</p>
-        <AppButton variant="ghost" size="sm" style="margin-top: 0.25rem" @click="showForkPicker = false">
-          Cancel
-        </AppButton>
+        <AppButton variant="ghost" size="sm" @click="showForkForm = false">Cancel</AppButton>
       </template>
     </section>
 
@@ -132,10 +241,10 @@ async function handleSync() {
     <section class="card-section">
       <h3>Sync Season</h3>
       <p class="sync-help">
-        Reads the current season from your save file. Sync once after the regular
-        season ends, then again after the playoffs conclude —
-        <strong>before</strong> progressing to the offseason. Advancing to the
-        offseason triggers in-game data compaction that can cause stat loss.
+        Reads the current season from your save file. Sync once after the regular season
+        ends, then again after the playoffs conclude — <strong>before</strong> progressing
+        to the offseason. Advancing to the offseason triggers in-game data compaction that
+        can cause stat loss.
       </p>
       <p v-if="syncError" class="error-text">{{ syncError }}</p>
       <div v-if="lastResult" class="sync-result">
@@ -162,6 +271,9 @@ async function handleSync() {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  max-width: 680px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .page-header {
@@ -196,31 +308,113 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 0.875rem;
-  max-width: 560px;
 }
 
-.section-header-row {
+.card-section--fork {
+  border-style: dashed;
+}
+
+/* Source history */
+.source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.source-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.625rem 0.75rem;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.source-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.source-name {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-name--legacy {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.source-meta {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.replace-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.replace-link:hover {
+  color: var(--color-accent);
+}
+
+/* Fork section */
+.fork-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
 }
 
-.source-actions {
+.fork-title-group {
   display: flex;
-  gap: 0.375rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.advanced-badge {
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+
+.fork-description {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
 }
 
 .fork-offset-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
 }
 
 .fork-label {
   font-size: 0.875rem;
   color: var(--color-text-secondary);
+  flex-shrink: 0;
 }
 
 .fork-offset-input {
@@ -233,13 +427,7 @@ h3 {
   font-size: 0.875rem;
 }
 
-.save-path {
-  font-size: 0.8125rem;
-  font-family: var(--font-mono);
-  color: var(--color-text-secondary);
-  word-break: break-all;
-}
-
+/* Sync */
 .sync-help {
   font-size: 0.875rem;
   color: var(--color-text-secondary);
@@ -255,5 +443,5 @@ h3 {
 }
 
 .error-text { font-size: 0.875rem; color: var(--color-error); }
-.hint-text  { font-size: 0.8125rem; color: var(--color-text-secondary); }
+.hint-text  { font-size: 0.8125rem; color: var(--color-text-secondary); line-height: 1.5; }
 </style>
