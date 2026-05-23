@@ -86,8 +86,17 @@ onMounted(async () => {
           :sort-order="-1"
           size="small"
           removable-sort
+          paginator
+          :rows="20"
+          :rows-per-page-options="[10, 20, 50]"
         >
-          <Column field="seasonNum" header="Season" sortable style="width: 80px" />
+          <Column field="seasonNum" header="Season" sortable style="width: 80px">
+            <template #body="{ data }">
+              <RouterLink :to="`/teams/${teamId}/seasons/${data.historyId}`" class="season-link">
+                {{ data.seasonNum }}
+              </RouterLink>
+            </template>
+          </Column>
           <Column field="teamName" header="Team" sortable style="min-width: 140px" />
           <Column field="conferenceName" header="Conf" sortable style="width: 80px" />
           <Column field="divisionName" header="Div" sortable style="width: 80px" />
@@ -112,16 +121,6 @@ onMounted(async () => {
               <span v-if="data.isChampion" class="champ-star" title="Champion">★</span>
             </template>
           </Column>
-          <Column header="" style="width: 80px">
-            <template #body="{ data }">
-              <RouterLink
-                :to="`/teams/${teamId}/seasons/${data.historyId}`"
-                class="detail-link"
-              >
-                Detail →
-              </RouterLink>
-            </template>
-          </Column>
         </DataTable>
       </section>
     </template>
@@ -136,7 +135,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 1.75rem;
-  max-width: 960px;
 }
 
 .page-header {
@@ -195,12 +193,12 @@ h3 {
 
 .champ-star { color: #d29922; }
 
-.detail-link {
-  font-size: 0.8125rem;
+.season-link {
   color: var(--color-accent);
   text-decoration: none;
+  font-variant-numeric: tabular-nums;
 }
-.detail-link:hover { text-decoration: underline; }
+.season-link:hover { text-decoration: underline; }
 
 .error-text { font-size: 0.875rem; color: var(--color-error); }
 </style>

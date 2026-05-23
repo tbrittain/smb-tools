@@ -45,53 +45,53 @@ defineProps<{
       </Column>
 
       <!-- Career identity columns -->
-      <Column v-if="isCareer" field="seasonsPlayed" header="Seasons" sortable style="width: 75px" />
+      <Column v-if="isCareer" field="seasonsPlayed" header="Seasons" sortable style="min-width: 75px" />
 
       <!-- Season identity columns -->
-      <Column v-if="!isCareer" field="seasonNum" header="Season" sortable style="width: 72px" />
+      <Column v-if="!isCareer" field="seasonNum" header="Season" sortable style="min-width: 72px" />
       <Column v-if="!isCareer" field="teamName" header="Team" sortable style="min-width: 120px" />
-      <Column v-if="!isCareer" field="age" header="Age" sortable style="width: 55px" />
-      <Column v-if="!isCareer" field="pitcherRole" header="Role" sortable style="width: 58px" />
-      <Column v-if="!isCareer" field="throwHand" header="Hand" sortable style="width: 60px" />
+      <Column v-if="!isCareer" field="age" header="Age" sortable style="min-width: 55px" />
+      <Column v-if="!isCareer" field="pitcherRole" header="Role" sortable style="min-width: 58px" />
+      <Column v-if="!isCareer" field="throwHand" header="Hand" sortable style="min-width: 60px" />
 
       <!-- Stat columns (shared) -->
-      <Column field="games" header="G" sortable style="width: 55px" />
-      <Column field="gamesStarted" header="GS" sortable style="width: 55px" />
-      <Column field="wins" header="W" sortable style="width: 50px" />
-      <Column field="losses" header="L" sortable style="width: 50px" />
-      <Column field="saves" header="SV" sortable style="width: 55px" />
-      <Column header="IP" sort-field="outsPitched" sortable style="width: 65px" class="col-rate">
+      <Column field="games" header="G" sortable style="min-width: 55px" />
+      <Column field="gamesStarted" header="GS" sortable style="min-width: 55px" />
+      <Column field="wins" header="W" sortable style="min-width: 50px" />
+      <Column field="losses" header="L" sortable style="min-width: 50px" />
+      <Column field="saves" header="SV" sortable style="min-width: 55px" />
+      <Column header="IP" sort-field="outsPitched" sortable style="min-width: 65px" class="col-rate">
         <template #body="{ data: r }">{{ formatIP(r.outsPitched) }}</template>
       </Column>
-      <Column field="hitsAllowed" header="H" sortable style="width: 55px" />
-      <Column field="earnedRuns" header="ER" sortable style="width: 55px" />
-      <Column field="walks" header="BB" sortable style="width: 55px" />
-      <Column field="strikeouts" header="K" sortable style="width: 55px" />
-      <Column header="ERA" sort-field="era" sortable style="width: 65px" class="col-rate">
+      <Column field="hitsAllowed" header="H" sortable style="min-width: 55px" />
+      <Column field="earnedRuns" header="ER" sortable style="min-width: 55px" />
+      <Column field="walks" header="BB" sortable style="min-width: 55px" />
+      <Column field="strikeouts" header="K" sortable style="min-width: 55px" />
+      <Column header="ERA" sort-field="era" sortable style="min-width: 65px" class="col-rate">
         <template #body="{ data: r }">{{ formatERA(r.era) }}</template>
       </Column>
-      <Column header="WHIP" sort-field="whip" sortable style="width: 70px" class="col-rate">
+      <Column header="WHIP" sort-field="whip" sortable style="min-width: 70px" class="col-rate">
         <template #body="{ data: r }">{{ formatWHIP(r.whip) }}</template>
       </Column>
-      <Column header="K/9" sort-field="k9" sortable style="width: 65px" class="col-rate">
+      <Column header="K/9" sort-field="k9" sortable style="min-width: 65px" class="col-rate">
         <template #body="{ data: r }">{{ formatK9(r.k9) }}</template>
       </Column>
-      <Column header="BB/9" sort-field="bb9" sortable style="width: 65px" class="col-rate">
+      <Column header="BB/9" sort-field="bb9" sortable style="min-width: 65px" class="col-rate">
         <template #body="{ data: r }">{{ formatK9(r.bb9) }}</template>
       </Column>
-      <Column header="K/BB" sort-field="kPerBb" sortable style="width: 65px" class="col-rate">
+      <Column header="K/BB" sort-field="kPerBb" sortable style="min-width: 65px" class="col-rate">
         <template #body="{ data: r }">{{ formatK9(r.kPerBb) }}</template>
       </Column>
-      <Column header="ERA+" sort-field="eraPlus" sortable style="width: 68px" class="col-rate">
+      <Column header="ERA+" sort-field="eraPlus" sortable style="min-width: 68px" class="col-rate">
         <template #body="{ data: r }">{{ formatAdjustedStat(r.eraPlus) }}</template>
       </Column>
-      <Column v-if="!isCareer" header="FIP" sort-field="fip" sortable style="width: 65px" class="col-rate">
+      <Column v-if="!isCareer" header="FIP" sort-field="fip" sortable style="min-width: 65px" class="col-rate">
         <template #body="{ data: r }">{{ formatFIP(r.fip) }}</template>
       </Column>
-      <Column v-if="!isCareer" header="FIP-" sort-field="fipMinus" sortable style="width: 65px" class="col-rate">
+      <Column v-if="!isCareer" header="FIP-" sort-field="fipMinus" sortable style="min-width: 65px" class="col-rate">
         <template #body="{ data: r }">{{ formatAdjustedStat(r.fipMinus) }}</template>
       </Column>
-      <Column header="smbWAR" sort-field="smbWar" sortable style="width: 80px" class="col-rate">
+      <Column header="smbWAR" sort-field="smbWar" sortable style="min-width: 80px" class="col-rate">
         <template #body="{ data: r }">{{ formatWAR(r.smbWar) }}</template>
       </Column>
     </DataTable>

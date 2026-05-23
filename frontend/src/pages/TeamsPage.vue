@@ -129,47 +129,47 @@ const rowCount = computed(() => {
             </RouterLink>
           </template>
         </Column>
-        <Column field="numSeasons" header="Seasons" sortable style="width: 80px" />
-        <Column field="wins" header="W" sortable style="width: 60px" />
-        <Column field="losses" header="L" sortable style="width: 60px" />
-        <Column field="winPct" header="PCT" sortable style="width: 70px">
+        <Column field="numSeasons" header="Seasons" sortable style="min-width: 80px" />
+        <Column field="wins" header="W" sortable style="min-width: 60px" />
+        <Column field="losses" header="L" sortable style="min-width: 60px" />
+        <Column field="winPct" header="PCT" sortable style="min-width: 70px">
           <template #body="{ data }">{{ fmtPct(data.winPct) }}</template>
         </Column>
-        <Column field="gamesOver500" header="G>500" sortable style="width: 70px">
+        <Column field="gamesOver500" header="G>500" sortable style="min-width: 70px">
           <template #body="{ data }">
             <span :class="data.gamesOver500 > 0 ? 'pos' : data.gamesOver500 < 0 ? 'neg' : ''">
               {{ data.gamesOver500 > 0 ? '+' : '' }}{{ data.gamesOver500 }}
             </span>
           </template>
         </Column>
-        <Column field="playoffAppearances" header="Playoff App" sortable style="width: 95px" />
-        <Column field="playoffWins" header="PW" sortable style="width: 55px" />
-        <Column field="playoffLosses" header="PL" sortable style="width: 55px" />
-        <Column field="divisionTitles" header="Div" sortable style="width: 55px" />
-        <Column field="conferenceTitles" header="Conf" sortable style="width: 55px" />
-        <Column field="championships" header="Champ" sortable style="width: 65px">
+        <Column field="playoffAppearances" header="Playoff App" sortable style="min-width: 95px" />
+        <Column field="playoffWins" header="PW" sortable style="min-width: 55px" />
+        <Column field="playoffLosses" header="PL" sortable style="min-width: 55px" />
+        <Column field="divisionTitles" header="Div" sortable style="min-width: 55px" />
+        <Column field="conferenceTitles" header="Conf" sortable style="min-width: 55px" />
+        <Column field="championships" header="Champ" sortable style="min-width: 65px">
           <template #body="{ data }">
             <span v-if="data.championships > 0" class="champ-value">{{ data.championships }}</span>
             <span v-else>0</span>
           </template>
         </Column>
-        <Column field="championshipDrought" header="Drought" sortable style="width: 75px" />
-        <Column field="numPlayers" header="Players" sortable style="width: 70px" />
-        <Column field="numHoF" header="HoF" sortable style="width: 55px">
+        <Column field="championshipDrought" header="Drought" sortable style="min-width: 75px" />
+        <Column field="numPlayers" header="Players" sortable style="min-width: 70px" />
+        <Column field="numHoF" header="HoF" sortable style="min-width: 55px">
           <template #body="{ data }">
             <span v-if="data.numHoF > 0" class="hof-value">{{ data.numHoF }}</span>
             <span v-else>0</span>
           </template>
         </Column>
-        <Column field="runsFor" header="R" sortable style="width: 65px" />
-        <Column field="runsAgainst" header="RA" sortable style="width: 65px" />
-        <Column field="totalAB" header="AB" sortable style="width: 70px" />
-        <Column field="totalHits" header="H" sortable style="width: 65px" />
-        <Column field="totalHR" header="HR" sortable style="width: 60px" />
-        <Column field="ba" header="BA" sortable style="width: 65px">
+        <Column field="runsFor" header="R" sortable style="min-width: 65px" />
+        <Column field="runsAgainst" header="RA" sortable style="min-width: 65px" />
+        <Column field="totalAB" header="AB" sortable style="min-width: 70px" />
+        <Column field="totalHits" header="H" sortable style="min-width: 65px" />
+        <Column field="totalHR" header="HR" sortable style="min-width: 60px" />
+        <Column field="ba" header="BA" sortable style="min-width: 65px">
           <template #body="{ data }">{{ fmtBA(data.ba) }}</template>
         </Column>
-        <Column field="era" header="ERA" sortable style="width: 65px">
+        <Column field="era" header="ERA" sortable style="min-width: 65px">
           <template #body="{ data }">{{ fmtERA(data.era) }}</template>
         </Column>
       </DataTable>

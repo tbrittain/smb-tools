@@ -101,6 +101,7 @@ async function handleSelect(id: string) {
           <router-link to="/awards">Awards</router-link>
           <router-link to="/hall-of-fame">Hall of Fame</router-link>
           <router-link to="/search">Search</router-link>
+          <router-link to="/setup">Setup</router-link>
         </nav>
         <div class="sidebar-footer">
           <span class="active-franchise-name">{{ franchiseStore.active.name }}</span>
@@ -111,7 +112,9 @@ async function handleSelect(id: string) {
         <div v-if="route.path !== '/'" class="content-topbar">
           <button class="back-btn" @click="router.go(-1)">&#8592; Back</button>
         </div>
-        <router-view />
+        <div class="page-view" :class="{ 'page-view--full': route.meta.fullWidth }">
+          <router-view />
+        </div>
       </main>
     </div>
   </div>
@@ -247,6 +250,19 @@ async function handleSelect(id: string) {
   background: var(--color-bg);
   display: flex;
   flex-direction: column;
+}
+
+.page-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.page-view--full {
+  max-width: none;
 }
 
 .content-topbar {

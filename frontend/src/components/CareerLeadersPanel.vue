@@ -6,36 +6,51 @@ defineProps<{
   leaders: main.CareerLeadersDTO | null
 }>()
 
-const categories: { key: keyof main.CareerLeadersDTO; label: string }[] = [
-  { key: 'hr', label: 'Home Runs' },
-  { key: 'hits', label: 'Hits' },
-  { key: 'rbi', label: 'RBI' },
-  { key: 'wins', label: 'Wins' },
-  { key: 'strikeouts', label: 'Strikeouts' },
-  { key: 'saves', label: 'Saves' },
+const groups: { label: string; categories: { key: keyof main.CareerLeadersDTO; label: string }[] }[] = [
+  {
+    label: 'Batting',
+    categories: [
+      { key: 'hr', label: 'Home Runs' },
+      { key: 'hits', label: 'Hits' },
+      { key: 'rbi', label: 'RBI' },
+    ],
+  },
+  {
+    label: 'Pitching',
+    categories: [
+      { key: 'wins', label: 'Wins' },
+      { key: 'strikeouts', label: 'Strikeouts' },
+      { key: 'saves', label: 'Saves' },
+    ],
+  },
 ]
 </script>
 
 <template>
   <div v-if="leaders" class="career-leaders">
-    <div v-for="cat in categories" :key="cat.key" class="category">
-      <h4 class="cat-label">{{ cat.label }}</h4>
-      <ol class="leader-list">
-        <li
-          v-for="(row, i) in leaders[cat.key]"
-          :key="row.playerId"
-          class="leader-row"
-        >
-          <span class="rank">{{ i + 1 }}</span>
-          <RouterLink :to="`/players/${row.playerId}`" class="player-name">
-            {{ row.firstName }} {{ row.lastName }}
-          </RouterLink>
-          <span class="stat-val">{{ Math.round(row.statValue) }}</span>
-        </li>
-        <li v-if="!leaders[cat.key]?.length" class="leader-row empty-row">
-          <span class="empty">—</span>
-        </li>
-      </ol>
+    <div v-for="group in groups" :key="group.label" class="career-group">
+      <span class="group-label">{{ group.label }}</span>
+      <div class="group-grid">
+        <div v-for="cat in group.categories" :key="cat.key" class="category">
+          <h4 class="cat-label">{{ cat.label }}</h4>
+          <ol class="leader-list">
+            <li
+              v-for="(row, i) in leaders[cat.key]"
+              :key="row.playerId"
+              class="leader-row"
+            >
+              <span class="rank">{{ i + 1 }}</span>
+              <RouterLink :to="`/players/${row.playerId}`" class="player-name">
+                {{ row.firstName }} {{ row.lastName }}
+              </RouterLink>
+              <span class="stat-val">{{ Math.round(row.statValue) }}</span>
+            </li>
+            <li v-if="!leaders[cat.key]?.length" class="leader-row empty-row">
+              <span class="empty">—</span>
+            </li>
+          </ol>
+        </div>
+      </div>
     </div>
   </div>
   <p v-else class="empty-text">No career data</p>
@@ -43,6 +58,26 @@ const categories: { key: keyof main.CareerLeadersDTO; label: string }[] = [
 
 <style scoped>
 .career-leaders {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.career-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.group-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.group-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 1rem;

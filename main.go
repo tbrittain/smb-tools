@@ -19,9 +19,10 @@ func main() {
 	app := NewApp(Version)
 
 	err := wails.Run(&options.App{
-		Title:  "smb-tools",
-		Width:  1920,
-		Height: 1080,
+		Title:            "smb-tools",
+		Width:            1920,
+		Height:           1080,
+		WindowStartState: options.Maximised,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

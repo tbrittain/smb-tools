@@ -28,32 +28,43 @@ function formatInt(v: number | null | undefined): string {
   <div class="leaders-panel">
     <LoadingSpinner v-if="loading" />
     <template v-else-if="leaders">
-      <div class="leader-grid">
-        <div
-          v-for="cat in [
-            { key: 'ba', label: 'Batting Avg', leader: leaders.ba, fmt: formatBA },
-            { key: 'hr', label: 'Home Runs', leader: leaders.hr, fmt: formatInt },
-            { key: 'rbi', label: 'RBI', leader: leaders.rbi, fmt: formatInt },
-            { key: 'era', label: 'ERA', leader: leaders.era, fmt: formatERA },
-            { key: 'wins', label: 'Wins', leader: leaders.wins, fmt: formatInt },
-            { key: 'strikeouts', label: 'Strikeouts', leader: leaders.strikeouts, fmt: formatInt },
-          ]"
-          :key="cat.key"
-          class="leader-tile"
-        >
-          <span class="tile-label">{{ cat.label }}</span>
-          <template v-if="cat.leader">
-            <!-- Name links to the player page; value is a plain span so it
-                 always renders regardless of router context. -->
-            <div class="tile-stat-line">
-              <RouterLink :to="`/players/${cat.leader.playerId}`" class="tile-player">
-                {{ cat.leader.firstName }} {{ cat.leader.lastName }}
-              </RouterLink>
-              <span class="tile-value">{{ cat.fmt(cat.leader.statValue) }}</span>
-            </div>
-            <span class="tile-team">{{ cat.leader.teamName }}</span>
-          </template>
-          <span v-else class="tile-empty">—</span>
+      <div
+        v-for="group in [
+          {
+            label: 'Batting',
+            cats: [
+              { key: 'ba', label: 'Batting Avg', leader: leaders.ba, fmt: formatBA },
+              { key: 'hr', label: 'Home Runs', leader: leaders.hr, fmt: formatInt },
+              { key: 'rbi', label: 'RBI', leader: leaders.rbi, fmt: formatInt },
+            ],
+          },
+          {
+            label: 'Pitching',
+            cats: [
+              { key: 'era', label: 'ERA', leader: leaders.era, fmt: formatERA },
+              { key: 'wins', label: 'Wins', leader: leaders.wins, fmt: formatInt },
+              { key: 'strikeouts', label: 'Strikeouts', leader: leaders.strikeouts, fmt: formatInt },
+            ],
+          },
+        ]"
+        :key="group.label"
+        class="leaders-group"
+      >
+        <span class="group-label">{{ group.label }}</span>
+        <div class="leader-grid">
+          <div v-for="cat in group.cats" :key="cat.key" class="leader-tile">
+            <span class="tile-label">{{ cat.label }}</span>
+            <template v-if="cat.leader">
+              <div class="tile-stat-line">
+                <RouterLink :to="`/players/${cat.leader.playerId}`" class="tile-player">
+                  {{ cat.leader.firstName }} {{ cat.leader.lastName }}
+                </RouterLink>
+                <span class="tile-value">{{ cat.fmt(cat.leader.statValue) }}</span>
+              </div>
+              <span class="tile-team">{{ cat.leader.teamName }}</span>
+            </template>
+            <span v-else class="tile-empty">—</span>
+          </div>
         </div>
       </div>
     </template>
@@ -65,6 +76,21 @@ function formatInt(v: number | null | undefined): string {
 .leaders-panel {
   display: flex;
   flex-direction: column;
+  gap: 1rem;
+}
+
+.leaders-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.group-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
 }
 
 .leader-grid {

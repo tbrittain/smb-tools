@@ -5,8 +5,9 @@ import type { main } from '../../wailsjs/go/models'
 import AppButton from './AppButton.vue'
 import LoadingSpinner from './LoadingSpinner.vue'
 
-defineProps<{
+const props = defineProps<{
   selectedPath?: string
+  usedSourceLabels?: Record<string, string>
 }>()
 
 const emit = defineEmits<{
@@ -133,6 +134,11 @@ function seasonLine(c: main.SaveFileCandidateDTO): string | null {
             <!-- Season count -->
             <span v-if="seasonLine(c)" class="detail-line">{{ seasonLine(c) }}</span>
 
+            <!-- Previously-used indicator -->
+            <span v-if="props.usedSourceLabels?.[c.path]" class="detail-line used-label">
+              {{ props.usedSourceLabels[c.path] }}
+            </span>
+
             <!-- File name for disambiguation when multiple files share a league name -->
             <span class="file-path">{{ fileName(c) }}</span>
           </div>
@@ -238,6 +244,11 @@ function seasonLine(c: main.SaveFileCandidateDTO): string | null {
 .detail-line {
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
+}
+
+.used-label {
+  color: var(--color-accent);
+  font-size: 0.75rem;
 }
 
 .file-path {
