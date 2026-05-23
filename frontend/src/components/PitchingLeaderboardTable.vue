@@ -82,7 +82,7 @@ defineProps<{
       <Column header="K/BB" sort-field="kPerBb" sortable style="width: 65px" class="col-rate">
         <template #body="{ data: r }">{{ formatK9(r.kPerBb) }}</template>
       </Column>
-      <Column v-if="!isCareer" header="ERA+" sort-field="eraPlus" sortable style="width: 68px" class="col-rate">
+      <Column header="ERA+" sort-field="eraPlus" sortable style="width: 68px" class="col-rate">
         <template #body="{ data: r }">{{ formatAdjustedStat(r.eraPlus) }}</template>
       </Column>
       <Column v-if="!isCareer" header="FIP" sort-field="fip" sortable style="width: 65px" class="col-rate">

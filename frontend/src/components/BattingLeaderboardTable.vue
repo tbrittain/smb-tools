@@ -69,7 +69,7 @@ defineProps<{
       <Column header="OPS" sort-field="ops" sortable style="width: 72px" class="col-rate">
         <template #body="{ data: r }">{{ formatBA(r.ops) }}</template>
       </Column>
-      <Column v-if="!isCareer" header="OPS+" sort-field="opsPlus" sortable style="width: 68px" class="col-rate">
+      <Column header="OPS+" sort-field="opsPlus" sortable style="width: 68px" class="col-rate">
         <template #body="{ data: r }">{{ formatAdjustedStat(r.opsPlus) }}</template>
       </Column>
       <Column header="smbWAR" sort-field="smbWar" sortable style="width: 80px" class="col-rate">
