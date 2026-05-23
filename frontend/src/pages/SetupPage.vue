@@ -207,7 +207,7 @@ async function handleSync() {
     >
       <div class="fork-header">
         <div class="fork-title-group">
-          <h3>Fork to New League</h3>
+          <h3>Fork Franchise From New Save Game</h3>
           <span class="advanced-badge">Advanced</span>
         </div>
         <AppButton v-if="!showForkForm" variant="ghost" size="sm" @click="openForkForm">
@@ -216,10 +216,11 @@ async function handleSync() {
       </div>
 
       <p class="fork-description">
-        Use this if your franchise was exported to a new SMB4 league — for example after
-        the game prompted you to start fresh in a new save. Connect the new save file here
-        and smb-tools will continue numbering imported seasons sequentially after your last
-        synced season, keeping your franchise history continuous.
+        SMB4 lets you export an existing franchise to a new league at any point in time,
+        effectively forking it into a fresh save game. If you want smb-tools to treat that
+        new league as a continuation of this franchise — rather than a separate one — connect
+        its save file here. Imported seasons from the new save will be numbered sequentially
+        after your last synced season, keeping your complete franchise history in one place.
       </p>
 
       <template v-if="showForkForm">
