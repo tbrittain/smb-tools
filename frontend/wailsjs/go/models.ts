@@ -414,6 +414,66 @@ export namespace main {
 	        this.addedAt = source["addedAt"];
 	    }
 	}
+	export class HistoricalTeamDTO {
+	    teamId: number;
+	    teamName: string;
+	    numSeasons: number;
+	    firstSeason: number;
+	    lastSeason: number;
+	    wins: number;
+	    losses: number;
+	    winPct: number;
+	    gamesOver500: number;
+	    playoffWins: number;
+	    playoffLosses: number;
+	    playoffAppearances: number;
+	    divisionTitles: number;
+	    conferenceTitles: number;
+	    championships: number;
+	    championshipDrought: number;
+	    runsFor: number;
+	    runsAgainst: number;
+	    totalAB: number;
+	    totalHits: number;
+	    totalHR: number;
+	    numPlayers: number;
+	    numHoF: number;
+	    ba?: number;
+	    era?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new HistoricalTeamDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.teamId = source["teamId"];
+	        this.teamName = source["teamName"];
+	        this.numSeasons = source["numSeasons"];
+	        this.firstSeason = source["firstSeason"];
+	        this.lastSeason = source["lastSeason"];
+	        this.wins = source["wins"];
+	        this.losses = source["losses"];
+	        this.winPct = source["winPct"];
+	        this.gamesOver500 = source["gamesOver500"];
+	        this.playoffWins = source["playoffWins"];
+	        this.playoffLosses = source["playoffLosses"];
+	        this.playoffAppearances = source["playoffAppearances"];
+	        this.divisionTitles = source["divisionTitles"];
+	        this.conferenceTitles = source["conferenceTitles"];
+	        this.championships = source["championships"];
+	        this.championshipDrought = source["championshipDrought"];
+	        this.runsFor = source["runsFor"];
+	        this.runsAgainst = source["runsAgainst"];
+	        this.totalAB = source["totalAB"];
+	        this.totalHits = source["totalHits"];
+	        this.totalHR = source["totalHR"];
+	        this.numPlayers = source["numPlayers"];
+	        this.numHoF = source["numHoF"];
+	        this.ba = source["ba"];
+	        this.era = source["era"];
+	    }
+	}
 	export class HoFCandidateDTO {
 	    playerId: number;
 	    firstName: string;

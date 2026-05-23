@@ -50,6 +50,10 @@ export function GetCareerLeaders() {
   return window['go']['main']['App']['GetCareerLeaders']();
 }
 
+export function GetHistoricalTeams(arg1, arg2) {
+  return window['go']['main']['App']['GetHistoricalTeams'](arg1, arg2);
+}
+
 export function GetHoFCandidates() {
   return window['go']['main']['App']['GetHoFCandidates']();
 }

@@ -872,6 +872,50 @@ func (a *App) GetTeamSeasonDetail(teamHistoryID int64) (TeamSeasonDetailDTO, err
 	}, nil
 }
 
+// GetHistoricalTeams returns one aggregated row per team for the historical
+// teams page, covering the inclusive season range [seasonStart, seasonEnd].
+// Results are ordered by total wins descending.
+func (a *App) GetHistoricalTeams(seasonStart, seasonEnd int) ([]HistoricalTeamDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	rows, err := a.teamQueryStore.GetHistoricalTeams(a.ctx, seasonStart, seasonEnd)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]HistoricalTeamDTO, len(rows))
+	for i, r := range rows {
+		out[i] = HistoricalTeamDTO{
+			TeamID:              r.TeamID,
+			TeamName:            r.TeamName,
+			NumSeasons:          r.NumSeasons,
+			FirstSeason:         r.FirstSeason,
+			LastSeason:          r.LastSeason,
+			Wins:                r.Wins,
+			Losses:              r.Losses,
+			WinPct:              r.WinPct,
+			GamesOver500:        r.GamesOver500,
+			PlayoffWins:         r.PlayoffWins,
+			PlayoffLosses:       r.PlayoffLosses,
+			PlayoffAppearances:  r.PlayoffAppearances,
+			DivisionTitles:      r.DivisionTitles,
+			ConferenceTitles:    r.ConferenceTitles,
+			Championships:       r.Championships,
+			ChampionshipDrought: r.ChampionshipDrought,
+			RunsFor:             r.RunsFor,
+			RunsAgainst:         r.RunsAgainst,
+			TotalAB:             r.TotalAB,
+			TotalHits:           r.TotalHits,
+			TotalHR:             r.TotalHR,
+			NumPlayers:          r.NumPlayers,
+			NumHoF:              r.NumHoF,
+			BA:                  r.BA,
+			ERA:                 r.ERA,
+		}
+	}
+	return out, nil
+}
+
 // ListAllTeamSeasons returns every team-season for the historical teams page.
 func (a *App) ListAllTeamSeasons() ([]TeamSeasonListDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {

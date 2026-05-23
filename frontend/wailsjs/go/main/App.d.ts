@@ -26,6 +26,8 @@ export function GetBattingSeasonLeaders(arg1:main.LeaderboardFiltersDTO):Promise
 
 export function GetCareerLeaders():Promise<main.CareerLeadersDTO>;
 
+export function GetHistoricalTeams(arg1:number,arg2:number):Promise<Array<main.HistoricalTeamDTO>>;
+
 export function GetHoFCandidates():Promise<Array<main.HoFCandidateDTO>>;
 
 export function GetHoFInducted():Promise<Array<main.HoFCandidateDTO>>;
