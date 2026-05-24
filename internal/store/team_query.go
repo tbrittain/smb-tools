@@ -577,10 +577,12 @@ WHERE tsh.id = ?
 }
 
 // GetTeamSeasonSchedule returns all regular season games (home and away) for a
-// team in a given season, ordered by game number.
+// team in a given season, ordered by game number. TeamGameNum is the 1-based
+// sequential index of each game within this team's schedule.
 func (s *TeamQueryStore) GetTeamSeasonSchedule(ctx context.Context, teamHistoryID int64, seasonID int64) ([]models.ScheduleGameRow, error) {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT
+    ROW_NUMBER() OVER (ORDER BY g.game_number) AS team_game_num,
     g.game_number,
     g.day,
     g.home_team_history_id,
@@ -673,7 +675,7 @@ func scanScheduleRows(rows *sql.Rows) ([]models.ScheduleGameRow, error) {
 		var r models.ScheduleGameRow
 		var homeScore, awayScore sql.NullInt64
 		if err := rows.Scan(
-			&r.GameNumber, &r.Day,
+			&r.TeamGameNum, &r.GameNumber, &r.Day,
 			&r.HomeTeamHistoryID, &r.HomeTeamName,
 			&r.AwayTeamHistoryID, &r.AwayTeamName,
 			&homeScore, &awayScore,

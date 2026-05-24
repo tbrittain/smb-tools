@@ -122,6 +122,8 @@ docs/                     # All architecture decisions, domain knowledge, roadma
 
 **Server-side pagination and filtering — always.** smb-tools is a data-heavy application that can accumulate hundreds of seasons and thousands of player-seasons. Pagination and filtering must be implemented in the Go store layer (SQL `LIMIT`/`OFFSET`, `WHERE` clauses, `ORDER BY`), never in the Vue layer by slicing or filtering a full array that was already fetched. Client-side filtering of a server-truncated result set is always wrong — if the backend returns the top 10 rows by OPS and the frontend then filters by team, it will silently miss players ranked 11th+. The only exception is instant UI feedback for a user-typed search that debounces to a real server call; lightweight ephemeral UI state (tab selection, column sort direction on a fully-loaded small dataset) is acceptable. When in doubt, push the predicate to SQL.
 
+**DataTable column widths — always `min-width`, never `width`.** PrimeVue `<Column>` elements must use `style="min-width: Xpx"` so columns can flex and scale. Never use `style="width: Xpx"` — static widths prevent columns from growing and break the layout on wider screens. A `min-width` sets the floor; the column still expands to fill available space.
+
 **Wails bindings** are imported from `../../wailsjs/go/main/App` and called as async functions. Always handle errors explicitly — Wails surfaces Go errors as rejected promises.
 
 ## Testing Standards

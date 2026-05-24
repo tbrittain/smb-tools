@@ -363,7 +363,8 @@ type RosterPlayer struct {
 
 // ScheduleGameRow is one game in a team's regular season schedule.
 type ScheduleGameRow struct {
-	GameNumber        int
+	TeamGameNum       int // sequential game number for this team (1-based)
+	GameNumber        int // season-wide global game number
 	Day               int
 	HomeTeamHistoryID int64
 	HomeTeamName      string

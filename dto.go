@@ -340,6 +340,7 @@ type RosterPlayerDTO struct {
 
 // ScheduleGameDTO is one game in a team's regular season schedule.
 type ScheduleGameDTO struct {
+	TeamGameNum       int    `json:"teamGameNum"`
 	GameNumber        int    `json:"gameNumber"`
 	Day               int    `json:"day"`
 	HomeTeamHistoryID int64  `json:"homeTeamHistoryId"`
@@ -518,6 +519,7 @@ func rosterPlayerToDTO(r models.RosterPlayer) RosterPlayerDTO {
 
 func scheduleGameToDTO(g models.ScheduleGameRow) ScheduleGameDTO {
 	return ScheduleGameDTO{
+		TeamGameNum:       g.TeamGameNum,
 		GameNumber:        g.GameNumber,
 		Day:               g.Day,
 		HomeTeamHistoryID: g.HomeTeamHistoryID,

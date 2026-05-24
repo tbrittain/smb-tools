@@ -1099,6 +1099,7 @@ export namespace main {
 	    }
 	}
 	export class ScheduleGameDTO {
+	    teamGameNum: number;
 	    gameNumber: number;
 	    day: number;
 	    homeTeamHistoryId: number;
@@ -1116,6 +1117,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.teamGameNum = source["teamGameNum"];
 	        this.gameNumber = source["gameNumber"];
 	        this.day = source["day"];
 	        this.homeTeamHistoryId = source["homeTeamHistoryId"];

@@ -132,39 +132,39 @@ onMounted(async () => {
               <span v-if="data.isHallOfFamer" class="hof-badge">HoF</span>
             </template>
           </Column>
-          <Column field="primaryPosition" header="Pos" sortable style="width: 55px" />
-          <Column field="age" header="Age" sortable style="width: 50px" />
-          <Column header="G" style="width: 52px">
+          <Column field="primaryPosition" header="Pos" sortable style="min-width: 55px" />
+          <Column field="age" header="Age" sortable style="min-width: 50px" />
+          <Column header="G" style="min-width: 52px">
             <template #body="{ data }">{{ data.batting?.gamesPlayed ?? '—' }}</template>
           </Column>
-          <Column header="AB" style="width: 55px">
+          <Column header="AB" style="min-width: 55px">
             <template #body="{ data }">{{ data.batting?.atBats ?? '—' }}</template>
           </Column>
-          <Column header="H" style="width: 52px">
+          <Column header="H" style="min-width: 52px">
             <template #body="{ data }">{{ data.batting?.hits ?? '—' }}</template>
           </Column>
-          <Column header="HR" style="width: 52px">
+          <Column header="HR" style="min-width: 52px">
             <template #body="{ data }">{{ data.batting?.homeRuns ?? '—' }}</template>
           </Column>
-          <Column header="RBI" style="width: 55px">
+          <Column header="RBI" style="min-width: 55px">
             <template #body="{ data }">{{ data.batting?.rbi ?? '—' }}</template>
           </Column>
-          <Column header="SB" style="width: 52px">
+          <Column header="SB" style="min-width: 52px">
             <template #body="{ data }">{{ data.batting?.stolenBases ?? '—' }}</template>
           </Column>
-          <Column header="BB" style="width: 52px">
+          <Column header="BB" style="min-width: 52px">
             <template #body="{ data }">{{ data.batting?.walks ?? '—' }}</template>
           </Column>
-          <Column header="BA" style="width: 65px">
+          <Column header="BA" style="min-width: 65px">
             <template #body="{ data }">{{ formatBA(data.batting?.ba) }}</template>
           </Column>
-          <Column header="OBP" style="width: 68px">
+          <Column header="OBP" style="min-width: 68px">
             <template #body="{ data }">{{ formatBA(data.batting?.obp) }}</template>
           </Column>
-          <Column header="SLG" style="width: 68px">
+          <Column header="SLG" style="min-width: 68px">
             <template #body="{ data }">{{ formatBA(data.batting?.slg) }}</template>
           </Column>
-          <Column header="OPS" style="width: 72px">
+          <Column header="OPS" style="min-width: 72px">
             <template #body="{ data }">{{ formatBA(data.batting?.ops) }}</template>
           </Column>
         </DataTable>
@@ -185,38 +185,38 @@ onMounted(async () => {
               <span v-if="data.isHallOfFamer" class="hof-badge">HoF</span>
             </template>
           </Column>
-          <Column field="pitcherRole" header="Role" sortable style="width: 55px" />
-          <Column header="G" style="width: 52px">
+          <Column field="pitcherRole" header="Role" sortable style="min-width: 55px" />
+          <Column header="G" style="min-width: 52px">
             <template #body="{ data }">{{ data.pitching?.games ?? '—' }}</template>
           </Column>
-          <Column header="GS" style="width: 52px">
+          <Column header="GS" style="min-width: 52px">
             <template #body="{ data }">{{ data.pitching?.gamesStarted ?? '—' }}</template>
           </Column>
-          <Column header="W" style="width: 48px">
+          <Column header="W" style="min-width: 48px">
             <template #body="{ data }">{{ data.pitching?.wins ?? '—' }}</template>
           </Column>
-          <Column header="L" style="width: 48px">
+          <Column header="L" style="min-width: 48px">
             <template #body="{ data }">{{ data.pitching?.losses ?? '—' }}</template>
           </Column>
-          <Column header="SV" style="width: 52px">
+          <Column header="SV" style="min-width: 52px">
             <template #body="{ data }">{{ data.pitching?.saves ?? '—' }}</template>
           </Column>
-          <Column header="IP" style="width: 68px">
+          <Column header="IP" style="min-width: 68px">
             <template #body="{ data }">{{ data.pitching != null ? formatIP(data.pitching.outsPitched) : '—' }}</template>
           </Column>
-          <Column header="K" style="width: 52px">
+          <Column header="K" style="min-width: 52px">
             <template #body="{ data }">{{ data.pitching?.strikeouts ?? '—' }}</template>
           </Column>
-          <Column header="BB" style="width: 52px">
+          <Column header="BB" style="min-width: 52px">
             <template #body="{ data }">{{ data.pitching?.walks ?? '—' }}</template>
           </Column>
-          <Column header="ERA" style="width: 68px">
+          <Column header="ERA" style="min-width: 68px">
             <template #body="{ data }">{{ formatERA(data.pitching?.era) }}</template>
           </Column>
-          <Column header="WHIP" style="width: 72px">
+          <Column header="WHIP" style="min-width: 72px">
             <template #body="{ data }">{{ formatWHIP(data.pitching?.whip) }}</template>
           </Column>
-          <Column header="K/9" style="width: 65px">
+          <Column header="K/9" style="min-width: 65px">
             <template #body="{ data }">{{ formatK9(data.pitching?.k9) }}</template>
           </Column>
         </DataTable>
@@ -236,22 +236,22 @@ onMounted(async () => {
               </RouterLink>
             </template>
           </Column>
-          <Column field="primaryPosition" header="Pos" sortable style="width: 55px" />
-          <Column field="power" header="POW" sortable style="width: 58px" />
-          <Column field="contact" header="CON" sortable style="width: 58px" />
-          <Column field="speed" header="SPD" sortable style="width: 58px" />
-          <Column field="fielding" header="FLD" sortable style="width: 58px" />
-          <Column field="arm" header="ARM" sortable style="width: 58px" />
-          <Column field="velocity" header="VEL" sortable style="width: 58px">
+          <Column field="primaryPosition" header="Pos" sortable style="min-width: 55px" />
+          <Column field="power" header="POW" sortable style="min-width: 58px" />
+          <Column field="contact" header="CON" sortable style="min-width: 58px" />
+          <Column field="speed" header="SPD" sortable style="min-width: 58px" />
+          <Column field="fielding" header="FLD" sortable style="min-width: 58px" />
+          <Column field="arm" header="ARM" sortable style="min-width: 58px" />
+          <Column field="velocity" header="VEL" sortable style="min-width: 58px">
             <template #body="{ data }">{{ data.velocity > 0 ? data.velocity : '—' }}</template>
           </Column>
-          <Column field="junk" header="JNK" sortable style="width: 58px">
+          <Column field="junk" header="JNK" sortable style="min-width: 58px">
             <template #body="{ data }">{{ data.junk > 0 ? data.junk : '—' }}</template>
           </Column>
-          <Column field="accuracy" header="ACC" sortable style="width: 58px">
+          <Column field="accuracy" header="ACC" sortable style="min-width: 58px">
             <template #body="{ data }">{{ data.accuracy > 0 ? data.accuracy : '—' }}</template>
           </Column>
-          <Column field="salary" header="Salary" sortable style="width: 90px">
+          <Column field="salary" header="Salary" sortable style="min-width: 90px">
             <template #body="{ data }">${{ data.salary.toLocaleString() }}</template>
           </Column>
         </DataTable>
@@ -270,15 +270,20 @@ onMounted(async () => {
           paginator
           :rows="20"
         >
-          <Column field="gameNumber" header="#" sortable style="width: 50px" />
-          <Column header="W/L" style="width: 48px">
+          <Column field="teamGameNum" header="#" sortable style="min-width: 48px" />
+          <Column field="gameNumber" sortable style="min-width: 58px">
+            <template #header>
+              <span title="Season-wide game number — position among all games played by all teams this season">Glbl#</span>
+            </template>
+          </Column>
+          <Column header="W/L" style="min-width: 48px">
             <template #body="{ data }">
               <span :class="winLoss(data) === 'W' ? 'win' : winLoss(data) === 'L' ? 'loss' : ''">
                 {{ winLoss(data) }}
               </span>
             </template>
           </Column>
-          <Column header="Score" style="width: 80px">
+          <Column header="Score" style="min-width: 80px">
             <template #body="{ data }">
               <span v-if="data.homeScore != null" class="mono">
                 {{ data.homeTeamHistoryId === historyId ? data.homeScore : data.awayScore }}–{{
