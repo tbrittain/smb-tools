@@ -22,6 +22,7 @@ const router = createRouter({
         teamId: Number(route.params.teamId),
         historyId: Number(route.params.historyId),
       }),
+      meta: { fullWidth: true },
     },
     {
       path: '/players/:playerId',

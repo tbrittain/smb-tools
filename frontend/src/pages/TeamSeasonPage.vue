@@ -65,38 +65,40 @@ onMounted(async () => {
     <p v-else-if="error" class="error-text">{{ error }}</p>
 
     <template v-else-if="detail">
-      <!-- Header -->
-      <header class="page-header">
-        <h2>
-          {{ detail.team.teamName }}
-          <span v-if="detail.team.isChampion" class="champ-badge">★ Champion</span>
-        </h2>
-        <div class="header-stats">
-          <div class="hstat">
-            <span class="hstat-label">Record</span>
-            <span class="hstat-val mono">{{ detail.team.wins }}–{{ detail.team.losses }}</span>
+      <!-- Header (constrained width) -->
+      <div class="season-content">
+        <header class="page-header">
+          <h2>
+            {{ detail.team.teamName }}
+            <span v-if="detail.team.isChampion" class="champ-badge">★ Champion</span>
+          </h2>
+          <div class="header-stats">
+            <div class="hstat">
+              <span class="hstat-label">Record</span>
+              <span class="hstat-val mono">{{ detail.team.wins }}–{{ detail.team.losses }}</span>
+            </div>
+            <div class="hstat">
+              <span class="hstat-label">PCT</span>
+              <span class="hstat-val mono">{{ fmtPct(detail.team.winPct) }}</span>
+            </div>
+            <div v-if="detail.team.playoffSeed" class="hstat">
+              <span class="hstat-label">Playoff Seed</span>
+              <span class="hstat-val">#{{ detail.team.playoffSeed }}</span>
+            </div>
+            <div v-if="detail.team.playoffWins != null" class="hstat">
+              <span class="hstat-label">Playoff</span>
+              <span class="hstat-val mono">{{ detail.team.playoffWins }}–{{ detail.team.playoffLosses }}</span>
+            </div>
+            <div class="hstat">
+              <span class="hstat-label">R / RA</span>
+              <span class="hstat-val mono">{{ detail.team.runsFor }} / {{ detail.team.runsAgainst }}</span>
+            </div>
           </div>
-          <div class="hstat">
-            <span class="hstat-label">PCT</span>
-            <span class="hstat-val mono">{{ fmtPct(detail.team.winPct) }}</span>
-          </div>
-          <div v-if="detail.team.playoffSeed" class="hstat">
-            <span class="hstat-label">Playoff Seed</span>
-            <span class="hstat-val">#{{ detail.team.playoffSeed }}</span>
-          </div>
-          <div v-if="detail.team.playoffWins != null" class="hstat">
-            <span class="hstat-label">Playoff</span>
-            <span class="hstat-val mono">{{ detail.team.playoffWins }}–{{ detail.team.playoffLosses }}</span>
-          </div>
-          <div class="hstat">
-            <span class="hstat-label">R / RA</span>
-            <span class="hstat-val mono">{{ detail.team.runsFor }} / {{ detail.team.runsAgainst }}</span>
-          </div>
-        </div>
-      </header>
+        </header>
+      </div>
 
-      <!-- Roster -->
-      <section class="section">
+      <!-- Roster (full-width grid) -->
+      <section class="grid-section">
         <div class="section-header">
           <h3>Roster</h3>
           <div class="tab-bar">
@@ -256,8 +258,8 @@ onMounted(async () => {
       </section>
 
       <!-- Schedule -->
-      <section class="section">
-        <h3>Schedule <span class="record-note">({{ detail.roster.length }} players)</span></h3>
+      <section class="grid-section">
+        <h3>Schedule <span class="record-note">({{ detail.schedule.length }} games)</span></h3>
         <EmptyState v-if="detail.schedule.length === 0" message="No schedule data" />
         <DataTable
           v-else
@@ -288,12 +290,7 @@ onMounted(async () => {
           </Column>
           <Column header="Opponent" style="min-width: 130px">
             <template #body="{ data }">
-              <RouterLink
-                :to="`/teams/${data.homeTeamHistoryId === historyId ? data.awayTeamHistoryId : data.homeTeamHistoryId}/seasons/${data.homeTeamHistoryId === historyId ? data.awayTeamHistoryId : data.homeTeamHistoryId}`"
-                class="opp-link"
-              >
-                {{ data.homeTeamHistoryId === historyId ? '@ ' + data.awayTeamName : 'vs ' + data.homeTeamName }}
-              </RouterLink>
+              {{ data.homeTeamHistoryId === historyId ? '@ ' + data.awayTeamName : 'vs ' + data.homeTeamName }}
             </template>
           </Column>
           <Column header="SP" style="min-width: 120px">
@@ -309,7 +306,7 @@ onMounted(async () => {
       </section>
 
       <!-- Playoffs -->
-      <section v-if="detail.playoffs.length > 0" class="section">
+      <section v-if="detail.playoffs.length > 0" class="grid-section">
         <h3>Playoffs</h3>
         <div class="playoff-panel">
           <div
@@ -361,11 +358,25 @@ onMounted(async () => {
 
 <style scoped>
 .season-page {
-  padding: 2rem;
   display: flex;
   flex-direction: column;
   gap: 2rem;
-  max-width: 960px;
+  padding-bottom: 2rem;
+}
+
+.season-content {
+  padding: 2rem 2rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 1000px;
+}
+
+.grid-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 2rem;
 }
 
 h2 {
@@ -408,8 +419,6 @@ h2 {
   color: var(--color-text-primary);
 }
 .mono { font-family: var(--font-mono); }
-
-.section { display: flex; flex-direction: column; gap: 0.75rem; }
 
 .section-header {
   display: flex;
@@ -460,9 +469,6 @@ h3 {
 
 .win { color: #3fb950; font-weight: 600; }
 .loss { color: var(--color-error); font-weight: 600; }
-
-.opp-link { color: var(--color-text-primary); text-decoration: none; }
-.opp-link:hover { color: var(--color-accent); }
 
 /* Playoff panel */
 .playoff-panel { display: flex; flex-direction: column; gap: 1.5rem; }
