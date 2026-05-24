@@ -454,10 +454,22 @@ func seedLegacyData(db *sql.DB) error {
 		       (5,2,11, 31,900,NULL),  -- Sam S11
 		       (6,3,11, 26,350,NULL);  -- Riley S11
 
-		-- PlayerTeamHistory: all players on Alpha Squad (STH Id=1/3) as current team
+		-- PlayerTeamHistory — three scenarios to exercise all migration paths:
+		--   Alex S10  (ps=1): single team, Alpha Squad S10
+		--   Sam  S10  (ps=2): single team, Alpha Squad S10
+		--   Riley S10 (ps=3): ended season as FA — Order=1 NULL, Order=2 Alpha Squad S10
+		--   Alex S11  (ps=4): traded mid-season — Order=1 Beta Ballers S11, Order=2 Alpha Squad S11
+		--   Sam  S11  (ps=5): single team, Alpha Squad S11
+		--   Riley S11 (ps=6): single team, Alpha Squad S11
 		INSERT INTO PlayerTeamHistory (PlayerSeasonId, SeasonTeamHistoryId, "Order") VALUES
-			(1,1,1),(2,1,1),(3,1,1),  -- Season 10: Alpha Squad
-			(4,3,1),(5,3,1),(6,3,1);  -- Season 11: Alpha Squad
+			(1, 1,    1),  -- Alex S10:  Alpha Squad S10 (current)
+			(2, 1,    1),  -- Sam  S10:  Alpha Squad S10 (current)
+			(3, NULL, 1),  -- Riley S10: FA (current = no team)
+			(3, 1,    2),  -- Riley S10: Alpha Squad S10 (prior)
+			(4, 4,    1),  -- Alex S11:  Beta Ballers S11 (current, traded to)
+			(4, 3,    2),  -- Alex S11:  Alpha Squad S11 (prior, traded from)
+			(5, 3,    1),  -- Sam  S11:  Alpha Squad S11 (current)
+			(6, 3,    1);  -- Riley S11: Alpha Squad S11 (current)
 
 		-- ── Franchise A: game stats ───────────────────────────────────────────────
 		-- Alex (batter): no Velocity/Junk/Accuracy (NULL)

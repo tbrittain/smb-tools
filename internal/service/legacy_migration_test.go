@@ -72,6 +72,9 @@ func TestMigrateLegacy_Full(t *testing.T) {
 	assertRowCount(t, companionDB, "team_alt_guids", 1)
 	// Player 1 has 2 GUIDs → 1 alt GUID row
 	assertRowCount(t, companionDB, "player_alt_guids", 1)
+	// player_season_teams: Alex S10=1, Sam S10=1, Riley S10=1 (FA slot skipped; prior team kept),
+	// Alex S11=2 (traded), Sam S11=1, Riley S11=1 → 7 rows total
+	assertRowCount(t, companionDB, "player_season_teams", 7)
 
 	// Verify HoF flag on Alex Power
 	var isHoF int
@@ -287,6 +290,86 @@ func TestMigrateLegacy_TwoFranchises(t *testing.T) {
 		`SELECT first_name FROM players WHERE first_name = 'Chris'`,
 	).Scan(&dummy); err == nil {
 		t.Errorf("franchise A DB contains franchise B player 'Chris' — cross-contamination")
+	}
+}
+
+// TestMigrateLegacy_TeamAssociations verifies the three team-history scenarios that
+// are present in the legacy seed data end-to-end through the full migration pipeline:
+//
+//   - Single-team player (Sam S10): one player_season_teams row at sort_order=0
+//   - FA player (Riley S10): FA slot (NULL SeasonTeamHistoryId) is skipped; prior team
+//     is stored at sort_order=1; no sort_order=0 row (correct — absence means FA)
+//   - Traded player (Alex S11): two rows — sort_order=0 (Beta Ballers, current) and
+//     sort_order=1 (Alpha Squad, prior)
+func TestMigrateLegacy_TeamAssociations(t *testing.T) {
+	ctx := context.Background()
+	legacyDB := testutil.NewLegacyCompanionDB(t)
+	companionDB := testutil.NewTestDB(t)
+
+	if _, err := newLegacyMigrationSvc().Migrate(ctx, legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	// Helper: return (sort_order, team_name) pairs for a given player+season.
+	type teamRow struct {
+		sortOrder int
+		teamName  string
+	}
+	queryTeams := func(firstName string, seasonNum int) []teamRow {
+		t.Helper()
+		rows, err := companionDB.QueryContext(ctx, `
+			SELECT pst.sort_order, tsh.team_name
+			FROM player_season_teams pst
+			JOIN team_season_history tsh ON tsh.id = pst.team_history_id
+			JOIN player_seasons ps ON ps.id = pst.player_season_id
+			JOIN players p ON p.id = ps.player_id
+			JOIN seasons s ON s.id = ps.season_id
+			WHERE p.first_name = ? AND s.season_num = ?
+			ORDER BY pst.sort_order ASC
+		`, firstName, seasonNum)
+		if err != nil {
+			t.Fatalf("querying teams for %s S%d: %v", firstName, seasonNum, err)
+		}
+		defer func() { _ = rows.Close() }()
+		var out []teamRow
+		for rows.Next() {
+			var r teamRow
+			if err := rows.Scan(&r.sortOrder, &r.teamName); err != nil {
+				t.Fatalf("scanning team row: %v", err)
+			}
+			out = append(out, r)
+		}
+		return out
+	}
+
+	// Sam S10: single team
+	samS10 := queryTeams("Sam", 1)
+	if len(samS10) != 1 {
+		t.Fatalf("Sam S1: expected 1 team, got %d", len(samS10))
+	}
+	if samS10[0].sortOrder != 0 || samS10[0].teamName != "Alpha Squad" {
+		t.Errorf("Sam S1 team: got {sort_order:%d name:%q}, want {0 Alpha Squad}", samS10[0].sortOrder, samS10[0].teamName)
+	}
+
+	// Riley S10: FA — no sort_order=0 row; prior team at sort_order=1
+	rileyS10 := queryTeams("Riley", 1)
+	if len(rileyS10) != 1 {
+		t.Fatalf("Riley S1: expected 1 team (FA slot skipped), got %d", len(rileyS10))
+	}
+	if rileyS10[0].sortOrder != 1 || rileyS10[0].teamName != "Alpha Squad" {
+		t.Errorf("Riley S1 prior team: got {sort_order:%d name:%q}, want {1 Alpha Squad}", rileyS10[0].sortOrder, rileyS10[0].teamName)
+	}
+
+	// Alex S11: traded — sort_order=0 Beta Ballers (landed), sort_order=1 Alpha Squad (came from)
+	alexS11 := queryTeams("Alex", 2)
+	if len(alexS11) != 2 {
+		t.Fatalf("Alex S2: expected 2 teams (traded), got %d", len(alexS11))
+	}
+	if alexS11[0].sortOrder != 0 || alexS11[0].teamName != "Beta Ballers" {
+		t.Errorf("Alex S2 current team: got {sort_order:%d name:%q}, want {0 Beta Ballers}", alexS11[0].sortOrder, alexS11[0].teamName)
+	}
+	if alexS11[1].sortOrder != 1 || alexS11[1].teamName != "Alpha Squad" {
+		t.Errorf("Alex S2 prior team: got {sort_order:%d name:%q}, want {1 Alpha Squad}", alexS11[1].sortOrder, alexS11[1].teamName)
 	}
 }
 
