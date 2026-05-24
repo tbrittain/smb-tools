@@ -166,6 +166,7 @@ docs/                     # All architecture decisions, domain knowledge, roadma
 - **No Options API in Vue** — Composition API with `<script setup>` only
 - **No writing to the SMB save game file** (except the team transfer tool, which writes to a copy)
 - **No skipping tests** because a feature "seems simple" — edge cases in stat calculations and import logic are where bugs live
+- **Non-trivial bug fixes require tests.** If a fix corrects business logic (not a typo or rename), a test that would have caught the bug must accompany it. "Non-trivial" means: any fix involving nullable data, domain encoding/decoding, multi-step data flow (import pipeline, migration), conditional branching on domain values, or anything where a wrong assumption caused the original bug. When in doubt, write the test.
 - **No inventing save game column names** — verify every name against the SMB3Explorer SQL files or a real decompressed save before writing it. A fixture built on made-up names produces tests that prove nothing. See "Save Game SQL — Real Schema Required" above.
 
 ## Development Commands
