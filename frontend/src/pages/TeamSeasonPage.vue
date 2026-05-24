@@ -7,9 +7,12 @@ import { GetTeamSeasonDetail } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 import { formatBA, formatERA, formatIP, formatK9, formatWHIP } from '../composables/useStatFormatters'
 
 const props = defineProps<{ teamId: number; historyId: number }>()
+
+const { set } = useBreadcrumbs()
 
 const detail = ref<main.TeamSeasonDetailDTO | null>(null)
 const loading = ref(false)
@@ -47,6 +50,7 @@ onMounted(async () => {
   error.value = null
   try {
     detail.value = await GetTeamSeasonDetail(props.historyId)
+    set([{ label: `Season ${detail.value.team.seasonNum}` }])
   } catch (e) {
     error.value = String(e)
   } finally {
@@ -63,13 +67,6 @@ onMounted(async () => {
     <template v-else-if="detail">
       <!-- Header -->
       <header class="page-header">
-        <div class="breadcrumb">
-          <RouterLink :to="`/teams/${teamId}`" class="breadcrumb-link">
-            {{ detail.team.teamName }}
-          </RouterLink>
-          <span class="breadcrumb-sep">›</span>
-          <span>Season {{ detail.team.seasonNum }}</span>
-        </div>
         <h2>
           {{ detail.team.teamName }}
           <span v-if="detail.team.isChampion" class="champ-badge">★ Champion</span>
@@ -370,19 +367,6 @@ onMounted(async () => {
   gap: 2rem;
   max-width: 960px;
 }
-
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  font-size: 0.8125rem;
-  color: var(--color-text-secondary);
-  margin-bottom: 0.25rem;
-}
-
-.breadcrumb-link { color: var(--color-accent); text-decoration: none; }
-.breadcrumb-link:hover { text-decoration: underline; }
-.breadcrumb-sep { color: var(--color-text-secondary); }
 
 h2 {
   font-size: 1.5rem;

@@ -7,8 +7,11 @@ import { GetTeamHistory } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 
 const props = defineProps<{ teamId: number }>()
+
+const { set } = useBreadcrumbs()
 
 const history = ref<main.TeamHistoryDTO | null>(null)
 const loading = ref(false)
@@ -36,6 +39,7 @@ onMounted(async () => {
   error.value = null
   try {
     history.value = await GetTeamHistory(props.teamId)
+    set([{ label: summary.value.currentName }])
   } catch (e) {
     error.value = String(e)
   } finally {

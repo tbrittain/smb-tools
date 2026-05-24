@@ -4,6 +4,7 @@ import { GetHoFCandidates, GetHoFInducted, SetHallOfFamer } from '../../wailsjs/
 import type { main } from '../../wailsjs/go/models'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 
 const candidates = ref<main.HoFCandidateDTO[]>([])
 const inducted = ref<main.HoFCandidateDTO[]>([])
@@ -72,6 +73,8 @@ function era(p: main.HoFCandidateDTO): string {
   return ((p.earnedRuns * 27) / p.outsPitched).toFixed(2)
 }
 
+const { set } = useBreadcrumbs()
+onMounted(() => set([{ label: 'Hall of Fame' }]))
 onMounted(load)
 </script>
 

@@ -4,6 +4,7 @@ import { ListFranchiseSources, SyncSeason } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppButton from '../components/AppButton.vue'
 import SaveFilePicker from '../components/SaveFilePicker.vue'
+import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 import { useFranchiseStore } from '../stores/franchise'
 
 const franchiseStore = useFranchiseStore()
@@ -51,6 +52,8 @@ async function loadSources() {
   }
 }
 
+const { set } = useBreadcrumbs()
+onMounted(() => set([{ label: 'Setup' }]))
 onMounted(loadSources)
 
 function sourceDisplayName(path: string): string {

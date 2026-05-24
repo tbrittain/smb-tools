@@ -5,11 +5,13 @@ import { useRoute, useRouter } from 'vue-router'
 import AppButton from './components/AppButton.vue'
 import FranchiseCreate from './components/FranchiseCreate.vue'
 import FranchiseSelector from './components/FranchiseSelector.vue'
+import { useBreadcrumbs } from './composables/useBreadcrumbs'
 import { useFranchiseStore } from './stores/franchise'
 
 const router = useRouter()
 const route = useRoute()
 const franchiseStore = useFranchiseStore()
+const { crumbs, clear: clearCrumbs } = useBreadcrumbs()
 const showCreate = ref(false)
 const error = ref<string | null>(null)
 
@@ -22,6 +24,7 @@ onMounted(async () => {
 watch(
   () => route.path,
   async (path) => {
+    if (path === '/') clearCrumbs()
     if (path === '/' && !franchiseStore.active) {
       await franchiseStore.loadFranchises()
     }
@@ -111,6 +114,14 @@ async function handleSelect(id: string) {
       <main class="main-content">
         <div v-if="route.path !== '/'" class="content-topbar">
           <button class="back-btn" @click="router.go(-1)">&#8592; Back</button>
+          <span v-if="crumbs.length > 0" class="topbar-sep" aria-hidden="true">|</span>
+          <nav v-if="crumbs.length > 0" class="topbar-breadcrumb" aria-label="Breadcrumb">
+            <template v-for="(crumb, i) in crumbs" :key="i">
+              <span v-if="i > 0" class="crumb-sep" aria-hidden="true">›</span>
+              <router-link v-if="crumb.to" :to="crumb.to" class="crumb-link">{{ crumb.label }}</router-link>
+              <span v-else class="crumb-current">{{ crumb.label }}</span>
+            </template>
+          </nav>
         </div>
         <div class="page-view" :class="{ 'page-view--full': route.meta.fullWidth }">
           <router-view />
@@ -270,6 +281,43 @@ async function handleSelect(id: string) {
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface-1);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topbar-sep {
+  color: var(--color-border);
+  font-size: 0.9375rem;
+  user-select: none;
+}
+
+.topbar-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+}
+
+.crumb-sep {
+  color: var(--color-text-secondary);
+  user-select: none;
+}
+
+.crumb-link {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.crumb-link:hover {
+  text-decoration: underline;
+}
+
+.crumb-current {
+  color: var(--color-text-secondary);
 }
 
 .back-btn {
