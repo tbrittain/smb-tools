@@ -142,7 +142,15 @@ type LegacyPlayerSeason struct {
 	Age               int
 	Salary            int
 	SecondaryPosition string // empty if none
-	CurrentTeamHistID *int   // from PlayerTeamHistory where Order=1; nil if no row
+}
+
+// LegacyPlayerSeasonTeam represents one row from PlayerTeamHistory (all Orders).
+// Order 1 = current/final team, 2 = most recently played prior, 3 = two teams ago.
+// SortOrder is Order-1 to match the companion DB convention (0-indexed).
+type LegacyPlayerSeasonTeam struct {
+	PlayerSeasonID int
+	TeamHistID     int
+	SortOrder      int // 0=current, 1=prior, 2=two teams ago
 }
 
 // LegacyGameStats represents one row from PlayerSeasonGameStats with nulls coalesced.
@@ -459,17 +467,14 @@ func (r *LegacyCompanionReader) ReadPlayers(ctx context.Context, franchiseID int
 	return out, nil
 }
 
-// ReadPlayerSeasons returns all PlayerSeason rows for the franchise, with secondary
-// position resolved and current team history ID from PlayerTeamHistory (Order=1).
+// ReadPlayerSeasons returns all PlayerSeason rows for the franchise with secondary
+// position resolved. Team associations are returned separately by ReadPlayerSeasonTeams.
 func (r *LegacyCompanionReader) ReadPlayerSeasons(ctx context.Context, franchiseID int) ([]LegacyPlayerSeason, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT ps.Id, ps.PlayerId, ps.SeasonId, ps.Age, ps.Salary,
-		       ps.SecondaryPositionId,
-		       pth.SeasonTeamHistoryId
+		       ps.SecondaryPositionId
 		FROM PlayerSeasons ps
 		JOIN Players p ON p.Id = ps.PlayerId
-		LEFT JOIN PlayerTeamHistory pth
-		       ON pth.PlayerSeasonId = ps.Id AND pth."Order" = 1
 		WHERE p.FranchiseId = ?
 		ORDER BY ps.SeasonId ASC, ps.PlayerId ASC
 	`, franchiseID)
@@ -481,22 +486,44 @@ func (r *LegacyCompanionReader) ReadPlayerSeasons(ctx context.Context, franchise
 	for rows.Next() {
 		var ps LegacyPlayerSeason
 		var secPosID sql.NullInt64
-		var teamHistID sql.NullInt64
 		if err := rows.Scan(
 			&ps.ID, &ps.PlayerID, &ps.SeasonID, &ps.Age, &ps.Salary,
 			&secPosID,
-			&teamHistID,
 		); err != nil {
 			return nil, fmt.Errorf("scanning legacy player season: %w", err)
 		}
 		if secPosID.Valid {
 			ps.SecondaryPosition = r.positionByID[int(secPosID.Int64)]
 		}
-		if teamHistID.Valid {
-			v := int(teamHistID.Int64)
-			ps.CurrentTeamHistID = &v
-		}
 		out = append(out, ps)
+	}
+	return out, rows.Err()
+}
+
+// ReadPlayerSeasonTeams returns all PlayerTeamHistory rows for the franchise, keyed by
+// legacy player season ID. All Order values (1, 2, 3) are included; SortOrder = Order-1.
+func (r *LegacyCompanionReader) ReadPlayerSeasonTeams(ctx context.Context, franchiseID int) (map[int][]LegacyPlayerSeasonTeam, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT pth.PlayerSeasonId, pth.SeasonTeamHistoryId, pth."Order"
+		FROM PlayerTeamHistory pth
+		JOIN PlayerSeasons ps ON ps.Id = pth.PlayerSeasonId
+		JOIN Players p ON p.Id = ps.PlayerId
+		WHERE p.FranchiseId = ?
+		ORDER BY pth.PlayerSeasonId ASC, pth."Order" ASC
+	`, franchiseID)
+	if err != nil {
+		return nil, fmt.Errorf("querying legacy player season teams: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := make(map[int][]LegacyPlayerSeasonTeam)
+	for rows.Next() {
+		var t LegacyPlayerSeasonTeam
+		var order int
+		if err := rows.Scan(&t.PlayerSeasonID, &t.TeamHistID, &order); err != nil {
+			return nil, fmt.Errorf("scanning legacy player season team: %w", err)
+		}
+		t.SortOrder = order - 1
+		out[t.PlayerSeasonID] = append(out[t.PlayerSeasonID], t)
 	}
 	return out, rows.Err()
 }
