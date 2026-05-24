@@ -842,6 +842,7 @@ export namespace main {
 	    teamId: number;
 	    teamHistoryId: number;
 	    teamName: string;
+	    sortOrder: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new TeamRefDTO(source);
@@ -852,6 +853,7 @@ export namespace main {
 	        this.teamId = source["teamId"];
 	        this.teamHistoryId = source["teamHistoryId"];
 	        this.teamName = source["teamName"];
+	        this.sortOrder = source["sortOrder"];
 	    }
 	}
 	export class PlayerSeasonLogDTO {

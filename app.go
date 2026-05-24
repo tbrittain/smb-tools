@@ -771,7 +771,7 @@ func (a *App) GetPlayerSeasonLog(playerID int64) ([]PlayerSeasonLogDTO, error) {
 		}
 		teams := make([]TeamRefDTO, len(r.Teams))
 		for j, t := range r.Teams {
-			teams[j] = TeamRefDTO{TeamID: t.TeamID, TeamHistoryID: t.TeamHistoryID, TeamName: t.TeamName}
+			teams[j] = TeamRefDTO{TeamID: t.TeamID, TeamHistoryID: t.TeamHistoryID, TeamName: t.TeamName, SortOrder: t.SortOrder}
 		}
 
 		var traits []string

@@ -30,6 +30,18 @@ const data = computed(() =>
     return { ...r, _b: b, _p: p }
   }),
 )
+
+function primaryTeam(r: main.PlayerSeasonLogDTO): main.TeamRefDTO | null {
+  return r.teams.find((t) => t.sortOrder === 0) ?? null
+}
+
+function priorTeams(r: main.PlayerSeasonLogDTO): main.TeamRefDTO[] {
+  return r.teams.filter((t) => t.sortOrder > 0)
+}
+
+function primaryTeamName(r: main.PlayerSeasonLogDTO): string {
+  return primaryTeam(r)?.teamName ?? 'FA'
+}
 </script>
 
 <template>
@@ -47,12 +59,17 @@ const data = computed(() =>
       scrollable
     >
       <Column field="seasonNum" header="Season" sortable style="min-width: 80px" />
-      <Column header="Team" sortable sort-field="teams[0].teamName" style="min-width: 130px">
+      <Column header="Team" sortable :sort-field="primaryTeamName" style="min-width: 130px">
         <template #body="{ data: r }">
-          <RouterLink v-if="r.teams.length > 0" :to="`/teams/${r.teams[0].teamId}/seasons/${r.teams[0].teamHistoryId}`" class="team-link">
-            {{ r.teams[0].teamName }}
-          </RouterLink>
-          <span v-else class="fa-label">FA</span>
+          <span class="team-cell">
+            <RouterLink v-if="primaryTeam(r)" :to="`/teams/${primaryTeam(r)!.teamId}/seasons/${primaryTeam(r)!.teamHistoryId}`" class="team-link">
+              {{ primaryTeam(r)!.teamName }}
+            </RouterLink>
+            <span v-else class="fa-label">FA</span>
+            <span v-for="t in priorTeams(r)" :key="t.teamHistoryId" class="prior-teams">
+              · <RouterLink :to="`/teams/${t.teamId}/seasons/${t.teamHistoryId}`" class="prior-team-link">{{ t.teamName }}</RouterLink>
+            </span>
+          </span>
         </template>
       </Column>
       <Column field="age" header="Age" sortable style="min-width: 55px" />
@@ -122,12 +139,17 @@ const data = computed(() =>
       scrollable
     >
       <Column field="seasonNum" header="Season" sortable style="min-width: 80px" />
-      <Column header="Team" sortable sort-field="teams[0].teamName" style="min-width: 130px">
+      <Column header="Team" sortable :sort-field="primaryTeamName" style="min-width: 130px">
         <template #body="{ data: r }">
-          <RouterLink v-if="r.teams.length > 0" :to="`/teams/${r.teams[0].teamId}/seasons/${r.teams[0].teamHistoryId}`" class="team-link">
-            {{ r.teams[0].teamName }}
-          </RouterLink>
-          <span v-else class="fa-label">FA</span>
+          <span class="team-cell">
+            <RouterLink v-if="primaryTeam(r)" :to="`/teams/${primaryTeam(r)!.teamId}/seasons/${primaryTeam(r)!.teamHistoryId}`" class="team-link">
+              {{ primaryTeam(r)!.teamName }}
+            </RouterLink>
+            <span v-else class="fa-label">FA</span>
+            <span v-for="t in priorTeams(r)" :key="t.teamHistoryId" class="prior-teams">
+              · <RouterLink :to="`/teams/${t.teamId}/seasons/${t.teamHistoryId}`" class="prior-team-link">{{ t.teamName }}</RouterLink>
+            </span>
+          </span>
         </template>
       </Column>
       <Column field="age" header="Age" sortable style="min-width: 55px" />
@@ -215,6 +237,28 @@ const data = computed(() =>
 .fa-label {
   color: var(--color-text-secondary);
   font-style: italic;
+}
+
+.team-cell {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+}
+
+.prior-teams {
+  color: var(--color-text-secondary);
+  font-size: 0.85em;
+  margin-left: 2px;
+}
+
+.prior-team-link {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.prior-team-link:hover {
+  text-decoration: underline;
 }
 
 .secondary-pos {

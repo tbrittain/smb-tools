@@ -235,7 +235,7 @@ func (s *PlayerQueryStore) loadSeasonTeams(ctx context.Context, psIDs []int64) (
 	}
 	//nolint:gosec // placeholder count is controlled internally, not from user input
 	rows, err := s.db.QueryContext(ctx, fmt.Sprintf(`
-		SELECT pst.player_season_id, tsh.team_id, tsh.id, tsh.team_name
+		SELECT pst.player_season_id, tsh.team_id, tsh.id, tsh.team_name, pst.sort_order
 		FROM player_season_teams pst
 		JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 		WHERE pst.player_season_id IN (%s)
@@ -250,7 +250,7 @@ func (s *PlayerQueryStore) loadSeasonTeams(ctx context.Context, psIDs []int64) (
 	for rows.Next() {
 		var psID int64
 		var ref models.PlayerTeamRef
-		if err := rows.Scan(&psID, &ref.TeamID, &ref.TeamHistoryID, &ref.TeamName); err != nil {
+		if err := rows.Scan(&psID, &ref.TeamID, &ref.TeamHistoryID, &ref.TeamName, &ref.SortOrder); err != nil {
 			return nil, fmt.Errorf("scanning season team: %w", err)
 		}
 		result[psID] = append(result[psID], ref)

@@ -173,10 +173,13 @@ type PlayerCareerDTO struct {
 
 // TeamRefDTO is a slim pointer to a team's season record, used in player
 // season log rows to support navigation to the team season detail page.
+// SortOrder 0 = current/final team; 1+ = prior teams (traded from).
+// Absence of a SortOrder=0 entry means the player ended the season as FA.
 type TeamRefDTO struct {
 	TeamID        int64  `json:"teamId"`
 	TeamHistoryID int64  `json:"teamHistoryId"`
 	TeamName      string `json:"teamName"`
+	SortOrder     int    `json:"sortOrder"`
 }
 
 // PlayerSeasonLogDTO is one row in a player's season-by-season breakdown.
