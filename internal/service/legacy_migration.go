@@ -68,6 +68,10 @@ func (svc *LegacyMigrationService) Migrate(
 	if err != nil {
 		return MigrationResult{}, fmt.Errorf("reading player seasons: %w", err)
 	}
+	seasonTeamsByPSID, err := reader.ReadPlayerSeasonTeams(ctx, legacyFranchiseID)
+	if err != nil {
+		return MigrationResult{}, fmt.Errorf("reading player season teams: %w", err)
+	}
 	gameStats, err := reader.ReadGameStats(ctx, legacyFranchiseID)
 	if err != nil {
 		return MigrationResult{}, fmt.Errorf("reading game stats: %w", err)
@@ -127,7 +131,7 @@ func (svc *LegacyMigrationService) Migrate(
 
 	result, err := svc.migrateInTx(ctx, tx, leagueGUID,
 		seasons, teams, seasonTeamHistories,
-		players, playerSeasons, gameStats, battingStats, pitchingStats,
+		players, playerSeasons, seasonTeamsByPSID, gameStats, battingStats, pitchingStats,
 		traitsByPSID, pitchesByPSID, awardAssignments, awardIDByOriginalName,
 		seasonSchedules, playoffSchedules,
 	)
@@ -151,6 +155,7 @@ func (svc *LegacyMigrationService) migrateInTx(
 	seasonTeamHistories []store.LegacySeasonTeamHistory,
 	players []store.LegacyPlayer,
 	playerSeasons []store.LegacyPlayerSeason,
+	seasonTeamsByPSID map[int][]store.LegacyPlayerSeasonTeam,
 	gameStats []store.LegacyGameStats,
 	battingStats []store.LegacyBattingStat,
 	pitchingStats []store.LegacyPitchingStat,
@@ -306,19 +311,12 @@ func (svc *LegacyMigrationService) migrateInTx(
 		if !ok {
 			continue
 		}
-		var teamHistID *int64
-		if ps.CurrentTeamHistID != nil {
-			if newSTHID, ok := legacySTHIDToNew[*ps.CurrentTeamHistID]; ok {
-				teamHistID = &newSTHID
-			}
-		}
 		traits := joinStrings(traitsByPSID[ps.ID])
 		pitches := joinStrings(pitchesByPSID[ps.ID])
 		legacyPlayer := legacyPlayerByID[ps.PlayerID]
 		newPSID, err := playerStore.UpsertSeason(ctx, store.PlayerSeason{
 			PlayerID:          newPlayerID,
 			SeasonID:          newSeasonID,
-			TeamHistoryID:     teamHistID,
 			Age:               ps.Age,
 			Salary:            ps.Salary,
 			PrimaryPosition:   legacyPlayer.PrimaryPosition,
@@ -334,6 +332,25 @@ func (svc *LegacyMigrationService) migrateInTx(
 			return result, fmt.Errorf("upserting player season (legacy ps %d): %w", ps.ID, err)
 		}
 		legacyPSIDToNew[ps.ID] = newPSID
+
+		// Migrate all team associations from legacy PlayerTeamHistory.
+		if legacyTeams := seasonTeamsByPSID[ps.ID]; len(legacyTeams) > 0 {
+			var seasonTeams []store.PlayerSeasonTeam
+			for _, lt := range legacyTeams {
+				if newSTHID, ok := legacySTHIDToNew[lt.TeamHistID]; ok {
+					seasonTeams = append(seasonTeams, store.PlayerSeasonTeam{
+						PlayerSeasonID: newPSID,
+						TeamHistoryID:  newSTHID,
+						SortOrder:      lt.SortOrder,
+					})
+				}
+			}
+			if len(seasonTeams) > 0 {
+				if err := playerStore.ReplaceSeasonTeams(ctx, newPSID, seasonTeams); err != nil {
+					return result, fmt.Errorf("migrating season teams for legacy ps %d: %w", ps.ID, err)
+				}
+			}
+		}
 	}
 
 	// ── 6. Game stats ────────────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 export interface BreadcrumbItem {
   label: string
   to?: string
+  historyPosition?: number
 }
 
 interface TrailEntry {
@@ -13,16 +14,7 @@ interface TrailEntry {
 
 // Paths that represent top-level navigation (sidebar links). Arriving at one
 // resets the trail rather than pushing onto it.
-const ROOT_PATHS = new Set([
-  '/',
-  '/teams',
-  '/leaderboards',
-  '/awards',
-  '/hall-of-fame',
-  '/search',
-  '/setup',
-  '/migrate-legacy',
-])
+const ROOT_PATHS = new Set(['/', '/teams', '/leaderboards', '/awards', '/hall-of-fame', '/setup', '/migrate-legacy'])
 
 const trail = ref<TrailEntry[]>([])
 
@@ -42,14 +34,18 @@ export function useBreadcrumbs() {
   }
 
   // Build the flat crumb list from the accumulated trail. Non-terminal entries
-  // whose last item lacks a `to` get the entry's path injected so they're linkable.
+  // get historyPosition attached so App.vue can use router.go() instead of
+  // router.push() — this keeps the history position stable and lets set() trim
+  // the trail correctly on arrival. Non-terminal entries whose last item lacks
+  // a `to` also get the entry's path injected for display purposes.
   const crumbs = computed<BreadcrumbItem[]>(() =>
     trail.value.flatMap((entry, entryIdx) => {
       const isLast = entryIdx === trail.value.length - 1
       return entry.items.map((item, itemIdx) => {
         const isLastItem = itemIdx === entry.items.length - 1
-        if (!isLast && isLastItem && !item.to) {
-          return { ...item, to: entry.path }
+        if (!isLast) {
+          const injectedTo = isLastItem && !item.to ? { to: entry.path } : {}
+          return { ...item, ...injectedTo, historyPosition: entry.historyPosition }
         }
         return item
       })

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -768,10 +769,31 @@ func (a *App) GetPlayerSeasonLog(playerID int64) ([]PlayerSeasonLogDTO, error) {
 				service.ComputePitchingRates(p)
 			}
 		}
+		teams := make([]TeamRefDTO, len(r.Teams))
+		for j, t := range r.Teams {
+			teams[j] = TeamRefDTO{TeamID: t.TeamID, TeamHistoryID: t.TeamHistoryID, TeamName: t.TeamName, SortOrder: t.SortOrder}
+		}
+
+		var traits []string
+		if r.TraitsJSON != "" {
+			_ = json.Unmarshal([]byte(r.TraitsJSON), &traits)
+		}
+		if traits == nil {
+			traits = []string{}
+		}
+
+		var pitches []string
+		if r.PitchesJSON != "" {
+			_ = json.Unmarshal([]byte(r.PitchesJSON), &pitches)
+		}
+		if pitches == nil {
+			pitches = []string{}
+		}
+
 		out[i] = PlayerSeasonLogDTO{
 			SeasonNum:         r.SeasonNum,
 			SeasonID:          r.SeasonID,
-			TeamName:          r.TeamName,
+			Teams:             teams,
 			Age:               r.Age,
 			Salary:            r.Salary,
 			PrimaryPosition:   r.PrimaryPosition,
@@ -780,8 +802,8 @@ func (a *App) GetPlayerSeasonLog(playerID int64) ([]PlayerSeasonLogDTO, error) {
 			BatHand:           r.BatHand,
 			ThrowHand:         r.ThrowHand,
 			ChemistryType:     r.ChemistryType,
-			TraitsJSON:        r.TraitsJSON,
-			PitchesJSON:       r.PitchesJSON,
+			Traits:            traits,
+			Pitches:           pitches,
 			Power:             r.Power,
 			Contact:           r.Contact,
 			Speed:             r.Speed,
@@ -1361,9 +1383,19 @@ func (a *App) MigrateLegacyFranchise(
 		return MigrateLegacyResult{}, fmt.Errorf("creating franchise: %w", err)
 	}
 
+	// cleanupFranchise deletes the newly created franchise if the migration fails,
+	// preventing an orphaned registry entry and empty companion DB. The companion DB
+	// must be closed before calling this on Windows (open files cannot be deleted).
+	cleanupFranchise := func() {
+		if delErr := a.franchiseService.DeleteFranchise(a.ctx, newFranchise.ID); delErr != nil {
+			log.Printf("MigrateLegacyFranchise: cleanup after failure: %v", delErr)
+		}
+	}
+
 	// Open the companion DB.
 	companionDB, err := internaldb.OpenCompanion(a.ctx, newFranchise.DBPath)
 	if err != nil {
+		cleanupFranchise()
 		return MigrateLegacyResult{}, fmt.Errorf("opening companion DB: %w", err)
 	}
 	defer func() { _ = companionDB.Close() }()
@@ -1371,6 +1403,8 @@ func (a *App) MigrateLegacyFranchise(
 	// Open legacy DB read-only.
 	legacyDB, err := sql.Open("sqlite", dbPath+"?mode=ro")
 	if err != nil {
+		_ = companionDB.Close()
+		cleanupFranchise()
 		return MigrateLegacyResult{}, fmt.Errorf("opening legacy DB: %w", err)
 	}
 	defer func() { _ = legacyDB.Close() }()
@@ -1381,6 +1415,8 @@ func (a *App) MigrateLegacyFranchise(
 	// Register the synthetic source so the franchise has a source entry.
 	if _, err := a.franchiseSourceStore.Add(a.ctx, newFranchise.ID,
 		legacyMigrationSourcePath, leagueGUID, 0); err != nil {
+		_ = companionDB.Close()
+		cleanupFranchise()
 		return MigrateLegacyResult{}, fmt.Errorf("registering legacy source: %w", err)
 	}
 
@@ -1388,6 +1424,8 @@ func (a *App) MigrateLegacyFranchise(
 		a.ctx, legacyDB, legacyFranchiseID, companionDB, leagueGUID,
 	)
 	if err != nil {
+		_ = companionDB.Close()
+		cleanupFranchise()
 		return MigrateLegacyResult{}, fmt.Errorf("migrating franchise: %w", err)
 	}
 

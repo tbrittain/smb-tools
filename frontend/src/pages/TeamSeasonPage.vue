@@ -50,7 +50,7 @@ onMounted(async () => {
   error.value = null
   try {
     detail.value = await GetTeamSeasonDetail(props.historyId)
-    set([{ label: `Season ${detail.value.team.seasonNum}` }])
+    set([{ label: `${detail.value.team.teamName} Season ${detail.value.team.seasonNum}` }])
   } catch (e) {
     error.value = String(e)
   } finally {

@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import AppButton from './components/AppButton.vue'
 import FranchiseCreate from './components/FranchiseCreate.vue'
 import FranchiseSelector from './components/FranchiseSelector.vue'
+import GlobalSearch from './components/GlobalSearch.vue'
 import { useBreadcrumbs } from './composables/useBreadcrumbs'
 import { useFranchiseStore } from './stores/franchise'
 
@@ -49,6 +50,11 @@ async function handleSelect(id: string) {
   } catch (e) {
     error.value = String(e)
   }
+}
+
+function goToCrumb(historyPosition: number) {
+  const currentPos: number = window.history.state?.position ?? 0
+  router.go(historyPosition - currentPos)
 }
 </script>
 
@@ -103,7 +109,6 @@ async function handleSelect(id: string) {
           <router-link to="/leaderboards">Leaderboards</router-link>
           <router-link to="/awards">Awards</router-link>
           <router-link to="/hall-of-fame">Hall of Fame</router-link>
-          <router-link to="/search">Search</router-link>
           <router-link to="/setup">Setup</router-link>
         </nav>
         <div class="sidebar-footer">
@@ -112,16 +117,22 @@ async function handleSelect(id: string) {
         </div>
       </aside>
       <main class="main-content">
-        <div v-if="route.path !== '/'" class="content-topbar">
-          <button class="back-btn" @click="router.go(-1)">&#8592; Back</button>
-          <span v-if="crumbs.length > 0" class="topbar-sep" aria-hidden="true">|</span>
-          <nav v-if="crumbs.length > 0" class="topbar-breadcrumb" aria-label="Breadcrumb">
-            <template v-for="(crumb, i) in crumbs" :key="i">
-              <span v-if="i > 0" class="crumb-sep" aria-hidden="true">›</span>
-              <router-link v-if="crumb.to" :to="crumb.to" class="crumb-link">{{ crumb.label }}</router-link>
-              <span v-else class="crumb-current">{{ crumb.label }}</span>
+        <div class="content-topbar">
+          <div class="topbar-start">
+            <template v-if="route.path !== '/'">
+              <button class="back-btn" @click="router.go(-1)">&#8592; Back</button>
+              <span v-if="crumbs.length > 0" class="topbar-sep" aria-hidden="true">|</span>
+              <nav v-if="crumbs.length > 0" class="topbar-breadcrumb" aria-label="Breadcrumb">
+                <template v-for="(crumb, i) in crumbs" :key="i">
+                  <span v-if="i > 0" class="crumb-sep" aria-hidden="true">›</span>
+                  <button v-if="crumb.historyPosition != null" class="crumb-link" @click="goToCrumb(crumb.historyPosition)">{{ crumb.label }}</button>
+                  <span v-else class="crumb-current">{{ crumb.label }}</span>
+                </template>
+              </nav>
             </template>
-          </nav>
+          </div>
+          <GlobalSearch />
+          <div class="topbar-end" aria-hidden="true" />
         </div>
         <div class="page-view" :class="{ 'page-view--full': route.meta.fullWidth }">
           <router-view />
@@ -281,12 +292,24 @@ async function handleSelect(id: string) {
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface-1);
   flex-shrink: 0;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1rem;
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+.topbar-start {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.topbar-end {
+  min-width: 0;
 }
 
 .topbar-sep {
@@ -308,8 +331,14 @@ async function handleSelect(id: string) {
 }
 
 .crumb-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
   color: var(--color-accent);
   text-decoration: none;
+  cursor: pointer;
 }
 
 .crumb-link:hover {

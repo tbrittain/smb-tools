@@ -163,6 +163,7 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 			COALESCE(vbpi.pitcherRole,     sp.pitcherRole, '')         AS rawPitcherRole,
 			COALESCE(ct.teamName, '')                                  AS currentTeam,
 			COALESCE(mrt.teamName, '')                                 AS previousTeam,
+			COALESCE(pmrt.teamName, '')                                AS prev2Team,
 			COALESCE(bp.power, 0),
 			COALESCE(bp.contact, 0),
 			COALESCE(bp.speed, 0),
@@ -190,8 +191,10 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 		LEFT JOIN v_baseball_player_info vbpi ON vbpi.baseballPlayerGUID = bpli.GUID
 		LEFT JOIN t_team_local_ids ctli  ON ctli.localID  = st.currentTeamLocalID
 		LEFT JOIN t_teams ct             ON ct.GUID        = ctli.GUID
-		LEFT JOIN t_team_local_ids mrtli ON mrtli.localID = st.mostRecentlyPlayedTeamLocalID
-		LEFT JOIN t_teams mrt            ON mrt.GUID       = mrtli.GUID
+		LEFT JOIN t_team_local_ids mrtli  ON mrtli.localID  = st.mostRecentlyPlayedTeamLocalID
+		LEFT JOIN t_teams mrt             ON mrt.GUID        = mrtli.GUID
+		LEFT JOIN t_team_local_ids pmrtli ON pmrtli.localID = st.previousRecentlyPlayedTeamLocalID
+		LEFT JOIN t_teams pmrt            ON pmrt.GUID       = pmrtli.GUID
 		LEFT JOIN t_salary s ON s.baseballPlayerGUID = bp.GUID
 		LEFT JOIN t_baseball_player_options bpo_throw
 			ON bpo_throw.baseballPlayerLocalID = bpli.localID AND bpo_throw.optionKey = 4
@@ -216,7 +219,7 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 			&p.PlayerGUID, &p.SeasonID,
 			&p.FirstName, &p.LastName,
 			&rawPrimaryPos, &p.SecondaryPos, &rawPitcherRole,
-			&p.CurrentTeam, &p.PreviousTeam,
+			&p.CurrentTeam, &p.PreviousTeam, &p.Prev2Team,
 			&p.Power, &p.Contact, &p.Speed, &p.Fielding, &p.Arm,
 			&p.Velocity, &p.Junk, &p.Accuracy,
 			&p.Age, &p.Salary, &traitsJSON,

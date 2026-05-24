@@ -171,11 +171,22 @@ type PlayerCareerDTO struct {
 	Pitching      *CareerPitchingStatsDTO `json:"pitching"`
 }
 
+// TeamRefDTO is a slim pointer to a team's season record, used in player
+// season log rows to support navigation to the team season detail page.
+// SortOrder 0 = current/final team; 1+ = prior teams (traded from).
+// Absence of a SortOrder=0 entry means the player ended the season as FA.
+type TeamRefDTO struct {
+	TeamID        int64  `json:"teamId"`
+	TeamHistoryID int64  `json:"teamHistoryId"`
+	TeamName      string `json:"teamName"`
+	SortOrder     int    `json:"sortOrder"`
+}
+
 // PlayerSeasonLogDTO is one row in a player's season-by-season breakdown.
 type PlayerSeasonLogDTO struct {
 	SeasonNum         int                     `json:"seasonNum"`
 	SeasonID          int64                   `json:"seasonId"`
-	TeamName          string                  `json:"teamName"`
+	Teams             []TeamRefDTO            `json:"teams"`
 	Age               int                     `json:"age"`
 	Salary            int                     `json:"salary"`
 	PrimaryPosition   string                  `json:"primaryPosition"`
@@ -184,8 +195,8 @@ type PlayerSeasonLogDTO struct {
 	BatHand           string                  `json:"batHand"`
 	ThrowHand         string                  `json:"throwHand"`
 	ChemistryType     string                  `json:"chemistryType"`
-	TraitsJSON        string                  `json:"traitsJson"`
-	PitchesJSON       string                  `json:"pitchesJson"`
+	Traits            []string                `json:"traits"`
+	Pitches           []string                `json:"pitches"`
 	Power             int                     `json:"power"`
 	Contact           int                     `json:"contact"`
 	Speed             int                     `json:"speed"`

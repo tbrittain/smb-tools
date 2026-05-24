@@ -179,11 +179,23 @@ type PlayerCareer struct {
 	Pitching      *CareerPitchingStats // nil if player has no pitching rows
 }
 
+// PlayerTeamRef is one team entry in a player's season team history.
+// A season may have 0 (FA the whole season), 1, 2, or 3 entries.
+// SortOrder 0 = current/final team; 1 = prior; 2 = two teams ago.
+// Absence of a SortOrder=0 entry means the player ended the season as FA.
+type PlayerTeamRef struct {
+	TeamID        int64
+	TeamHistoryID int64
+	TeamName      string
+	SortOrder     int
+}
+
 // PlayerSeasonLogRow is one row in a player's season-by-season breakdown.
 type PlayerSeasonLogRow struct {
+	PlayerSeasonID    int64
 	SeasonNum         int
 	SeasonID          int64
-	TeamName          string
+	Teams             []PlayerTeamRef
 	Age               int
 	Salary            int
 	PrimaryPosition   string
