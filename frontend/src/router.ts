@@ -29,11 +29,6 @@ const router = createRouter({
       props: (route) => ({ playerId: Number(route.params.playerId) }),
     },
     {
-      path: '/search',
-      component: () => import('./pages/SearchPage.vue'),
-      props: (route) => ({ q: String(route.query.q ?? '') }),
-    },
-    {
       path: '/leaderboards',
       component: () => import('./pages/LeaderboardsPage.vue'),
       meta: { fullWidth: true },
