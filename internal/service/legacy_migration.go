@@ -306,19 +306,12 @@ func (svc *LegacyMigrationService) migrateInTx(
 		if !ok {
 			continue
 		}
-		var teamHistID *int64
-		if ps.CurrentTeamHistID != nil {
-			if newSTHID, ok := legacySTHIDToNew[*ps.CurrentTeamHistID]; ok {
-				teamHistID = &newSTHID
-			}
-		}
 		traits := joinStrings(traitsByPSID[ps.ID])
 		pitches := joinStrings(pitchesByPSID[ps.ID])
 		legacyPlayer := legacyPlayerByID[ps.PlayerID]
 		newPSID, err := playerStore.UpsertSeason(ctx, store.PlayerSeason{
 			PlayerID:          newPlayerID,
 			SeasonID:          newSeasonID,
-			TeamHistoryID:     teamHistID,
 			Age:               ps.Age,
 			Salary:            ps.Salary,
 			PrimaryPosition:   legacyPlayer.PrimaryPosition,
@@ -334,6 +327,17 @@ func (svc *LegacyMigrationService) migrateInTx(
 			return result, fmt.Errorf("upserting player season (legacy ps %d): %w", ps.ID, err)
 		}
 		legacyPSIDToNew[ps.ID] = newPSID
+
+		// Migrate single team association from legacy data.
+		if ps.CurrentTeamHistID != nil {
+			if newSTHID, ok := legacySTHIDToNew[*ps.CurrentTeamHistID]; ok {
+				if err := playerStore.ReplaceSeasonTeams(ctx, newPSID, []store.PlayerSeasonTeam{
+					{PlayerSeasonID: newPSID, TeamHistoryID: newSTHID, SortOrder: 0},
+				}); err != nil {
+					return result, fmt.Errorf("migrating season team for legacy ps %d: %w", ps.ID, err)
+				}
+			}
+		}
 	}
 
 	// ── 6. Game stats ────────────────────────────────────────────────────────────

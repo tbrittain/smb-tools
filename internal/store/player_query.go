@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"smb-tools/internal/models"
 )
@@ -186,6 +187,25 @@ func (s *PlayerQueryStore) GetPlayerSeasonLog(ctx context.Context, playerID int6
 		return nil, err
 	}
 
+	// Load team associations for each player_season (one query for all seasons).
+	if len(out) > 0 {
+		psIDs := make([]int64, len(out))
+		for i, r := range out {
+			psIDs[i] = r.PlayerSeasonID
+		}
+		teamsMap, err := s.loadSeasonTeams(ctx, psIDs)
+		if err != nil {
+			return nil, err
+		}
+		for i := range out {
+			if t, ok := teamsMap[out[i].PlayerSeasonID]; ok {
+				out[i].Teams = t
+			} else {
+				out[i].Teams = []models.PlayerTeamRef{}
+			}
+		}
+	}
+
 	// Fetch playoff rows and merge by season_id.
 	playoffOut, _, err := s.scanSeasonLogRows(ctx, playerID, 0)
 	if err != nil {
@@ -201,6 +221,43 @@ func (s *PlayerQueryStore) GetPlayerSeasonLog(ctx context.Context, playerID int6
 	return out, nil
 }
 
+// loadSeasonTeams fetches all team associations for the given player_season IDs,
+// returning a map from player_season_id to ordered team slice.
+func (s *PlayerQueryStore) loadSeasonTeams(ctx context.Context, psIDs []int64) (map[int64][]models.PlayerTeamRef, error) {
+	if len(psIDs) == 0 {
+		return nil, nil
+	}
+	placeholders := strings.Repeat("?,", len(psIDs))
+	placeholders = placeholders[:len(placeholders)-1] // trim trailing comma
+	args := make([]any, len(psIDs))
+	for i, id := range psIDs {
+		args[i] = id
+	}
+	//nolint:gosec // placeholder count is controlled internally, not from user input
+	rows, err := s.db.QueryContext(ctx, fmt.Sprintf(`
+		SELECT pst.player_season_id, tsh.team_id, tsh.id, tsh.team_name
+		FROM player_season_teams pst
+		JOIN team_season_history tsh ON tsh.id = pst.team_history_id
+		WHERE pst.player_season_id IN (%s)
+		ORDER BY pst.player_season_id, pst.sort_order
+	`, placeholders), args...)
+	if err != nil {
+		return nil, fmt.Errorf("loading season teams: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	result := map[int64][]models.PlayerTeamRef{}
+	for rows.Next() {
+		var psID int64
+		var ref models.PlayerTeamRef
+		if err := rows.Scan(&psID, &ref.TeamID, &ref.TeamHistoryID, &ref.TeamName); err != nil {
+			return nil, fmt.Errorf("scanning season team: %w", err)
+		}
+		result[psID] = append(result[psID], ref)
+	}
+	return result, rows.Err()
+}
+
 // scanSeasonLogRows scans either regular (isRegularSeason=1) or playoff
 // (isRegularSeason=0) rows for a player. Returns the rows and a map from
 // season_id to slice index (used by the caller to merge playoff stats).
@@ -209,11 +266,9 @@ func (s *PlayerQueryStore) scanSeasonLogRows(
 ) ([]models.PlayerSeasonLogRow, map[int64]int, error) {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT
+    ps.id                             AS player_season_id,
     s.id                              AS season_id,
     s.season_num,
-    ps.team_history_id,
-    tsh.team_id,
-    COALESCE(tsh.team_name, '')       AS team_name,
     ps.age,
     ps.salary,
     ps.primary_position,
@@ -249,7 +304,6 @@ SELECT
     pit.era_plus, pit.fip, pit.fip_minus, pit.smb_war
 FROM player_seasons ps
 JOIN seasons s ON s.id = ps.season_id
-LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
 LEFT JOIN player_season_game_stats gs ON gs.player_season_id = ps.id
 LEFT JOIN player_season_batting_stats b
     ON b.player_season_id = ps.id AND b.is_regular_season = ?
@@ -270,8 +324,6 @@ ORDER BY s.season_num ASC
 		var row models.PlayerSeasonLogRow
 
 		// Batting sentinel: at_bats is NULL when there is no batting row.
-		var teamHistID, teamID sql.NullInt64
-
 		var bAtBats sql.NullInt64
 		var bGP, bGB, bRuns, bHits, bDB, bTR, bHR, bRBI sql.NullInt64
 		var bSB, bCS, bWalks, bK, bHBP, bSH, bSF, bE, bPB sql.NullInt64
@@ -284,7 +336,7 @@ ORDER BY s.season_num ASC
 		var pERAPlus, pFIP, pFIPMinus, pSmbWAR sql.NullFloat64
 
 		if err := rows.Scan(
-			&row.SeasonID, &row.SeasonNum, &teamHistID, &teamID, &row.TeamName,
+			&row.PlayerSeasonID, &row.SeasonID, &row.SeasonNum,
 			&row.Age, &row.Salary,
 			&row.PrimaryPosition, &row.SecondaryPosition, &row.PitcherRole,
 			&row.BatHand, &row.ThrowHand, &row.ChemistryType,
@@ -303,11 +355,6 @@ ORDER BY s.season_num ASC
 			&pERAPlus, &pFIP, &pFIPMinus, &pSmbWAR,
 		); err != nil {
 			return nil, nil, fmt.Errorf("scanning season log row: %w", err)
-		}
-
-		if teamHistID.Valid {
-			row.TeamHistoryID = &teamHistID.Int64
-			row.TeamID = &teamID.Int64
 		}
 
 		if bAtBats.Valid {

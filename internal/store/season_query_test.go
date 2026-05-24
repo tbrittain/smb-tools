@@ -82,15 +82,24 @@ func seedPlayerSeason(t *testing.T, db *sql.DB, playerID int64, seasonID int64, 
 	t.Helper()
 	res, err := db.ExecContext(context.Background(), `
 INSERT INTO player_seasons
-    (player_id, season_id, team_history_id, age, salary,
+    (player_id, season_id, age, salary,
      primary_position, secondary_position, pitcher_role,
      bat_hand, throw_hand, chemistry_type, traits_json, pitches_json)
-VALUES (?,?,?,25,1000,'SS','','','R','R','','[]','[]')
-`, playerID, seasonID, teamHistID)
+VALUES (?,?,25,1000,'SS','','','R','R','','[]','[]')
+`, playerID, seasonID)
 	if err != nil {
 		t.Fatalf("seedPlayerSeason: %v", err)
 	}
 	id, _ := res.LastInsertId()
+	if teamHistID != nil {
+		_, err = db.ExecContext(context.Background(), `
+INSERT OR IGNORE INTO player_season_teams (player_season_id, team_history_id, sort_order)
+VALUES (?, ?, 0)
+`, id, *teamHistID)
+		if err != nil {
+			t.Fatalf("seedPlayerSeason team: %v", err)
+		}
+	}
 	return id
 }
 

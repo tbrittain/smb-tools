@@ -16,20 +16,27 @@ type Player struct {
 
 // PlayerSeason is the per-season snapshot of a player.
 type PlayerSeason struct {
-	ID              int64
-	PlayerID        int64
-	SeasonID        int64
-	TeamHistoryID   *int64
-	Age             int
-	Salary          int
-	PrimaryPosition string
+	ID                int64
+	PlayerID          int64
+	SeasonID          int64
+	Age               int
+	Salary            int
+	PrimaryPosition   string
 	SecondaryPosition string
-	PitcherRole     string
-	BatHand         string
-	ThrowHand       string
-	ChemistryType   string
-	TraitsJSON      string
-	PitchesJSON     string
+	PitcherRole       string
+	BatHand           string
+	ThrowHand         string
+	ChemistryType     string
+	TraitsJSON        string
+	PitchesJSON       string
+}
+
+// PlayerSeasonTeam links a player_season to one team in the junction table.
+// SortOrder: 0=current/final team, 1=most recently played prior, 2=two teams ago.
+type PlayerSeasonTeam struct {
+	PlayerSeasonID int64
+	TeamHistoryID  int64
+	SortOrder      int
 }
 
 // PlayerSeasonGameStats holds the 1-99 attribute snapshot for a player_season.
@@ -189,12 +196,11 @@ func (s *PlayerSeasonStore) UpsertPlayer(ctx context.Context, identity PlayerIde
 func (s *PlayerSeasonStore) UpsertSeason(ctx context.Context, ps PlayerSeason) (int64, error) {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO player_seasons (
-			player_id, season_id, team_history_id, age, salary,
+			player_id, season_id, age, salary,
 			primary_position, secondary_position, pitcher_role,
 			bat_hand, throw_hand, chemistry_type, traits_json, pitches_json
-		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(player_id, season_id) DO UPDATE SET
-			team_history_id    = excluded.team_history_id,
 			age                = excluded.age,
 			salary             = excluded.salary,
 			primary_position   = excluded.primary_position,
@@ -206,7 +212,7 @@ func (s *PlayerSeasonStore) UpsertSeason(ctx context.Context, ps PlayerSeason) (
 			traits_json        = excluded.traits_json,
 			pitches_json       = excluded.pitches_json
 	`,
-		ps.PlayerID, ps.SeasonID, ps.TeamHistoryID, ps.Age, ps.Salary,
+		ps.PlayerID, ps.SeasonID, ps.Age, ps.Salary,
 		ps.PrimaryPosition, ps.SecondaryPosition, ps.PitcherRole,
 		ps.BatHand, ps.ThrowHand, ps.ChemistryType, ps.TraitsJSON, ps.PitchesJSON,
 	)
@@ -221,6 +227,26 @@ func (s *PlayerSeasonStore) UpsertSeason(ctx context.Context, ps PlayerSeason) (
 		return 0, fmt.Errorf("getting player season id: %w", err)
 	}
 	return id, nil
+}
+
+// ReplaceSeasonTeams atomically replaces all team associations for a player_season.
+// Passing an empty slice leaves the player as a free agent for that season.
+func (s *PlayerSeasonStore) ReplaceSeasonTeams(ctx context.Context, playerSeasonID int64, teams []PlayerSeasonTeam) error {
+	if _, err := s.db.ExecContext(ctx,
+		`DELETE FROM player_season_teams WHERE player_season_id = ?`, playerSeasonID,
+	); err != nil {
+		return fmt.Errorf("clearing season teams for player_season %d: %w", playerSeasonID, err)
+	}
+	for _, t := range teams {
+		if _, err := s.db.ExecContext(ctx,
+			`INSERT OR IGNORE INTO player_season_teams (player_season_id, team_history_id, sort_order) VALUES (?,?,?)`,
+			playerSeasonID, t.TeamHistoryID, t.SortOrder,
+		); err != nil {
+			return fmt.Errorf("inserting season team (player_season=%d team_history=%d): %w",
+				playerSeasonID, t.TeamHistoryID, err)
+		}
+	}
+	return nil
 }
 
 // UpsertGameStats inserts or replaces player attribute stats for a season.

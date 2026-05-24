@@ -154,15 +154,9 @@ func (svc *ImportService) importInTx(
 			return result, fmt.Errorf("upserting player %s: %w", p.PlayerGUID, err)
 		}
 
-		var teamHistID *int64
-		if hid, ok := teamGUIDToHistoryID[teamGUIDFromName(saveTeams, p.CurrentTeam)]; ok {
-			teamHistID = &hid
-		}
-
 		psID, err := players.UpsertSeason(ctx, store.PlayerSeason{
 			PlayerID:          playerID,
 			SeasonID:          companionSeasonID,
-			TeamHistoryID:     teamHistID,
 			Age:               p.Age,
 			Salary:            p.Salary,
 			PrimaryPosition:   p.PrimaryPos,
@@ -178,6 +172,30 @@ func (svc *ImportService) importInTx(
 			return result, fmt.Errorf("upserting player season for %s: %w", p.PlayerGUID, err)
 		}
 		playerGUIDToSeasonID[p.PlayerGUID] = psID
+
+		// Populate team associations from all three save-game team pointers.
+		// sort_order: 0=current/final, 1=most recently played prior, 2=two teams ago.
+		teamNames := [3]string{p.CurrentTeam, p.PreviousTeam, p.Prev2Team}
+		var seasonTeams []store.PlayerSeasonTeam
+		seen := map[int64]bool{}
+		for order, name := range teamNames {
+			if name == "" {
+				continue
+			}
+			hid, ok := teamGUIDToHistoryID[teamGUIDFromName(saveTeams, name)]
+			if !ok || seen[hid] {
+				continue
+			}
+			seen[hid] = true
+			seasonTeams = append(seasonTeams, store.PlayerSeasonTeam{
+				PlayerSeasonID: psID,
+				TeamHistoryID:  hid,
+				SortOrder:      order,
+			})
+		}
+		if err := players.ReplaceSeasonTeams(ctx, psID, seasonTeams); err != nil {
+			return result, fmt.Errorf("upserting season teams for %s: %w", p.PlayerGUID, err)
+		}
 
 		if err := players.UpsertGameStats(ctx, store.PlayerSeasonGameStats{
 			PlayerSeasonID: psID,

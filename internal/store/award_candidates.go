@@ -287,7 +287,8 @@ SELECT
     b.smb_war
 FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
-LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 JOIN v_batting_stats b ON b.player_season_id = ps.id
 WHERE ` + strings.Join(conds, " AND ") + `
 ORDER BY COALESCE(b.smb_war, -9999.0) DESC
@@ -379,7 +380,8 @@ SELECT
     pit.smb_war
 FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
-LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 JOIN v_pitching_stats pit ON pit.player_season_id = ps.id
 WHERE ` + strings.Join(conds, " AND ") + `
 ORDER BY COALESCE(pit.smb_war, -9999.0) DESC
@@ -591,7 +593,8 @@ SELECT
     CASE WHEN tsh.id IN (SELECT winner_history_id FROM champion WHERE season_id = ?) THEN 1 ELSE 0 END AS is_champion_team
 FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
-LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 JOIN v_batting_stats b ON b.player_season_id = ps.id
 WHERE ps.season_id       = ?
   AND b.is_regular_season = 0
@@ -667,7 +670,8 @@ SELECT
     CASE WHEN tsh.id IN (SELECT winner_history_id FROM champion WHERE season_id = ?) THEN 1 ELSE 0 END AS is_champion_team
 FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
-LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 JOIN v_pitching_stats pit ON pit.player_season_id = ps.id
 WHERE ps.season_id        = ?
   AND pit.is_regular_season = 0

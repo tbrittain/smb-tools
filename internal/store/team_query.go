@@ -189,7 +189,8 @@ batting_agg AS (
         COUNT(DISTINCT CASE WHEN p.is_hall_of_famer = 1 THEN ps.player_id END) AS num_hof
     FROM team_season_history tsh
     JOIN seasons s ON s.id = tsh.season_id
-    JOIN player_seasons ps ON ps.team_history_id = tsh.id
+    JOIN player_season_teams pst ON pst.team_history_id = tsh.id AND pst.sort_order = 0
+    JOIN player_seasons ps ON ps.id = pst.player_season_id
     JOIN players p ON p.id = ps.player_id
     LEFT JOIN player_season_batting_stats b ON b.player_season_id = ps.id AND b.is_regular_season = 1
     WHERE s.season_num BETWEEN ? AND ?
@@ -202,7 +203,8 @@ pitching_agg AS (
         SUM(COALESCE(pit.outs_pitched, 0)) AS total_outs
     FROM team_season_history tsh
     JOIN seasons s ON s.id = tsh.season_id
-    JOIN player_seasons ps ON ps.team_history_id = tsh.id
+    JOIN player_season_teams pst ON pst.team_history_id = tsh.id AND pst.sort_order = 0
+    JOIN player_seasons ps ON ps.id = pst.player_season_id
     LEFT JOIN player_season_pitching_stats pit ON pit.player_season_id = ps.id AND pit.is_regular_season = 1
     WHERE s.season_num BETWEEN ? AND ?
     GROUP BY tsh.team_id
@@ -430,12 +432,12 @@ SELECT
     pit.games_finished, pit.runs_allowed, pit.wild_pitches, pit.total_pitches
 FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
+JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.team_history_id = ? AND pst.sort_order = 0
 LEFT JOIN player_season_game_stats gs ON gs.player_season_id = ps.id
 LEFT JOIN player_season_batting_stats b
     ON b.player_season_id = ps.id AND b.is_regular_season = 1
 LEFT JOIN player_season_pitching_stats pit
     ON pit.player_season_id = ps.id AND pit.is_regular_season = 1
-WHERE ps.team_history_id = ?
 ORDER BY ps.primary_position, p.last_name
 `, teamHistoryID)
 	if err != nil {

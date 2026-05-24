@@ -202,7 +202,8 @@ FROM player_season_batting_stats b
 JOIN player_seasons ps ON ps.id = b.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
 JOIN players p         ON p.id  = ps.player_id
-LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 WHERE b.is_regular_season = ?
   AND b.at_bats > 0` + whereExtra + `
 ORDER BY COALESCE(b.smb_war, -9999.0) DESC, p.last_name, p.first_name, s.season_num`
@@ -366,7 +367,8 @@ FROM player_season_pitching_stats pit
 JOIN player_seasons ps ON ps.id = pit.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
 JOIN players p         ON p.id  = ps.player_id
-LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 WHERE pit.is_regular_season = ?
   AND pit.outs_pitched > 0` + whereExtra + `
 ORDER BY COALESCE(pit.smb_war, -9999.0) DESC, p.last_name, p.first_name, s.season_num`

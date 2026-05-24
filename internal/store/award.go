@@ -99,7 +99,8 @@ SELECT
     ps.pitcher_role
 FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
-LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 WHERE ps.season_id = ?
 ORDER BY p.last_name ASC, p.first_name ASC
 `, seasonID)

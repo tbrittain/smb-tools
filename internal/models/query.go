@@ -179,13 +179,20 @@ type PlayerCareer struct {
 	Pitching      *CareerPitchingStats // nil if player has no pitching rows
 }
 
+// PlayerTeamRef is one team entry in a player's season team history.
+// A season may have 0 (FA the whole season), 1, 2, or 3 entries.
+type PlayerTeamRef struct {
+	TeamID        int64
+	TeamHistoryID int64
+	TeamName      string
+}
+
 // PlayerSeasonLogRow is one row in a player's season-by-season breakdown.
 type PlayerSeasonLogRow struct {
+	PlayerSeasonID    int64
 	SeasonNum         int
 	SeasonID          int64
-	TeamHistoryID     *int64 // nil when player is a free agent
-	TeamID            *int64 // nil when player is a free agent
-	TeamName          string
+	Teams             []PlayerTeamRef
 	Age               int
 	Salary            int
 	PrimaryPosition   string

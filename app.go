@@ -769,15 +769,9 @@ func (a *App) GetPlayerSeasonLog(playerID int64) ([]PlayerSeasonLogDTO, error) {
 				service.ComputePitchingRates(p)
 			}
 		}
-		var teams []TeamRefDTO
-		if r.TeamHistoryID != nil {
-			teams = []TeamRefDTO{{
-				TeamID:        *r.TeamID,
-				TeamHistoryID: *r.TeamHistoryID,
-				TeamName:      r.TeamName,
-			}}
-		} else {
-			teams = []TeamRefDTO{}
+		teams := make([]TeamRefDTO, len(r.Teams))
+		for j, t := range r.Teams {
+			teams[j] = TeamRefDTO{TeamID: t.TeamID, TeamHistoryID: t.TeamHistoryID, TeamName: t.TeamName}
 		}
 
 		var traits []string

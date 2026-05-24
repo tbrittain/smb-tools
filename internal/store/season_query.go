@@ -208,7 +208,8 @@ FROM player_season_batting_stats b
 JOIN player_seasons ps ON ps.id = b.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
 JOIN players p         ON p.id  = ps.player_id
-LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 WHERE ps.season_id = ? AND b.is_regular_season = 1
   AND b.at_bats > 0 AND b.at_bats >= s.num_games * 3
 ORDER BY ba DESC LIMIT 1`,
@@ -222,7 +223,8 @@ SELECT p.id, p.first_name, p.last_name, COALESCE(tsh.team_name,''),
 FROM player_season_batting_stats b
 JOIN player_seasons ps ON ps.id = b.player_season_id
 JOIN players p         ON p.id  = ps.player_id
-LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 WHERE ps.season_id = ? AND b.is_regular_season = 1
 ORDER BY b.home_runs DESC LIMIT 1`,
 			args: []any{seasonID},
@@ -235,7 +237,8 @@ SELECT p.id, p.first_name, p.last_name, COALESCE(tsh.team_name,''),
 FROM player_season_batting_stats b
 JOIN player_seasons ps ON ps.id = b.player_season_id
 JOIN players p         ON p.id  = ps.player_id
-LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 WHERE ps.season_id = ? AND b.is_regular_season = 1
 ORDER BY b.rbi DESC LIMIT 1`,
 			args: []any{seasonID},
@@ -249,7 +252,8 @@ FROM player_season_pitching_stats pit
 JOIN player_seasons ps ON ps.id = pit.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
 JOIN players p         ON p.id  = ps.player_id
-LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 WHERE ps.season_id = ? AND pit.is_regular_season = 1
   AND pit.outs_pitched > 0 AND pit.outs_pitched >= s.num_games * 3
 ORDER BY era ASC LIMIT 1`,
@@ -263,7 +267,8 @@ SELECT p.id, p.first_name, p.last_name, COALESCE(tsh.team_name,''),
 FROM player_season_pitching_stats pit
 JOIN player_seasons ps ON ps.id = pit.player_season_id
 JOIN players p         ON p.id  = ps.player_id
-LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 WHERE ps.season_id = ? AND pit.is_regular_season = 1
 ORDER BY pit.wins DESC LIMIT 1`,
 			args: []any{seasonID},
@@ -276,7 +281,8 @@ SELECT p.id, p.first_name, p.last_name, COALESCE(tsh.team_name,''),
 FROM player_season_pitching_stats pit
 JOIN player_seasons ps ON ps.id = pit.player_season_id
 JOIN players p         ON p.id  = ps.player_id
-LEFT JOIN team_season_history tsh ON tsh.id = ps.team_history_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 WHERE ps.season_id = ? AND pit.is_regular_season = 1
 ORDER BY pit.strikeouts DESC LIMIT 1`,
 			args: []any{seasonID},

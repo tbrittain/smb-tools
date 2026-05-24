@@ -46,8 +46,9 @@ type SaveGamePlayer struct {
 	PrimaryPos    string
 	SecondaryPos  string
 	PitcherRole   string
-	CurrentTeam   string
-	PreviousTeam  string
+	CurrentTeam  string
+	PreviousTeam string
+	Prev2Team    string
 	Power         int
 	Contact       int
 	Speed         int
