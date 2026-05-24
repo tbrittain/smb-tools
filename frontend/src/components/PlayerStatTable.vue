@@ -2,6 +2,7 @@
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import type { main } from '../../wailsjs/go/models'
 import {
   formatAdjustedStat,
@@ -45,8 +46,26 @@ const data = computed(() =>
       removable-sort
     >
       <Column field="seasonNum" header="Season" sortable style="width: 80px" />
-      <Column field="teamName" header="Team" sortable style="min-width: 130px" />
+      <Column header="Team" sortable sort-field="teams[0].teamName" style="min-width: 130px">
+        <template #body="{ data: r }">
+          <RouterLink v-if="r.teams.length > 0" :to="`/teams/${r.teams[0].teamId}/seasons/${r.teams[0].teamHistoryId}`" class="team-link">
+            {{ r.teams[0].teamName }}
+          </RouterLink>
+          <span v-else class="fa-label">FA</span>
+        </template>
+      </Column>
       <Column field="age" header="Age" sortable style="width: 55px" />
+      <Column header="Pos" style="min-width: 70px">
+        <template #body="{ data: r }">
+          {{ r.primaryPosition }}<span v-if="r.secondaryPosition" class="secondary-pos">/{{ r.secondaryPosition }}</span>
+        </template>
+      </Column>
+      <Column header="Traits" style="min-width: 160px">
+        <template #body="{ data: r }">
+          <span v-if="r.traits.length > 0" class="traits">{{ r.traits.join(', ') }}</span>
+          <span v-else class="no-traits">—</span>
+        </template>
+      </Column>
       <Column header="G" sortable sort-field="_b.gamesPlayed" style="width: 55px">
         <template #body="{ data: r }">{{ r._b?.gamesPlayed ?? '—' }}</template>
       </Column>
@@ -101,8 +120,24 @@ const data = computed(() =>
       removable-sort
     >
       <Column field="seasonNum" header="Season" sortable style="width: 80px" />
-      <Column field="teamName" header="Team" sortable style="min-width: 130px" />
+      <Column header="Team" sortable sort-field="teams[0].teamName" style="min-width: 130px">
+        <template #body="{ data: r }">
+          <RouterLink v-if="r.teams.length > 0" :to="`/teams/${r.teams[0].teamId}/seasons/${r.teams[0].teamHistoryId}`" class="team-link">
+            {{ r.teams[0].teamName }}
+          </RouterLink>
+          <span v-else class="fa-label">FA</span>
+        </template>
+      </Column>
       <Column field="age" header="Age" sortable style="width: 55px" />
+      <Column header="Role" style="width: 70px">
+        <template #body="{ data: r }">{{ r.pitcherRole || '—' }}</template>
+      </Column>
+      <Column header="Traits" style="min-width: 160px">
+        <template #body="{ data: r }">
+          <span v-if="r.traits.length > 0" class="traits">{{ r.traits.join(', ') }}</span>
+          <span v-else class="no-traits">—</span>
+        </template>
+      </Column>
       <Column header="G" sortable sort-field="_p.games" style="width: 55px">
         <template #body="{ data: r }">{{ r._p?.games ?? '—' }}</template>
       </Column>
@@ -163,5 +198,32 @@ const data = computed(() =>
   border: 1px solid var(--color-border);
   border-radius: 8px;
   overflow: hidden;
+}
+
+.team-link {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.team-link:hover {
+  text-decoration: underline;
+}
+
+.fa-label {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.secondary-pos {
+  color: var(--color-text-secondary);
+}
+
+.traits {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.no-traits {
+  color: var(--color-text-secondary);
 }
 </style>

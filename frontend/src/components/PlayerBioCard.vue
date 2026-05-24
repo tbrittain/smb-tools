@@ -36,9 +36,9 @@ defineProps<{
         <span class="bio-label">Chemistry</span>
         <span class="bio-val">{{ currentSeason.chemistryType }}</span>
       </div>
-      <div v-if="currentSeason.teamName" class="bio-item">
+      <div v-if="currentSeason.teams.length > 0" class="bio-item">
         <span class="bio-label">Last Team</span>
-        <span class="bio-val">{{ currentSeason.teamName }}</span>
+        <span class="bio-val">{{ currentSeason.teams[0].teamName }}</span>
       </div>
     </div>
   </div>

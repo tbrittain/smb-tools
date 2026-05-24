@@ -838,10 +838,26 @@ export namespace main {
 	        this.lastSeason = source["lastSeason"];
 	    }
 	}
+	export class TeamRefDTO {
+	    teamId: number;
+	    teamHistoryId: number;
+	    teamName: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TeamRefDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.teamId = source["teamId"];
+	        this.teamHistoryId = source["teamHistoryId"];
+	        this.teamName = source["teamName"];
+	    }
+	}
 	export class PlayerSeasonLogDTO {
 	    seasonNum: number;
 	    seasonId: number;
-	    teamName: string;
+	    teams: TeamRefDTO[];
 	    age: number;
 	    salary: number;
 	    primaryPosition: string;
@@ -850,8 +866,8 @@ export namespace main {
 	    batHand: string;
 	    throwHand: string;
 	    chemistryType: string;
-	    traitsJson: string;
-	    pitchesJson: string;
+	    traits: string[];
+	    pitches: string[];
 	    power: number;
 	    contact: number;
 	    speed: number;
@@ -873,7 +889,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.seasonNum = source["seasonNum"];
 	        this.seasonId = source["seasonId"];
-	        this.teamName = source["teamName"];
+	        this.teams = this.convertValues(source["teams"], TeamRefDTO);
 	        this.age = source["age"];
 	        this.salary = source["salary"];
 	        this.primaryPosition = source["primaryPosition"];
@@ -882,8 +898,8 @@ export namespace main {
 	        this.batHand = source["batHand"];
 	        this.throwHand = source["throwHand"];
 	        this.chemistryType = source["chemistryType"];
-	        this.traitsJson = source["traitsJson"];
-	        this.pitchesJson = source["pitchesJson"];
+	        this.traits = source["traits"];
+	        this.pitches = source["pitches"];
 	        this.power = source["power"];
 	        this.contact = source["contact"];
 	        this.speed = source["speed"];
@@ -1497,6 +1513,7 @@ export namespace main {
 		    return a;
 		}
 	}
+	
 	export class TeamSearchResultDTO {
 	    teamId: number;
 	    teamName: string;

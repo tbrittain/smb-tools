@@ -211,6 +211,8 @@ func (s *PlayerQueryStore) scanSeasonLogRows(
 SELECT
     s.id                              AS season_id,
     s.season_num,
+    ps.team_history_id,
+    tsh.team_id,
     COALESCE(tsh.team_name, '')       AS team_name,
     ps.age,
     ps.salary,
@@ -268,6 +270,8 @@ ORDER BY s.season_num ASC
 		var row models.PlayerSeasonLogRow
 
 		// Batting sentinel: at_bats is NULL when there is no batting row.
+		var teamHistID, teamID sql.NullInt64
+
 		var bAtBats sql.NullInt64
 		var bGP, bGB, bRuns, bHits, bDB, bTR, bHR, bRBI sql.NullInt64
 		var bSB, bCS, bWalks, bK, bHBP, bSH, bSF, bE, bPB sql.NullInt64
@@ -280,7 +284,7 @@ ORDER BY s.season_num ASC
 		var pERAPlus, pFIP, pFIPMinus, pSmbWAR sql.NullFloat64
 
 		if err := rows.Scan(
-			&row.SeasonID, &row.SeasonNum, &row.TeamName,
+			&row.SeasonID, &row.SeasonNum, &teamHistID, &teamID, &row.TeamName,
 			&row.Age, &row.Salary,
 			&row.PrimaryPosition, &row.SecondaryPosition, &row.PitcherRole,
 			&row.BatHand, &row.ThrowHand, &row.ChemistryType,
@@ -299,6 +303,11 @@ ORDER BY s.season_num ASC
 			&pERAPlus, &pFIP, &pFIPMinus, &pSmbWAR,
 		); err != nil {
 			return nil, nil, fmt.Errorf("scanning season log row: %w", err)
+		}
+
+		if teamHistID.Valid {
+			row.TeamHistoryID = &teamHistID.Int64
+			row.TeamID = &teamID.Int64
 		}
 
 		if bAtBats.Valid {

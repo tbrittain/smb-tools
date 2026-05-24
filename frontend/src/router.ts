@@ -27,6 +27,7 @@ const router = createRouter({
       path: '/players/:playerId',
       component: () => import('./pages/PlayerPage.vue'),
       props: (route) => ({ playerId: Number(route.params.playerId) }),
+      meta: { fullWidth: true },
     },
     {
       path: '/leaderboards',

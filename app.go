@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -768,10 +769,37 @@ func (a *App) GetPlayerSeasonLog(playerID int64) ([]PlayerSeasonLogDTO, error) {
 				service.ComputePitchingRates(p)
 			}
 		}
+		var teams []TeamRefDTO
+		if r.TeamHistoryID != nil {
+			teams = []TeamRefDTO{{
+				TeamID:        *r.TeamID,
+				TeamHistoryID: *r.TeamHistoryID,
+				TeamName:      r.TeamName,
+			}}
+		} else {
+			teams = []TeamRefDTO{}
+		}
+
+		var traits []string
+		if r.TraitsJSON != "" {
+			_ = json.Unmarshal([]byte(r.TraitsJSON), &traits)
+		}
+		if traits == nil {
+			traits = []string{}
+		}
+
+		var pitches []string
+		if r.PitchesJSON != "" {
+			_ = json.Unmarshal([]byte(r.PitchesJSON), &pitches)
+		}
+		if pitches == nil {
+			pitches = []string{}
+		}
+
 		out[i] = PlayerSeasonLogDTO{
 			SeasonNum:         r.SeasonNum,
 			SeasonID:          r.SeasonID,
-			TeamName:          r.TeamName,
+			Teams:             teams,
 			Age:               r.Age,
 			Salary:            r.Salary,
 			PrimaryPosition:   r.PrimaryPosition,
@@ -780,8 +808,8 @@ func (a *App) GetPlayerSeasonLog(playerID int64) ([]PlayerSeasonLogDTO, error) {
 			BatHand:           r.BatHand,
 			ThrowHand:         r.ThrowHand,
 			ChemistryType:     r.ChemistryType,
-			TraitsJSON:        r.TraitsJSON,
-			PitchesJSON:       r.PitchesJSON,
+			Traits:            traits,
+			Pitches:           pitches,
 			Power:             r.Power,
 			Contact:           r.Contact,
 			Speed:             r.Speed,

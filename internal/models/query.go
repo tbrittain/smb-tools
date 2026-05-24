@@ -183,6 +183,8 @@ type PlayerCareer struct {
 type PlayerSeasonLogRow struct {
 	SeasonNum         int
 	SeasonID          int64
+	TeamHistoryID     *int64 // nil when player is a free agent
+	TeamID            *int64 // nil when player is a free agent
 	TeamName          string
 	Age               int
 	Salary            int

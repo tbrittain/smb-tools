@@ -70,39 +70,41 @@ onMounted(async () => {
     <p v-else-if="error" class="error-text">{{ error }}</p>
 
     <template v-else-if="career">
-      <!-- Bio header -->
-      <PlayerBioCard :player="career" :current-season="mostRecentSeason" />
+      <div class="player-content">
+        <!-- Bio header -->
+        <PlayerBioCard :player="career" :current-season="mostRecentSeason" />
 
-      <!-- Career stat summary row -->
-      <CareerStatSummary :batting="career.batting" :pitching="career.pitching" />
+        <!-- Career stat summary row -->
+        <CareerStatSummary :batting="career.batting" :pitching="career.pitching" />
 
-      <!-- Attributes -->
-      <section v-if="latestAttrs" class="section">
-        <h3>Attributes
-          <span class="season-tag">Season {{ latestAttrs.seasonNum }}</span>
-        </h3>
-        <AttributesTable
-          :power="latestAttrs.power"
-          :contact="latestAttrs.contact"
-          :speed="latestAttrs.speed"
-          :fielding="latestAttrs.fielding"
-          :arm="latestAttrs.arm"
-          :velocity="latestAttrs.velocity"
-          :junk="latestAttrs.junk"
-          :accuracy="latestAttrs.accuracy"
-          :show-pitching="isPitcher"
-        />
-      </section>
+        <!-- Attributes -->
+        <section v-if="latestAttrs" class="section">
+          <h3>Attributes
+            <span class="season-tag">Season {{ latestAttrs.seasonNum }}</span>
+          </h3>
+          <AttributesTable
+            :power="latestAttrs.power"
+            :contact="latestAttrs.contact"
+            :speed="latestAttrs.speed"
+            :fielding="latestAttrs.fielding"
+            :arm="latestAttrs.arm"
+            :velocity="latestAttrs.velocity"
+            :junk="latestAttrs.junk"
+            :accuracy="latestAttrs.accuracy"
+            :show-pitching="isPitcher"
+          />
+        </section>
 
-      <!-- Awards -->
-      <section v-if="Object.keys(awardsBySeason).length > 0" class="section">
-        <h3>Awards</h3>
-        <PlayerAwardsList :awards-by-season="awardsBySeason" />
-      </section>
+        <!-- Awards -->
+        <section v-if="Object.keys(awardsBySeason).length > 0" class="section">
+          <h3>Awards</h3>
+          <PlayerAwardsList :awards-by-season="awardsBySeason" />
+        </section>
+      </div>
 
-      <!-- Season log -->
-      <section class="section">
-        <div class="section-header">
+      <!-- Season log — full width -->
+      <section class="season-log-section">
+        <div class="season-log-header">
           <h3>Season Log</h3>
           <div class="tab-bar">
             <button
@@ -142,11 +144,32 @@ onMounted(async () => {
 
 <style scoped>
 .player-page {
-  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding-bottom: 2rem;
+}
+
+.player-content {
+  padding: 2rem 2rem 0;
   display: flex;
   flex-direction: column;
   gap: 2rem;
   max-width: 1000px;
+}
+
+.season-log-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 2rem;
+}
+
+.season-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 h3 {
@@ -169,13 +192,6 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
 }
 
 .tab-bar {
