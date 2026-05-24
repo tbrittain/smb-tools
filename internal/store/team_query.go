@@ -423,13 +423,15 @@ SELECT
     b.doubles, b.triples, b.home_runs, b.rbi,
     b.stolen_bases, b.caught_stealing, b.walks, b.strikeouts,
     b.hit_by_pitch, b.sac_hits, b.sac_flies, b.errors, b.passed_balls,
+    b.ops_plus, b.smb_war,
     -- pitching sentinel first, then the rest
     pit.outs_pitched,
     pit.wins, pit.losses, pit.games, pit.games_started,
     pit.complete_games, pit.shutouts, pit.saves,
     pit.hits_allowed, pit.earned_runs, pit.home_runs_allowed,
     pit.walks, pit.strikeouts, pit.hit_batters, pit.batters_faced,
-    pit.games_finished, pit.runs_allowed, pit.wild_pitches, pit.total_pitches
+    pit.games_finished, pit.runs_allowed, pit.wild_pitches, pit.total_pitches,
+    pit.era_plus, pit.fip, pit.fip_minus, pit.smb_war
 FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
 JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.team_history_id = ? AND pst.sort_order = 0
@@ -453,10 +455,12 @@ ORDER BY ps.primary_position, p.last_name
 		var bAtBats sql.NullInt64
 		var bGP, bGB, bRuns, bHits, bDB, bTR, bHR, bRBI sql.NullInt64
 		var bSB, bCS, bWalks, bK, bHBP, bSH, bSF, bE, bPB sql.NullInt64
+		var bOPSPlus, bSmbWAR sql.NullFloat64
 
 		var pOuts sql.NullInt64
 		var pW, pL, pG, pGS, pCG, pSHO, pSV sql.NullInt64
 		var pH, pER, pHRA, pWalks, pK, pHBP, pBF, pGF, pRA, pWP, pTP sql.NullInt64
+		var pERAPlus, pFIP, pFIPMinus, pSmbWAR sql.NullFloat64
 
 		if err := rows.Scan(
 			&r.PlayerID, &r.FirstName, &r.LastName, &hof,
@@ -469,9 +473,11 @@ ORDER BY ps.primary_position, p.last_name
 			&bAtBats,
 			&bGP, &bGB, &bRuns, &bHits, &bDB, &bTR, &bHR, &bRBI,
 			&bSB, &bCS, &bWalks, &bK, &bHBP, &bSH, &bSF, &bE, &bPB,
+			&bOPSPlus, &bSmbWAR,
 			&pOuts,
 			&pW, &pL, &pG, &pGS, &pCG, &pSHO, &pSV,
 			&pH, &pER, &pHRA, &pWalks, &pK, &pHBP, &pBF, &pGF, &pRA, &pWP, &pTP,
+			&pERAPlus, &pFIP, &pFIPMinus, &pSmbWAR,
 		); err != nil {
 			return nil, fmt.Errorf("scanning roster player: %w", err)
 		}
@@ -486,6 +492,8 @@ ORDER BY ps.primary_position, p.last_name
 				Walks: int(bWalks.Int64), Strikeouts: int(bK.Int64), HitByPitch: int(bHBP.Int64),
 				SacHits: int(bSH.Int64), SacFlies: int(bSF.Int64),
 				Errors: int(bE.Int64), PassedBalls: int(bPB.Int64),
+				OPSPlus: nullFloat64Ptr(bOPSPlus),
+				SmbWAR:  nullFloat64Ptr(bSmbWAR),
 			}
 		}
 		if pOuts.Valid {
@@ -500,6 +508,10 @@ ORDER BY ps.primary_position, p.last_name
 				BattersFaced: int(pBF.Int64), GamesFinished: int(pGF.Int64),
 				RunsAllowed: int(pRA.Int64), WildPitches: int(pWP.Int64),
 				TotalPitches: int(pTP.Int64),
+				ERAPlus:  nullFloat64Ptr(pERAPlus),
+				FIP:      nullFloat64Ptr(pFIP),
+				FIPMinus: nullFloat64Ptr(pFIPMinus),
+				SmbWAR:   nullFloat64Ptr(pSmbWAR),
 			}
 		}
 		out = append(out, r)
@@ -667,6 +679,14 @@ ORDER BY g.series_number ASC, g.game_number ASC
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+func nullFloat64Ptr(n sql.NullFloat64) *float64 {
+	if !n.Valid {
+		return nil
+	}
+	v := n.Float64
+	return &v
 }
 
 func scanScheduleRows(rows *sql.Rows) ([]models.ScheduleGameRow, error) {
