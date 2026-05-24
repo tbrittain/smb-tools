@@ -10,8 +10,11 @@ import LoadingSpinner from '../components/LoadingSpinner.vue'
 import PlayerAwardsList from '../components/PlayerAwardsList.vue'
 import PlayerBioCard from '../components/PlayerBioCard.vue'
 import PlayerStatTable from '../components/PlayerStatTable.vue'
+import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 
 const props = defineProps<{ playerId: number }>()
+
+const { set } = useBreadcrumbs()
 
 const career = ref<main.PlayerCareerDTO | null>(null)
 const seasonLog = ref<main.PlayerSeasonLogDTO[]>([])
@@ -52,6 +55,7 @@ onMounted(async () => {
     awardsBySeason.value = awards ?? {}
     // Default tab
     statMode.value = isPitcher.value && !hasBatting.value ? 'pitching' : 'batting'
+    set([{ label: c ? `${c.firstName} ${c.lastName}` : 'Player' }])
   } catch (e) {
     error.value = String(e)
   } finally {

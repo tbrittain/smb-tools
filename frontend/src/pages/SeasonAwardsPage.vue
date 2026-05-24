@@ -15,6 +15,7 @@ import { main } from '../../wailsjs/go/models'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import SeasonSelector from '../components/SeasonSelector.vue'
+import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 
 const props = defineProps<{
   initialSeasonId?: number
@@ -196,6 +197,8 @@ watch(selectedSeasonId, (id) => {
   if (id != null) loadCandidates(id)
 })
 
+const { set } = useBreadcrumbs()
+onMounted(() => set([{ label: 'Awards' }]))
 onMounted(loadSeasons)
 </script>
 

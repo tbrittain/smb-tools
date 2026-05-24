@@ -8,6 +8,9 @@ import { GetHistoricalTeams, GetSeasonList } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import { useBreadcrumbs } from '../composables/useBreadcrumbs'
+
+const { set } = useBreadcrumbs()
 
 const rows = ref<main.HistoricalTeamDTO[]>([])
 const seasons = ref<main.SeasonSummaryDTO[]>([])
@@ -37,6 +40,7 @@ watch([seasonStart, seasonEnd], () => {
 })
 
 onMounted(async () => {
+  set([{ label: 'Teams' }])
   loading.value = true
   try {
     seasons.value = await GetSeasonList()

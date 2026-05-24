@@ -12,8 +12,11 @@ import BattingLeaderboardTable from '../components/BattingLeaderboardTable.vue'
 import LeaderboardFilters from '../components/LeaderboardFilters.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import PitchingLeaderboardTable from '../components/PitchingLeaderboardTable.vue'
+import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 
 type LeaderboardTab = 'batting-career' | 'batting-season' | 'pitching-career' | 'pitching-season'
+
+const { set } = useBreadcrumbs()
 
 const activeTab = ref<LeaderboardTab>('batting-career')
 
@@ -47,6 +50,7 @@ const filterMode = computed<'batting' | 'pitching'>(() =>
 watch([activeTab, filters], loadCurrentTab, { deep: true })
 
 onMounted(async () => {
+  set([{ label: 'Leaderboards' }])
   try {
     seasons.value = await GetSeasonList()
   } catch {

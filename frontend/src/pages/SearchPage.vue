@@ -5,6 +5,7 @@ import { SearchPlayers, SearchTeams } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import EmptyState from '../components/EmptyState.vue'
 import SearchInput from '../components/SearchInput.vue'
+import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 import { useSearchDebounce } from '../composables/useSearchDebounce'
 
 const props = defineProps<{ q: string }>()
@@ -37,8 +38,11 @@ async function runSearch(query: string) {
 
 const { query, loading } = useSearchDebounce(runSearch, 300)
 
+const { set } = useBreadcrumbs()
+
 // Seed from URL query param on mount
 onMounted(() => {
+  set([{ label: 'Search' }])
   if (props.q) {
     query.value = props.q
   }
