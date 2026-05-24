@@ -517,13 +517,21 @@ func (r *LegacyCompanionReader) ReadPlayerSeasonTeams(ctx context.Context, franc
 	defer func() { _ = rows.Close() }()
 	out := make(map[int][]LegacyPlayerSeasonTeam)
 	for rows.Next() {
-		var t LegacyPlayerSeasonTeam
+		var psID int
+		var teamHistID sql.NullInt64
 		var order int
-		if err := rows.Scan(&t.PlayerSeasonID, &t.TeamHistID, &order); err != nil {
+		if err := rows.Scan(&psID, &teamHistID, &order); err != nil {
 			return nil, fmt.Errorf("scanning legacy player season team: %w", err)
 		}
-		t.SortOrder = order - 1
-		out[t.PlayerSeasonID] = append(out[t.PlayerSeasonID], t)
+		if !teamHistID.Valid {
+			continue
+		}
+		t := LegacyPlayerSeasonTeam{
+			PlayerSeasonID: psID,
+			TeamHistID:     int(teamHistID.Int64),
+			SortOrder:      order - 1,
+		}
+		out[psID] = append(out[psID], t)
 	}
 	return out, rows.Err()
 }
