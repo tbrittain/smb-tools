@@ -53,8 +53,7 @@ onMounted(async () => {
     career.value = c
     seasonLog.value = log ?? []
     awardsBySeason.value = awards ?? {}
-    // Default tab
-    statMode.value = isPitcher.value && !hasBatting.value ? 'pitching' : 'batting'
+    statMode.value = hasPitching.value ? 'pitching' : 'batting'
     set([{ label: c ? `${c.firstName} ${c.lastName}` : 'Player' }])
   } catch (e) {
     error.value = String(e)
