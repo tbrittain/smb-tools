@@ -51,6 +51,11 @@ async function handleSelect(id: string) {
     error.value = String(e)
   }
 }
+
+function goToCrumb(historyPosition: number) {
+  const currentPos: number = window.history.state?.position ?? 0
+  router.go(historyPosition - currentPos)
+}
 </script>
 
 <template>
@@ -120,7 +125,7 @@ async function handleSelect(id: string) {
               <nav v-if="crumbs.length > 0" class="topbar-breadcrumb" aria-label="Breadcrumb">
                 <template v-for="(crumb, i) in crumbs" :key="i">
                   <span v-if="i > 0" class="crumb-sep" aria-hidden="true">›</span>
-                  <router-link v-if="crumb.to" :to="crumb.to" class="crumb-link">{{ crumb.label }}</router-link>
+                  <button v-if="crumb.historyPosition != null" class="crumb-link" @click="goToCrumb(crumb.historyPosition)">{{ crumb.label }}</button>
                   <span v-else class="crumb-current">{{ crumb.label }}</span>
                 </template>
               </nav>
@@ -326,8 +331,14 @@ async function handleSelect(id: string) {
 }
 
 .crumb-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
   color: var(--color-accent);
   text-decoration: none;
+  cursor: pointer;
 }
 
 .crumb-link:hover {
