@@ -1112,6 +1112,8 @@ export namespace main {
 	    awayScore?: number;
 	    homePitcherName: string;
 	    awayPitcherName: string;
+	    homePitcherPlayerId?: number;
+	    awayPitcherPlayerId?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ScheduleGameDTO(source);
@@ -1130,6 +1132,8 @@ export namespace main {
 	        this.awayScore = source["awayScore"];
 	        this.homePitcherName = source["homePitcherName"];
 	        this.awayPitcherName = source["awayPitcherName"];
+	        this.homePitcherPlayerId = source["homePitcherPlayerId"];
+	        this.awayPitcherPlayerId = source["awayPitcherPlayerId"];
 	    }
 	}
 	export class TeamAwardCandidatesDTO {

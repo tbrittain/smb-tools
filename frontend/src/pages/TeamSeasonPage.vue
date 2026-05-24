@@ -340,13 +340,44 @@ onMounted(async () => {
               {{ data.homeTeamHistoryId === historyId ? '@ ' + data.awayTeamName : 'vs ' + data.homeTeamName }}
             </template>
           </Column>
-          <Column header="SP" style="min-width: 120px">
+          <Column header="SP" style="min-width: 130px">
             <template #body="{ data }">
-              {{
-                data.homeTeamHistoryId === historyId
-                  ? data.homePitcherName || '—'
-                  : data.awayPitcherName || '—'
-              }}
+              <template v-if="data.homeTeamHistoryId === historyId">
+                <RouterLink
+                  v-if="data.homePitcherPlayerId"
+                  :to="`/players/${data.homePitcherPlayerId}`"
+                  class="player-link"
+                >{{ data.homePitcherName }}</RouterLink>
+                <span v-else>{{ data.homePitcherName || '—' }}</span>
+              </template>
+              <template v-else>
+                <RouterLink
+                  v-if="data.awayPitcherPlayerId"
+                  :to="`/players/${data.awayPitcherPlayerId}`"
+                  class="player-link"
+                >{{ data.awayPitcherName }}</RouterLink>
+                <span v-else>{{ data.awayPitcherName || '—' }}</span>
+              </template>
+            </template>
+          </Column>
+          <Column header="Opp SP" style="min-width: 130px">
+            <template #body="{ data }">
+              <template v-if="data.homeTeamHistoryId === historyId">
+                <RouterLink
+                  v-if="data.awayPitcherPlayerId"
+                  :to="`/players/${data.awayPitcherPlayerId}`"
+                  class="player-link"
+                >{{ data.awayPitcherName }}</RouterLink>
+                <span v-else>{{ data.awayPitcherName || '—' }}</span>
+              </template>
+              <template v-else>
+                <RouterLink
+                  v-if="data.homePitcherPlayerId"
+                  :to="`/players/${data.homePitcherPlayerId}`"
+                  class="player-link"
+                >{{ data.homePitcherName }}</RouterLink>
+                <span v-else>{{ data.homePitcherName || '—' }}</span>
+              </template>
             </template>
           </Column>
         </DataTable>

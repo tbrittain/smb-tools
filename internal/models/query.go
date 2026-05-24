@@ -367,17 +367,19 @@ type RosterPlayer struct {
 
 // ScheduleGameRow is one game in a team's regular season schedule.
 type ScheduleGameRow struct {
-	TeamGameNum       int // sequential game number for this team (1-based)
-	GameNumber        int // season-wide global game number
-	Day               int
-	HomeTeamHistoryID int64
-	HomeTeamName      string
-	AwayTeamHistoryID int64
-	AwayTeamName      string
-	HomeScore         *int
-	AwayScore         *int
-	HomePitcherName   string
-	AwayPitcherName   string
+	TeamGameNum          int // sequential game number for this team (1-based)
+	GameNumber           int // season-wide global game number
+	Day                  int
+	HomeTeamHistoryID    int64
+	HomeTeamName         string
+	AwayTeamHistoryID    int64
+	AwayTeamName         string
+	HomeScore            *int
+	AwayScore            *int
+	HomePitcherName      string
+	AwayPitcherName      string
+	HomePitcherPlayerID  *int64
+	AwayPitcherPlayerID  *int64
 }
 
 // PlayoffGameRow is one game in a team's playoff schedule.

@@ -344,17 +344,19 @@ type RosterPlayerDTO struct {
 
 // ScheduleGameDTO is one game in a team's regular season schedule.
 type ScheduleGameDTO struct {
-	TeamGameNum       int    `json:"teamGameNum"`
-	GameNumber        int    `json:"gameNumber"`
-	Day               int    `json:"day"`
-	HomeTeamHistoryID int64  `json:"homeTeamHistoryId"`
-	HomeTeamName      string `json:"homeTeamName"`
-	AwayTeamHistoryID int64  `json:"awayTeamHistoryId"`
-	AwayTeamName      string `json:"awayTeamName"`
-	HomeScore         *int   `json:"homeScore"`
-	AwayScore         *int   `json:"awayScore"`
-	HomePitcherName   string `json:"homePitcherName"`
-	AwayPitcherName   string `json:"awayPitcherName"`
+	TeamGameNum         int    `json:"teamGameNum"`
+	GameNumber          int    `json:"gameNumber"`
+	Day                 int    `json:"day"`
+	HomeTeamHistoryID   int64  `json:"homeTeamHistoryId"`
+	HomeTeamName        string `json:"homeTeamName"`
+	AwayTeamHistoryID   int64  `json:"awayTeamHistoryId"`
+	AwayTeamName        string `json:"awayTeamName"`
+	HomeScore           *int   `json:"homeScore"`
+	AwayScore           *int   `json:"awayScore"`
+	HomePitcherName     string `json:"homePitcherName"`
+	AwayPitcherName     string `json:"awayPitcherName"`
+	HomePitcherPlayerID *int64 `json:"homePitcherPlayerId"`
+	AwayPitcherPlayerID *int64 `json:"awayPitcherPlayerId"`
 }
 
 // PlayoffGameDTO is one game in a team's playoff schedule.
@@ -524,17 +526,19 @@ func rosterPlayerToDTO(r models.RosterPlayer) RosterPlayerDTO {
 
 func scheduleGameToDTO(g models.ScheduleGameRow) ScheduleGameDTO {
 	return ScheduleGameDTO{
-		TeamGameNum:       g.TeamGameNum,
-		GameNumber:        g.GameNumber,
-		Day:               g.Day,
-		HomeTeamHistoryID: g.HomeTeamHistoryID,
-		HomeTeamName:      g.HomeTeamName,
-		AwayTeamHistoryID: g.AwayTeamHistoryID,
-		AwayTeamName:      g.AwayTeamName,
-		HomeScore:         g.HomeScore,
-		AwayScore:         g.AwayScore,
-		HomePitcherName:   g.HomePitcherName,
-		AwayPitcherName:   g.AwayPitcherName,
+		TeamGameNum:         g.TeamGameNum,
+		GameNumber:          g.GameNumber,
+		Day:                 g.Day,
+		HomeTeamHistoryID:   g.HomeTeamHistoryID,
+		HomeTeamName:        g.HomeTeamName,
+		AwayTeamHistoryID:   g.AwayTeamHistoryID,
+		AwayTeamName:        g.AwayTeamName,
+		HomeScore:           g.HomeScore,
+		AwayScore:           g.AwayScore,
+		HomePitcherName:     g.HomePitcherName,
+		AwayPitcherName:     g.AwayPitcherName,
+		HomePitcherPlayerID: g.HomePitcherPlayerID,
+		AwayPitcherPlayerID: g.AwayPitcherPlayerID,
 	}
 }
 

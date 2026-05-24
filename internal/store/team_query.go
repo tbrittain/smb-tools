@@ -606,7 +606,9 @@ SELECT
     g.home_score,
     g.away_score,
     COALESCE(hp.first_name || ' ' || hp.last_name, '') AS home_pitcher,
-    COALESCE(ap.first_name || ' ' || ap.last_name, '') AS away_pitcher
+    COALESCE(ap.first_name || ' ' || ap.last_name, '') AS away_pitcher,
+    hp.id AS home_pitcher_player_id,
+    ap.id AS away_pitcher_player_id
 FROM team_season_schedules g
 JOIN team_season_history home ON home.id = g.home_team_history_id
 JOIN team_season_history away ON away.id = g.away_team_history_id
@@ -696,12 +698,14 @@ func scanScheduleRows(rows *sql.Rows) ([]models.ScheduleGameRow, error) {
 	for rows.Next() {
 		var r models.ScheduleGameRow
 		var homeScore, awayScore sql.NullInt64
+		var homePitcherID, awayPitcherID sql.NullInt64
 		if err := rows.Scan(
 			&r.TeamGameNum, &r.GameNumber, &r.Day,
 			&r.HomeTeamHistoryID, &r.HomeTeamName,
 			&r.AwayTeamHistoryID, &r.AwayTeamName,
 			&homeScore, &awayScore,
 			&r.HomePitcherName, &r.AwayPitcherName,
+			&homePitcherID, &awayPitcherID,
 		); err != nil {
 			return nil, fmt.Errorf("scanning schedule game row: %w", err)
 		}
@@ -712,6 +716,14 @@ func scanScheduleRows(rows *sql.Rows) ([]models.ScheduleGameRow, error) {
 		if awayScore.Valid {
 			v := int(awayScore.Int64)
 			r.AwayScore = &v
+		}
+		if homePitcherID.Valid {
+			v := homePitcherID.Int64
+			r.HomePitcherPlayerID = &v
+		}
+		if awayPitcherID.Valid {
+			v := awayPitcherID.Int64
+			r.AwayPitcherPlayerID = &v
 		}
 		out = append(out, r)
 	}
