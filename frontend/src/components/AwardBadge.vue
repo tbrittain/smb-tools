@@ -3,7 +3,8 @@ import type { main } from '../../wailsjs/go/models'
 
 const props = defineProps<{
   award: main.AwardDTO
-  size?: 'sm' | 'md'
+  size?: 'sm' | 'md' | 'lg'
+  count?: number
 }>()
 
 const sizeClass = props.size ?? 'md'
@@ -19,7 +20,7 @@ function tierClass(importance: number): string {
 
 <template>
   <span class="award-badge" :class="[tierClass(award.importance), sizeClass]" :title="award.name">
-    {{ award.name }}
+{{ count && count > 1 ? `${count}x ` : '' }}{{ award.name }}
   </span>
 </template>
 
@@ -31,6 +32,11 @@ function tierClass(importance: number): string {
   font-weight: 600;
   white-space: nowrap;
   line-height: 1;
+}
+
+.award-badge.lg {
+  font-size: 0.875rem;
+  padding: 0.3rem 0.65rem;
 }
 
 .award-badge.md {

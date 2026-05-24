@@ -3,11 +3,9 @@ import { computed, onMounted, ref } from 'vue'
 import { GetPlayerCareer, GetPlayerCareerAwards, GetPlayerSeasonLog } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AttributesTable from '../components/AttributesTable.vue'
-import AwardBadge from '../components/AwardBadge.vue'
 import CareerStatSummary from '../components/CareerStatSummary.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
-import PlayerAwardsList from '../components/PlayerAwardsList.vue'
 import PlayerBioCard from '../components/PlayerBioCard.vue'
 import PlayerStatTable from '../components/PlayerStatTable.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
@@ -71,7 +69,7 @@ onMounted(async () => {
     <template v-else-if="career">
       <div class="player-content">
         <!-- Bio header -->
-        <PlayerBioCard :player="career" :current-season="mostRecentSeason" />
+        <PlayerBioCard :player="career" :current-season="mostRecentSeason" :awards-by-season="awardsBySeason" />
 
         <!-- Career stat summary row -->
         <CareerStatSummary :batting="career.batting" :pitching="career.pitching" />
@@ -94,11 +92,6 @@ onMounted(async () => {
           />
         </section>
 
-        <!-- Awards -->
-        <section v-if="Object.keys(awardsBySeason).length > 0" class="section">
-          <h3>Awards</h3>
-          <PlayerAwardsList :awards-by-season="awardsBySeason" />
-        </section>
       </div>
 
       <!-- Season log — full width -->
@@ -133,6 +126,7 @@ onMounted(async () => {
           :rows="seasonLog"
           :mode="statMode"
           :show-playoffs="showPlayoffs"
+          :awards-by-season="awardsBySeason"
         />
       </section>
     </template>
