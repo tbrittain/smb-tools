@@ -29,6 +29,12 @@ const error = ref<string | null>(null)
 
 type RosterView = 'batting' | 'pitching' | 'attributes'
 const rosterView = ref<RosterView>('batting')
+const playoffEligibleOnly = ref(false)
+
+const visibleRoster = computed(() => {
+  const roster = detail.value?.roster ?? []
+  return playoffEligibleOnly.value ? roster.filter((r) => r.isOnFinalRoster) : roster
+})
 
 // Group playoff games by series number
 const playoffBySeries = computed(() => {
@@ -110,25 +116,31 @@ onMounted(async () => {
       <section class="grid-section">
         <div class="section-header">
           <h3>Roster</h3>
-          <div class="tab-bar">
-            <button
-              v-for="v in (['batting', 'pitching', 'attributes'] as RosterView[])"
-              :key="v"
-              class="tab-btn"
-              :class="{ active: rosterView === v }"
-              @click="rosterView = v"
-            >
-              {{ v.charAt(0).toUpperCase() + v.slice(1) }}
-            </button>
+          <div class="roster-controls">
+            <label class="playoff-filter">
+              <input v-model="playoffEligibleOnly" type="checkbox" />
+              Playoff eligible only
+            </label>
+            <div class="tab-bar">
+              <button
+                v-for="v in (['batting', 'pitching', 'attributes'] as RosterView[])"
+                :key="v"
+                class="tab-btn"
+                :class="{ active: rosterView === v }"
+                @click="rosterView = v"
+              >
+                {{ v.charAt(0).toUpperCase() + v.slice(1) }}
+              </button>
+            </div>
           </div>
         </div>
 
-        <EmptyState v-if="detail.roster.length === 0" message="No roster data" />
+        <EmptyState v-if="visibleRoster.length === 0" message="No roster data" />
 
         <!-- Batting view -->
         <DataTable
           v-else-if="rosterView === 'batting'"
-          :value="detail.roster"
+          :value="visibleRoster"
           sort-field="batting.smbWar"
           :sort-order="-1"
           size="small"
@@ -139,6 +151,7 @@ onMounted(async () => {
                 {{ data.firstName }} {{ data.lastName }}
               </RouterLink>
               <span v-if="data.isHallOfFamer" class="hof-badge">HoF</span>
+              <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
             </template>
           </Column>
           <Column field="primaryPosition" header="Pos" sortable style="min-width: 55px" />
@@ -187,7 +200,7 @@ onMounted(async () => {
         <!-- Pitching view -->
         <DataTable
           v-else-if="rosterView === 'pitching'"
-          :value="detail.roster.filter(r => r.pitching != null)"
+          :value="visibleRoster.filter((r) => r.pitching != null)"
           sort-field="pitching.smbWar"
           :sort-order="-1"
           size="small"
@@ -198,6 +211,7 @@ onMounted(async () => {
                 {{ data.firstName }} {{ data.lastName }}
               </RouterLink>
               <span v-if="data.isHallOfFamer" class="hof-badge">HoF</span>
+              <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
             </template>
           </Column>
           <Column field="pitcherRole" header="Role" sortable style="min-width: 55px" />
@@ -251,7 +265,7 @@ onMounted(async () => {
         <!-- Attributes view -->
         <DataTable
           v-else
-          :value="detail.roster"
+          :value="visibleRoster"
           sort-field="salary"
           :sort-order="-1"
           size="small"
@@ -261,6 +275,7 @@ onMounted(async () => {
               <RouterLink :to="`/players/${data.playerId}`" class="player-link">
                 {{ data.firstName }} {{ data.lastName }}
               </RouterLink>
+              <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
             </template>
           </Column>
           <Column field="primaryPosition" header="Pos" sortable style="min-width: 55px" />
@@ -471,6 +486,19 @@ h3 {
 
 .record-note { font-size: 0.75rem; font-weight: 400; color: var(--color-text-secondary); }
 
+.roster-controls { display: flex; align-items: center; gap: 1rem; }
+
+.playoff-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.playoff-filter input { cursor: pointer; }
+
 .tab-bar { display: flex; gap: 0.25rem; }
 .tab-btn {
   padding: 0.25rem 0.75rem;
@@ -494,6 +522,18 @@ h3 {
   color: #d29922;
   background: color-mix(in srgb, #d29922 15%, transparent);
   border: 1px solid color-mix(in srgb, #d29922 40%, transparent);
+  border-radius: 3px;
+  padding: 0 4px;
+  vertical-align: middle;
+}
+
+.traded-badge {
+  margin-left: 0.375rem;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #8b949e;
+  background: color-mix(in srgb, #8b949e 15%, transparent);
+  border: 1px solid color-mix(in srgb, #8b949e 40%, transparent);
   border-radius: 3px;
   padding: 0 4px;
   vertical-align: middle;

@@ -1019,6 +1019,7 @@ export namespace main {
 	    velocity: number;
 	    junk: number;
 	    accuracy: number;
+	    isOnFinalRoster: boolean;
 	    batting?: CareerBattingStatsDTO;
 	    pitching?: CareerPitchingStatsDTO;
 	
@@ -1050,6 +1051,7 @@ export namespace main {
 	        this.velocity = source["velocity"];
 	        this.junk = source["junk"];
 	        this.accuracy = source["accuracy"];
+	        this.isOnFinalRoster = source["isOnFinalRoster"];
 	        this.batting = this.convertValues(source["batting"], CareerBattingStatsDTO);
 	        this.pitching = this.convertValues(source["pitching"], CareerPitchingStatsDTO);
 	    }

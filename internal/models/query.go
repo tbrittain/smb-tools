@@ -357,6 +357,10 @@ type RosterPlayer struct {
 	Junk     int
 	Accuracy int
 
+	// SortOrder reflects player_season_teams.sort_order for this team.
+	// 0 = player ended the season here (playoff eligible); >0 = traded away.
+	SortOrder int
+
 	Batting  *CareerBattingStats
 	Pitching *CareerPitchingStats
 }

@@ -334,8 +334,12 @@ type RosterPlayerDTO struct {
 	Velocity          int                     `json:"velocity"`
 	Junk              int                     `json:"junk"`
 	Accuracy          int                     `json:"accuracy"`
-	Batting           *CareerBattingStatsDTO  `json:"batting"`
-	Pitching          *CareerPitchingStatsDTO `json:"pitching"`
+	// IsOnFinalRoster is true when the player ended the season on this team
+	// (sort_order=0) and is therefore playoff-eligible. False means they were
+	// traded away to another team mid-season.
+	IsOnFinalRoster bool                    `json:"isOnFinalRoster"`
+	Batting         *CareerBattingStatsDTO  `json:"batting"`
+	Pitching        *CareerPitchingStatsDTO `json:"pitching"`
 }
 
 // ScheduleGameDTO is one game in a team's regular season schedule.
@@ -509,11 +513,12 @@ func rosterPlayerToDTO(r models.RosterPlayer) RosterPlayerDTO {
 		Speed:             r.Speed,
 		Fielding:          r.Fielding,
 		Arm:               r.Arm,
-		Velocity:          r.Velocity,
-		Junk:              r.Junk,
-		Accuracy:          r.Accuracy,
-		Batting:           battingToDTO(r.Batting),
-		Pitching:          pitchingToDTO(r.Pitching),
+		Velocity:        r.Velocity,
+		Junk:            r.Junk,
+		Accuracy:        r.Accuracy,
+		IsOnFinalRoster: r.SortOrder == 0,
+		Batting:         battingToDTO(r.Batting),
+		Pitching:        pitchingToDTO(r.Pitching),
 	}
 }
 
