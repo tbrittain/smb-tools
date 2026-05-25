@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import Column from 'primevue/column'
+import ColumnGroup from 'primevue/columngroup'
 import DataTable from 'primevue/datatable'
+import Row from 'primevue/row'
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { main } from '../../wailsjs/go/models'
@@ -70,6 +72,114 @@ function teamSortKey(r: main.PlayerSeasonLogDTO): string {
 function traitClass(trait: string): string {
   return NEGATIVE_TRAITS.has(trait) ? 'trait-neg' : 'trait-pos'
 }
+
+// ── Summary row types ─────────────────────────────────────────────────────────
+
+interface BattingSummary {
+  g: number
+  ab: number
+  h: number
+  hr: number
+  rbi: number
+  sb: number
+  bb: number
+  k: number
+  ba: number | null
+  obp: number | null
+  slg: number | null
+  ops: number | null
+  war: number | null
+}
+
+interface PitchingSummary {
+  g: number
+  gs: number
+  w: number
+  l: number
+  sv: number
+  outsPitched: number
+  h: number
+  er: number
+  bb: number
+  k: number
+  era: number | null
+  whip: number | null
+  k9: number | null
+  war: number | null
+}
+
+function computeBattingSummary(statsArr: main.CareerBattingStatsDTO[]): BattingSummary | null {
+  if (statsArr.length === 0) return null
+  const g = statsArr.reduce((s, r) => s + r.gamesPlayed, 0)
+  const ab = statsArr.reduce((s, r) => s + r.atBats, 0)
+  const h = statsArr.reduce((s, r) => s + r.hits, 0)
+  const doubles = statsArr.reduce((s, r) => s + r.doubles, 0)
+  const triples = statsArr.reduce((s, r) => s + r.triples, 0)
+  const hr = statsArr.reduce((s, r) => s + r.homeRuns, 0)
+  const rbi = statsArr.reduce((s, r) => s + r.rbi, 0)
+  const sb = statsArr.reduce((s, r) => s + r.stolenBases, 0)
+  const bb = statsArr.reduce((s, r) => s + r.walks, 0)
+  const k = statsArr.reduce((s, r) => s + r.strikeouts, 0)
+  const hbp = statsArr.reduce((s, r) => s + r.hitByPitch, 0)
+  const sf = statsArr.reduce((s, r) => s + r.sacFlies, 0)
+  const warValues = statsArr.map((r) => r.smbWar).filter((w): w is number => w != null)
+  const war = warValues.length > 0 ? warValues.reduce((s, w) => s + w, 0) : null
+
+  const ba = ab > 0 ? h / ab : null
+  const obpDen = ab + bb + hbp + sf
+  const obp = obpDen > 0 ? (h + bb + hbp) / obpDen : null
+  // TB = singles + 2×2B + 3×3B + 4×HR = hits + 2B + 2×3B + 3×HR
+  const tb = h + doubles + 2 * triples + 3 * hr
+  const slg = ab > 0 ? tb / ab : null
+  const ops = obp !== null && slg !== null ? obp + slg : null
+
+  return { g, ab, h, hr, rbi, sb, bb, k, ba, obp, slg, ops, war }
+}
+
+function computePitchingSummary(statsArr: main.CareerPitchingStatsDTO[]): PitchingSummary | null {
+  if (statsArr.length === 0) return null
+  const g = statsArr.reduce((s, r) => s + r.games, 0)
+  const gs = statsArr.reduce((s, r) => s + r.gamesStarted, 0)
+  const w = statsArr.reduce((s, r) => s + r.wins, 0)
+  const l = statsArr.reduce((s, r) => s + r.losses, 0)
+  const sv = statsArr.reduce((s, r) => s + r.saves, 0)
+  const outsPitched = statsArr.reduce((s, r) => s + r.outsPitched, 0)
+  const h = statsArr.reduce((s, r) => s + r.hitsAllowed, 0)
+  const er = statsArr.reduce((s, r) => s + r.earnedRuns, 0)
+  const bb = statsArr.reduce((s, r) => s + r.walks, 0)
+  const k = statsArr.reduce((s, r) => s + r.strikeouts, 0)
+  const warValues = statsArr.map((r) => r.smbWar).filter((w): w is number => w != null)
+  const war = warValues.length > 0 ? warValues.reduce((s, w) => s + w, 0) : null
+
+  const era = outsPitched > 0 ? (27 * er) / outsPitched : null
+  const whip = outsPitched > 0 ? (3 * (h + bb)) / outsPitched : null
+  const k9 = outsPitched > 0 ? (27 * k) / outsPitched : null
+
+  return { g, gs, w, l, sv, outsPitched, h, er, bb, k, era, whip, k9, war }
+}
+
+const rsBattingSummary = computed(() => {
+  const statsArr = props.rows.map((r) => r.batting).filter((b): b is main.CareerBattingStatsDTO => b != null)
+  return computeBattingSummary(statsArr)
+})
+
+const poBattingSummary = computed(() => {
+  const statsArr = props.rows.map((r) => r.playoffBatting).filter((b): b is main.CareerBattingStatsDTO => b != null)
+  return computeBattingSummary(statsArr)
+})
+
+const rsPitchingSummary = computed(() => {
+  const statsArr = props.rows.map((r) => r.pitching).filter((p): p is main.CareerPitchingStatsDTO => p != null)
+  return computePitchingSummary(statsArr)
+})
+
+const poPitchingSummary = computed(() => {
+  const statsArr = props.rows.map((r) => r.playoffPitching).filter((p): p is main.CareerPitchingStatsDTO => p != null)
+  return computePitchingSummary(statsArr)
+})
+
+// Non-stat prefix columns: Season, Team, Age, Pos/Role, Traits, [Awards]
+const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
 </script>
 
 <template>
@@ -86,6 +196,43 @@ function traitClass(trait: string): string {
       removable-sort
       scrollable
     >
+      <ColumnGroup type="footer">
+        <Row v-if="rsBattingSummary">
+          <Column :colspan="batchingPrefixCols" footer="Career" footer-class="summary-label" />
+          <Column :footer="String(rsBattingSummary.g)" footer-class="summary-cell" />
+          <Column :footer="String(rsBattingSummary.ab)" footer-class="summary-cell" />
+          <Column :footer="String(rsBattingSummary.h)" footer-class="summary-cell" />
+          <Column :footer="String(rsBattingSummary.hr)" footer-class="summary-cell" />
+          <Column :footer="String(rsBattingSummary.rbi)" footer-class="summary-cell" />
+          <Column :footer="String(rsBattingSummary.sb)" footer-class="summary-cell" />
+          <Column :footer="String(rsBattingSummary.bb)" footer-class="summary-cell" />
+          <Column :footer="String(rsBattingSummary.k)" footer-class="summary-cell" />
+          <Column :footer="formatBA(rsBattingSummary.ba)" footer-class="summary-cell" />
+          <Column :footer="formatBA(rsBattingSummary.obp)" footer-class="summary-cell" />
+          <Column :footer="formatBA(rsBattingSummary.slg)" footer-class="summary-cell" />
+          <Column :footer="formatBA(rsBattingSummary.ops)" footer-class="summary-cell" />
+          <Column footer="—" footer-class="summary-cell" />
+          <Column :footer="formatWAR(rsBattingSummary.war)" footer-class="summary-cell" />
+        </Row>
+        <Row v-if="poBattingSummary">
+          <Column :colspan="batchingPrefixCols" footer="Playoffs" footer-class="summary-label summary-po" />
+          <Column :footer="String(poBattingSummary.g)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poBattingSummary.ab)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poBattingSummary.h)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poBattingSummary.hr)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poBattingSummary.rbi)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poBattingSummary.sb)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poBattingSummary.bb)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poBattingSummary.k)" footer-class="summary-cell summary-po" />
+          <Column :footer="formatBA(poBattingSummary.ba)" footer-class="summary-cell summary-po" />
+          <Column :footer="formatBA(poBattingSummary.obp)" footer-class="summary-cell summary-po" />
+          <Column :footer="formatBA(poBattingSummary.slg)" footer-class="summary-cell summary-po" />
+          <Column :footer="formatBA(poBattingSummary.ops)" footer-class="summary-cell summary-po" />
+          <Column footer="—" footer-class="summary-cell summary-po" />
+          <Column :footer="formatWAR(poBattingSummary.war)" footer-class="summary-cell summary-po" />
+        </Row>
+      </ColumnGroup>
+
       <Column field="seasonNum" header="Season" sortable style="min-width: 80px" />
       <Column header="Team" sortable :sort-field="teamSortKey" style="min-width: 130px">
         <template #body="{ data: r }">
@@ -182,6 +329,49 @@ function traitClass(trait: string): string {
       removable-sort
       scrollable
     >
+      <ColumnGroup type="footer">
+        <Row v-if="rsPitchingSummary">
+          <Column :colspan="batchingPrefixCols" footer="Career" footer-class="summary-label" />
+          <Column :footer="String(rsPitchingSummary.g)" footer-class="summary-cell" />
+          <Column :footer="String(rsPitchingSummary.gs)" footer-class="summary-cell" />
+          <Column :footer="String(rsPitchingSummary.w)" footer-class="summary-cell" />
+          <Column :footer="String(rsPitchingSummary.l)" footer-class="summary-cell" />
+          <Column :footer="String(rsPitchingSummary.sv)" footer-class="summary-cell" />
+          <Column :footer="formatIP(rsPitchingSummary.outsPitched)" footer-class="summary-cell" />
+          <Column :footer="String(rsPitchingSummary.h)" footer-class="summary-cell" />
+          <Column :footer="String(rsPitchingSummary.er)" footer-class="summary-cell" />
+          <Column :footer="String(rsPitchingSummary.bb)" footer-class="summary-cell" />
+          <Column :footer="String(rsPitchingSummary.k)" footer-class="summary-cell" />
+          <Column :footer="formatERA(rsPitchingSummary.era)" footer-class="summary-cell" />
+          <Column :footer="formatWHIP(rsPitchingSummary.whip)" footer-class="summary-cell" />
+          <Column :footer="formatK9(rsPitchingSummary.k9)" footer-class="summary-cell" />
+          <Column footer="—" footer-class="summary-cell" />
+          <Column footer="—" footer-class="summary-cell" />
+          <Column footer="—" footer-class="summary-cell" />
+          <Column :footer="formatWAR(rsPitchingSummary.war)" footer-class="summary-cell" />
+        </Row>
+        <Row v-if="poPitchingSummary">
+          <Column :colspan="batchingPrefixCols" footer="Playoffs" footer-class="summary-label summary-po" />
+          <Column :footer="String(poPitchingSummary.g)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poPitchingSummary.gs)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poPitchingSummary.w)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poPitchingSummary.l)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poPitchingSummary.sv)" footer-class="summary-cell summary-po" />
+          <Column :footer="formatIP(poPitchingSummary.outsPitched)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poPitchingSummary.h)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poPitchingSummary.er)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poPitchingSummary.bb)" footer-class="summary-cell summary-po" />
+          <Column :footer="String(poPitchingSummary.k)" footer-class="summary-cell summary-po" />
+          <Column :footer="formatERA(poPitchingSummary.era)" footer-class="summary-cell summary-po" />
+          <Column :footer="formatWHIP(poPitchingSummary.whip)" footer-class="summary-cell summary-po" />
+          <Column :footer="formatK9(poPitchingSummary.k9)" footer-class="summary-cell summary-po" />
+          <Column footer="—" footer-class="summary-cell summary-po" />
+          <Column footer="—" footer-class="summary-cell summary-po" />
+          <Column footer="—" footer-class="summary-cell summary-po" />
+          <Column :footer="formatWAR(poPitchingSummary.war)" footer-class="summary-cell summary-po" />
+        </Row>
+      </ColumnGroup>
+
       <Column field="seasonNum" header="Season" sortable style="min-width: 80px" />
       <Column header="Team" sortable :sort-field="teamSortKey" style="min-width: 130px">
         <template #body="{ data: r }">
@@ -338,5 +528,26 @@ function traitClass(trait: string): string {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
+}
+
+:deep(.summary-label) {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  background: var(--color-surface-2, var(--p-datatable-footer-background));
+  border-top: 2px solid var(--color-border);
+}
+
+:deep(.summary-cell) {
+  font-weight: 600;
+  background: var(--color-surface-2, var(--p-datatable-footer-background));
+  border-top: 2px solid var(--color-border);
+}
+
+:deep(.summary-po) {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-1, var(--p-datatable-footer-background));
+  border-top: none;
+  font-style: italic;
 }
 </style>
