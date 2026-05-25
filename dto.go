@@ -334,22 +334,29 @@ type RosterPlayerDTO struct {
 	Velocity          int                     `json:"velocity"`
 	Junk              int                     `json:"junk"`
 	Accuracy          int                     `json:"accuracy"`
-	Batting           *CareerBattingStatsDTO  `json:"batting"`
-	Pitching          *CareerPitchingStatsDTO `json:"pitching"`
+	// IsOnFinalRoster is true when the player ended the season on this team
+	// (sort_order=0) and is therefore playoff-eligible. False means they were
+	// traded away to another team mid-season.
+	IsOnFinalRoster bool                    `json:"isOnFinalRoster"`
+	Batting         *CareerBattingStatsDTO  `json:"batting"`
+	Pitching        *CareerPitchingStatsDTO `json:"pitching"`
 }
 
 // ScheduleGameDTO is one game in a team's regular season schedule.
 type ScheduleGameDTO struct {
-	GameNumber        int    `json:"gameNumber"`
-	Day               int    `json:"day"`
-	HomeTeamHistoryID int64  `json:"homeTeamHistoryId"`
-	HomeTeamName      string `json:"homeTeamName"`
-	AwayTeamHistoryID int64  `json:"awayTeamHistoryId"`
-	AwayTeamName      string `json:"awayTeamName"`
-	HomeScore         *int   `json:"homeScore"`
-	AwayScore         *int   `json:"awayScore"`
-	HomePitcherName   string `json:"homePitcherName"`
-	AwayPitcherName   string `json:"awayPitcherName"`
+	TeamGameNum         int    `json:"teamGameNum"`
+	GameNumber          int    `json:"gameNumber"`
+	Day                 int    `json:"day"`
+	HomeTeamHistoryID   int64  `json:"homeTeamHistoryId"`
+	HomeTeamName        string `json:"homeTeamName"`
+	AwayTeamHistoryID   int64  `json:"awayTeamHistoryId"`
+	AwayTeamName        string `json:"awayTeamName"`
+	HomeScore           *int   `json:"homeScore"`
+	AwayScore           *int   `json:"awayScore"`
+	HomePitcherName     string `json:"homePitcherName"`
+	AwayPitcherName     string `json:"awayPitcherName"`
+	HomePitcherPlayerID *int64 `json:"homePitcherPlayerId"`
+	AwayPitcherPlayerID *int64 `json:"awayPitcherPlayerId"`
 }
 
 // PlayoffGameDTO is one game in a team's playoff schedule.
@@ -508,26 +515,30 @@ func rosterPlayerToDTO(r models.RosterPlayer) RosterPlayerDTO {
 		Speed:             r.Speed,
 		Fielding:          r.Fielding,
 		Arm:               r.Arm,
-		Velocity:          r.Velocity,
-		Junk:              r.Junk,
-		Accuracy:          r.Accuracy,
-		Batting:           battingToDTO(r.Batting),
-		Pitching:          pitchingToDTO(r.Pitching),
+		Velocity:        r.Velocity,
+		Junk:            r.Junk,
+		Accuracy:        r.Accuracy,
+		IsOnFinalRoster: r.SortOrder == 0,
+		Batting:         battingToDTO(r.Batting),
+		Pitching:        pitchingToDTO(r.Pitching),
 	}
 }
 
 func scheduleGameToDTO(g models.ScheduleGameRow) ScheduleGameDTO {
 	return ScheduleGameDTO{
-		GameNumber:        g.GameNumber,
-		Day:               g.Day,
-		HomeTeamHistoryID: g.HomeTeamHistoryID,
-		HomeTeamName:      g.HomeTeamName,
-		AwayTeamHistoryID: g.AwayTeamHistoryID,
-		AwayTeamName:      g.AwayTeamName,
-		HomeScore:         g.HomeScore,
-		AwayScore:         g.AwayScore,
-		HomePitcherName:   g.HomePitcherName,
-		AwayPitcherName:   g.AwayPitcherName,
+		TeamGameNum:         g.TeamGameNum,
+		GameNumber:          g.GameNumber,
+		Day:                 g.Day,
+		HomeTeamHistoryID:   g.HomeTeamHistoryID,
+		HomeTeamName:        g.HomeTeamName,
+		AwayTeamHistoryID:   g.AwayTeamHistoryID,
+		AwayTeamName:        g.AwayTeamName,
+		HomeScore:           g.HomeScore,
+		AwayScore:           g.AwayScore,
+		HomePitcherName:     g.HomePitcherName,
+		AwayPitcherName:     g.AwayPitcherName,
+		HomePitcherPlayerID: g.HomePitcherPlayerID,
+		AwayPitcherPlayerID: g.AwayPitcherPlayerID,
 	}
 }
 

@@ -1019,6 +1019,7 @@ export namespace main {
 	    velocity: number;
 	    junk: number;
 	    accuracy: number;
+	    isOnFinalRoster: boolean;
 	    batting?: CareerBattingStatsDTO;
 	    pitching?: CareerPitchingStatsDTO;
 	
@@ -1050,6 +1051,7 @@ export namespace main {
 	        this.velocity = source["velocity"];
 	        this.junk = source["junk"];
 	        this.accuracy = source["accuracy"];
+	        this.isOnFinalRoster = source["isOnFinalRoster"];
 	        this.batting = this.convertValues(source["batting"], CareerBattingStatsDTO);
 	        this.pitching = this.convertValues(source["pitching"], CareerPitchingStatsDTO);
 	    }
@@ -1099,6 +1101,7 @@ export namespace main {
 	    }
 	}
 	export class ScheduleGameDTO {
+	    teamGameNum: number;
 	    gameNumber: number;
 	    day: number;
 	    homeTeamHistoryId: number;
@@ -1109,6 +1112,8 @@ export namespace main {
 	    awayScore?: number;
 	    homePitcherName: string;
 	    awayPitcherName: string;
+	    homePitcherPlayerId?: number;
+	    awayPitcherPlayerId?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ScheduleGameDTO(source);
@@ -1116,6 +1121,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.teamGameNum = source["teamGameNum"];
 	        this.gameNumber = source["gameNumber"];
 	        this.day = source["day"];
 	        this.homeTeamHistoryId = source["homeTeamHistoryId"];
@@ -1126,6 +1132,8 @@ export namespace main {
 	        this.awayScore = source["awayScore"];
 	        this.homePitcherName = source["homePitcherName"];
 	        this.awayPitcherName = source["awayPitcherName"];
+	        this.homePitcherPlayerId = source["homePitcherPlayerId"];
+	        this.awayPitcherPlayerId = source["awayPitcherPlayerId"];
 	    }
 	}
 	export class TeamAwardCandidatesDTO {

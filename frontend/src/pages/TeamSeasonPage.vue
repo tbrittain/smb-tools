@@ -8,7 +8,16 @@ import type { main } from '../../wailsjs/go/models'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
-import { formatBA, formatERA, formatIP, formatK9, formatWHIP } from '../composables/useStatFormatters'
+import {
+  formatAdjustedStat,
+  formatBA,
+  formatERA,
+  formatFIP,
+  formatIP,
+  formatK9,
+  formatWAR,
+  formatWHIP,
+} from '../composables/useStatFormatters'
 
 const props = defineProps<{ teamId: number; historyId: number }>()
 
@@ -20,6 +29,12 @@ const error = ref<string | null>(null)
 
 type RosterView = 'batting' | 'pitching' | 'attributes'
 const rosterView = ref<RosterView>('batting')
+const playoffEligibleOnly = ref(false)
+
+const visibleRoster = computed(() => {
+  const roster = detail.value?.roster ?? []
+  return playoffEligibleOnly.value ? roster.filter((r) => r.isOnFinalRoster) : roster
+})
 
 // Group playoff games by series number
 const playoffBySeries = computed(() => {
@@ -65,61 +80,69 @@ onMounted(async () => {
     <p v-else-if="error" class="error-text">{{ error }}</p>
 
     <template v-else-if="detail">
-      <!-- Header -->
-      <header class="page-header">
-        <h2>
-          {{ detail.team.teamName }}
-          <span v-if="detail.team.isChampion" class="champ-badge">★ Champion</span>
-        </h2>
-        <div class="header-stats">
-          <div class="hstat">
-            <span class="hstat-label">Record</span>
-            <span class="hstat-val mono">{{ detail.team.wins }}–{{ detail.team.losses }}</span>
+      <!-- Header (constrained width) -->
+      <div class="season-content">
+        <header class="page-header">
+          <h2>
+            {{ detail.team.teamName }}
+            <span v-if="detail.team.isChampion" class="champ-badge">★ Champion</span>
+          </h2>
+          <div class="header-stats">
+            <div class="hstat">
+              <span class="hstat-label">Record</span>
+              <span class="hstat-val mono">{{ detail.team.wins }}–{{ detail.team.losses }}</span>
+            </div>
+            <div class="hstat">
+              <span class="hstat-label">PCT</span>
+              <span class="hstat-val mono">{{ fmtPct(detail.team.winPct) }}</span>
+            </div>
+            <div v-if="detail.team.playoffSeed" class="hstat">
+              <span class="hstat-label">Playoff Seed</span>
+              <span class="hstat-val">#{{ detail.team.playoffSeed }}</span>
+            </div>
+            <div v-if="detail.team.playoffWins != null" class="hstat">
+              <span class="hstat-label">Playoff</span>
+              <span class="hstat-val mono">{{ detail.team.playoffWins }}–{{ detail.team.playoffLosses }}</span>
+            </div>
+            <div class="hstat">
+              <span class="hstat-label">R / RA</span>
+              <span class="hstat-val mono">{{ detail.team.runsFor }} / {{ detail.team.runsAgainst }}</span>
+            </div>
           </div>
-          <div class="hstat">
-            <span class="hstat-label">PCT</span>
-            <span class="hstat-val mono">{{ fmtPct(detail.team.winPct) }}</span>
-          </div>
-          <div v-if="detail.team.playoffSeed" class="hstat">
-            <span class="hstat-label">Playoff Seed</span>
-            <span class="hstat-val">#{{ detail.team.playoffSeed }}</span>
-          </div>
-          <div v-if="detail.team.playoffWins != null" class="hstat">
-            <span class="hstat-label">Playoff</span>
-            <span class="hstat-val mono">{{ detail.team.playoffWins }}–{{ detail.team.playoffLosses }}</span>
-          </div>
-          <div class="hstat">
-            <span class="hstat-label">R / RA</span>
-            <span class="hstat-val mono">{{ detail.team.runsFor }} / {{ detail.team.runsAgainst }}</span>
-          </div>
-        </div>
-      </header>
+        </header>
+      </div>
 
-      <!-- Roster -->
-      <section class="section">
+      <!-- Roster (full-width grid) -->
+      <section class="grid-section">
         <div class="section-header">
           <h3>Roster</h3>
-          <div class="tab-bar">
-            <button
-              v-for="v in (['batting', 'pitching', 'attributes'] as RosterView[])"
-              :key="v"
-              class="tab-btn"
-              :class="{ active: rosterView === v }"
-              @click="rosterView = v"
-            >
-              {{ v.charAt(0).toUpperCase() + v.slice(1) }}
-            </button>
+          <div class="roster-controls">
+            <label class="playoff-filter">
+              <input v-model="playoffEligibleOnly" type="checkbox" />
+              Playoff eligible only
+            </label>
+            <div class="tab-bar">
+              <button
+                v-for="v in (['batting', 'pitching', 'attributes'] as RosterView[])"
+                :key="v"
+                class="tab-btn"
+                :class="{ active: rosterView === v }"
+                @click="rosterView = v"
+              >
+                {{ v.charAt(0).toUpperCase() + v.slice(1) }}
+              </button>
+            </div>
           </div>
         </div>
 
-        <EmptyState v-if="detail.roster.length === 0" message="No roster data" />
+        <EmptyState v-if="visibleRoster.length === 0" message="No roster data" />
 
         <!-- Batting view -->
         <DataTable
           v-else-if="rosterView === 'batting'"
-          :value="detail.roster"
-          sort-field="lastName"
-          :sort-order="1"
+          :value="visibleRoster"
+          sort-field="batting.smbWar"
+          :sort-order="-1"
           size="small"
         >
           <Column header="Player" sortable sort-field="lastName" style="min-width: 150px">
@@ -128,51 +151,58 @@ onMounted(async () => {
                 {{ data.firstName }} {{ data.lastName }}
               </RouterLink>
               <span v-if="data.isHallOfFamer" class="hof-badge">HoF</span>
+              <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
             </template>
           </Column>
-          <Column field="primaryPosition" header="Pos" sortable style="width: 55px" />
-          <Column field="age" header="Age" sortable style="width: 50px" />
-          <Column header="G" style="width: 52px">
+          <Column field="primaryPosition" header="Pos" sortable style="min-width: 55px" />
+          <Column field="age" header="Age" sortable style="min-width: 50px" />
+          <Column field="batting.gamesPlayed" header="G" sortable style="min-width: 52px">
             <template #body="{ data }">{{ data.batting?.gamesPlayed ?? '—' }}</template>
           </Column>
-          <Column header="AB" style="width: 55px">
+          <Column field="batting.atBats" header="AB" sortable style="min-width: 55px">
             <template #body="{ data }">{{ data.batting?.atBats ?? '—' }}</template>
           </Column>
-          <Column header="H" style="width: 52px">
+          <Column field="batting.hits" header="H" sortable style="min-width: 52px">
             <template #body="{ data }">{{ data.batting?.hits ?? '—' }}</template>
           </Column>
-          <Column header="HR" style="width: 52px">
+          <Column field="batting.homeRuns" header="HR" sortable style="min-width: 52px">
             <template #body="{ data }">{{ data.batting?.homeRuns ?? '—' }}</template>
           </Column>
-          <Column header="RBI" style="width: 55px">
+          <Column field="batting.rbi" header="RBI" sortable style="min-width: 55px">
             <template #body="{ data }">{{ data.batting?.rbi ?? '—' }}</template>
           </Column>
-          <Column header="SB" style="width: 52px">
+          <Column field="batting.stolenBases" header="SB" sortable style="min-width: 52px">
             <template #body="{ data }">{{ data.batting?.stolenBases ?? '—' }}</template>
           </Column>
-          <Column header="BB" style="width: 52px">
+          <Column field="batting.walks" header="BB" sortable style="min-width: 52px">
             <template #body="{ data }">{{ data.batting?.walks ?? '—' }}</template>
           </Column>
-          <Column header="BA" style="width: 65px">
+          <Column field="batting.ba" header="BA" sortable style="min-width: 65px">
             <template #body="{ data }">{{ formatBA(data.batting?.ba) }}</template>
           </Column>
-          <Column header="OBP" style="width: 68px">
+          <Column field="batting.obp" header="OBP" sortable style="min-width: 68px">
             <template #body="{ data }">{{ formatBA(data.batting?.obp) }}</template>
           </Column>
-          <Column header="SLG" style="width: 68px">
+          <Column field="batting.slg" header="SLG" sortable style="min-width: 68px">
             <template #body="{ data }">{{ formatBA(data.batting?.slg) }}</template>
           </Column>
-          <Column header="OPS" style="width: 72px">
+          <Column field="batting.ops" header="OPS" sortable style="min-width: 72px">
             <template #body="{ data }">{{ formatBA(data.batting?.ops) }}</template>
+          </Column>
+          <Column field="batting.opsPlus" header="OPS+" sortable style="min-width: 68px">
+            <template #body="{ data }">{{ formatAdjustedStat(data.batting?.opsPlus) }}</template>
+          </Column>
+          <Column field="batting.smbWar" header="smbWAR" sortable style="min-width: 75px">
+            <template #body="{ data }">{{ formatWAR(data.batting?.smbWar) }}</template>
           </Column>
         </DataTable>
 
         <!-- Pitching view -->
         <DataTable
           v-else-if="rosterView === 'pitching'"
-          :value="detail.roster.filter(r => r.pitching != null)"
-          sort-field="lastName"
-          :sort-order="1"
+          :value="visibleRoster.filter((r) => r.pitching != null)"
+          sort-field="pitching.smbWar"
+          :sort-order="-1"
           size="small"
         >
           <Column header="Player" sortable sort-field="lastName" style="min-width: 150px">
@@ -181,50 +211,63 @@ onMounted(async () => {
                 {{ data.firstName }} {{ data.lastName }}
               </RouterLink>
               <span v-if="data.isHallOfFamer" class="hof-badge">HoF</span>
+              <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
             </template>
           </Column>
-          <Column field="pitcherRole" header="Role" sortable style="width: 55px" />
-          <Column header="G" style="width: 52px">
+          <Column field="pitcherRole" header="Role" sortable style="min-width: 55px" />
+          <Column field="pitching.games" header="G" sortable style="min-width: 52px">
             <template #body="{ data }">{{ data.pitching?.games ?? '—' }}</template>
           </Column>
-          <Column header="GS" style="width: 52px">
+          <Column field="pitching.gamesStarted" header="GS" sortable style="min-width: 52px">
             <template #body="{ data }">{{ data.pitching?.gamesStarted ?? '—' }}</template>
           </Column>
-          <Column header="W" style="width: 48px">
+          <Column field="pitching.wins" header="W" sortable style="min-width: 48px">
             <template #body="{ data }">{{ data.pitching?.wins ?? '—' }}</template>
           </Column>
-          <Column header="L" style="width: 48px">
+          <Column field="pitching.losses" header="L" sortable style="min-width: 48px">
             <template #body="{ data }">{{ data.pitching?.losses ?? '—' }}</template>
           </Column>
-          <Column header="SV" style="width: 52px">
+          <Column field="pitching.saves" header="SV" sortable style="min-width: 52px">
             <template #body="{ data }">{{ data.pitching?.saves ?? '—' }}</template>
           </Column>
-          <Column header="IP" style="width: 68px">
+          <Column field="pitching.outsPitched" header="IP" sortable style="min-width: 68px">
             <template #body="{ data }">{{ data.pitching != null ? formatIP(data.pitching.outsPitched) : '—' }}</template>
           </Column>
-          <Column header="K" style="width: 52px">
+          <Column field="pitching.strikeouts" header="K" sortable style="min-width: 52px">
             <template #body="{ data }">{{ data.pitching?.strikeouts ?? '—' }}</template>
           </Column>
-          <Column header="BB" style="width: 52px">
+          <Column field="pitching.walks" header="BB" sortable style="min-width: 52px">
             <template #body="{ data }">{{ data.pitching?.walks ?? '—' }}</template>
           </Column>
-          <Column header="ERA" style="width: 68px">
+          <Column field="pitching.era" header="ERA" sortable style="min-width: 68px">
             <template #body="{ data }">{{ formatERA(data.pitching?.era) }}</template>
           </Column>
-          <Column header="WHIP" style="width: 72px">
+          <Column field="pitching.whip" header="WHIP" sortable style="min-width: 72px">
             <template #body="{ data }">{{ formatWHIP(data.pitching?.whip) }}</template>
           </Column>
-          <Column header="K/9" style="width: 65px">
+          <Column field="pitching.k9" header="K/9" sortable style="min-width: 65px">
             <template #body="{ data }">{{ formatK9(data.pitching?.k9) }}</template>
+          </Column>
+          <Column field="pitching.eraPlus" header="ERA+" sortable style="min-width: 68px">
+            <template #body="{ data }">{{ formatAdjustedStat(data.pitching?.eraPlus) }}</template>
+          </Column>
+          <Column field="pitching.fip" header="FIP" sortable style="min-width: 65px">
+            <template #body="{ data }">{{ formatFIP(data.pitching?.fip) }}</template>
+          </Column>
+          <Column field="pitching.fipMinus" header="FIP-" sortable style="min-width: 65px">
+            <template #body="{ data }">{{ formatAdjustedStat(data.pitching?.fipMinus) }}</template>
+          </Column>
+          <Column field="pitching.smbWar" header="smbWAR" sortable style="min-width: 75px">
+            <template #body="{ data }">{{ formatWAR(data.pitching?.smbWar) }}</template>
           </Column>
         </DataTable>
 
         <!-- Attributes view -->
         <DataTable
           v-else
-          :value="detail.roster"
-          sort-field="lastName"
-          :sort-order="1"
+          :value="visibleRoster"
+          sort-field="salary"
+          :sort-order="-1"
           size="small"
         >
           <Column header="Player" sortable sort-field="lastName" style="min-width: 150px">
@@ -232,32 +275,33 @@ onMounted(async () => {
               <RouterLink :to="`/players/${data.playerId}`" class="player-link">
                 {{ data.firstName }} {{ data.lastName }}
               </RouterLink>
+              <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
             </template>
           </Column>
-          <Column field="primaryPosition" header="Pos" sortable style="width: 55px" />
-          <Column field="power" header="POW" sortable style="width: 58px" />
-          <Column field="contact" header="CON" sortable style="width: 58px" />
-          <Column field="speed" header="SPD" sortable style="width: 58px" />
-          <Column field="fielding" header="FLD" sortable style="width: 58px" />
-          <Column field="arm" header="ARM" sortable style="width: 58px" />
-          <Column field="velocity" header="VEL" sortable style="width: 58px">
+          <Column field="primaryPosition" header="Pos" sortable style="min-width: 55px" />
+          <Column field="power" header="POW" sortable style="min-width: 58px" />
+          <Column field="contact" header="CON" sortable style="min-width: 58px" />
+          <Column field="speed" header="SPD" sortable style="min-width: 58px" />
+          <Column field="fielding" header="FLD" sortable style="min-width: 58px" />
+          <Column field="arm" header="ARM" sortable style="min-width: 58px" />
+          <Column field="velocity" header="VEL" sortable style="min-width: 58px">
             <template #body="{ data }">{{ data.velocity > 0 ? data.velocity : '—' }}</template>
           </Column>
-          <Column field="junk" header="JNK" sortable style="width: 58px">
+          <Column field="junk" header="JNK" sortable style="min-width: 58px">
             <template #body="{ data }">{{ data.junk > 0 ? data.junk : '—' }}</template>
           </Column>
-          <Column field="accuracy" header="ACC" sortable style="width: 58px">
+          <Column field="accuracy" header="ACC" sortable style="min-width: 58px">
             <template #body="{ data }">{{ data.accuracy > 0 ? data.accuracy : '—' }}</template>
           </Column>
-          <Column field="salary" header="Salary" sortable style="width: 90px">
+          <Column field="salary" header="Salary" sortable style="min-width: 90px">
             <template #body="{ data }">${{ data.salary.toLocaleString() }}</template>
           </Column>
         </DataTable>
       </section>
 
       <!-- Schedule -->
-      <section class="section">
-        <h3>Schedule <span class="record-note">({{ detail.roster.length }} players)</span></h3>
+      <section class="grid-section">
+        <h3>Schedule <span class="record-note">({{ detail.schedule.length }} games)</span></h3>
         <EmptyState v-if="detail.schedule.length === 0" message="No schedule data" />
         <DataTable
           v-else
@@ -268,15 +312,20 @@ onMounted(async () => {
           paginator
           :rows="20"
         >
-          <Column field="gameNumber" header="#" sortable style="width: 50px" />
-          <Column header="W/L" style="width: 48px">
+          <Column field="teamGameNum" header="#" sortable style="min-width: 48px" />
+          <Column field="gameNumber" sortable style="min-width: 58px">
+            <template #header>
+              <span title="Season-wide game number — position among all games played by all teams this season">Glbl#</span>
+            </template>
+          </Column>
+          <Column header="W/L" style="min-width: 48px">
             <template #body="{ data }">
               <span :class="winLoss(data) === 'W' ? 'win' : winLoss(data) === 'L' ? 'loss' : ''">
                 {{ winLoss(data) }}
               </span>
             </template>
           </Column>
-          <Column header="Score" style="width: 80px">
+          <Column header="Score" style="min-width: 80px">
             <template #body="{ data }">
               <span v-if="data.homeScore != null" class="mono">
                 {{ data.homeTeamHistoryId === historyId ? data.homeScore : data.awayScore }}–{{
@@ -288,28 +337,54 @@ onMounted(async () => {
           </Column>
           <Column header="Opponent" style="min-width: 130px">
             <template #body="{ data }">
-              <RouterLink
-                :to="`/teams/${data.homeTeamHistoryId === historyId ? data.awayTeamHistoryId : data.homeTeamHistoryId}/seasons/${data.homeTeamHistoryId === historyId ? data.awayTeamHistoryId : data.homeTeamHistoryId}`"
-                class="opp-link"
-              >
-                {{ data.homeTeamHistoryId === historyId ? '@ ' + data.awayTeamName : 'vs ' + data.homeTeamName }}
-              </RouterLink>
+              {{ data.homeTeamHistoryId === historyId ? '@ ' + data.awayTeamName : 'vs ' + data.homeTeamName }}
             </template>
           </Column>
-          <Column header="SP" style="min-width: 120px">
+          <Column header="SP" style="min-width: 130px">
             <template #body="{ data }">
-              {{
-                data.homeTeamHistoryId === historyId
-                  ? data.homePitcherName || '—'
-                  : data.awayPitcherName || '—'
-              }}
+              <template v-if="data.homeTeamHistoryId === historyId">
+                <RouterLink
+                  v-if="data.homePitcherPlayerId"
+                  :to="`/players/${data.homePitcherPlayerId}`"
+                  class="player-link"
+                >{{ data.homePitcherName }}</RouterLink>
+                <span v-else>{{ data.homePitcherName || '—' }}</span>
+              </template>
+              <template v-else>
+                <RouterLink
+                  v-if="data.awayPitcherPlayerId"
+                  :to="`/players/${data.awayPitcherPlayerId}`"
+                  class="player-link"
+                >{{ data.awayPitcherName }}</RouterLink>
+                <span v-else>{{ data.awayPitcherName || '—' }}</span>
+              </template>
+            </template>
+          </Column>
+          <Column header="Opp SP" style="min-width: 130px">
+            <template #body="{ data }">
+              <template v-if="data.homeTeamHistoryId === historyId">
+                <RouterLink
+                  v-if="data.awayPitcherPlayerId"
+                  :to="`/players/${data.awayPitcherPlayerId}`"
+                  class="player-link"
+                >{{ data.awayPitcherName }}</RouterLink>
+                <span v-else>{{ data.awayPitcherName || '—' }}</span>
+              </template>
+              <template v-else>
+                <RouterLink
+                  v-if="data.homePitcherPlayerId"
+                  :to="`/players/${data.homePitcherPlayerId}`"
+                  class="player-link"
+                >{{ data.homePitcherName }}</RouterLink>
+                <span v-else>{{ data.homePitcherName || '—' }}</span>
+              </template>
             </template>
           </Column>
         </DataTable>
       </section>
 
       <!-- Playoffs -->
-      <section v-if="detail.playoffs.length > 0" class="section">
+      <section v-if="detail.playoffs.length > 0" class="grid-section">
         <h3>Playoffs</h3>
         <div class="playoff-panel">
           <div
@@ -361,11 +436,25 @@ onMounted(async () => {
 
 <style scoped>
 .season-page {
-  padding: 2rem;
   display: flex;
   flex-direction: column;
   gap: 2rem;
-  max-width: 960px;
+  padding-bottom: 2rem;
+}
+
+.season-content {
+  padding: 2rem 2rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 1000px;
+}
+
+.grid-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 2rem;
 }
 
 h2 {
@@ -409,8 +498,6 @@ h2 {
 }
 .mono { font-family: var(--font-mono); }
 
-.section { display: flex; flex-direction: column; gap: 0.75rem; }
-
 .section-header {
   display: flex;
   align-items: center;
@@ -429,6 +516,19 @@ h3 {
 }
 
 .record-note { font-size: 0.75rem; font-weight: 400; color: var(--color-text-secondary); }
+
+.roster-controls { display: flex; align-items: center; gap: 1rem; }
+
+.playoff-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.playoff-filter input { cursor: pointer; }
 
 .tab-bar { display: flex; gap: 0.25rem; }
 .tab-btn {
@@ -458,11 +558,20 @@ h3 {
   vertical-align: middle;
 }
 
+.traded-badge {
+  margin-left: 0.375rem;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #8b949e;
+  background: color-mix(in srgb, #8b949e 15%, transparent);
+  border: 1px solid color-mix(in srgb, #8b949e 40%, transparent);
+  border-radius: 3px;
+  padding: 0 4px;
+  vertical-align: middle;
+}
+
 .win { color: #3fb950; font-weight: 600; }
 .loss { color: var(--color-error); font-weight: 600; }
-
-.opp-link { color: var(--color-text-primary); text-decoration: none; }
-.opp-link:hover { color: var(--color-accent); }
 
 /* Playoff panel */
 .playoff-panel { display: flex; flex-direction: column; gap: 1.5rem; }

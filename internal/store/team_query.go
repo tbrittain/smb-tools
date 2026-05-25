@@ -417,22 +417,25 @@ SELECT
     COALESCE(gs.power,0),    COALESCE(gs.contact,0),
     COALESCE(gs.speed,0),    COALESCE(gs.fielding,0), COALESCE(gs.arm,0),
     COALESCE(gs.velocity,0), COALESCE(gs.junk,0),     COALESCE(gs.accuracy,0),
+    pst.sort_order,
     -- batting sentinel first, then the rest
     b.at_bats,
     b.games_played, b.games_batting, b.runs, b.hits,
     b.doubles, b.triples, b.home_runs, b.rbi,
     b.stolen_bases, b.caught_stealing, b.walks, b.strikeouts,
     b.hit_by_pitch, b.sac_hits, b.sac_flies, b.errors, b.passed_balls,
+    b.ops_plus, b.smb_war,
     -- pitching sentinel first, then the rest
     pit.outs_pitched,
     pit.wins, pit.losses, pit.games, pit.games_started,
     pit.complete_games, pit.shutouts, pit.saves,
     pit.hits_allowed, pit.earned_runs, pit.home_runs_allowed,
     pit.walks, pit.strikeouts, pit.hit_batters, pit.batters_faced,
-    pit.games_finished, pit.runs_allowed, pit.wild_pitches, pit.total_pitches
+    pit.games_finished, pit.runs_allowed, pit.wild_pitches, pit.total_pitches,
+    pit.era_plus, pit.fip, pit.fip_minus, pit.smb_war
 FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
-JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.team_history_id = ? AND pst.sort_order = 0
+JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.team_history_id = ?
 LEFT JOIN player_season_game_stats gs ON gs.player_season_id = ps.id
 LEFT JOIN player_season_batting_stats b
     ON b.player_season_id = ps.id AND b.is_regular_season = 1
@@ -453,10 +456,12 @@ ORDER BY ps.primary_position, p.last_name
 		var bAtBats sql.NullInt64
 		var bGP, bGB, bRuns, bHits, bDB, bTR, bHR, bRBI sql.NullInt64
 		var bSB, bCS, bWalks, bK, bHBP, bSH, bSF, bE, bPB sql.NullInt64
+		var bOPSPlus, bSmbWAR sql.NullFloat64
 
 		var pOuts sql.NullInt64
 		var pW, pL, pG, pGS, pCG, pSHO, pSV sql.NullInt64
 		var pH, pER, pHRA, pWalks, pK, pHBP, pBF, pGF, pRA, pWP, pTP sql.NullInt64
+		var pERAPlus, pFIP, pFIPMinus, pSmbWAR sql.NullFloat64
 
 		if err := rows.Scan(
 			&r.PlayerID, &r.FirstName, &r.LastName, &hof,
@@ -466,12 +471,15 @@ ORDER BY ps.primary_position, p.last_name
 			&r.TraitsJSON, &r.PitchesJSON,
 			&r.Power, &r.Contact, &r.Speed, &r.Fielding, &r.Arm,
 			&r.Velocity, &r.Junk, &r.Accuracy,
+			&r.SortOrder,
 			&bAtBats,
 			&bGP, &bGB, &bRuns, &bHits, &bDB, &bTR, &bHR, &bRBI,
 			&bSB, &bCS, &bWalks, &bK, &bHBP, &bSH, &bSF, &bE, &bPB,
+			&bOPSPlus, &bSmbWAR,
 			&pOuts,
 			&pW, &pL, &pG, &pGS, &pCG, &pSHO, &pSV,
 			&pH, &pER, &pHRA, &pWalks, &pK, &pHBP, &pBF, &pGF, &pRA, &pWP, &pTP,
+			&pERAPlus, &pFIP, &pFIPMinus, &pSmbWAR,
 		); err != nil {
 			return nil, fmt.Errorf("scanning roster player: %w", err)
 		}
@@ -486,6 +494,8 @@ ORDER BY ps.primary_position, p.last_name
 				Walks: int(bWalks.Int64), Strikeouts: int(bK.Int64), HitByPitch: int(bHBP.Int64),
 				SacHits: int(bSH.Int64), SacFlies: int(bSF.Int64),
 				Errors: int(bE.Int64), PassedBalls: int(bPB.Int64),
+				OPSPlus: nullFloat64Ptr(bOPSPlus),
+				SmbWAR:  nullFloat64Ptr(bSmbWAR),
 			}
 		}
 		if pOuts.Valid {
@@ -500,6 +510,10 @@ ORDER BY ps.primary_position, p.last_name
 				BattersFaced: int(pBF.Int64), GamesFinished: int(pGF.Int64),
 				RunsAllowed: int(pRA.Int64), WildPitches: int(pWP.Int64),
 				TotalPitches: int(pTP.Int64),
+				ERAPlus:  nullFloat64Ptr(pERAPlus),
+				FIP:      nullFloat64Ptr(pFIP),
+				FIPMinus: nullFloat64Ptr(pFIPMinus),
+				SmbWAR:   nullFloat64Ptr(pSmbWAR),
 			}
 		}
 		out = append(out, r)
@@ -577,10 +591,12 @@ WHERE tsh.id = ?
 }
 
 // GetTeamSeasonSchedule returns all regular season games (home and away) for a
-// team in a given season, ordered by game number.
+// team in a given season, ordered by game number. TeamGameNum is the 1-based
+// sequential index of each game within this team's schedule.
 func (s *TeamQueryStore) GetTeamSeasonSchedule(ctx context.Context, teamHistoryID int64, seasonID int64) ([]models.ScheduleGameRow, error) {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT
+    ROW_NUMBER() OVER (ORDER BY g.game_number) AS team_game_num,
     g.game_number,
     g.day,
     g.home_team_history_id,
@@ -590,7 +606,9 @@ SELECT
     g.home_score,
     g.away_score,
     COALESCE(hp.first_name || ' ' || hp.last_name, '') AS home_pitcher,
-    COALESCE(ap.first_name || ' ' || ap.last_name, '') AS away_pitcher
+    COALESCE(ap.first_name || ' ' || ap.last_name, '') AS away_pitcher,
+    hp.id AS home_pitcher_player_id,
+    ap.id AS away_pitcher_player_id
 FROM team_season_schedules g
 JOIN team_season_history home ON home.id = g.home_team_history_id
 JOIN team_season_history away ON away.id = g.away_team_history_id
@@ -667,17 +685,27 @@ ORDER BY g.series_number ASC, g.game_number ASC
 	return out, rows.Err()
 }
 
+func nullFloat64Ptr(n sql.NullFloat64) *float64 {
+	if !n.Valid {
+		return nil
+	}
+	v := n.Float64
+	return &v
+}
+
 func scanScheduleRows(rows *sql.Rows) ([]models.ScheduleGameRow, error) {
 	var out []models.ScheduleGameRow
 	for rows.Next() {
 		var r models.ScheduleGameRow
 		var homeScore, awayScore sql.NullInt64
+		var homePitcherID, awayPitcherID sql.NullInt64
 		if err := rows.Scan(
-			&r.GameNumber, &r.Day,
+			&r.TeamGameNum, &r.GameNumber, &r.Day,
 			&r.HomeTeamHistoryID, &r.HomeTeamName,
 			&r.AwayTeamHistoryID, &r.AwayTeamName,
 			&homeScore, &awayScore,
 			&r.HomePitcherName, &r.AwayPitcherName,
+			&homePitcherID, &awayPitcherID,
 		); err != nil {
 			return nil, fmt.Errorf("scanning schedule game row: %w", err)
 		}
@@ -688,6 +716,14 @@ func scanScheduleRows(rows *sql.Rows) ([]models.ScheduleGameRow, error) {
 		if awayScore.Valid {
 			v := int(awayScore.Int64)
 			r.AwayScore = &v
+		}
+		if homePitcherID.Valid {
+			v := homePitcherID.Int64
+			r.HomePitcherPlayerID = &v
+		}
+		if awayPitcherID.Valid {
+			v := awayPitcherID.Int64
+			r.AwayPitcherPlayerID = &v
 		}
 		out = append(out, r)
 	}
