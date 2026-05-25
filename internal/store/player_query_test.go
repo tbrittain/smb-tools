@@ -2,8 +2,10 @@ package store_test
 
 import (
 	"context"
+	"math"
 	"testing"
 
+	"smb-tools/internal/service"
 	"smb-tools/internal/store"
 	"smb-tools/internal/testutil"
 )
@@ -89,6 +91,11 @@ func TestGetPlayerCareer_SumsAcrossSeasons(t *testing.T) {
 	seedBatting(t, db, ps1, true, 400, 120, 10, 50)
 	seedBatting(t, db, ps2, true, 500, 125, 15, 60)
 
+	// Populate career tables before reading.
+	if err := service.ApplyCareerStats(ctx, db, []int64{pid}); err != nil {
+		t.Fatalf("ApplyCareerStats: %v", err)
+	}
+
 	pq := store.NewPlayerQueryStore(db)
 	career, err := pq.GetPlayerCareer(ctx, pid)
 	if err != nil {
@@ -106,9 +113,13 @@ func TestGetPlayerCareer_SumsAcrossSeasons(t *testing.T) {
 	if career.Batting.HomeRuns != 25 {
 		t.Errorf("career HR: want 25, got %d", career.Batting.HomeRuns)
 	}
-	// Rate fields are nil — app.go computes them
-	if career.Batting.BA != nil {
-		t.Errorf("BA should be nil (rates computed in app.go), got %v", *career.Batting.BA)
+	// BA is now stored in the career table: 245/900
+	if career.Batting.BA == nil {
+		t.Fatal("BA should be non-nil (stored in career table)")
+	}
+	wantBA := 245.0 / 900.0
+	if math.Abs(*career.Batting.BA-wantBA) > 1e-9 {
+		t.Errorf("career BA: want %.6f, got %.6f", wantBA, *career.Batting.BA)
 	}
 }
 
@@ -123,6 +134,10 @@ func TestGetPlayerCareer_NoBattingStats(t *testing.T) {
 	ps1 := seedPlayerSeason(t, db, pid, 1, &hist1)
 	seedPitching(t, db, ps1, true, 10, 5, 270, 30, 100)
 
+	if err := service.ApplyCareerStats(ctx, db, []int64{pid}); err != nil {
+		t.Fatalf("ApplyCareerStats: %v", err)
+	}
+
 	pq := store.NewPlayerQueryStore(db)
 	career, err := pq.GetPlayerCareer(ctx, pid)
 	if err != nil {
@@ -136,6 +151,48 @@ func TestGetPlayerCareer_NoBattingStats(t *testing.T) {
 	}
 	if career.Pitching.OutsPitched != 270 {
 		t.Errorf("career outs pitched: want 270, got %d", career.Pitching.OutsPitched)
+	}
+	// ERA is now stored in the career table: 30*27/270 = 3.00
+	if career.Pitching.ERA == nil {
+		t.Fatal("ERA should be non-nil (stored in career table)")
+	}
+	wantERA := 30.0 * 27.0 / 270.0
+	if math.Abs(*career.Pitching.ERA-wantERA) > 1e-9 {
+		t.Errorf("career ERA: want %.4f, got %.4f", wantERA, *career.Pitching.ERA)
+	}
+}
+
+func TestGetPlayerSeasonLog_RateColumnsStored(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg")
+	hist1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+	pid := seedPlayer(t, db, "pg", "Rate", "Test")
+	ps1 := seedPlayerSeason(t, db, pid, 1, &hist1)
+	// 400 AB, 120 H, 20 HR, 80 RBI → BA = 120/400 = .300
+	seedBatting(t, db, ps1, true, 400, 120, 20, 80)
+
+	pq := store.NewPlayerQueryStore(db)
+	log, err := pq.GetPlayerSeasonLog(ctx, pid)
+	if err != nil {
+		t.Fatalf("GetPlayerSeasonLog: %v", err)
+	}
+	if len(log) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(log))
+	}
+	// seedBatting inserts without rate columns (NULL) — verify nil is handled correctly.
+	// After a real import via UpsertBattingStats, BA would be non-nil.
+	// This test confirms the SELECT includes the columns and handles NULL gracefully.
+	row := log[0]
+	if row.Batting == nil {
+		t.Fatal("expected batting row")
+	}
+	// BA will be nil because seedBatting inserts without computing rates.
+	// The important thing is no panic and AtBats is correct.
+	if row.Batting.AtBats != 400 {
+		t.Errorf("AtBats: want 400, got %d", row.Batting.AtBats)
 	}
 }
 

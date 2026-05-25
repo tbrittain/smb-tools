@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -63,7 +64,7 @@ LIMIT 50
 }
 
 // GetPlayerCareer returns the player's bio and career totals (regular season).
-// Rate fields on Batting and Pitching are computed before returning.
+// Reads from pre-computed career tables — no on-read rate computation.
 // Returns sql.ErrNoRows wrapped in an error if the player does not exist.
 func (s *PlayerQueryStore) GetPlayerCareer(ctx context.Context, playerID int64) (models.PlayerCareer, error) {
 	var c models.PlayerCareer
@@ -77,103 +78,85 @@ func (s *PlayerQueryStore) GetPlayerCareer(ctx context.Context, playerID int64) 
 	}
 	c.IsHallOfFamer = hof == 1
 
-	// Career batting (SUM over all regular-season player_seasons), with career OPS+
-	// computed from career totals vs career-weighted league averages.
 	b := &models.CareerBattingStats{}
+	var bBA, bOBP, bSLG, bOPS, bISO, bBABIP, bKPct, bBBPct, bABPerHR sql.NullFloat64
+	var bOPSPlus, bSmbWAR sql.NullFloat64
 	err = s.db.QueryRowContext(ctx, `
 SELECT
-    COALESCE(SUM(bs.games_played),0), COALESCE(SUM(bs.games_batting),0),
-    COALESCE(SUM(bs.at_bats),0),      COALESCE(SUM(bs.runs),0),
-    COALESCE(SUM(bs.hits),0),         COALESCE(SUM(bs.doubles),0),
-    COALESCE(SUM(bs.triples),0),      COALESCE(SUM(bs.home_runs),0),
-    COALESCE(SUM(bs.rbi),0),          COALESCE(SUM(bs.stolen_bases),0),
-    COALESCE(SUM(bs.caught_stealing),0), COALESCE(SUM(bs.walks),0),
-    COALESCE(SUM(bs.strikeouts),0),   COALESCE(SUM(bs.hit_by_pitch),0),
-    COALESCE(SUM(bs.sac_hits),0),     COALESCE(SUM(bs.sac_flies),0),
-    COALESCE(SUM(bs.errors),0),       COALESCE(SUM(bs.passed_balls),0),
-    SUM(bs.smb_war),
-    CASE
-        WHEN COALESCE(SUM(bs.at_bats), 0) > 0
-         AND COALESCE(SUM(bs.at_bats + bs.walks + bs.hit_by_pitch + bs.sac_flies), 0) > 0
-         AND COALESCE(SUM(lss.total_at_bats), 0) > 0
-         AND COALESCE(SUM(lss.total_at_bats + lss.total_walks + lss.total_hbp + lss.total_sac_flies), 0) > 0
-        THEN 100.0 * (
-            CAST(SUM(bs.hits + bs.walks + bs.hit_by_pitch) AS REAL)
-                / SUM(bs.at_bats + bs.walks + bs.hit_by_pitch + bs.sac_flies)
-                / (CAST(SUM(lss.total_hits + lss.total_walks + lss.total_hbp) AS REAL)
-                   / SUM(lss.total_at_bats + lss.total_walks + lss.total_hbp + lss.total_sac_flies))
-            + CAST(SUM(bs.hits - bs.doubles - bs.triples - bs.home_runs
-                        + bs.doubles * 2 + bs.triples * 3 + bs.home_runs * 4) AS REAL)
-                / SUM(bs.at_bats)
-                / (CAST(SUM(lss.total_hits - lss.total_doubles - lss.total_triples - lss.total_home_runs
-                             + lss.total_doubles * 2 + lss.total_triples * 3 + lss.total_home_runs * 4) AS REAL)
-                   / SUM(lss.total_at_bats))
-            - 1.0
-        )
-        ELSE NULL
-    END AS career_ops_plus
-FROM player_season_batting_stats bs
-JOIN player_seasons ps ON ps.id = bs.player_season_id
-LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
-    AND lss.is_regular_season = bs.is_regular_season
-WHERE ps.player_id = ? AND bs.is_regular_season = 1
+    games_played, games_batting, at_bats, runs, hits,
+    doubles, triples, home_runs, rbi, stolen_bases, caught_stealing,
+    walks, strikeouts, hit_by_pitch, sac_hits, sac_flies, errors, passed_balls,
+    ba, obp, slg, ops, iso, babip, k_pct, bb_pct, ab_per_hr,
+    ops_plus, smb_war
+FROM player_career_batting_stats
+WHERE player_id = ? AND stat_type = 'regular_season'
 `, playerID).Scan(
-		&b.GamesPlayed, &b.GamesBatting,
-		&b.AtBats, &b.Runs, &b.Hits, &b.Doubles, &b.Triples, &b.HomeRuns,
-		&b.RBI, &b.StolenBases, &b.CaughtStealing, &b.Walks,
-		&b.Strikeouts, &b.HitByPitch, &b.SacHits, &b.SacFlies,
-		&b.Errors, &b.PassedBalls,
-		&b.SmbWAR, &b.OPSPlus,
+		&b.GamesPlayed, &b.GamesBatting, &b.AtBats, &b.Runs, &b.Hits,
+		&b.Doubles, &b.Triples, &b.HomeRuns, &b.RBI, &b.StolenBases, &b.CaughtStealing,
+		&b.Walks, &b.Strikeouts, &b.HitByPitch, &b.SacHits, &b.SacFlies, &b.Errors, &b.PassedBalls,
+		&bBA, &bOBP, &bSLG, &bOPS, &bISO, &bBABIP, &bKPct, &bBBPct, &bABPerHR,
+		&bOPSPlus, &bSmbWAR,
 	)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return c, fmt.Errorf("getting career batting for player %d: %w", playerID, err)
 	}
-	if b.AtBats > 0 || b.GamesPlayed > 0 {
-		c.Batting = b
+	if err == nil {
+		if bBA.Valid      { b.BA      = &bBA.Float64 }
+		if bOBP.Valid     { b.OBP     = &bOBP.Float64 }
+		if bSLG.Valid     { b.SLG     = &bSLG.Float64 }
+		if bOPS.Valid     { b.OPS     = &bOPS.Float64 }
+		if bISO.Valid     { b.ISO     = &bISO.Float64 }
+		if bBABIP.Valid   { b.BABIP   = &bBABIP.Float64 }
+		if bKPct.Valid    { b.KPct    = &bKPct.Float64 }
+		if bBBPct.Valid   { b.BBPct   = &bBBPct.Float64 }
+		if bABPerHR.Valid { b.ABPerHR = &bABPerHR.Float64 }
+		if bOPSPlus.Valid { b.OPSPlus = &bOPSPlus.Float64 }
+		if bSmbWAR.Valid  { b.SmbWAR  = &bSmbWAR.Float64 }
+		if b.AtBats > 0 || b.GamesPlayed > 0 {
+			c.Batting = b
+		}
 	}
 
-	// Career pitching with career ERA+ from career-weighted league averages.
 	p := &models.CareerPitchingStats{}
+	var pERA, pWHIP, pK9, pBB9, pH9, pHR9, pKPerBB, pKPct, pWinPct, pPPerIP sql.NullFloat64
+	var pERAPlus, pFIP, pFIPMinus, pSmbWAR sql.NullFloat64
 	err = s.db.QueryRowContext(ctx, `
 SELECT
-    COALESCE(SUM(pit.wins),0),             COALESCE(SUM(pit.losses),0),
-    COALESCE(SUM(pit.games),0),            COALESCE(SUM(pit.games_started),0),
-    COALESCE(SUM(pit.complete_games),0),   COALESCE(SUM(pit.shutouts),0),
-    COALESCE(SUM(pit.saves),0),            COALESCE(SUM(pit.outs_pitched),0),
-    COALESCE(SUM(pit.hits_allowed),0),     COALESCE(SUM(pit.earned_runs),0),
-    COALESCE(SUM(pit.home_runs_allowed),0),COALESCE(SUM(pit.walks),0),
-    COALESCE(SUM(pit.strikeouts),0),       COALESCE(SUM(pit.hit_batters),0),
-    COALESCE(SUM(pit.batters_faced),0),    COALESCE(SUM(pit.games_finished),0),
-    COALESCE(SUM(pit.runs_allowed),0),     COALESCE(SUM(pit.wild_pitches),0),
-    COALESCE(SUM(pit.total_pitches),0),
-    SUM(pit.smb_war),
-    CASE
-        WHEN COALESCE(SUM(pit.outs_pitched), 0) > 0
-         AND COALESCE(SUM(pit.earned_runs),  0) > 0
-         AND COALESCE(SUM(lss.total_outs_pitched), 0) > 0
-        THEN CAST(SUM(lss.total_earned_runs) AS REAL) * 27.0 / SUM(lss.total_outs_pitched)
-             / (CAST(SUM(pit.earned_runs) AS REAL) * 27.0 / SUM(pit.outs_pitched))
-             * 100.0
-        ELSE NULL
-    END AS career_era_plus
-FROM player_season_pitching_stats pit
-JOIN player_seasons ps ON ps.id = pit.player_season_id
-LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
-    AND lss.is_regular_season = pit.is_regular_season
-WHERE ps.player_id = ? AND pit.is_regular_season = 1
+    wins, losses, games, games_started, complete_games, shutouts, saves,
+    outs_pitched, hits_allowed, earned_runs, home_runs_allowed, walks, strikeouts,
+    hit_batters, batters_faced, games_finished, runs_allowed, wild_pitches, total_pitches,
+    era, whip, k_per_9, bb_per_9, h_per_9, hr_per_9, k_per_bb, k_pct, win_pct, p_per_ip,
+    era_plus, fip, fip_minus, smb_war
+FROM player_career_pitching_stats
+WHERE player_id = ? AND stat_type = 'regular_season'
 `, playerID).Scan(
-		&p.Wins, &p.Losses, &p.Games, &p.GamesStarted,
-		&p.CompleteGames, &p.Shutouts, &p.Saves, &p.OutsPitched,
-		&p.HitsAllowed, &p.EarnedRuns, &p.HomeRunsAllowed, &p.Walks,
-		&p.Strikeouts, &p.HitBatters, &p.BattersFaced, &p.GamesFinished,
-		&p.RunsAllowed, &p.WildPitches, &p.TotalPitches,
-		&p.SmbWAR, &p.ERAPlus,
+		&p.Wins, &p.Losses, &p.Games, &p.GamesStarted, &p.CompleteGames, &p.Shutouts, &p.Saves,
+		&p.OutsPitched, &p.HitsAllowed, &p.EarnedRuns, &p.HomeRunsAllowed, &p.Walks, &p.Strikeouts,
+		&p.HitBatters, &p.BattersFaced, &p.GamesFinished, &p.RunsAllowed, &p.WildPitches, &p.TotalPitches,
+		&pERA, &pWHIP, &pK9, &pBB9, &pH9, &pHR9, &pKPerBB, &pKPct, &pWinPct, &pPPerIP,
+		&pERAPlus, &pFIP, &pFIPMinus, &pSmbWAR,
 	)
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return c, fmt.Errorf("getting career pitching for player %d: %w", playerID, err)
 	}
-	if p.OutsPitched > 0 || p.Games > 0 {
-		c.Pitching = p
+	if err == nil {
+		if pERA.Valid     { p.ERA     = &pERA.Float64 }
+		if pWHIP.Valid    { p.WHIP    = &pWHIP.Float64 }
+		if pK9.Valid      { p.K9      = &pK9.Float64 }
+		if pBB9.Valid     { p.BB9     = &pBB9.Float64 }
+		if pH9.Valid      { p.H9      = &pH9.Float64 }
+		if pHR9.Valid     { p.HR9     = &pHR9.Float64 }
+		if pKPerBB.Valid  { p.KPerBB  = &pKPerBB.Float64 }
+		if pKPct.Valid    { p.KPct    = &pKPct.Float64 }
+		if pWinPct.Valid  { p.WinPct  = &pWinPct.Float64 }
+		if pPPerIP.Valid  { p.PPerIP  = &pPPerIP.Float64 }
+		if pERAPlus.Valid  { p.ERAPlus  = &pERAPlus.Float64 }
+		if pFIP.Valid      { p.FIP      = &pFIP.Float64 }
+		if pFIPMinus.Valid { p.FIPMinus = &pFIPMinus.Float64 }
+		if pSmbWAR.Valid   { p.SmbWAR   = &pSmbWAR.Float64 }
+		if p.OutsPitched > 0 || p.Games > 0 {
+			c.Pitching = p
+		}
 	}
 
 	return c, nil
@@ -293,6 +276,7 @@ SELECT
     b.runs, b.hits, b.doubles, b.triples, b.home_runs, b.rbi,
     b.stolen_bases, b.caught_stealing, b.walks, b.strikeouts,
     b.hit_by_pitch, b.sac_hits, b.sac_flies, b.errors, b.passed_balls,
+    b.ba, b.obp, b.slg, b.ops, b.iso, b.babip, b.k_pct, b.bb_pct, b.ab_per_hr,
     b.ops_plus, b.smb_war,
     -- pitching block (all NULL when no pitching row for this season type)
     pit.outs_pitched,
@@ -301,6 +285,8 @@ SELECT
     pit.hits_allowed, pit.earned_runs, pit.home_runs_allowed,
     pit.walks, pit.strikeouts, pit.hit_batters, pit.batters_faced,
     pit.games_finished, pit.runs_allowed, pit.wild_pitches, pit.total_pitches,
+    pit.era, pit.whip, pit.k_per_9, pit.bb_per_9, pit.h_per_9, pit.hr_per_9,
+    pit.k_per_bb, pit.k_pct, pit.win_pct, pit.p_per_ip,
     pit.era_plus, pit.fip, pit.fip_minus, pit.smb_war
 FROM player_seasons ps
 JOIN seasons s ON s.id = ps.season_id
@@ -327,12 +313,14 @@ ORDER BY s.season_num ASC
 		var bAtBats sql.NullInt64
 		var bGP, bGB, bRuns, bHits, bDB, bTR, bHR, bRBI sql.NullInt64
 		var bSB, bCS, bWalks, bK, bHBP, bSH, bSF, bE, bPB sql.NullInt64
+		var bBA, bOBP, bSLG, bOPS, bISO, bBABIP, bKPct, bBBPct, bABPerHR sql.NullFloat64
 		var bOPSPlus, bSmbWAR sql.NullFloat64
 
 		// Pitching sentinel: outs_pitched is NULL when there is no pitching row.
 		var pOuts sql.NullInt64
 		var pW, pL, pG, pGS, pCG, pSHO, pSV sql.NullInt64
 		var pH, pER, pHRA, pWalks, pK, pHBP, pBF, pGF, pRA, pWP, pTP sql.NullInt64
+		var pERA, pWHIP, pK9, pBB9, pH9, pHR9, pKPerBB, pPKPct, pWinPct, pPPerIP sql.NullFloat64
 		var pERAPlus, pFIP, pFIPMinus, pSmbWAR sql.NullFloat64
 
 		if err := rows.Scan(
@@ -347,11 +335,13 @@ ORDER BY s.season_num ASC
 			&bAtBats,
 			&bGP, &bGB, &bRuns, &bHits, &bDB, &bTR, &bHR, &bRBI,
 			&bSB, &bCS, &bWalks, &bK, &bHBP, &bSH, &bSF, &bE, &bPB,
+			&bBA, &bOBP, &bSLG, &bOPS, &bISO, &bBABIP, &bKPct, &bBBPct, &bABPerHR,
 			&bOPSPlus, &bSmbWAR,
 			// pitching block
 			&pOuts,
 			&pW, &pL, &pG, &pGS, &pCG, &pSHO, &pSV,
 			&pH, &pER, &pHRA, &pWalks, &pK, &pHBP, &pBF, &pGF, &pRA, &pWP, &pTP,
+			&pERA, &pWHIP, &pK9, &pBB9, &pH9, &pHR9, &pKPerBB, &pPKPct, &pWinPct, &pPPerIP,
 			&pERAPlus, &pFIP, &pFIPMinus, &pSmbWAR,
 		); err != nil {
 			return nil, nil, fmt.Errorf("scanning season log row: %w", err)
@@ -368,12 +358,17 @@ ORDER BY s.season_num ASC
 				SacHits: int(bSH.Int64), SacFlies: int(bSF.Int64),
 				Errors: int(bE.Int64), PassedBalls: int(bPB.Int64),
 			}
-			if bOPSPlus.Valid {
-				b.OPSPlus = &bOPSPlus.Float64
-			}
-			if bSmbWAR.Valid {
-				b.SmbWAR = &bSmbWAR.Float64
-			}
+			if bBA.Valid      { b.BA      = &bBA.Float64 }
+			if bOBP.Valid     { b.OBP     = &bOBP.Float64 }
+			if bSLG.Valid     { b.SLG     = &bSLG.Float64 }
+			if bOPS.Valid     { b.OPS     = &bOPS.Float64 }
+			if bISO.Valid     { b.ISO     = &bISO.Float64 }
+			if bBABIP.Valid   { b.BABIP   = &bBABIP.Float64 }
+			if bKPct.Valid    { b.KPct    = &bKPct.Float64 }
+			if bBBPct.Valid   { b.BBPct   = &bBBPct.Float64 }
+			if bABPerHR.Valid { b.ABPerHR = &bABPerHR.Float64 }
+			if bOPSPlus.Valid { b.OPSPlus = &bOPSPlus.Float64 }
+			if bSmbWAR.Valid  { b.SmbWAR  = &bSmbWAR.Float64 }
 			row.Batting = b
 		}
 
@@ -390,18 +385,20 @@ ORDER BY s.season_num ASC
 				RunsAllowed: int(pRA.Int64), WildPitches: int(pWP.Int64),
 				TotalPitches: int(pTP.Int64),
 			}
-			if pERAPlus.Valid {
-				p.ERAPlus = &pERAPlus.Float64
-			}
-			if pFIP.Valid {
-				p.FIP = &pFIP.Float64
-			}
-			if pFIPMinus.Valid {
-				p.FIPMinus = &pFIPMinus.Float64
-			}
-			if pSmbWAR.Valid {
-				p.SmbWAR = &pSmbWAR.Float64
-			}
+			if pERA.Valid    { p.ERA    = &pERA.Float64 }
+			if pWHIP.Valid   { p.WHIP   = &pWHIP.Float64 }
+			if pK9.Valid     { p.K9     = &pK9.Float64 }
+			if pBB9.Valid    { p.BB9    = &pBB9.Float64 }
+			if pH9.Valid     { p.H9     = &pH9.Float64 }
+			if pHR9.Valid    { p.HR9    = &pHR9.Float64 }
+			if pKPerBB.Valid { p.KPerBB = &pKPerBB.Float64 }
+			if pPKPct.Valid  { p.KPct   = &pPKPct.Float64 }
+			if pWinPct.Valid { p.WinPct = &pWinPct.Float64 }
+			if pPPerIP.Valid { p.PPerIP = &pPPerIP.Float64 }
+			if pERAPlus.Valid  { p.ERAPlus  = &pERAPlus.Float64 }
+			if pFIP.Valid      { p.FIP      = &pFIP.Float64 }
+			if pFIPMinus.Valid { p.FIPMinus = &pFIPMinus.Float64 }
+			if pSmbWAR.Valid   { p.SmbWAR   = &pSmbWAR.Float64 }
 			row.Pitching = p
 		}
 

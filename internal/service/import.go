@@ -141,6 +141,7 @@ func (svc *ImportService) importInTx(
 
 	// playerGUIDToSeasonID maps save game player GUID → companion player_seasons.id
 	playerGUIDToSeasonID := make(map[string]int64, len(savePlayers))
+	playerIDs := make([]int64, 0, len(savePlayers))
 	for _, p := range savePlayers {
 		playerID, err := players.UpsertPlayer(ctx, store.PlayerIdentity{
 			GameGUID:      p.PlayerGUID,
@@ -172,6 +173,7 @@ func (svc *ImportService) importInTx(
 			return result, fmt.Errorf("upserting player season for %s: %w", p.PlayerGUID, err)
 		}
 		playerGUIDToSeasonID[p.PlayerGUID] = psID
+		playerIDs = append(playerIDs, playerID)
 
 		// Populate team associations from all three save-game team pointers.
 		// sort_order: 0=current/final, 1=most recently played prior, 2=two teams ago.
@@ -240,6 +242,12 @@ func (svc *ImportService) importInTx(
 	}
 	if err := ApplyContextStats(ctx, tx, companionSeasonID, false); err != nil {
 		return result, fmt.Errorf("computing context stats (playoffs): %w", err)
+	}
+
+	// ── 9. Career stats ──────────────────────────────────────────────────────
+	// Must run after ApplyContextStats so per-season smb_war values are set.
+	if err := ApplyCareerStats(ctx, tx, playerIDs); err != nil {
+		return result, fmt.Errorf("computing career stats: %w", err)
 	}
 
 	// ── 9. Regular season schedule ──────────────────────────────────────────
@@ -349,6 +357,12 @@ func (svc *ImportService) importBattingStats(
 		if !ok {
 			continue
 		}
+		tmp := models.CareerBattingStats{
+			AtBats: s.AtBats, Hits: s.Hits, Doubles: s.Doubles, Triples: s.Triples,
+			HomeRuns: s.HomeRuns, Walks: s.Walks, HitByPitch: s.HitByPitch,
+			SacHits: s.SacHits, SacFlies: s.SacFlies, Strikeouts: s.Strikeouts,
+		}
+		ComputeBattingRates(&tmp)
 		if err := players.UpsertBattingStats(ctx, store.PlayerSeasonBattingStats{
 			PlayerSeasonID:  psID,
 			IsRegularSeason: isRegularSeason,
@@ -370,6 +384,15 @@ func (svc *ImportService) importBattingStats(
 			SacFlies:        s.SacFlies,
 			Errors:          s.Errors,
 			PassedBalls:     s.PassedBalls,
+			BA:              tmp.BA,
+			OBP:             tmp.OBP,
+			SLG:             tmp.SLG,
+			OPS:             tmp.OPS,
+			ISO:             tmp.ISO,
+			BABIP:           tmp.BABIP,
+			KPct:            tmp.KPct,
+			BBPct:           tmp.BBPct,
+			ABPerHR:         tmp.ABPerHR,
 		}); err != nil {
 			return fmt.Errorf("batting stats for %s: %w", s.PlayerGUID, err)
 		}
@@ -401,6 +424,14 @@ func (svc *ImportService) importPitchingStats(
 		if !ok {
 			continue
 		}
+		tmp := models.CareerPitchingStats{
+			OutsPitched: s.OutsPitched, EarnedRuns: s.EarnedRuns,
+			HitsAllowed: s.HitsAllowed, HomeRunsAllowed: s.HomeRunsAllowed,
+			Walks: s.Walks, Strikeouts: s.Strikeouts, HitBatters: s.HitBatters,
+			BattersFaced: s.BattersFaced, TotalPitches: s.TotalPitches,
+			Wins: s.Wins, Losses: s.Losses,
+		}
+		ComputePitchingRates(&tmp)
 		if err := players.UpsertPitchingStats(ctx, store.PlayerSeasonPitchingStats{
 			PlayerSeasonID:  psID,
 			IsRegularSeason: isRegularSeason,
@@ -423,6 +454,16 @@ func (svc *ImportService) importPitchingStats(
 			RunsAllowed:     s.RunsAllowed,
 			WildPitches:     s.WildPitches,
 			TotalPitches:    s.TotalPitches,
+			ERA:             tmp.ERA,
+			WHIP:            tmp.WHIP,
+			K9:              tmp.K9,
+			BB9:             tmp.BB9,
+			H9:              tmp.H9,
+			HR9:             tmp.HR9,
+			KPerBB:          tmp.KPerBB,
+			KPct:            tmp.KPct,
+			WinPct:          tmp.WinPct,
+			PPerIP:          tmp.PPerIP,
 		}); err != nil {
 			return fmt.Errorf("pitching stats for %s: %w", s.PlayerGUID, err)
 		}

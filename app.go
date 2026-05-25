@@ -722,7 +722,7 @@ func (a *App) SearchTeams(query string) ([]TeamSearchResultDTO, error) {
 }
 
 // GetPlayerCareer returns a player's bio and career regular-season totals.
-// Rate stats (BA, OBP, ERA, etc.) are computed before returning.
+// Rate stats are read from pre-computed career tables — no on-read computation.
 func (a *App) GetPlayerCareer(playerID int64) (PlayerCareerDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
 		return PlayerCareerDTO{}, err
@@ -730,12 +730,6 @@ func (a *App) GetPlayerCareer(playerID int64) (PlayerCareerDTO, error) {
 	career, err := a.playerQueryStore.GetPlayerCareer(a.ctx, playerID)
 	if err != nil {
 		return PlayerCareerDTO{}, err
-	}
-	if career.Batting != nil {
-		service.ComputeBattingRates(career.Batting)
-	}
-	if career.Pitching != nil {
-		service.ComputePitchingRates(career.Pitching)
 	}
 	return PlayerCareerDTO{
 		PlayerID:      career.PlayerID,
@@ -748,7 +742,7 @@ func (a *App) GetPlayerCareer(playerID int64) (PlayerCareerDTO, error) {
 }
 
 // GetPlayerSeasonLog returns a player's season-by-season regular and playoff
-// stats. Rate stats are computed on each row before returning.
+// stats. Rate stats are read from stored columns — no on-read computation.
 func (a *App) GetPlayerSeasonLog(playerID int64) ([]PlayerSeasonLogDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
 		return nil, err
@@ -759,16 +753,6 @@ func (a *App) GetPlayerSeasonLog(playerID int64) ([]PlayerSeasonLogDTO, error) {
 	}
 	out := make([]PlayerSeasonLogDTO, len(rows))
 	for i, r := range rows {
-		for _, b := range []*models.CareerBattingStats{r.Batting, r.PlayoffBatting} {
-			if b != nil {
-				service.ComputeBattingRates(b)
-			}
-		}
-		for _, p := range []*models.CareerPitchingStats{r.Pitching, r.PlayoffPitching} {
-			if p != nil {
-				service.ComputePitchingRates(p)
-			}
-		}
 		teams := make([]TeamRefDTO, len(r.Teams))
 		for j, t := range r.Teams {
 			teams[j] = TeamRefDTO{TeamID: t.TeamID, TeamHistoryID: t.TeamHistoryID, TeamName: t.TeamName, SortOrder: t.SortOrder}
@@ -858,14 +842,6 @@ func (a *App) GetTeamSeasonDetail(teamHistoryID int64) (TeamSeasonDetailDTO, err
 	roster, err := a.teamQueryStore.GetTeamSeasonRoster(a.ctx, teamHistoryID)
 	if err != nil {
 		return TeamSeasonDetailDTO{}, fmt.Errorf("roster: %w", err)
-	}
-	for i := range roster {
-		if roster[i].Batting != nil {
-			service.ComputeBattingRates(roster[i].Batting)
-		}
-		if roster[i].Pitching != nil {
-			service.ComputePitchingRates(roster[i].Pitching)
-		}
 	}
 
 	schedule, err := a.teamQueryStore.GetTeamSeasonSchedule(a.ctx, teamHistoryID, seasonID)
@@ -997,7 +973,7 @@ func (a *App) GetBattingCareerLeaders(filters LeaderboardFiltersDTO) ([]BattingL
 }
 
 // GetBattingSeasonLeaders returns per-season batting stats for all player-seasons
-// matching the given filters. Rate stats are computed before returning.
+// matching the given filters. Rate stats are read from stored columns.
 func (a *App) GetBattingSeasonLeaders(filters LeaderboardFiltersDTO) ([]BattingLeaderRowDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
 		return nil, err
@@ -1008,7 +984,6 @@ func (a *App) GetBattingSeasonLeaders(filters LeaderboardFiltersDTO) ([]BattingL
 	}
 	out := make([]BattingLeaderRowDTO, len(rows))
 	for i := range rows {
-		service.ComputeBattingRates(&rows[i].CareerBattingStats)
 		out[i] = battingSeasonLeaderToDTO(rows[i])
 	}
 	return out, nil
@@ -1033,7 +1008,7 @@ func (a *App) GetPitchingCareerLeaders(filters LeaderboardFiltersDTO) ([]Pitchin
 }
 
 // GetPitchingSeasonLeaders returns per-season pitching stats for all player-seasons
-// matching the given filters. Rate stats are computed before returning.
+// matching the given filters. Rate stats are read from stored columns.
 func (a *App) GetPitchingSeasonLeaders(filters LeaderboardFiltersDTO) ([]PitchingLeaderRowDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
 		return nil, err
@@ -1044,7 +1019,6 @@ func (a *App) GetPitchingSeasonLeaders(filters LeaderboardFiltersDTO) ([]Pitchin
 	}
 	out := make([]PitchingLeaderRowDTO, len(rows))
 	for i := range rows {
-		service.ComputePitchingRates(&rows[i].CareerPitchingStats)
 		out[i] = pitchingSeasonLeaderToDTO(rows[i])
 	}
 	return out, nil

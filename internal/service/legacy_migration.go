@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"smb-tools/internal/models"
 	"smb-tools/internal/store"
 )
 
@@ -178,6 +179,7 @@ func (svc *LegacyMigrationService) migrateInTx(
 	legacySeasonIDToNew := make(map[int]int64, len(seasons))
 	legacySTHIDToNew := make(map[int]int64, len(seasonTeamHistories))
 	legacyPSIDToNew := make(map[int]int64, len(playerSeasons))
+	legacyPlayerIDs := make([]int64, 0, len(players))
 
 	// ── 1. Seasons ──────────────────────────────────────────────────────────────
 	for _, s := range seasons {
@@ -292,6 +294,7 @@ func (svc *LegacyMigrationService) migrateInTx(
 			}
 		}
 		legacyPlayerIDToNew[p.ID] = playerID
+		legacyPlayerIDs = append(legacyPlayerIDs, playerID)
 		result.PlayersMigrated++
 	}
 
@@ -380,6 +383,12 @@ func (svc *LegacyMigrationService) migrateInTx(
 		if !ok {
 			continue
 		}
+		tmp := models.CareerBattingStats{
+			AtBats: bs.AtBats, Hits: bs.Hits, Doubles: bs.Doubles, Triples: bs.Triples,
+			HomeRuns: bs.HomeRuns, Walks: bs.Walks, HitByPitch: bs.HitByPitch,
+			SacHits: bs.SacrificeHits, SacFlies: bs.SacrificeFlies, Strikeouts: bs.Strikeouts,
+		}
+		ComputeBattingRates(&tmp)
 		if err := playerStore.UpsertBattingStats(ctx, store.PlayerSeasonBattingStats{
 			PlayerSeasonID:  newPSID,
 			IsRegularSeason: bs.IsRegularSeason,
@@ -401,6 +410,15 @@ func (svc *LegacyMigrationService) migrateInTx(
 			SacFlies:        bs.SacrificeFlies,
 			Errors:          bs.Errors,
 			PassedBalls:     bs.PassedBalls,
+			BA:              tmp.BA,
+			OBP:             tmp.OBP,
+			SLG:             tmp.SLG,
+			OPS:             tmp.OPS,
+			ISO:             tmp.ISO,
+			BABIP:           tmp.BABIP,
+			KPct:            tmp.KPct,
+			BBPct:           tmp.BBPct,
+			ABPerHR:         tmp.ABPerHR,
 		}); err != nil {
 			return result, fmt.Errorf("upserting batting stats (legacy ps %d, reg=%v): %w",
 				bs.PlayerSeasonID, bs.IsRegularSeason, err)
@@ -414,6 +432,14 @@ func (svc *LegacyMigrationService) migrateInTx(
 			continue
 		}
 		outs := ipToOuts(ps.InningsPitched)
+		ptmp := models.CareerPitchingStats{
+			Wins: ps.Wins, Losses: ps.Losses, OutsPitched: int(outs),
+			HitsAllowed: ps.HitsAllowed, EarnedRuns: ps.EarnedRuns,
+			HomeRunsAllowed: ps.HomeRunsAllowed, Walks: ps.Walks,
+			Strikeouts: ps.Strikeouts, HitBatters: ps.HitBatters,
+			BattersFaced: ps.BattersFaced, TotalPitches: ps.TotalPitches,
+		}
+		ComputePitchingRates(&ptmp)
 		if err := playerStore.UpsertPitchingStats(ctx, store.PlayerSeasonPitchingStats{
 			PlayerSeasonID:  newPSID,
 			IsRegularSeason: ps.IsRegularSeason,
@@ -436,6 +462,16 @@ func (svc *LegacyMigrationService) migrateInTx(
 			RunsAllowed:     ps.RunsAllowed,
 			WildPitches:     ps.WildPitches,
 			TotalPitches:    ps.TotalPitches,
+			ERA:             ptmp.ERA,
+			WHIP:            ptmp.WHIP,
+			K9:              ptmp.K9,
+			BB9:             ptmp.BB9,
+			H9:              ptmp.H9,
+			HR9:             ptmp.HR9,
+			KPerBB:          ptmp.KPerBB,
+			KPct:            ptmp.KPct,
+			WinPct:          ptmp.WinPct,
+			PPerIP:          ptmp.PPerIP,
 		}); err != nil {
 			return result, fmt.Errorf("upserting pitching stats (legacy ps %d, reg=%v): %w",
 				ps.PlayerSeasonID, ps.IsRegularSeason, err)
@@ -554,6 +590,12 @@ func (svc *LegacyMigrationService) migrateInTx(
 		if err := ApplyContextStats(ctx, tx, newSeasonID, false); err != nil {
 			return result, fmt.Errorf("computing context stats for season %d (playoffs): %w", newSeasonID, err)
 		}
+	}
+
+	// ── 13. Career stats ─────────────────────────────────────────────────────────
+	// Must run after step 12 so per-season smb_war values are populated.
+	if err := ApplyCareerStats(ctx, tx, legacyPlayerIDs); err != nil {
+		return result, fmt.Errorf("computing career stats: %w", err)
 	}
 
 	return result, nil
