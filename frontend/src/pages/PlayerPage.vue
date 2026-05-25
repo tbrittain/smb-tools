@@ -35,9 +35,10 @@ const mostRecentSeason = computed(() =>
 // Most recent attributes
 const latestAttrs = computed(() => mostRecentSeason.value)
 
-const isPitcher = computed(
-  () => mostRecentSeason.value?.primaryPosition === 'P' || mostRecentSeason.value?.pitcherRole !== '',
-)
+const isPitcher = computed(() => {
+  const s = mostRecentSeason.value
+  return s != null && (s.primaryPosition === 'P' || s.pitcherRole !== '')
+})
 
 onMounted(async () => {
   loading.value = true
@@ -51,7 +52,7 @@ onMounted(async () => {
     career.value = c
     seasonLog.value = log ?? []
     awardsBySeason.value = awards ?? {}
-    statMode.value = hasPitching.value ? 'pitching' : 'batting'
+    statMode.value = isPitcher.value ? 'pitching' : 'batting'
     set([{ label: c ? `${c.firstName} ${c.lastName}` : 'Player' }])
   } catch (e) {
     error.value = String(e)
