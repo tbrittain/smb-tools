@@ -4,6 +4,8 @@ High-level phases for the smb-tools rewrite. Each phase should be largely comple
 
 Check off phases as they are completed. Individual phases will be broken into detailed task lists as implementation approaches.
 
+> **SMB3 support is de-scoped.** This app targets Super Mega Baseball 4 only. SMB3 was considered early on but dropped before any meaningful work was done on SMB3-specific behavior. However, the codebase does not actively guard against SMB3 save files: `config/savegame_paths.go` still discovers SMB3 paths, the `GameVersion` type retains `GameVersionSMB3`, and there are no runtime checks that reject an SMB3 `.sav` at import time. Trait name resolution in `sqlite_savegame_reader.go` uses only the SMB4 lookup table and will silently produce empty trait lists for SMB3 saves. If a user loads an SMB3 file, it will likely import partial data without a clear error. A future cleanup pass could add an explicit rejection or just remove the SMB3 path discovery entirely.
+
 ---
 
 ## Phase 1 — Foundation
