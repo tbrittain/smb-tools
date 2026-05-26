@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { RouterLink } from 'vue-router'
+import AppLink from './AppLink.vue'
 
 defineProps<{
   label: string
@@ -12,14 +12,8 @@ defineProps<{
 <template>
   <div class="stat-card">
     <span class="label">{{ label }}</span>
-    <component
-      :is="to ? RouterLink : 'span'"
-      :to="to"
-      class="value"
-      :class="{ linked: !!to }"
-    >
-      {{ value }}
-    </component>
+    <AppLink v-if="to" :to="to" class="value">{{ value }}</AppLink>
+    <span v-else class="value">{{ value }}</span>
     <span v-if="subtext" class="subtext">{{ subtext }}</span>
   </div>
 </template>
@@ -47,12 +41,6 @@ defineProps<{
 .value {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--color-text-primary);
-  text-decoration: none;
-}
-
-.value.linked:hover {
-  color: var(--color-accent);
 }
 
 .subtext {

@@ -2,9 +2,9 @@
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
 import { GetTeamSeasonDetail } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
+import AppLink from '../components/AppLink.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
@@ -155,9 +155,9 @@ onMounted(async () => {
         >
           <Column header="Player" sortable sort-field="lastName" style="min-width: 150px">
             <template #body="{ data }">
-              <RouterLink :to="`/players/${data.playerId}`" class="player-link">
+              <AppLink :to="`/players/${data.playerId}`">
                 {{ data.firstName }} {{ data.lastName }}
-              </RouterLink>
+              </AppLink>
               <span v-if="data.isHallOfFamer" class="hof-badge">HoF</span>
               <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
             </template>
@@ -215,9 +215,9 @@ onMounted(async () => {
         >
           <Column header="Player" sortable sort-field="lastName" style="min-width: 150px">
             <template #body="{ data }">
-              <RouterLink :to="`/players/${data.playerId}`" class="player-link">
+              <AppLink :to="`/players/${data.playerId}`">
                 {{ data.firstName }} {{ data.lastName }}
-              </RouterLink>
+              </AppLink>
               <span v-if="data.isHallOfFamer" class="hof-badge">HoF</span>
               <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
             </template>
@@ -280,9 +280,9 @@ onMounted(async () => {
         >
           <Column header="Player" sortable sort-field="lastName" style="min-width: 150px">
             <template #body="{ data }">
-              <RouterLink :to="`/players/${data.playerId}`" class="player-link">
+              <AppLink :to="`/players/${data.playerId}`">
                 {{ data.firstName }} {{ data.lastName }}
-              </RouterLink>
+              </AppLink>
               <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
             </template>
           </Column>
@@ -346,31 +346,31 @@ onMounted(async () => {
           <Column header="Opponent" style="min-width: 130px">
             <template #body="{ data }">
               <template v-if="data.homeTeamHistoryId === historyId">
-                <RouterLink :to="`/teams/${data.awayTeamId}/seasons/${data.awayTeamHistoryId}`">
+                <AppLink :to="`/teams/${data.awayTeamId}/seasons/${data.awayTeamHistoryId}`">
                   @ {{ data.awayTeamName }}
-                </RouterLink>
+                </AppLink>
               </template>
               <template v-else>
-                <RouterLink :to="`/teams/${data.homeTeamId}/seasons/${data.homeTeamHistoryId}`">
+                <AppLink :to="`/teams/${data.homeTeamId}/seasons/${data.homeTeamHistoryId}`">
                   vs {{ data.homeTeamName }}
-                </RouterLink>
+                </AppLink>
               </template>
             </template>
           </Column>
           <Column header="SP" style="min-width: 130px">
             <template #body="{ data }">
               <template v-if="data.homeTeamHistoryId === historyId">
-                <RouterLink
+                <AppLink
                   v-if="data.homePitcherPlayerId"
                   :to="`/players/${data.homePitcherPlayerId}`"
-                >{{ data.homePitcherName }}</RouterLink>
+                >{{ data.homePitcherName }}</AppLink>
                 <span v-else>{{ data.homePitcherName || '—' }}</span>
               </template>
               <template v-else>
-                <RouterLink
+                <AppLink
                   v-if="data.awayPitcherPlayerId"
                   :to="`/players/${data.awayPitcherPlayerId}`"
-                >{{ data.awayPitcherName }}</RouterLink>
+                >{{ data.awayPitcherName }}</AppLink>
                 <span v-else>{{ data.awayPitcherName || '—' }}</span>
               </template>
             </template>
@@ -378,17 +378,17 @@ onMounted(async () => {
           <Column header="Opp SP" style="min-width: 130px">
             <template #body="{ data }">
               <template v-if="data.homeTeamHistoryId === historyId">
-                <RouterLink
+                <AppLink
                   v-if="data.awayPitcherPlayerId"
                   :to="`/players/${data.awayPitcherPlayerId}`"
-                >{{ data.awayPitcherName }}</RouterLink>
+                >{{ data.awayPitcherName }}</AppLink>
                 <span v-else>{{ data.awayPitcherName || '—' }}</span>
               </template>
               <template v-else>
-                <RouterLink
+                <AppLink
                   v-if="data.homePitcherPlayerId"
                   :to="`/players/${data.homePitcherPlayerId}`"
-                >{{ data.homePitcherName }}</RouterLink>
+                >{{ data.homePitcherName }}</AppLink>
                 <span v-else>{{ data.homePitcherName || '—' }}</span>
               </template>
             </template>
@@ -434,9 +434,9 @@ onMounted(async () => {
                     <span v-else>—</span>
                   </td>
                   <td :class="g.homeTeamHistoryId === historyId ? 'our-team' : ''">
-                    <RouterLink :to="`/teams/${g.homeTeamId}/seasons/${g.homeTeamHistoryId}`">
+                    <AppLink :to="`/teams/${g.homeTeamId}/seasons/${g.homeTeamHistoryId}`">
                       {{ g.homeTeamName }}
-                    </RouterLink>
+                    </AppLink>
                   </td>
                   <td class="score-col mono">
                     <template v-if="g.homeScore != null">
@@ -445,35 +445,35 @@ onMounted(async () => {
                     <template v-else>—</template>
                   </td>
                   <td :class="g.awayTeamHistoryId === historyId ? 'our-team' : ''">
-                    <RouterLink :to="`/teams/${g.awayTeamId}/seasons/${g.awayTeamHistoryId}`">
+                    <AppLink :to="`/teams/${g.awayTeamId}/seasons/${g.awayTeamHistoryId}`">
                       {{ g.awayTeamName }}
-                    </RouterLink>
+                    </AppLink>
                   </td>
                   <td>
                     <template v-if="g.homeTeamHistoryId === historyId">
-                      <RouterLink v-if="g.homePitcherPlayerId" :to="`/players/${g.homePitcherPlayerId}`">
+                      <AppLink v-if="g.homePitcherPlayerId" :to="`/players/${g.homePitcherPlayerId}`">
                         {{ g.homePitcherName }}
-                      </RouterLink>
+                      </AppLink>
                       <span v-else>{{ g.homePitcherName || '—' }}</span>
                     </template>
                     <template v-else>
-                      <RouterLink v-if="g.awayPitcherPlayerId" :to="`/players/${g.awayPitcherPlayerId}`">
+                      <AppLink v-if="g.awayPitcherPlayerId" :to="`/players/${g.awayPitcherPlayerId}`">
                         {{ g.awayPitcherName }}
-                      </RouterLink>
+                      </AppLink>
                       <span v-else>{{ g.awayPitcherName || '—' }}</span>
                     </template>
                   </td>
                   <td>
                     <template v-if="g.homeTeamHistoryId === historyId">
-                      <RouterLink v-if="g.awayPitcherPlayerId" :to="`/players/${g.awayPitcherPlayerId}`">
+                      <AppLink v-if="g.awayPitcherPlayerId" :to="`/players/${g.awayPitcherPlayerId}`">
                         {{ g.awayPitcherName }}
-                      </RouterLink>
+                      </AppLink>
                       <span v-else>{{ g.awayPitcherName || '—' }}</span>
                     </template>
                     <template v-else>
-                      <RouterLink v-if="g.homePitcherPlayerId" :to="`/players/${g.homePitcherPlayerId}`">
+                      <AppLink v-if="g.homePitcherPlayerId" :to="`/players/${g.homePitcherPlayerId}`">
                         {{ g.homePitcherName }}
-                      </RouterLink>
+                      </AppLink>
                       <span v-else>{{ g.homePitcherName || '—' }}</span>
                     </template>
                   </td>
@@ -603,9 +603,6 @@ h3 {
 }
 .tab-btn.active { border-color: var(--color-accent); color: var(--color-accent); background: var(--color-surface-2); }
 .tab-btn:hover:not(.active) { background: var(--color-surface-2); color: var(--color-text-primary); }
-
-.player-link { text-decoration: none; }
-.player-link:hover { text-decoration: underline; }
 
 .hof-badge {
   margin-left: 0.375rem;

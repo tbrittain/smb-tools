@@ -24,5 +24,9 @@ select {
 }
 
 a {
-  color: inherit;
+  color: var(--color-accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
 }

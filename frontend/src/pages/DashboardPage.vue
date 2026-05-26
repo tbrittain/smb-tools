@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
 import {
   GetCareerLeaders,
   GetSeasonList,
@@ -10,6 +9,7 @@ import {
 } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppButton from '../components/AppButton.vue'
+import AppLink from '../components/AppLink.vue'
 import CareerLeadersPanel from '../components/CareerLeadersPanel.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import SeasonSelector from '../components/SeasonSelector.vue'
@@ -128,7 +128,7 @@ onMounted(loadDashboardData)
         <template v-if="!franchiseStore.active?.hasActiveSource">
           <span class="no-source-hint">
             No save file configured —
-            <RouterLink to="/setup" class="setup-link">go to Setup</RouterLink>
+            <AppLink to="/setup">go to Setup</AppLink>
           </span>
         </template>
         <template v-else>
@@ -239,12 +239,6 @@ onMounted(loadDashboardData)
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
 }
-
-.setup-link {
-  color: var(--color-accent);
-  text-decoration: none;
-}
-.setup-link:hover { text-decoration: underline; }
 
 .sync-error-inline {
   font-size: 0.8125rem;

@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import { RouterLink } from 'vue-router'
 import type { main } from '../../wailsjs/go/models'
+import AppLink from './AppLink.vue'
 
 defineProps<{
   season: main.TeamSeasonSummaryDTO
@@ -15,12 +15,12 @@ function fmtPct(v: number): string {
   <div class="team-season-card" :class="{ champion: season.isChampion }">
     <div class="card-main">
       <div class="name-row">
-        <RouterLink
+        <AppLink
           :to="`/teams/${season.historyId}/seasons/${season.historyId}`"
           class="team-name"
         >
           {{ season.teamName }}
-        </RouterLink>
+        </AppLink>
         <span v-if="season.isChampion" class="champ-badge">★ Champion</span>
         <span v-else-if="season.playoffSeed" class="playoff-badge">Playoffs #{{ season.playoffSeed }}</span>
       </div>
@@ -74,14 +74,10 @@ function fmtPct(v: number): string {
 .team-name {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: var(--color-text-primary);
-  text-decoration: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-.team-name:hover { color: var(--color-accent); }
 
 .season-label {
   font-size: 0.75rem;

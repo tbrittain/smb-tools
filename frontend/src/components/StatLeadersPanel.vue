@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import { RouterLink } from 'vue-router'
 import type { main } from '../../wailsjs/go/models'
+import AppLink from './AppLink.vue'
 import LoadingSpinner from './LoadingSpinner.vue'
 
 defineProps<{
@@ -56,9 +56,9 @@ function formatInt(v: number | null | undefined): string {
             <span class="tile-label">{{ cat.label }}</span>
             <template v-if="cat.leader">
               <div class="tile-stat-line">
-                <RouterLink :to="`/players/${cat.leader.playerId}`" class="tile-player">
+                <AppLink :to="`/players/${cat.leader.playerId}`" class="tile-player">
                   {{ cat.leader.firstName }} {{ cat.leader.lastName }}
-                </RouterLink>
+                </AppLink>
                 <span class="tile-value">{{ cat.fmt(cat.leader.statValue) }}</span>
               </div>
               <span class="tile-team">{{ cat.leader.teamName }}</span>
@@ -127,15 +127,9 @@ function formatInt(v: number | null | undefined): string {
 .tile-player {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: var(--color-text-primary);
-  text-decoration: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.tile-player:hover {
-  color: var(--color-accent);
 }
 
 .tile-value {

@@ -2,9 +2,9 @@
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
 import { GetTeamHistory } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
+import AppLink from '../components/AppLink.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
@@ -96,9 +96,9 @@ onMounted(async () => {
         >
           <Column field="seasonNum" header="Season" sortable style="width: 80px">
             <template #body="{ data }">
-              <RouterLink :to="`/teams/${teamId}/seasons/${data.historyId}`" class="season-link">
+              <AppLink :to="`/teams/${teamId}/seasons/${data.historyId}`">
                 {{ data.seasonNum }}
-              </RouterLink>
+              </AppLink>
             </template>
           </Column>
           <Column field="teamName" header="Team" sortable style="min-width: 140px" />
@@ -196,13 +196,6 @@ h3 {
 }
 
 .champ-star { color: #d29922; }
-
-.season-link {
-  color: var(--color-accent);
-  text-decoration: none;
-  font-variant-numeric: tabular-nums;
-}
-.season-link:hover { text-decoration: underline; }
 
 .error-text { font-size: 0.875rem; color: var(--color-error); }
 </style>

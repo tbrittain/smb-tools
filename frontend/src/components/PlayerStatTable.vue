@@ -4,7 +4,6 @@ import ColumnGroup from 'primevue/columngroup'
 import DataTable from 'primevue/datatable'
 import Row from 'primevue/row'
 import { computed } from 'vue'
-import { RouterLink } from 'vue-router'
 import type { main } from '../../wailsjs/go/models'
 import {
   formatAdjustedStat,
@@ -16,6 +15,7 @@ import {
   formatWAR,
   formatWHIP,
 } from '../composables/useStatFormatters'
+import AppLink from './AppLink.vue'
 import AwardBadge from './AwardBadge.vue'
 import EmptyState from './EmptyState.vue'
 
@@ -239,7 +239,7 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
           <span v-if="r.teams.length > 0" class="team-cell">
             <template v-for="(t, i) in r.teams" :key="t.teamHistoryId">
               <span v-if="i" class="team-separator"> · </span>
-              <RouterLink :to="`/teams/${t.teamId}/seasons/${t.teamHistoryId}`" class="team-link">{{ t.teamName }}</RouterLink>
+              <AppLink :to="`/teams/${t.teamId}/seasons/${t.teamHistoryId}`">{{ t.teamName }}</AppLink>
             </template>
           </span>
           <span v-else class="fa-label">FA</span>
@@ -378,7 +378,7 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
           <span v-if="r.teams.length > 0" class="team-cell">
             <template v-for="(t, i) in r.teams" :key="t.teamHistoryId">
               <span v-if="i" class="team-separator"> · </span>
-              <RouterLink :to="`/teams/${t.teamId}/seasons/${t.teamHistoryId}`" class="team-link">{{ t.teamName }}</RouterLink>
+              <AppLink :to="`/teams/${t.teamId}/seasons/${t.teamHistoryId}`">{{ t.teamName }}</AppLink>
             </template>
           </span>
           <span v-else class="fa-label">FA</span>
@@ -473,15 +473,6 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
   border-radius: 8px;
   overflow-x: auto;
   overflow-y: hidden;
-}
-
-.team-link {
-  color: var(--color-accent);
-  text-decoration: none;
-}
-
-.team-link:hover {
-  text-decoration: underline;
 }
 
 .fa-label {
