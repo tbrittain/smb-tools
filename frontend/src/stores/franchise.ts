@@ -49,11 +49,11 @@ export const useFranchiseStore = defineStore('franchise', () => {
     await SetInitialSource(franchiseID, saveFilePath, leagueGUID)
     const refreshed = franchises.value.map((f) => {
       if (f.id !== franchiseID) return f
-      return { ...f, hasActiveSource: true, activeSourcePath: saveFilePath }
+      return { ...f, hasActiveSource: true, hasLegacySource: false, activeSourcePath: saveFilePath }
     })
     franchises.value = refreshed
     if (active.value?.id === franchiseID) {
-      active.value = { ...active.value, hasActiveSource: true, activeSourcePath: saveFilePath }
+      active.value = { ...active.value, hasActiveSource: true, hasLegacySource: false, activeSourcePath: saveFilePath }
     }
   }
 

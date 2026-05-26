@@ -420,6 +420,7 @@ export namespace main {
 	    name: string;
 	    gameVersion: string;
 	    hasActiveSource: boolean;
+	    hasLegacySource: boolean;
 	    activeSourcePath: string;
 	    lastSynced: string;
 	    lastSeason: number;
@@ -434,6 +435,7 @@ export namespace main {
 	        this.name = source["name"];
 	        this.gameVersion = source["gameVersion"];
 	        this.hasActiveSource = source["hasActiveSource"];
+	        this.hasLegacySource = source["hasLegacySource"];
 	        this.activeSourcePath = source["activeSourcePath"];
 	        this.lastSynced = source["lastSynced"];
 	        this.lastSeason = source["lastSeason"];
@@ -445,6 +447,7 @@ export namespace main {
 	    leagueGUID: string;
 	    seasonOffset: number;
 	    addedAt: string;
+	    isLegacy: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new FranchiseSourceDTO(source);
@@ -457,6 +460,7 @@ export namespace main {
 	        this.leagueGUID = source["leagueGUID"];
 	        this.seasonOffset = source["seasonOffset"];
 	        this.addedAt = source["addedAt"];
+	        this.isLegacy = source["isLegacy"];
 	    }
 	}
 	export class HistoricalTeamDTO {
