@@ -1,5 +1,7 @@
 <script lang="ts" setup>
+import { computed } from 'vue'
 import type { main } from '../../wailsjs/go/models'
+import { getAwardIcon } from '../composables/useAwardIcons'
 
 const props = defineProps<{
   award: main.AwardDTO
@@ -7,7 +9,8 @@ const props = defineProps<{
   count?: number
 }>()
 
-const sizeClass = props.size ?? 'md'
+const sizeClass = computed(() => props.size ?? 'md')
+const icon = computed(() => getAwardIcon(props.award.originalName))
 
 // Importance → visual tier
 function tierClass(importance: number): string {
@@ -20,7 +23,7 @@ function tierClass(importance: number): string {
 
 <template>
   <span class="award-badge" :class="[tierClass(award.importance), sizeClass]" :title="award.name">
-{{ count && count > 1 ? `${count}x ` : '' }}{{ award.name }}
+{{ count && count > 1 ? `${count}x ` : '' }}{{ icon ? icon + ' ' : '' }}{{ award.name }}
   </span>
 </template>
 

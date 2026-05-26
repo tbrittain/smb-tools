@@ -9,69 +9,6 @@ import (
 	"smb-tools/internal/models"
 )
 
-// championCTE detects the playoff champion per season.
-//
-// Mirrors the original SmbExplorerCompanion logic (CsvMappingRepository.cs L1000):
-//   - Gate: only seasons where EVERY playoff game has a recorded score. This
-//     prevents returning a series leader as "champion" after a mid-playoffs
-//     sync (which would capture partial data). Variable series lengths
-//     (first-to-2/3/4) are handled implicitly because an unfinished series
-//     will have unscored future games in the schedule, tripping this gate.
-//   - Among scored games in the final series (MAX series_number), find the
-//     team with the most wins. A secondary guard (wins * 2 > total_games)
-//     rejects ties, which cannot happen in a legitimate completed series but
-//     could occur if the data is somehow inconsistent.
-const championCTE = `
-WITH complete_playoff_seasons AS (
-    -- Only seasons where every scheduled playoff game has a score recorded.
-    -- Seasons with any NULL score are excluded entirely.
-    SELECT season_id
-    FROM team_playoff_schedules
-    GROUP BY season_id
-    HAVING MIN(CASE WHEN home_score IS NOT NULL AND away_score IS NOT NULL
-                    THEN 1 ELSE 0 END) = 1
-),
-final_series AS (
-    SELECT season_id, MAX(series_number) AS max_series
-    FROM team_playoff_schedules
-    WHERE season_id IN (SELECT season_id FROM complete_playoff_seasons)
-    GROUP BY season_id
-),
-series_wins AS (
-    SELECT
-        g.season_id,
-        CASE WHEN g.home_score > g.away_score
-             THEN g.home_team_history_id
-             ELSE g.away_team_history_id
-        END AS winner_history_id,
-        COUNT(*) AS wins
-    FROM team_playoff_schedules g
-    JOIN final_series fs
-        ON g.season_id = fs.season_id AND g.series_number = fs.max_series
-    GROUP BY g.season_id,
-             CASE WHEN g.home_score > g.away_score
-                  THEN g.home_team_history_id
-                  ELSE g.away_team_history_id END
-),
-series_totals AS (
-    SELECT season_id, SUM(wins) AS total_games
-    FROM series_wins
-    GROUP BY season_id
-),
-champion AS (
-    SELECT sw.season_id, sw.winner_history_id
-    FROM series_wins sw
-    JOIN series_totals st ON st.season_id = sw.season_id
-    -- Guard: winner must have strictly more than half the games played.
-    -- Rejects impossible ties; in practice the complete_playoff_seasons gate
-    -- above already ensures the series is finished.
-    WHERE sw.wins * 2 > st.total_games
-      AND sw.wins = (
-          SELECT MAX(wins) FROM series_wins sw2 WHERE sw2.season_id = sw.season_id
-      )
-)
-`
-
 // SeasonQueryStore provides read-only queries over season and standings data.
 type SeasonQueryStore struct {
 	db DBTX
@@ -84,7 +21,7 @@ func NewSeasonQueryStore(db DBTX) *SeasonQueryStore {
 // ListWithChampion returns all seasons ordered by season number ascending.
 // Each season is enriched with the name of the playoff champion, if determinable.
 func (s *SeasonQueryStore) ListWithChampion(ctx context.Context) ([]models.SeasonSummary, error) {
-	q := championCTE + `
+	q := `
 SELECT
     s.id,
     s.season_num,
@@ -93,7 +30,7 @@ SELECT
     COALESCE(tsh.team_name, '') AS champion_team_name,
     tsh.id                      AS champion_history_id
 FROM seasons s
-LEFT JOIN champion c   ON c.season_id = s.id
+LEFT JOIN season_champions c  ON c.season_id = s.id
 LEFT JOIN team_season_history tsh ON tsh.id = c.winner_history_id
 ORDER BY s.season_num ASC
 `

@@ -63,7 +63,7 @@ LIMIT 50
 // ListAllTeamSeasons returns every team-season row ordered by season descending,
 // then team name ascending. Each row includes a champion flag.
 func (s *TeamQueryStore) ListAllTeamSeasons(ctx context.Context) ([]models.TeamSeasonListRow, error) {
-	q := championCTE + `
+	q := `
 SELECT
     s.season_num,
     tsh.id          AS history_id,
@@ -81,7 +81,7 @@ SELECT
     CASE WHEN c.winner_history_id = tsh.id THEN 1 ELSE 0 END AS is_champion
 FROM team_season_history tsh
 JOIN seasons s ON s.id = tsh.season_id
-LEFT JOIN champion c ON c.season_id = tsh.season_id
+LEFT JOIN season_champions c ON c.season_id = tsh.season_id
 ORDER BY s.season_num DESC, tsh.team_name ASC
 `
 	rows, err := s.db.QueryContext(ctx, q)
@@ -130,43 +130,6 @@ ORDER BY s.season_num DESC, tsh.team_name ASC
 func (s *TeamQueryStore) GetHistoricalTeams(ctx context.Context, seasonStart, seasonEnd int) ([]models.HistoricalTeamRow, error) {
 	q := `
 WITH
-complete_playoff_seasons AS (
-    SELECT season_id
-    FROM team_playoff_schedules
-    GROUP BY season_id
-    HAVING MIN(CASE WHEN home_score IS NOT NULL AND away_score IS NOT NULL THEN 1 ELSE 0 END) = 1
-),
-final_series AS (
-    SELECT season_id, MAX(series_number) AS max_series
-    FROM team_playoff_schedules
-    WHERE season_id IN (SELECT season_id FROM complete_playoff_seasons)
-    GROUP BY season_id
-),
-series_wins AS (
-    SELECT
-        g.season_id,
-        CASE WHEN g.home_score > g.away_score
-             THEN g.home_team_history_id
-             ELSE g.away_team_history_id
-        END AS winner_history_id,
-        COUNT(*) AS wins
-    FROM team_playoff_schedules g
-    JOIN final_series fs ON g.season_id = fs.season_id AND g.series_number = fs.max_series
-    GROUP BY g.season_id,
-             CASE WHEN g.home_score > g.away_score
-                  THEN g.home_team_history_id
-                  ELSE g.away_team_history_id END
-),
-series_totals AS (
-    SELECT season_id, SUM(wins) AS total_games FROM series_wins GROUP BY season_id
-),
-champion AS (
-    SELECT sw.season_id, sw.winner_history_id
-    FROM series_wins sw
-    JOIN series_totals st ON st.season_id = sw.season_id
-    WHERE sw.wins * 2 > st.total_games
-      AND sw.wins = (SELECT MAX(wins) FROM series_wins sw2 WHERE sw2.season_id = sw.season_id)
-),
 conf_champs AS (
     SELECT DISTINCT tsh.team_id, tsh.season_id
     FROM (
@@ -252,13 +215,13 @@ SELECT
             JOIN seasons s3 ON s3.id = tsh3.season_id
             WHERE tsh3.team_id = t.id
               AND s3.season_num <= ?
-              AND tsh3.id IN (SELECT winner_history_id FROM champion)
+              AND tsh3.id IN (SELECT winner_history_id FROM season_champions)
         ), 0
     )                                                                AS championship_drought
 FROM teams t
 JOIN team_season_history tsh ON tsh.team_id = t.id
 JOIN seasons s ON s.id = tsh.season_id
-LEFT JOIN champion c ON c.season_id = tsh.season_id
+LEFT JOIN season_champions c ON c.season_id = tsh.season_id
 LEFT JOIN conf_champs cc ON cc.team_id = tsh.team_id AND cc.season_id = tsh.season_id
 LEFT JOIN batting_agg ba ON ba.team_id = t.id
 LEFT JOIN pitching_agg pit ON pit.team_id = t.id
@@ -330,7 +293,7 @@ func (s *TeamQueryStore) GetTeamHistory(ctx context.Context, teamID int64) (mode
 		return th, fmt.Errorf("getting team %d: %w", teamID, err)
 	}
 
-	q := championCTE + `
+	q := `
 SELECT
     tsh.id,
     s.id  AS season_id,
@@ -356,7 +319,7 @@ SELECT
     CASE WHEN c.winner_history_id = tsh.id THEN 1 ELSE 0 END AS is_champion
 FROM team_season_history tsh
 JOIN seasons s ON s.id = tsh.season_id
-LEFT JOIN champion c ON c.season_id = tsh.season_id
+LEFT JOIN season_champions c ON c.season_id = tsh.season_id
 WHERE tsh.team_id = ?
 ORDER BY s.season_num ASC
 `
@@ -551,7 +514,7 @@ ORDER BY ps.primary_position, p.last_name
 // team_season_history row, including the champion flag.
 // Returns sql.ErrNoRows wrapped in an error if the history ID does not exist.
 func (s *TeamQueryStore) GetTeamSeasonSummaryByHistoryID(ctx context.Context, historyID int64) (models.TeamSeasonSummary, error) {
-	q := championCTE + `
+	q := `
 SELECT
     tsh.id,
     s.id  AS season_id,
@@ -577,7 +540,7 @@ SELECT
     CASE WHEN c.winner_history_id = tsh.id THEN 1 ELSE 0 END AS is_champion
 FROM team_season_history tsh
 JOIN seasons s ON s.id = tsh.season_id
-LEFT JOIN champion c ON c.season_id = tsh.season_id
+LEFT JOIN season_champions c ON c.season_id = tsh.season_id
 WHERE tsh.id = ?
 `
 	var ts models.TeamSeasonSummary

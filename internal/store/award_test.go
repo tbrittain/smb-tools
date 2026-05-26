@@ -21,8 +21,8 @@ func TestAwards_SeedViaMigration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListAllAwards: %v", err)
 	}
-	if len(all) != 28 {
-		t.Errorf("expected 28 built-in awards, got %d", len(all))
+	if len(all) != 30 {
+		t.Errorf("expected 30 built-in awards, got %d", len(all))
 	}
 
 	byName := map[string]bool{}
@@ -35,6 +35,7 @@ func TestAwards_SeedViaMigration(t *testing.T) {
 	for _, name := range []string{
 		"MVP", "Cy Young", "Gold Glove", "Triple Crown (Batting)",
 		"Batting Title", "ERA Title", "All-Star", "ROY-5",
+		"League Champion", "Conference Champion",
 	} {
 		if !byName[name] {
 			t.Errorf("expected built-in award %q to be present", name)
@@ -369,6 +370,153 @@ func TestComputeStatLeaderAwards_Idempotent(t *testing.T) {
 	}
 
 	_ = pps // pitcher used in seedPitching
+}
+
+// ── Championship awards ───────────────────────────────────────────────────────
+
+func TestChampionshipAwards_AssignedToCorrectTeams(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+	s := store.NewAwardStore(db)
+
+	season := seedSeason(t, db, 1, 1, 40)
+	champTeam := seedTeam(t, db, "CHMP")
+	champTH := seedTeamHistory(t, db, champTeam, season, "Champions", "", "", 30, 10)
+	runnerTeam := seedTeam(t, db, "RUNP")
+	runnerTH := seedTeamHistory(t, db, runnerTeam, season, "Runners-Up", "", "", 28, 12)
+	otherTeam := seedTeam(t, db, "OTHR")
+	otherTH := seedTeamHistory(t, db, otherTeam, season, "Others", "", "", 20, 20)
+
+	// Final series (series 1): champion wins 3-1.
+	seedPlayoffGame(t, db, season, 1, 1, champTH, runnerTH, 5, 2)
+	seedPlayoffGame(t, db, season, 1, 2, runnerTH, champTH, 2, 4)
+	seedPlayoffGame(t, db, season, 1, 3, champTH, runnerTH, 3, 1)
+	seedPlayoffGame(t, db, season, 1, 4, runnerTH, champTH, 3, 2)
+
+	p1 := seedPlayer(t, db, "CH1", "Alice", "Champion")
+	ps1 := seedPlayerSeason(t, db, p1, season, &champTH)
+	p2 := seedPlayer(t, db, "CH2", "Bob", "Champ")
+	ps2 := seedPlayerSeason(t, db, p2, season, &champTH)
+	p3 := seedPlayer(t, db, "RU1", "Carol", "Runner")
+	ps3 := seedPlayerSeason(t, db, p3, season, &runnerTH)
+	p4 := seedPlayer(t, db, "OT1", "Dave", "Other")
+	ps4 := seedPlayerSeason(t, db, p4, season, &otherTH)
+
+	if err := s.ComputeAndAssignStatLeaderAwards(ctx, season); err != nil {
+		t.Fatalf("ComputeAndAssignStatLeaderAwards: %v", err)
+	}
+
+	byPS := awardsByPS(mustGetSeasonPlayerAwards(t, s, ctx, season))
+
+	assertHasAward(t, byPS, ps1, "League Champion")
+	assertHasAward(t, byPS, ps2, "League Champion")
+	assertHasAward(t, byPS, ps3, "Conference Champion")
+	assertNoAward(t, byPS, ps3, "League Champion")
+	assertNoAward(t, byPS, ps4, "League Champion")
+	assertNoAward(t, byPS, ps4, "Conference Champion")
+}
+
+func TestChampionshipAwards_Idempotent(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+	s := store.NewAwardStore(db)
+
+	season := seedSeason(t, db, 1, 1, 40)
+	champTeam := seedTeam(t, db, "IDM1")
+	champTH := seedTeamHistory(t, db, champTeam, season, "Champs", "", "", 30, 10)
+	otherTeam := seedTeam(t, db, "IDM2")
+	otherTH := seedTeamHistory(t, db, otherTeam, season, "Others", "", "", 20, 20)
+	seedPlayoffGame(t, db, season, 1, 1, champTH, otherTH, 5, 1)
+	seedPlayoffGame(t, db, season, 1, 2, champTH, otherTH, 4, 2)
+	seedPlayoffGame(t, db, season, 1, 3, champTH, otherTH, 6, 0)
+
+	p := seedPlayer(t, db, "IDM", "Ida", "Leader")
+	ps := seedPlayerSeason(t, db, p, season, &champTH)
+
+	for i := range 3 {
+		if err := s.ComputeAndAssignStatLeaderAwards(ctx, season); err != nil {
+			t.Fatalf("run %d: ComputeAndAssignStatLeaderAwards: %v", i, err)
+		}
+	}
+
+	byPS := awardsByPS(mustGetSeasonPlayerAwards(t, s, ctx, season))
+
+	count := 0
+	for _, name := range byPS[ps] {
+		if name == "League Champion" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected exactly 1 League Champion after 3 runs, got %d (awards: %v)", count, byPS[ps])
+	}
+}
+
+func TestChampionshipAwards_IncompletePlayoffs_NoAwards(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+	s := store.NewAwardStore(db)
+
+	season := seedSeason(t, db, 1, 1, 40)
+	champTeam := seedTeam(t, db, "INC1")
+	champTH := seedTeamHistory(t, db, champTeam, season, "Pending", "", "", 30, 10)
+	otherTeam := seedTeam(t, db, "INC2")
+	otherTH := seedTeamHistory(t, db, otherTeam, season, "Other", "", "", 20, 20)
+
+	// Two scored games, one unscored — completeness gate blocks champion detection.
+	seedPlayoffGame(t, db, season, 1, 1, champTH, otherTH, 5, 1)
+	seedPlayoffGame(t, db, season, 1, 2, champTH, otherTH, 4, 2)
+	seedPlayoffGameNullScore(t, db, season, 1, 3, champTH, otherTH)
+
+	p := seedPlayer(t, db, "INC", "Incomplete", "Season")
+	ps := seedPlayerSeason(t, db, p, season, &champTH)
+
+	if err := s.ComputeAndAssignStatLeaderAwards(ctx, season); err != nil {
+		t.Fatalf("ComputeAndAssignStatLeaderAwards: %v", err)
+	}
+
+	byPS := awardsByPS(mustGetSeasonPlayerAwards(t, s, ctx, season))
+	assertNoAward(t, byPS, ps, "League Champion")
+	assertNoAward(t, byPS, ps, "Conference Champion")
+}
+
+func TestChampionshipAwards_CurrentTeamDeterminesEligibility(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+	s := store.NewAwardStore(db)
+
+	season := seedSeason(t, db, 1, 1, 40)
+	champTeam := seedTeam(t, db, "CUR1")
+	champTH := seedTeamHistory(t, db, champTeam, season, "Champs", "", "", 30, 10)
+	otherTeam := seedTeam(t, db, "CUR2")
+	otherTH := seedTeamHistory(t, db, otherTeam, season, "Others", "", "", 20, 20)
+	seedPlayoffGame(t, db, season, 1, 1, champTH, otherTH, 5, 1)
+	seedPlayoffGame(t, db, season, 1, 2, champTH, otherTH, 4, 2)
+	seedPlayoffGame(t, db, season, 1, 3, champTH, otherTH, 6, 0)
+
+	// Player A: current team (sort_order=0) IS the champion.
+	pA := seedPlayer(t, db, "CRA", "Traded", "To")
+	psA := seedPlayerSeason(t, db, pA, season, &champTH)
+
+	// Player B: current team (sort_order=0) is NOT the champion; has a historical
+	// record (sort_order=1) on the champion team — should NOT get the award.
+	pB := seedPlayer(t, db, "CRB", "Traded", "Away")
+	psB := seedPlayerSeason(t, db, pB, season, &otherTH)
+	_, err := db.ExecContext(context.Background(), `
+INSERT OR IGNORE INTO player_season_teams (player_season_id, team_history_id, sort_order)
+VALUES (?, ?, 1)
+`, psB, champTH)
+	if err != nil {
+		t.Fatalf("inserting historical team for player B: %v", err)
+	}
+
+	if err := s.ComputeAndAssignStatLeaderAwards(ctx, season); err != nil {
+		t.Fatalf("ComputeAndAssignStatLeaderAwards: %v", err)
+	}
+
+	byPS := awardsByPS(mustGetSeasonPlayerAwards(t, s, ctx, season))
+	assertHasAward(t, byPS, psA, "League Champion")
+	assertNoAward(t, byPS, psB, "League Champion")
 }
 
 // ── Hall of Fame ──────────────────────────────────────────────────────────────

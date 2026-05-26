@@ -386,7 +386,43 @@ WHERE award_id IN (SELECT id FROM awards WHERE is_user_assignable = 0)
 		}
 	}
 
+	if err := s.assignChampionshipAwards(ctx, tx, seasonID, awardIDs); err != nil {
+		return err
+	}
 	return tx.Commit()
+}
+
+func (s *AwardStore) assignChampionshipAwards(ctx context.Context, tx *sql.Tx, seasonID int64, awardIDs map[string]int64) error {
+	assign := func(query string, awardID int64) error {
+		var histID sql.NullInt64
+		if err := tx.QueryRowContext(ctx, query, seasonID).Scan(&histID); err != nil && err != sql.ErrNoRows {
+			return err
+		}
+		if !histID.Valid || histID.Int64 == 0 {
+			return nil
+		}
+		_, err := tx.ExecContext(ctx, `
+INSERT OR IGNORE INTO player_season_awards (player_season_id, award_id)
+SELECT pst.player_season_id, ?
+FROM player_season_teams pst
+JOIN player_seasons ps ON ps.id = pst.player_season_id
+WHERE pst.team_history_id = ?
+  AND ps.season_id         = ?
+  AND pst.sort_order       = 0
+`, awardID, histID.Int64, seasonID)
+		return err
+	}
+	if id := awardIDs["League Champion"]; id != 0 {
+		if err := assign(`SELECT winner_history_id FROM season_champions WHERE season_id = ?`, id); err != nil {
+			return fmt.Errorf("assigning League Champion for season %d: %w", seasonID, err)
+		}
+	}
+	if id := awardIDs["Conference Champion"]; id != 0 {
+		if err := assign(`SELECT runner_up_history_id FROM season_conference_champions WHERE season_id = ?`, id); err != nil {
+			return fmt.Errorf("assigning Conference Champion for season %d: %w", seasonID, err)
+		}
+	}
+	return nil
 }
 
 // ── Champion team ─────────────────────────────────────────────────────────────
@@ -394,13 +430,11 @@ WHERE award_id IN (SELECT id FROM awards WHERE is_user_assignable = 0)
 // GetSeasonChampionTeam returns the team_season_history_id of the playoff
 // champion, or nil if the champion cannot yet be determined.
 func (s *AwardStore) GetSeasonChampionTeam(ctx context.Context, seasonID int64) (*int64, error) {
-	q := championCTE + `
-SELECT c.winner_history_id
-FROM champion c
-WHERE c.season_id = ?
-`
 	var id sql.NullInt64
-	if err := s.db.QueryRowContext(ctx, q, seasonID).Scan(&id); err != nil && err != sql.ErrNoRows {
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT winner_history_id FROM season_champions WHERE season_id = ?`,
+		seasonID,
+	).Scan(&id); err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf("getting champion for season %d: %w", seasonID, err)
 	}
 	if !id.Valid {
