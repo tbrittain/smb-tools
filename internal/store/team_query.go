@@ -424,6 +424,7 @@ SELECT
     b.doubles, b.triples, b.home_runs, b.rbi,
     b.stolen_bases, b.caught_stealing, b.walks, b.strikeouts,
     b.hit_by_pitch, b.sac_hits, b.sac_flies, b.errors, b.passed_balls,
+    b.ba, b.obp, b.slg, b.ops, b.iso, b.babip, b.k_pct, b.bb_pct, b.ab_per_hr,
     b.ops_plus, b.smb_war,
     -- pitching sentinel first, then the rest
     pit.outs_pitched,
@@ -432,6 +433,8 @@ SELECT
     pit.hits_allowed, pit.earned_runs, pit.home_runs_allowed,
     pit.walks, pit.strikeouts, pit.hit_batters, pit.batters_faced,
     pit.games_finished, pit.runs_allowed, pit.wild_pitches, pit.total_pitches,
+    pit.era, pit.whip, pit.k_per_9, pit.bb_per_9, pit.h_per_9, pit.hr_per_9,
+    pit.k_per_bb, pit.k_pct, pit.win_pct, pit.p_per_ip,
     pit.era_plus, pit.fip, pit.fip_minus, pit.smb_war
 FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
@@ -456,11 +459,13 @@ ORDER BY ps.primary_position, p.last_name
 		var bAtBats sql.NullInt64
 		var bGP, bGB, bRuns, bHits, bDB, bTR, bHR, bRBI sql.NullInt64
 		var bSB, bCS, bWalks, bK, bHBP, bSH, bSF, bE, bPB sql.NullInt64
+		var bBA, bOBP, bSLG, bOPS, bISO, bBABIP, bKPct, bBBPct, bABPerHR sql.NullFloat64
 		var bOPSPlus, bSmbWAR sql.NullFloat64
 
 		var pOuts sql.NullInt64
 		var pW, pL, pG, pGS, pCG, pSHO, pSV sql.NullInt64
 		var pH, pER, pHRA, pWalks, pK, pHBP, pBF, pGF, pRA, pWP, pTP sql.NullInt64
+		var pERA, pWHIP, pK9, pBB9, pH9, pHR9, pKPerBB, pPKPct, pWinPct, pPPerIP sql.NullFloat64
 		var pERAPlus, pFIP, pFIPMinus, pSmbWAR sql.NullFloat64
 
 		if err := rows.Scan(
@@ -475,10 +480,12 @@ ORDER BY ps.primary_position, p.last_name
 			&bAtBats,
 			&bGP, &bGB, &bRuns, &bHits, &bDB, &bTR, &bHR, &bRBI,
 			&bSB, &bCS, &bWalks, &bK, &bHBP, &bSH, &bSF, &bE, &bPB,
+			&bBA, &bOBP, &bSLG, &bOPS, &bISO, &bBABIP, &bKPct, &bBBPct, &bABPerHR,
 			&bOPSPlus, &bSmbWAR,
 			&pOuts,
 			&pW, &pL, &pG, &pGS, &pCG, &pSHO, &pSV,
 			&pH, &pER, &pHRA, &pWalks, &pK, &pHBP, &pBF, &pGF, &pRA, &pWP, &pTP,
+			&pERA, &pWHIP, &pK9, &pBB9, &pH9, &pHR9, &pKPerBB, &pPKPct, &pWinPct, &pPPerIP,
 			&pERAPlus, &pFIP, &pFIPMinus, &pSmbWAR,
 		); err != nil {
 			return nil, fmt.Errorf("scanning roster player: %w", err)
@@ -494,6 +501,15 @@ ORDER BY ps.primary_position, p.last_name
 				Walks: int(bWalks.Int64), Strikeouts: int(bK.Int64), HitByPitch: int(bHBP.Int64),
 				SacHits: int(bSH.Int64), SacFlies: int(bSF.Int64),
 				Errors: int(bE.Int64), PassedBalls: int(bPB.Int64),
+				BA:      nullFloat64Ptr(bBA),
+				OBP:     nullFloat64Ptr(bOBP),
+				SLG:     nullFloat64Ptr(bSLG),
+				OPS:     nullFloat64Ptr(bOPS),
+				ISO:     nullFloat64Ptr(bISO),
+				BABIP:   nullFloat64Ptr(bBABIP),
+				KPct:    nullFloat64Ptr(bKPct),
+				BBPct:   nullFloat64Ptr(bBBPct),
+				ABPerHR: nullFloat64Ptr(bABPerHR),
 				OPSPlus: nullFloat64Ptr(bOPSPlus),
 				SmbWAR:  nullFloat64Ptr(bSmbWAR),
 			}
@@ -510,6 +526,16 @@ ORDER BY ps.primary_position, p.last_name
 				BattersFaced: int(pBF.Int64), GamesFinished: int(pGF.Int64),
 				RunsAllowed: int(pRA.Int64), WildPitches: int(pWP.Int64),
 				TotalPitches: int(pTP.Int64),
+				ERA:      nullFloat64Ptr(pERA),
+				WHIP:     nullFloat64Ptr(pWHIP),
+				K9:       nullFloat64Ptr(pK9),
+				BB9:      nullFloat64Ptr(pBB9),
+				H9:       nullFloat64Ptr(pH9),
+				HR9:      nullFloat64Ptr(pHR9),
+				KPerBB:   nullFloat64Ptr(pKPerBB),
+				KPct:     nullFloat64Ptr(pPKPct),
+				WinPct:   nullFloat64Ptr(pWinPct),
+				PPerIP:   nullFloat64Ptr(pPPerIP),
 				ERAPlus:  nullFloat64Ptr(pERAPlus),
 				FIP:      nullFloat64Ptr(pFIP),
 				FIPMinus: nullFloat64Ptr(pFIPMinus),

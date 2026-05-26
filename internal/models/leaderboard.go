@@ -11,6 +11,13 @@ type LeaderboardFilters struct {
 	ChemistryType    string
 	SeasonStart      int // season_num >= SeasonStart (0 = no lower bound)
 	SeasonEnd        int // season_num <= SeasonEnd (0 = no upper bound)
+	// Server-side pagination/sort — used by season leader queries only.
+	// SortField is the frontend camelCase field name (e.g. "ba", "homeRuns", "smbWar").
+	// Empty SortField defaults to smbWAR DESC. Offset/PageSize default to 0/50.
+	SortField string
+	SortDesc  bool
+	Offset    int // 0-based row offset (= DataTable "first")
+	PageSize  int // 0 → use default (50)
 }
 
 // BattingCareerLeaderRow is one player's aggregated career batting stats for

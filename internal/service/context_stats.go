@@ -239,3 +239,95 @@ func applyPitchingContextStats(
 	}
 	return nil
 }
+
+// ApplyCareerStats computes and persists all three stat_type career rows
+// (regular_season, playoffs, total_career) for each player in playerIDs.
+// Must be called after ApplyContextStats so per-season smb_war values are set.
+func ApplyCareerStats(ctx context.Context, db store.DBTX, playerIDs []int64) error {
+	cs := store.NewCareerStatsStore(db)
+	statTypes := []models.CareerStatType{
+		models.CareerStatTypeRegularSeason,
+		models.CareerStatTypePlayoffs,
+		models.CareerStatTypeTotalCareer,
+	}
+	for _, playerID := range playerIDs {
+		for _, st := range statTypes {
+			if err := applyCareerBatting(ctx, cs, playerID, st); err != nil {
+				return fmt.Errorf("ApplyCareerStats batting (player=%d type=%s): %w", playerID, st, err)
+			}
+			if err := applyCareerPitching(ctx, cs, playerID, st); err != nil {
+				return fmt.Errorf("ApplyCareerStats pitching (player=%d type=%s): %w", playerID, st, err)
+			}
+		}
+	}
+	return nil
+}
+
+func applyCareerBatting(ctx context.Context, cs *store.CareerStatsStore, playerID int64, statType models.CareerStatType) error {
+	agg, err := cs.GetCareerBattingTotalsWithLeague(ctx, playerID, statType)
+	if err != nil {
+		return err
+	}
+	if agg == nil {
+		return nil
+	}
+
+	lg := ComputeLeagueStats(
+		agg.LgAtBats, agg.LgHits, agg.LgDoubles, agg.LgTriples, agg.LgHomeRuns,
+		agg.LgWalks, agg.LgHBP, agg.LgSacFlies,
+		0, 0, 0, 0, 0, 0, // no pitching league stats needed for batting
+	)
+
+	b := &models.CareerBattingStats{
+		GamesPlayed: int(agg.GamesPlayed), GamesBatting: int(agg.GamesBatting),
+		AtBats: int(agg.AtBats), Runs: int(agg.Runs), Hits: int(agg.Hits),
+		Doubles: int(agg.Doubles), Triples: int(agg.Triples), HomeRuns: int(agg.HomeRuns),
+		RBI: int(agg.RBI), StolenBases: int(agg.StolenBases), CaughtStealing: int(agg.CaughtStealing),
+		Walks: int(agg.Walks), Strikeouts: int(agg.Strikeouts), HitByPitch: int(agg.HitByPitch),
+		SacHits: int(agg.SacHits), SacFlies: int(agg.SacFlies),
+		Errors: int(agg.Errors), PassedBalls: int(agg.PassedBalls),
+		SmbWAR: agg.SmbWARSum,
+	}
+	ComputeBattingRates(b)
+	b.OPSPlus = ComputeOPSPlus(lg, b.OBP, b.SLG)
+	// Career smbWAR is the sum of per-season values, not recomputed from career OPS+.
+
+	return cs.UpsertCareerBattingStats(ctx, playerID, statType, int(agg.SeasonsPlayed), b)
+}
+
+func applyCareerPitching(ctx context.Context, cs *store.CareerStatsStore, playerID int64, statType models.CareerStatType) error {
+	agg, err := cs.GetCareerPitchingTotalsWithLeague(ctx, playerID, statType)
+	if err != nil {
+		return err
+	}
+	if agg == nil {
+		return nil
+	}
+
+	lg := ComputeLeagueStats(
+		0, 0, 0, 0, 0, 0, 0, 0, // no batting league stats needed for pitching
+		agg.LgOutsPitched, agg.LgEarnedRuns, agg.LgHRAllowed,
+		agg.LgBBAllowed, agg.LgHBPAllowed, agg.LgKPitched,
+	)
+
+	p := &models.CareerPitchingStats{
+		Wins: int(agg.Wins), Losses: int(agg.Losses), Games: int(agg.Games),
+		GamesStarted: int(agg.GamesStarted), CompleteGames: int(agg.CompleteGames),
+		Shutouts: int(agg.Shutouts), Saves: int(agg.Saves),
+		OutsPitched: int(agg.OutsPitched), HitsAllowed: int(agg.HitsAllowed),
+		EarnedRuns: int(agg.EarnedRuns), HomeRunsAllowed: int(agg.HomeRunsAllowed),
+		Walks: int(agg.Walks), Strikeouts: int(agg.Strikeouts), HitBatters: int(agg.HitBatters),
+		BattersFaced: int(agg.BattersFaced), GamesFinished: int(agg.GamesFinished),
+		RunsAllowed: int(agg.RunsAllowed), WildPitches: int(agg.WildPitches),
+		TotalPitches: int(agg.TotalPitches),
+		SmbWAR:       agg.SmbWARSum,
+	}
+	ComputePitchingRates(p)
+
+	p.ERAPlus = ComputeERAPlus(lg.LgERA, p.ERA)
+	p.FIP = ComputeFIP(int(agg.HomeRunsAllowed), int(agg.Walks), int(agg.HitBatters), int(agg.Strikeouts), int(agg.OutsPitched), lg.FIPConstant)
+	p.FIPMinus = ComputeFIPMinus(p.FIP, lg.LgERA)
+	// Career smbWAR is the sum of per-season values, not recomputed from career ERA+/FIP−.
+
+	return cs.UpsertCareerPitchingStats(ctx, playerID, statType, int(agg.SeasonsPlayed), p)
+}

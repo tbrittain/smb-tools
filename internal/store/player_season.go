@@ -52,7 +52,8 @@ type PlayerSeasonGameStats struct {
 	Accuracy       int
 }
 
-// PlayerSeasonBattingStats holds raw batting counting stats.
+// PlayerSeasonBattingStats holds batting counting stats and pre-computed rate stats.
+// Rate fields are nil when the denominator is zero.
 type PlayerSeasonBattingStats struct {
 	PlayerSeasonID  int64
 	IsRegularSeason bool
@@ -74,9 +75,20 @@ type PlayerSeasonBattingStats struct {
 	SacFlies        int
 	Errors          int
 	PassedBalls     int
+	// Simple rate stats — computed by the service layer before insert.
+	BA      *float64
+	OBP     *float64
+	SLG     *float64
+	OPS     *float64
+	ISO     *float64
+	BABIP   *float64
+	KPct    *float64
+	BBPct   *float64
+	ABPerHR *float64
 }
 
-// PlayerSeasonPitchingStats holds raw pitching counting stats.
+// PlayerSeasonPitchingStats holds pitching counting stats and pre-computed rate stats.
+// Rate fields are nil when the denominator is zero.
 type PlayerSeasonPitchingStats struct {
 	PlayerSeasonID  int64
 	IsRegularSeason bool
@@ -99,6 +111,17 @@ type PlayerSeasonPitchingStats struct {
 	RunsAllowed     int
 	WildPitches     int
 	TotalPitches    int
+	// Simple rate stats — computed by the service layer before insert.
+	ERA     *float64
+	WHIP    *float64
+	K9      *float64
+	BB9     *float64
+	H9      *float64
+	HR9     *float64
+	KPerBB  *float64
+	KPct    *float64
+	WinPct  *float64
+	PPerIP  *float64
 }
 
 // PlayerIdentity holds the GUID for primary lookup plus the semantic fields
@@ -275,7 +298,8 @@ func (s *PlayerSeasonStore) UpsertGameStats(ctx context.Context, gs PlayerSeason
 	return nil
 }
 
-// UpsertBattingStats inserts or replaces batting stats for a player_season.
+// UpsertBattingStats inserts or replaces batting stats for a player_season,
+// including pre-computed simple rate stats.
 func (s *PlayerSeasonStore) UpsertBattingStats(ctx context.Context, bs PlayerSeasonBattingStats) error {
 	isReg := boolToInt(bs.IsRegularSeason)
 	_, err := s.db.ExecContext(ctx, `
@@ -284,8 +308,9 @@ func (s *PlayerSeasonStore) UpsertBattingStats(ctx context.Context, bs PlayerSea
 			games_played, games_batting, at_bats, runs, hits,
 			doubles, triples, home_runs, rbi,
 			stolen_bases, caught_stealing, walks, strikeouts, hit_by_pitch,
-			sac_hits, sac_flies, errors, passed_balls
-		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+			sac_hits, sac_flies, errors, passed_balls,
+			ba, obp, slg, ops, iso, babip, k_pct, bb_pct, ab_per_hr
+		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(player_season_id, is_regular_season) DO UPDATE SET
 			games_played    = excluded.games_played,
 			games_batting   = excluded.games_batting,
@@ -304,13 +329,23 @@ func (s *PlayerSeasonStore) UpsertBattingStats(ctx context.Context, bs PlayerSea
 			sac_hits        = excluded.sac_hits,
 			sac_flies       = excluded.sac_flies,
 			errors          = excluded.errors,
-			passed_balls    = excluded.passed_balls
+			passed_balls    = excluded.passed_balls,
+			ba              = excluded.ba,
+			obp             = excluded.obp,
+			slg             = excluded.slg,
+			ops             = excluded.ops,
+			iso             = excluded.iso,
+			babip           = excluded.babip,
+			k_pct           = excluded.k_pct,
+			bb_pct          = excluded.bb_pct,
+			ab_per_hr       = excluded.ab_per_hr
 	`,
 		bs.PlayerSeasonID, isReg,
 		bs.GamesPlayed, bs.GamesBatting, bs.AtBats, bs.Runs, bs.Hits,
 		bs.Doubles, bs.Triples, bs.HomeRuns, bs.RBI,
 		bs.StolenBases, bs.CaughtStealing, bs.Walks, bs.Strikeouts, bs.HitByPitch,
 		bs.SacHits, bs.SacFlies, bs.Errors, bs.PassedBalls,
+		bs.BA, bs.OBP, bs.SLG, bs.OPS, bs.ISO, bs.BABIP, bs.KPct, bs.BBPct, bs.ABPerHR,
 	)
 	if err != nil {
 		return fmt.Errorf("upserting batting stats for player_season %d (reg=%v): %w", bs.PlayerSeasonID, bs.IsRegularSeason, err)
@@ -318,7 +353,8 @@ func (s *PlayerSeasonStore) UpsertBattingStats(ctx context.Context, bs PlayerSea
 	return nil
 }
 
-// UpsertPitchingStats inserts or replaces pitching stats for a player_season.
+// UpsertPitchingStats inserts or replaces pitching stats for a player_season,
+// including pre-computed simple rate stats.
 func (s *PlayerSeasonStore) UpsertPitchingStats(ctx context.Context, ps PlayerSeasonPitchingStats) error {
 	isReg := boolToInt(ps.IsRegularSeason)
 	_, err := s.db.ExecContext(ctx, `
@@ -327,8 +363,9 @@ func (s *PlayerSeasonStore) UpsertPitchingStats(ctx context.Context, ps PlayerSe
 			wins, losses, games, games_started, complete_games, shutouts, saves,
 			outs_pitched, hits_allowed, earned_runs, home_runs_allowed,
 			walks, strikeouts, hit_batters, batters_faced,
-			games_finished, runs_allowed, wild_pitches, total_pitches
-		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+			games_finished, runs_allowed, wild_pitches, total_pitches,
+			era, whip, k_per_9, bb_per_9, h_per_9, hr_per_9, k_per_bb, k_pct, win_pct, p_per_ip
+		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(player_season_id, is_regular_season) DO UPDATE SET
 			wins               = excluded.wins,
 			losses             = excluded.losses,
@@ -348,13 +385,24 @@ func (s *PlayerSeasonStore) UpsertPitchingStats(ctx context.Context, ps PlayerSe
 			games_finished     = excluded.games_finished,
 			runs_allowed       = excluded.runs_allowed,
 			wild_pitches       = excluded.wild_pitches,
-			total_pitches      = excluded.total_pitches
+			total_pitches      = excluded.total_pitches,
+			era                = excluded.era,
+			whip               = excluded.whip,
+			k_per_9            = excluded.k_per_9,
+			bb_per_9           = excluded.bb_per_9,
+			h_per_9            = excluded.h_per_9,
+			hr_per_9           = excluded.hr_per_9,
+			k_per_bb           = excluded.k_per_bb,
+			k_pct              = excluded.k_pct,
+			win_pct            = excluded.win_pct,
+			p_per_ip           = excluded.p_per_ip
 	`,
 		ps.PlayerSeasonID, isReg,
 		ps.Wins, ps.Losses, ps.Games, ps.GamesStarted, ps.CompleteGames, ps.Shutouts, ps.Saves,
 		ps.OutsPitched, ps.HitsAllowed, ps.EarnedRuns, ps.HomeRunsAllowed,
 		ps.Walks, ps.Strikeouts, ps.HitBatters, ps.BattersFaced,
 		ps.GamesFinished, ps.RunsAllowed, ps.WildPitches, ps.TotalPitches,
+		ps.ERA, ps.WHIP, ps.K9, ps.BB9, ps.H9, ps.HR9, ps.KPerBB, ps.KPct, ps.WinPct, ps.PPerIP,
 	)
 	if err != nil {
 		return fmt.Errorf("upserting pitching stats for player_season %d (reg=%v): %w", ps.PlayerSeasonID, ps.IsRegularSeason, err)

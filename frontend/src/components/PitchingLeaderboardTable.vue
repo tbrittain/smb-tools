@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import Column from 'primevue/column'
+import type { DataTablePageEvent, DataTableSortEvent } from 'primevue/datatable'
 import DataTable from 'primevue/datatable'
 import { RouterLink } from 'vue-router'
 import type { main } from '../../wailsjs/go/models'
@@ -14,26 +15,42 @@ import {
 } from '../composables/useStatFormatters'
 import EmptyState from './EmptyState.vue'
 
-defineProps<{
+const props = defineProps<{
   rows: main.PitchingLeaderRowDTO[]
   isCareer: boolean
+  // Server-side pagination props — only used when isCareer is false.
+  totalRecords?: number
+  first?: number
+  sortField?: string
+  sortOrder?: number
+}>()
+
+const emit = defineEmits<{
+  sort: [event: DataTableSortEvent]
+  page: [event: DataTablePageEvent]
 }>()
 </script>
 
 <template>
   <div class="table-wrap">
-    <EmptyState v-if="rows.length === 0" message="No results — try adjusting the filters" />
+    <EmptyState v-if="rows.length === 0 && !isCareer && totalRecords === 0" message="No results — try adjusting the filters" />
+    <EmptyState v-else-if="rows.length === 0 && isCareer" message="No results — try adjusting the filters" />
     <DataTable
       v-else
       :value="rows"
-      sort-field="smbWar"
-      :sort-order="-1"
+      :lazy="!isCareer"
+      :total-records="isCareer ? undefined : totalRecords"
+      :first="isCareer ? undefined : first"
+      :sort-field="isCareer ? 'smbWar' : sortField"
+      :sort-order="isCareer ? -1 : sortOrder"
       size="small"
-      removable-sort
+      :removable-sort="isCareer"
       scrollable
       scroll-height="flex"
-      :paginator="rows.length > 50"
+      :paginator="isCareer ? rows.length > 50 : true"
       :rows="50"
+      @sort="!isCareer && emit('sort', $event)"
+      @page="!isCareer && emit('page', $event)"
     >
       <Column header="Player" sort-field="lastName" sortable style="min-width: 160px">
         <template #body="{ data: r }">

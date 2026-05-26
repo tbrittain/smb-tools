@@ -28,3 +28,16 @@ const (
 )
 
 func (m LeagueMode) String() string { return string(m) }
+
+// CareerStatType discriminates career stat rows in player_career_batting_stats
+// and player_career_pitching_stats. TotalCareer combines regular-season and
+// playoff counting totals and recomputes all rates from the combined numerators.
+type CareerStatType string
+
+const (
+	CareerStatTypeRegularSeason CareerStatType = "regular_season"
+	CareerStatTypePlayoffs      CareerStatType = "playoffs"
+	CareerStatTypeTotalCareer   CareerStatType = "total_career"
+)
+
+func (t CareerStatType) String() string { return string(t) }
