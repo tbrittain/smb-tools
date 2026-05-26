@@ -256,6 +256,16 @@ type LegacyPlayoffGame struct {
 	AwayScore       *int
 }
 
+// LegacyChampionship represents one championship winner row with the runner-up
+// derived from played final-series games. RunnerUpSTHID is 0 when no played
+// games exist for the final series (e.g. the user never played any games or
+// the playoff data is incomplete in the legacy database).
+type LegacyChampionship struct {
+	LegacySeasonID int
+	ChampionSTHID  int
+	RunnerUpSTHID  int // 0 = unknown/no played data
+}
+
 // --- Read methods ---
 
 // ReadFranchises returns all franchises in the legacy database.
@@ -782,6 +792,51 @@ func (r *LegacyCompanionReader) ReadSeasonSchedules(ctx context.Context, franchi
 			g.AwayPitcherPSID = &v
 		}
 		out = append(out, g)
+	}
+	return out, rows.Err()
+}
+
+// ReadChampionships returns all championship winners for the franchise. The
+// runner-up is derived from played (non-NULL score) games in the highest-numbered
+// series involving the champion. RunnerUpSTHID is 0 when no played games exist for
+// that series — the legacy DB stores unplayed games with NULL scores.
+func (r *LegacyCompanionReader) ReadChampionships(ctx context.Context, franchiseID int) ([]LegacyChampionship, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT
+			cw.SeasonId,
+			cw.SeasonTeamHistoryId,
+			COALESCE(MAX(CASE
+				WHEN tps.HomeTeamHistoryId = cw.SeasonTeamHistoryId
+					THEN tps.AwayTeamHistoryId
+					ELSE tps.HomeTeamHistoryId
+			END), 0) AS runner_up_sth_id
+		FROM ChampionshipWinners cw
+		JOIN Seasons s ON s.Id = cw.SeasonId
+		LEFT JOIN TeamPlayoffSchedules tps ON
+			(tps.HomeTeamHistoryId = cw.SeasonTeamHistoryId
+			 OR tps.AwayTeamHistoryId = cw.SeasonTeamHistoryId)
+			AND tps.HomeScore IS NOT NULL
+			AND tps.AwayScore IS NOT NULL
+			AND tps.SeriesNumber = (
+				SELECT MAX(tps2.SeriesNumber)
+				FROM TeamPlayoffSchedules tps2
+				WHERE tps2.HomeTeamHistoryId = cw.SeasonTeamHistoryId
+				   OR tps2.AwayTeamHistoryId = cw.SeasonTeamHistoryId
+			)
+		WHERE s.FranchiseId = ?
+		GROUP BY cw.SeasonId, cw.SeasonTeamHistoryId
+	`, franchiseID)
+	if err != nil {
+		return nil, fmt.Errorf("querying legacy championships: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var out []LegacyChampionship
+	for rows.Next() {
+		var c LegacyChampionship
+		if err := rows.Scan(&c.LegacySeasonID, &c.ChampionSTHID, &c.RunnerUpSTHID); err != nil {
+			return nil, fmt.Errorf("scanning legacy championship: %w", err)
+		}
+		out = append(out, c)
 	}
 	return out, rows.Err()
 }

@@ -396,12 +396,49 @@ WHERE award_id IN (SELECT id FROM awards WHERE is_user_assignable = 0)
 // for the given season within an existing transaction. Safe to call when
 // playoffs are incomplete — the season_champions view's completeness gate
 // will simply return no rows and no awards will be inserted.
+//
+// For the legacy migration path use AssignChampionshipAwardsForTeams instead,
+// which accepts explicit team history IDs and bypasses the completeness gate.
 func (s *AwardStore) AssignChampionshipAwards(ctx context.Context, tx *sql.Tx, seasonID int64) error {
 	awardIDs, err := loadAutoAwardIDs(ctx, tx)
 	if err != nil {
 		return fmt.Errorf("loading auto award IDs for championship assignment: %w", err)
 	}
 	return s.assignChampionshipAwards(ctx, tx, seasonID, awardIDs)
+}
+
+// AssignChampionshipAwardsForTeams assigns League Champion and Conference Champion
+// awards for the given season using explicit team history IDs. Use this in the
+// legacy migration path where the completeness gate in season_champions cannot
+// be relied upon (the legacy DB stores unplayed games with NULL scores).
+// A zero value for championHistID or runnerUpHistID skips that award.
+func (s *AwardStore) AssignChampionshipAwardsForTeams(ctx context.Context, tx *sql.Tx, seasonID, championHistID, runnerUpHistID int64) error {
+	awardIDs, err := loadAutoAwardIDs(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("loading auto award IDs for championship assignment: %w", err)
+	}
+	insertForTeam := func(histID, awardID int64) error {
+		if histID == 0 || awardID == 0 {
+			return nil
+		}
+		_, err := tx.ExecContext(ctx, `
+INSERT OR IGNORE INTO player_season_awards (player_season_id, award_id)
+SELECT pst.player_season_id, ?
+FROM player_season_teams pst
+JOIN player_seasons ps ON ps.id = pst.player_season_id
+WHERE pst.team_history_id = ?
+  AND ps.season_id         = ?
+  AND pst.sort_order       = 0
+`, awardID, histID, seasonID)
+		return err
+	}
+	if err := insertForTeam(championHistID, awardIDs["League Champion"]); err != nil {
+		return fmt.Errorf("assigning League Champion for season %d: %w", seasonID, err)
+	}
+	if err := insertForTeam(runnerUpHistID, awardIDs["Conference Champion"]); err != nil {
+		return fmt.Errorf("assigning Conference Champion for season %d: %w", seasonID, err)
+	}
+	return nil
 }
 
 func (s *AwardStore) assignChampionshipAwards(ctx context.Context, tx *sql.Tx, seasonID int64, awardIDs map[string]int64) error {

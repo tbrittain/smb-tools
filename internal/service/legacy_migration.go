@@ -105,6 +105,10 @@ func (svc *LegacyMigrationService) Migrate(
 	if err != nil {
 		return MigrationResult{}, fmt.Errorf("reading playoff schedules: %w", err)
 	}
+	championships, err := reader.ReadChampionships(ctx, legacyFranchiseID)
+	if err != nil {
+		return MigrationResult{}, fmt.Errorf("reading championships: %w", err)
+	}
 
 	// Check for logo data (not migrated; reported in result).
 	logosSkipped, err := svc.countLogos(ctx, legacyDB, legacyFranchiseID)
@@ -134,7 +138,7 @@ func (svc *LegacyMigrationService) Migrate(
 		seasons, teams, seasonTeamHistories,
 		players, playerSeasons, seasonTeamsByPSID, gameStats, battingStats, pitchingStats,
 		traitsByPSID, pitchesByPSID, awardAssignments, awardIDByOriginalName,
-		seasonSchedules, playoffSchedules,
+		seasonSchedules, playoffSchedules, championships,
 	)
 	if err != nil {
 		return MigrationResult{}, err
@@ -166,6 +170,7 @@ func (svc *LegacyMigrationService) migrateInTx(
 	awardIDByOriginalName map[string]int64,
 	seasonSchedules []store.LegacyScheduleGame,
 	playoffSchedules []store.LegacyPlayoffGame,
+	championships []store.LegacyChampionship,
 ) (MigrationResult, error) {
 	seasonStore := store.NewSeasonStore(tx)
 	teamStore := store.NewTeamHistoryStore(tx)
@@ -581,13 +586,27 @@ func (svc *LegacyMigrationService) migrateInTx(
 	}
 
 	// ── 11b. Championship awards ─────────────────────────────────────────────────
-	// The legacy DB stores championship winners in a separate ChampionshipWinners
-	// table, not as player awards. Now that playoff schedules are migrated (step 11),
-	// the season_champions view can detect complete seasons and assign the awards.
+	// The legacy DB stores championship winners in ChampionshipWinners, not as
+	// player awards. We derive the runner-up from the highest-numbered played
+	// final-series games. The season_champions view is intentionally bypassed here
+	// because the legacy DB contains unplayed game rows with NULL scores that would
+	// fail its completeness gate.
 	awardStore := store.NewAwardStore(tx)
-	for legacySeasonID, newSeasonID := range legacySeasonIDToNew {
-		if err := awardStore.AssignChampionshipAwards(ctx, tx, newSeasonID); err != nil {
-			return result, fmt.Errorf("assigning championship awards for legacy season %d: %w", legacySeasonID, err)
+	for _, champ := range championships {
+		newSeasonID, ok := legacySeasonIDToNew[champ.LegacySeasonID]
+		if !ok {
+			continue
+		}
+		newChampHistID, ok := legacySTHIDToNew[champ.ChampionSTHID]
+		if !ok {
+			continue
+		}
+		var newRunnerUpHistID int64
+		if champ.RunnerUpSTHID != 0 {
+			newRunnerUpHistID = legacySTHIDToNew[champ.RunnerUpSTHID]
+		}
+		if err := awardStore.AssignChampionshipAwardsForTeams(ctx, tx, newSeasonID, newChampHistID, newRunnerUpHistID); err != nil {
+			return result, fmt.Errorf("assigning championship awards for legacy season %d: %w", champ.LegacySeasonID, err)
 		}
 	}
 

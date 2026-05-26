@@ -64,7 +64,8 @@ func TestMigrateLegacy_Full(t *testing.T) {
 	assertRowCount(t, companionDB, "player_seasons", 6) // 3 players × 2 seasons
 	assertRowCount(t, companionDB, "player_season_game_stats", 6)
 	// 2 user awards (Alex MVP S10, Alex Greatest Slugger S11) + 2 championship awards
-	// (Alex + Sam League Champion S10 — only season with complete playoff data).
+	// (Sam S11 + Riley S11 League Champion — Alpha Squad S11 is the ChampionshipWinners entry;
+	// no runner-up because the fixture has no played playoff games for season 11).
 	assertRowCount(t, companionDB, "player_season_awards", 4)
 	// Season 10: 2 regular + Season 11: 1 regular = 3
 	assertRowCount(t, companionDB, "team_season_schedules", 3)
