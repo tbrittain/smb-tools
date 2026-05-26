@@ -374,6 +374,23 @@ func (r *SqliteSaveGameReader) GetPlayoffSchedule(ctx context.Context, seasonID 
 	return scanPlayoffGames(rows)
 }
 
+func (r *SqliteSaveGameReader) GetSeasonPlayoffConfig(ctx context.Context, seasonID int) (*models.SaveGamePlayoffConfig, error) {
+	var cfg models.SaveGamePlayoffConfig
+	err := r.db.QueryRowContext(ctx, `
+		SELECT tp.rounds, tp.seriesLength
+		FROM t_playoffs tp
+		JOIN t_seasons ts ON ts.GUID = tp.seasonGUID
+		WHERE ts.id = ?
+	`, seasonID).Scan(&cfg.Rounds, &cfg.SeriesLength)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("querying playoff config for season %d: %w", seasonID, err)
+	}
+	return &cfg, nil
+}
+
 func (r *SqliteSaveGameReader) GetSeasonBattingStats(ctx context.Context, seasonID int) ([]models.SaveGameBattingStat, error) {
 	return r.queryBattingStats(ctx,
 		`JOIN t_season_stats ss ON ss.aggregatorID = st.aggregatorID AND ss.seasonID = ?`,

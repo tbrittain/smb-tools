@@ -55,6 +55,26 @@ function playoffWL(game: main.PlayoffGameDTO): 'W' | 'L' | '—' {
   return myScore > oppScore ? 'W' : 'L'
 }
 
+function seriesPlaceholders(games: main.PlayoffGameDTO[], seriesLength: number | undefined): number[] {
+  if (!seriesLength) return []
+  const winsNeeded = Math.ceil(seriesLength / 2)
+  let homeWins = 0
+  let awayWins = 0
+  for (const g of games) {
+    if (g.homeScore != null && g.awayScore != null) {
+      if (g.homeScore > g.awayScore) homeWins++
+      else awayWins++
+    }
+  }
+  if (Math.max(homeWins, awayWins) >= winsNeeded) return []
+  const lastGameNum = games.length > 0 ? Math.max(...games.map((g) => g.gameNumber)) : 0
+  const result: number[] = []
+  for (let n = lastGameNum + 1; n <= seriesLength; n++) {
+    result.push(n)
+  }
+  return result
+}
+
 function fmtPct(v: number): string {
   return v.toFixed(3).replace(/^0/, '')
 }
@@ -433,8 +453,13 @@ watch(
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(g, idx) in games" :key="g.gameNumber">
-                  <td>{{ idx + 1 }}</td>
+                <tr v-for="g in games" :key="g.gameNumber">
+                  <td>
+                    <template v-if="detail.playoffSeriesLength != null">
+                      Game {{ g.gameNumber }} of {{ detail.playoffSeriesLength }}
+                    </template>
+                    <template v-else>{{ g.gameNumber }}</template>
+                  </td>
                   <td>
                     <span
                       v-if="g.homeScore != null"
@@ -486,6 +511,19 @@ watch(
                       <span v-else>{{ g.homePitcherName || '—' }}</span>
                     </template>
                   </td>
+                </tr>
+                <tr
+                  v-for="gameNum in seriesPlaceholders(games, detail.playoffSeriesLength)"
+                  :key="`upcoming-${gameNum}`"
+                  class="upcoming-game"
+                >
+                  <td>Game {{ gameNum }} of {{ detail.playoffSeriesLength }}</td>
+                  <td>—</td>
+                  <td>—</td>
+                  <td class="score-col">—</td>
+                  <td>—</td>
+                  <td>—</td>
+                  <td>—</td>
                 </tr>
               </tbody>
             </table>
@@ -696,6 +734,12 @@ h3 {
 
 .series-table a { text-decoration: none; }
 .series-table a:hover { text-decoration: underline; }
+
+.upcoming-game td {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  border-bottom-color: color-mix(in srgb, var(--color-border) 25%, transparent);
+}
 
 .error-text { font-size: 0.875rem; color: var(--color-error); }
 </style>

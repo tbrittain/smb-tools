@@ -392,6 +392,7 @@ func TestChampionshipAwards_AssignedToCorrectTeams(t *testing.T) {
 	seedPlayoffGame(t, db, season, 1, 2, runnerTH, champTH, 2, 4)
 	seedPlayoffGame(t, db, season, 1, 3, champTH, runnerTH, 3, 1)
 	seedPlayoffGame(t, db, season, 1, 4, runnerTH, champTH, 3, 2)
+	setPlayoffConfig(t, db, season, 1, 5)
 
 	p1 := seedPlayer(t, db, "CH1", "Alice", "Champion")
 	ps1 := seedPlayerSeason(t, db, p1, season, &champTH)
@@ -429,6 +430,7 @@ func TestChampionshipAwards_Idempotent(t *testing.T) {
 	seedPlayoffGame(t, db, season, 1, 1, champTH, otherTH, 5, 1)
 	seedPlayoffGame(t, db, season, 1, 2, champTH, otherTH, 4, 2)
 	seedPlayoffGame(t, db, season, 1, 3, champTH, otherTH, 6, 0)
+	setPlayoffConfig(t, db, season, 1, 5)
 
 	p := seedPlayer(t, db, "IDM", "Ida", "Leader")
 	ps := seedPlayerSeason(t, db, p, season, &champTH)
@@ -493,6 +495,7 @@ func TestChampionshipAwards_CurrentTeamDeterminesEligibility(t *testing.T) {
 	seedPlayoffGame(t, db, season, 1, 1, champTH, otherTH, 5, 1)
 	seedPlayoffGame(t, db, season, 1, 2, champTH, otherTH, 4, 2)
 	seedPlayoffGame(t, db, season, 1, 3, champTH, otherTH, 6, 0)
+	setPlayoffConfig(t, db, season, 1, 5)
 
 	// Player A: current team (sort_order=0) IS the champion.
 	pA := seedPlayer(t, db, "CRA", "Traded", "To")

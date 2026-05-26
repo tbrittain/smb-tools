@@ -218,8 +218,10 @@ func createSaveGameSchema(db *sql.DB) error {
 			gameID   INTEGER NOT NULL REFERENCES t_game_results(ID)
 		);
 		CREATE TABLE t_playoffs (
-			GUID       BLOB PRIMARY KEY NOT NULL,
-			seasonGUID BLOB NOT NULL
+			GUID         BLOB    PRIMARY KEY NOT NULL,
+			seasonGUID   BLOB    NOT NULL,
+			seriesLength INTEGER NOT NULL DEFAULT 1,
+			rounds       INTEGER NOT NULL DEFAULT 1
 		);
 		CREATE TABLE t_playoff_series (
 			playoffGUID   BLOB NOT NULL REFERENCES t_playoffs(GUID),
@@ -392,8 +394,8 @@ func seedSaveGameData(db *sql.DB) error {
 
 		-- ── Season 100 playoffs ────────────────────────────────────────────────
 		-- t_playoffs.seasonGUID links to t_seasons.GUID for season 100
-		INSERT INTO t_playoffs (GUID, seasonGUID)
-		VALUES (X'CC000000000000000000000000000000', X'DD000000000000000000000000000000');
+		INSERT INTO t_playoffs (GUID, seasonGUID, rounds, seriesLength)
+		VALUES (X'CC000000000000000000000000000000', X'DD000000000000000000000000000000', 1, 5);
 		INSERT INTO t_playoff_series (playoffGUID, seriesNumber, team1GUID, team2GUID, team1Standing, team2Standing)
 		VALUES (X'CC000000000000000000000000000000', 1, X'01000000000000000000000000000000', X'02000000000000000000000000000000', 1, 2);
 

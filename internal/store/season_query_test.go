@@ -156,6 +156,16 @@ VALUES (?,?,?,?,?,NULL,NULL)
 	}
 }
 
+func setPlayoffConfig(t *testing.T, db *sql.DB, seasonID int64, rounds, seriesLength int) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(),
+		`UPDATE seasons SET playoff_rounds = ?, playoff_series_length = ? WHERE id = ?`,
+		rounds, seriesLength, seasonID)
+	if err != nil {
+		t.Fatalf("setPlayoffConfig: %v", err)
+	}
+}
+
 func TestListWithChampion_NoPlayoffs(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
@@ -195,6 +205,7 @@ func TestListWithChampion_WithPlayoffs(t *testing.T) {
 	seedPlayoffGame(t, db, s1, 2, 2, homeHistID, awayHistID, 4, 3)
 	seedPlayoffGame(t, db, s1, 2, 3, awayHistID, homeHistID, 3, 1)
 	seedPlayoffGame(t, db, s1, 2, 4, homeHistID, awayHistID, 2, 1)
+	setPlayoffConfig(t, db, s1, 1, 5)
 
 	store := store.NewSeasonQueryStore(db)
 	seasons, err := store.ListWithChampion(ctx)
@@ -378,5 +389,115 @@ func TestGetCareerLeaders(t *testing.T) {
 	}
 	if leaders.HR[0].StatValue != 40 {
 		t.Errorf("top HR: want 40, got %.0f", leaders.HR[0].StatValue)
+	}
+}
+
+// ── season_champions structural completeness tests ────────────────────────────
+
+// TestSeasonChampionsView_MidPlayoff seeds a 3-round bracket (7 series expected)
+// but only inserts 4 fully-scored series. Even though all inserted games have
+// scores, the structural gate must block champion assignment.
+func TestSeasonChampionsView_MidPlayoff(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	setPlayoffConfig(t, db, s1, 3, 7) // 3-round bracket, series_length irrelevant here
+	homeID := seedTeam(t, db, "mid-home")
+	awayID := seedTeam(t, db, "mid-away")
+	homeH := seedTeamHistory(t, db, homeID, s1, "Home", "W", "NL", 90, 52)
+	awayH := seedTeamHistory(t, db, awayID, s1, "Away", "E", "NL", 80, 62)
+
+	// Seed 4 of the 7 required series, all fully scored.
+	for seriesNum := 1; seriesNum <= 4; seriesNum++ {
+		seedPlayoffGame(t, db, s1, seriesNum, 1, homeH, awayH, 5, 3)
+		seedPlayoffGame(t, db, s1, seriesNum, 2, awayH, homeH, 2, 4)
+		seedPlayoffGame(t, db, s1, seriesNum, 3, homeH, awayH, 3, 1)
+	}
+
+	sq := store.NewSeasonQueryStore(db)
+	seasons, err := sq.ListWithChampion(ctx)
+	if err != nil {
+		t.Fatalf("ListWithChampion: %v", err)
+	}
+	if len(seasons) != 1 {
+		t.Fatalf("expected 1 season, got %d", len(seasons))
+	}
+	if seasons[0].ChampionTeamName != "" {
+		t.Errorf("mid-playoff: expected no champion, got %q", seasons[0].ChampionTeamName)
+	}
+	if seasons[0].ChampionHistoryID != nil {
+		t.Errorf("mid-playoff: expected nil champion ID, got %v", *seasons[0].ChampionHistoryID)
+	}
+}
+
+// TestSeasonChampionsView_CompletePlayoff seeds a full 3-round bracket (7 series)
+// with all games scored. The structural gate must allow champion assignment.
+func TestSeasonChampionsView_CompletePlayoff(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	setPlayoffConfig(t, db, s1, 3, 7)
+	homeID := seedTeam(t, db, "full-home")
+	awayID := seedTeam(t, db, "full-away")
+	homeH := seedTeamHistory(t, db, homeID, s1, "Winners", "W", "NL", 90, 52)
+	awayH := seedTeamHistory(t, db, awayID, s1, "Others", "E", "NL", 80, 62)
+
+	// Seed all 7 series. The champion is whoever wins the MAX(series_number)=7 series.
+	for seriesNum := 1; seriesNum <= 6; seriesNum++ {
+		seedPlayoffGame(t, db, s1, seriesNum, 1, homeH, awayH, 5, 3)
+		seedPlayoffGame(t, db, s1, seriesNum, 2, awayH, homeH, 2, 4)
+		seedPlayoffGame(t, db, s1, seriesNum, 3, homeH, awayH, 3, 1)
+	}
+	// Final series (7): homeH wins 3-1
+	seedPlayoffGame(t, db, s1, 7, 1, homeH, awayH, 5, 2)
+	seedPlayoffGame(t, db, s1, 7, 2, homeH, awayH, 4, 3)
+	seedPlayoffGame(t, db, s1, 7, 3, awayH, homeH, 3, 1)
+	seedPlayoffGame(t, db, s1, 7, 4, homeH, awayH, 2, 1)
+
+	sq := store.NewSeasonQueryStore(db)
+	seasons, err := sq.ListWithChampion(ctx)
+	if err != nil {
+		t.Fatalf("ListWithChampion: %v", err)
+	}
+	if len(seasons) != 1 {
+		t.Fatalf("expected 1 season, got %d", len(seasons))
+	}
+	if seasons[0].ChampionTeamName != "Winners" {
+		t.Errorf("expected champion 'Winners', got %q", seasons[0].ChampionTeamName)
+	}
+	if seasons[0].ChampionHistoryID == nil || *seasons[0].ChampionHistoryID != homeH {
+		t.Errorf("expected champion history ID %d, got %v", homeH, seasons[0].ChampionHistoryID)
+	}
+}
+
+// TestSeasonChampionsView_ZeroRounds ensures that when playoff_rounds = 0 (the
+// default — no config imported yet), no champion is assigned even if a series
+// is fully scored. The view gate requires playoff_rounds > 0.
+func TestSeasonChampionsView_ZeroRounds(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40) // playoff_rounds defaults to 0
+	homeID := seedTeam(t, db, "zero-home")
+	awayID := seedTeam(t, db, "zero-away")
+	homeH := seedTeamHistory(t, db, homeID, s1, "Orphaned Champ", "W", "NL", 90, 52)
+	awayH := seedTeamHistory(t, db, awayID, s1, "Runner", "E", "NL", 80, 62)
+
+	seedPlayoffGame(t, db, s1, 1, 1, homeH, awayH, 5, 2)
+	seedPlayoffGame(t, db, s1, 1, 2, homeH, awayH, 4, 3)
+	seedPlayoffGame(t, db, s1, 1, 3, homeH, awayH, 3, 1)
+
+	sq := store.NewSeasonQueryStore(db)
+	seasons, err := sq.ListWithChampion(ctx)
+	if err != nil {
+		t.Fatalf("ListWithChampion: %v", err)
+	}
+	if len(seasons) != 1 {
+		t.Fatalf("expected 1 season, got %d", len(seasons))
+	}
+	if seasons[0].ChampionTeamName != "" {
+		t.Errorf("zero rounds: expected no champion, got %q", seasons[0].ChampionTeamName)
 	}
 }

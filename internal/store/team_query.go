@@ -648,7 +648,17 @@ func (s *TeamQueryStore) GetTeamSeasonPlayoffSchedule(ctx context.Context, teamH
 	}
 	_ = seriesRows.Close()
 
+	// If playoff_rounds is configured for this season (> 0), use it to derive
+	// the true bracket size so round labels are correct even mid-playoff.
+	var dbRounds int64
+	_ = s.db.QueryRowContext(ctx,
+		`SELECT playoff_rounds FROM seasons WHERE id = ?`, seasonID,
+	).Scan(&dbRounds)
+
 	totalSeries := len(seriesNumbers)
+	if dbRounds > 0 {
+		totalSeries = (1 << int(dbRounds)) - 1
+	}
 	// Map opaque series_number → (roundNumber, roundLabel).
 	type roundInfo struct {
 		number int

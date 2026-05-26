@@ -382,10 +382,11 @@ type PlayoffGameDTO struct {
 
 // TeamSeasonDetailDTO bundles everything needed for the team season detail page.
 type TeamSeasonDetailDTO struct {
-	Team     TeamSeasonSummaryDTO `json:"team"`
-	Roster   []RosterPlayerDTO    `json:"roster"`
-	Schedule []ScheduleGameDTO    `json:"schedule"`
-	Playoffs []PlayoffGameDTO     `json:"playoffs"`
+	Team                TeamSeasonSummaryDTO `json:"team"`
+	Roster              []RosterPlayerDTO    `json:"roster"`
+	Schedule            []ScheduleGameDTO    `json:"schedule"`
+	Playoffs            []PlayoffGameDTO     `json:"playoffs"`
+	PlayoffSeriesLength *int                 `json:"playoffSeriesLength"`
 }
 
 // ── Mapping helpers ───────────────────────────────────────────────────────────

@@ -1641,6 +1641,7 @@ export namespace main {
 	    roster: RosterPlayerDTO[];
 	    schedule: ScheduleGameDTO[];
 	    playoffs: PlayoffGameDTO[];
+	    playoffSeriesLength?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new TeamSeasonDetailDTO(source);
@@ -1652,6 +1653,7 @@ export namespace main {
 	        this.roster = this.convertValues(source["roster"], RosterPlayerDTO);
 	        this.schedule = this.convertValues(source["schedule"], ScheduleGameDTO);
 	        this.playoffs = this.convertValues(source["playoffs"], PlayoffGameDTO);
+	        this.playoffSeriesLength = source["playoffSeriesLength"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

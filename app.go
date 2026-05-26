@@ -856,6 +856,11 @@ func (a *App) GetTeamSeasonDetail(teamHistoryID int64) (TeamSeasonDetailDTO, err
 		return TeamSeasonDetailDTO{}, fmt.Errorf("playoff schedule: %w", err)
 	}
 
+	seriesLength, err := a.seasonQueryStore.GetPlayoffSeriesLength(a.ctx, seasonID)
+	if err != nil {
+		return TeamSeasonDetailDTO{}, fmt.Errorf("playoff series length: %w", err)
+	}
+
 	rosterDTOs := make([]RosterPlayerDTO, len(roster))
 	for i, r := range roster {
 		rosterDTOs[i] = rosterPlayerToDTO(r)
@@ -870,10 +875,11 @@ func (a *App) GetTeamSeasonDetail(teamHistoryID int64) (TeamSeasonDetailDTO, err
 	}
 
 	return TeamSeasonDetailDTO{
-		Team:     teamSeasonSummaryToDTO(teamSummary),
-		Roster:   rosterDTOs,
-		Schedule: scheduleDTOs,
-		Playoffs: playoffDTOs,
+		Team:                teamSeasonSummaryToDTO(teamSummary),
+		Roster:              rosterDTOs,
+		Schedule:            scheduleDTOs,
+		Playoffs:            playoffDTOs,
+		PlayoffSeriesLength: seriesLength,
 	}, nil
 }
 

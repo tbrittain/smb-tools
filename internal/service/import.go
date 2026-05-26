@@ -330,6 +330,24 @@ func (svc *ImportService) importInTx(
 	}
 	result.PlayoffGames = len(playoffGames)
 
+	// ── 10. Playoff config ───────────────────────────────────────────────────
+	// Prefer the authoritative values from t_playoffs; fall back to inference
+	// from the game data we just persisted (covers saves where t_playoffs is
+	// missing and the legacy import path).
+	cfg, err := reader.GetSeasonPlayoffConfig(ctx, saveGameSeasonID)
+	if err != nil {
+		return result, fmt.Errorf("reading playoff config: %w", err)
+	}
+	if cfg != nil {
+		if err := seasons.UpdatePlayoffConfig(ctx, companionSeasonID, cfg.Rounds, cfg.SeriesLength); err != nil {
+			return result, fmt.Errorf("persisting playoff config: %w", err)
+		}
+	} else if len(playoffGames) > 0 {
+		if err := seasons.InferAndSetPlayoffConfig(ctx, companionSeasonID); err != nil {
+			return result, fmt.Errorf("inferring playoff config: %w", err)
+		}
+	}
+
 	return result, nil
 }
 
