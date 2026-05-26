@@ -163,6 +163,56 @@ describe('useBreadcrumbs', () => {
     })
   })
 
+  describe('trail clamping', () => {
+    it('shows all crumbs when trail has 5 or fewer entries', () => {
+      const { set, crumbs } = useBreadcrumbs()
+
+      for (let i = 1; i <= 5; i++) {
+        mockHistory(i, `/teams/${i}`)
+        set([{ label: `Team ${i}` }])
+      }
+
+      expect(crumbs.value[0].label).not.toBe('…')
+      expect(crumbs.value).toHaveLength(5)
+    })
+
+    it('prepends an ellipsis when trail exceeds 5 entries', () => {
+      const { set, crumbs } = useBreadcrumbs()
+
+      for (let i = 1; i <= 6; i++) {
+        mockHistory(i, `/teams/${i}`)
+        set([{ label: `Team ${i}` }])
+      }
+
+      expect(crumbs.value[0].label).toBe('…')
+      expect(crumbs.value).toHaveLength(6) // 1 ellipsis + 5 visible
+    })
+
+    it('ellipsis crumb has no historyPosition or to', () => {
+      const { set, crumbs } = useBreadcrumbs()
+
+      for (let i = 1; i <= 6; i++) {
+        mockHistory(i, `/teams/${i}`)
+        set([{ label: `Team ${i}` }])
+      }
+
+      expect(crumbs.value[0].historyPosition).toBeUndefined()
+      expect(crumbs.value[0].to).toBeUndefined()
+    })
+
+    it('shows only the 5 most recent pages after the ellipsis', () => {
+      const { set, crumbs } = useBreadcrumbs()
+
+      for (let i = 1; i <= 7; i++) {
+        mockHistory(i, `/teams/${i}`)
+        set([{ label: `Team ${i}` }])
+      }
+
+      const labels = crumbs.value.map((c) => c.label)
+      expect(labels).toEqual(['…', 'Team 3', 'Team 4', 'Team 5', 'Team 6', 'Team 7'])
+    })
+  })
+
   describe('clear()', () => {
     it('empties the trail', () => {
       const { set, crumbs, clear } = useBreadcrumbs()

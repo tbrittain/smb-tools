@@ -16,6 +16,8 @@ interface TrailEntry {
 // resets the trail rather than pushing onto it.
 const ROOT_PATHS = new Set(['/', '/teams', '/leaderboards', '/awards', '/hall-of-fame', '/setup', '/migrate-legacy'])
 
+const MAX_VISIBLE_TRAIL = 5
+
 const trail = ref<TrailEntry[]>([])
 
 export function useBreadcrumbs() {
@@ -38,9 +40,12 @@ export function useBreadcrumbs() {
   // router.push() — this keeps the history position stable and lets set() trim
   // the trail correctly on arrival. Non-terminal entries whose last item lacks
   // a `to` also get the entry's path injected for display purposes.
-  const crumbs = computed<BreadcrumbItem[]>(() =>
-    trail.value.flatMap((entry, entryIdx) => {
-      const isLast = entryIdx === trail.value.length - 1
+  const crumbs = computed<BreadcrumbItem[]>(() => {
+    const hasHidden = trail.value.length > MAX_VISIBLE_TRAIL
+    const visibleTrail = trail.value.slice(-MAX_VISIBLE_TRAIL)
+
+    const flattened = visibleTrail.flatMap((entry, entryIdx) => {
+      const isLast = entryIdx === visibleTrail.length - 1
       return entry.items.map((item, itemIdx) => {
         const isLastItem = itemIdx === entry.items.length - 1
         if (!isLast) {
@@ -49,8 +54,10 @@ export function useBreadcrumbs() {
         }
         return item
       })
-    }),
-  )
+    })
+
+    return hasHidden ? [{ label: '…' }, ...flattened] : flattened
+  })
 
   function clear() {
     trail.value = []
