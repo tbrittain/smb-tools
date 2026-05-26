@@ -23,15 +23,18 @@ func NewSeasonStore(db DBTX) *SeasonStore {
 	return &SeasonStore{db: db}
 }
 
-// Upsert inserts or replaces a season record. Safe to call multiple times for
-// the same (league_guid, save_game_season_id) pair — idempotent.
+// Upsert inserts or replaces a season record, keyed on season_num.
+// Conflicting on season_num rather than (league_guid, save_game_season_id)
+// allows a live sync to supersede a legacy-imported row for the same franchise
+// season: the seasons.id is preserved so all child FK references remain valid.
 func (s *SeasonStore) Upsert(ctx context.Context, season Season) (int64, error) {
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO seasons (league_guid, save_game_season_id, season_num, num_games)
 		VALUES (?, ?, ?, ?)
-		ON CONFLICT(league_guid, save_game_season_id) DO UPDATE SET
-			season_num = excluded.season_num,
-			num_games  = excluded.num_games
+		ON CONFLICT(season_num) DO UPDATE SET
+			league_guid         = excluded.league_guid,
+			save_game_season_id = excluded.save_game_season_id,
+			num_games           = excluded.num_games
 	`, season.LeagueGUID, season.SaveGameSeasonID, season.SeasonNum, season.NumGames)
 	if err != nil {
 		return 0, fmt.Errorf("upserting season (league=%s sgID=%d): %w",
@@ -39,8 +42,8 @@ func (s *SeasonStore) Upsert(ctx context.Context, season Season) (int64, error) 
 	}
 	var id int64
 	if err := s.db.QueryRowContext(ctx,
-		`SELECT id FROM seasons WHERE league_guid = ? AND save_game_season_id = ?`,
-		season.LeagueGUID, season.SaveGameSeasonID,
+		`SELECT id FROM seasons WHERE season_num = ?`,
+		season.SeasonNum,
 	).Scan(&id); err != nil {
 		return 0, fmt.Errorf("fetching season id after upsert: %w", err)
 	}
