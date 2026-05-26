@@ -289,7 +289,7 @@ FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
 LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
-JOIN v_batting_stats b ON b.player_season_id = ps.id
+JOIN player_season_batting_stats b ON b.player_season_id = ps.id
 WHERE ` + strings.Join(conds, " AND ") + `
 ORDER BY COALESCE(b.smb_war, -9999.0) DESC
 LIMIT ?`
@@ -382,7 +382,7 @@ FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
 LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
-JOIN v_pitching_stats pit ON pit.player_season_id = ps.id
+JOIN player_season_pitching_stats pit ON pit.player_season_id = ps.id
 WHERE ` + strings.Join(conds, " AND ") + `
 ORDER BY COALESCE(pit.smb_war, -9999.0) DESC
 LIMIT ?`
@@ -595,7 +595,7 @@ FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
 LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
-JOIN v_batting_stats b ON b.player_season_id = ps.id
+JOIN player_season_batting_stats b ON b.player_season_id = ps.id
 WHERE ps.season_id       = ?
   AND b.is_regular_season = 0
   AND b.at_bats           > 0
@@ -672,7 +672,7 @@ FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
 LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
-JOIN v_pitching_stats pit ON pit.player_season_id = ps.id
+JOIN player_season_pitching_stats pit ON pit.player_season_id = ps.id
 WHERE ps.season_id        = ?
   AND pit.is_regular_season = 0
   AND pit.outs_pitched      > 0
