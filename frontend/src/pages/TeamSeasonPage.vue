@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { GetTeamSeasonDetail } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppLink from '../components/AppLink.vue'
@@ -67,18 +67,27 @@ function winLoss(game: main.ScheduleGameDTO): string {
   return myScore > oppScore ? 'W' : 'L'
 }
 
-onMounted(async () => {
+async function fetchDetail(historyId: number) {
   loading.value = true
   error.value = null
+  detail.value = null
+  rosterView.value = 'batting'
+  playoffEligibleOnly.value = false
   try {
-    detail.value = await GetTeamSeasonDetail(props.historyId)
+    detail.value = await GetTeamSeasonDetail(historyId)
     set([{ label: `${detail.value.team.teamName} Season ${detail.value.team.seasonNum}` }])
   } catch (e) {
     error.value = String(e)
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(() => fetchDetail(props.historyId))
+watch(
+  () => props.historyId,
+  (id) => fetchDetail(id),
+)
 </script>
 
 <template>
