@@ -349,8 +349,10 @@ type ScheduleGameDTO struct {
 	Day                 int    `json:"day"`
 	HomeTeamHistoryID   int64  `json:"homeTeamHistoryId"`
 	HomeTeamName        string `json:"homeTeamName"`
+	HomeTeamID          int64  `json:"homeTeamId"`
 	AwayTeamHistoryID   int64  `json:"awayTeamHistoryId"`
 	AwayTeamName        string `json:"awayTeamName"`
+	AwayTeamID          int64  `json:"awayTeamId"`
 	HomeScore           *int   `json:"homeScore"`
 	AwayScore           *int   `json:"awayScore"`
 	HomePitcherName     string `json:"homePitcherName"`
@@ -361,16 +363,21 @@ type ScheduleGameDTO struct {
 
 // PlayoffGameDTO is one game in a team's playoff schedule.
 type PlayoffGameDTO struct {
-	SeriesNumber      int    `json:"seriesNumber"`
-	GameNumber        int    `json:"gameNumber"`
-	HomeTeamHistoryID int64  `json:"homeTeamHistoryId"`
-	HomeTeamName      string `json:"homeTeamName"`
-	AwayTeamHistoryID int64  `json:"awayTeamHistoryId"`
-	AwayTeamName      string `json:"awayTeamName"`
-	HomeScore         *int   `json:"homeScore"`
-	AwayScore         *int   `json:"awayScore"`
-	HomePitcherName   string `json:"homePitcherName"`
-	AwayPitcherName   string `json:"awayPitcherName"`
+	RoundNumber         int    `json:"roundNumber"`
+	RoundLabel          string `json:"roundLabel"`
+	GameNumber          int    `json:"gameNumber"`
+	HomeTeamHistoryID   int64  `json:"homeTeamHistoryId"`
+	HomeTeamName        string `json:"homeTeamName"`
+	HomeTeamID          int64  `json:"homeTeamId"`
+	AwayTeamHistoryID   int64  `json:"awayTeamHistoryId"`
+	AwayTeamName        string `json:"awayTeamName"`
+	AwayTeamID          int64  `json:"awayTeamId"`
+	HomeScore           *int   `json:"homeScore"`
+	AwayScore           *int   `json:"awayScore"`
+	HomePitcherName     string `json:"homePitcherName"`
+	AwayPitcherName     string `json:"awayPitcherName"`
+	HomePitcherPlayerID *int64 `json:"homePitcherPlayerId"`
+	AwayPitcherPlayerID *int64 `json:"awayPitcherPlayerId"`
 }
 
 // TeamSeasonDetailDTO bundles everything needed for the team season detail page.
@@ -531,8 +538,10 @@ func scheduleGameToDTO(g models.ScheduleGameRow) ScheduleGameDTO {
 		Day:                 g.Day,
 		HomeTeamHistoryID:   g.HomeTeamHistoryID,
 		HomeTeamName:        g.HomeTeamName,
+		HomeTeamID:          g.HomeTeamID,
 		AwayTeamHistoryID:   g.AwayTeamHistoryID,
 		AwayTeamName:        g.AwayTeamName,
+		AwayTeamID:          g.AwayTeamID,
 		HomeScore:           g.HomeScore,
 		AwayScore:           g.AwayScore,
 		HomePitcherName:     g.HomePitcherName,
@@ -544,16 +553,21 @@ func scheduleGameToDTO(g models.ScheduleGameRow) ScheduleGameDTO {
 
 func playoffGameToDTO(g models.PlayoffGameRow) PlayoffGameDTO {
 	return PlayoffGameDTO{
-		SeriesNumber:      g.SeriesNumber,
-		GameNumber:        g.GameNumber,
-		HomeTeamHistoryID: g.HomeTeamHistoryID,
-		HomeTeamName:      g.HomeTeamName,
-		AwayTeamHistoryID: g.AwayTeamHistoryID,
-		AwayTeamName:      g.AwayTeamName,
-		HomeScore:         g.HomeScore,
-		AwayScore:         g.AwayScore,
-		HomePitcherName:   g.HomePitcherName,
-		AwayPitcherName:   g.AwayPitcherName,
+		RoundNumber:         g.RoundNumber,
+		RoundLabel:          g.RoundLabel,
+		GameNumber:          g.GameNumber,
+		HomeTeamHistoryID:   g.HomeTeamHistoryID,
+		HomeTeamName:        g.HomeTeamName,
+		HomeTeamID:          g.HomeTeamID,
+		AwayTeamHistoryID:   g.AwayTeamHistoryID,
+		AwayTeamName:        g.AwayTeamName,
+		AwayTeamID:          g.AwayTeamID,
+		HomeScore:           g.HomeScore,
+		AwayScore:           g.AwayScore,
+		HomePitcherName:     g.HomePitcherName,
+		AwayPitcherName:     g.AwayPitcherName,
+		HomePitcherPlayerID: g.HomePitcherPlayerID,
+		AwayPitcherPlayerID: g.AwayPitcherPlayerID,
 	}
 }
 

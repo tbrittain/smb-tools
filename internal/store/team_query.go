@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/bits"
 
 	"smb-tools/internal/models"
 )
@@ -590,8 +591,10 @@ SELECT
     g.day,
     g.home_team_history_id,
     home.team_name AS home_team_name,
+    home.team_id   AS home_team_id,
     g.away_team_history_id,
     away.team_name AS away_team_name,
+    away.team_id   AS away_team_id,
     g.home_score,
     g.away_score,
     COALESCE(hp.first_name || ' ' || hp.last_name, '') AS home_pitcher,
@@ -618,20 +621,62 @@ ORDER BY g.game_number ASC
 }
 
 // GetTeamSeasonPlayoffSchedule returns all playoff games for a team in a given
-// season, ordered by series number then game number.
+// season. RoundNumber and RoundLabel are computed from the full set of playoff
+// series in the season so that a team eliminated in round 1 of a 4-round bracket
+// still sees RoundNumber=1 / RoundLabel="Round of 16".
 func (s *TeamQueryStore) GetTeamSeasonPlayoffSchedule(ctx context.Context, teamHistoryID int64, seasonID int64) ([]models.PlayoffGameRow, error) {
+	// Step 1: fetch all distinct series numbers for the season so we can map each
+	// to its correct bracket round regardless of which team we're viewing.
+	seriesRows, err := s.db.QueryContext(ctx,
+		`SELECT DISTINCT series_number FROM team_playoff_schedules WHERE season_id = ? ORDER BY series_number ASC`,
+		seasonID)
+	if err != nil {
+		return nil, fmt.Errorf("fetching playoff series numbers for season %d: %w", seasonID, err)
+	}
+	defer func() { _ = seriesRows.Close() }()
+
+	var seriesNumbers []int
+	for seriesRows.Next() {
+		var n int
+		if err := seriesRows.Scan(&n); err != nil {
+			return nil, fmt.Errorf("scanning series number: %w", err)
+		}
+		seriesNumbers = append(seriesNumbers, n)
+	}
+	if err := seriesRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating series numbers: %w", err)
+	}
+	_ = seriesRows.Close()
+
+	totalSeries := len(seriesNumbers)
+	// Map opaque series_number → (roundNumber, roundLabel).
+	type roundInfo struct {
+		number int
+		label  string
+	}
+	seriesRoundInfo := make(map[int]roundInfo, totalSeries)
+	for rank, sn := range seriesNumbers {
+		n, l := PlayoffRoundInfo(rank+1, totalSeries)
+		seriesRoundInfo[sn] = roundInfo{number: n, label: l}
+	}
+
+	// Step 2: fetch this team's playoff games.
 	rows, err := s.db.QueryContext(ctx, `
 SELECT
     g.series_number,
     g.game_number,
     g.home_team_history_id,
     home.team_name AS home_team_name,
+    home.team_id   AS home_team_id,
     g.away_team_history_id,
     away.team_name AS away_team_name,
+    away.team_id   AS away_team_id,
     g.home_score,
     g.away_score,
     COALESCE(hp.first_name || ' ' || hp.last_name, '') AS home_pitcher,
-    COALESCE(ap.first_name || ' ' || ap.last_name, '') AS away_pitcher
+    COALESCE(ap.first_name || ' ' || ap.last_name, '') AS away_pitcher,
+    hp.id AS home_pitcher_player_id,
+    ap.id AS away_pitcher_player_id
 FROM team_playoff_schedules g
 JOIN team_season_history home ON home.id = g.home_team_history_id
 JOIN team_season_history away ON away.id = g.away_team_history_id
@@ -651,15 +696,22 @@ ORDER BY g.series_number ASC, g.game_number ASC
 	var out []models.PlayoffGameRow
 	for rows.Next() {
 		var r models.PlayoffGameRow
+		var seriesNumber int
 		var homeScore, awayScore sql.NullInt64
+		var homePitcherID, awayPitcherID sql.NullInt64
 		if err := rows.Scan(
-			&r.SeriesNumber, &r.GameNumber,
-			&r.HomeTeamHistoryID, &r.HomeTeamName,
-			&r.AwayTeamHistoryID, &r.AwayTeamName,
+			&seriesNumber, &r.GameNumber,
+			&r.HomeTeamHistoryID, &r.HomeTeamName, &r.HomeTeamID,
+			&r.AwayTeamHistoryID, &r.AwayTeamName, &r.AwayTeamID,
 			&homeScore, &awayScore,
 			&r.HomePitcherName, &r.AwayPitcherName,
+			&homePitcherID, &awayPitcherID,
 		); err != nil {
 			return nil, fmt.Errorf("scanning playoff game row: %w", err)
+		}
+		if ri, ok := seriesRoundInfo[seriesNumber]; ok {
+			r.RoundNumber = ri.number
+			r.RoundLabel = ri.label
 		}
 		if homeScore.Valid {
 			v := int(homeScore.Int64)
@@ -669,9 +721,44 @@ ORDER BY g.series_number ASC, g.game_number ASC
 			v := int(awayScore.Int64)
 			r.AwayScore = &v
 		}
+		if homePitcherID.Valid {
+			v := homePitcherID.Int64
+			r.HomePitcherPlayerID = &v
+		}
+		if awayPitcherID.Valid {
+			v := awayPitcherID.Int64
+			r.AwayPitcherPlayerID = &v
+		}
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// PlayoffRoundInfo maps a series' rank (1-based, sorted ascending by series_number)
+// within a bracket of totalSeries series to its round number and display label.
+//
+// The bracket structure is assumed to be single-elimination with power-of-2 team
+// counts (4, 8, 16, ...), so totalSeries = 2^R - 1 for R rounds.
+//
+// Algorithm: bits.Len gives floor(log2(n))+1. The distance from the
+// championship ("fromTop") = bits.Len(totalSeries+1-rank) - 1, and
+// roundNumber = totalRounds - fromTop.
+func PlayoffRoundInfo(rank, totalSeries int) (roundNumber int, roundLabel string) {
+	if totalSeries <= 0 {
+		return 1, "League Championship"
+	}
+	totalRounds := bits.Len(uint(totalSeries))
+	fromTop := bits.Len(uint(totalSeries+1-rank)) - 1
+	roundNumber = totalRounds - fromTop
+	switch fromTop {
+	case 0:
+		roundLabel = "League Championship"
+	case 1:
+		roundLabel = "Conference Championship"
+	default:
+		roundLabel = fmt.Sprintf("Round of %d", 1<<(fromTop+1))
+	}
+	return
 }
 
 func nullFloat64Ptr(n sql.NullFloat64) *float64 {
@@ -690,8 +777,8 @@ func scanScheduleRows(rows *sql.Rows) ([]models.ScheduleGameRow, error) {
 		var homePitcherID, awayPitcherID sql.NullInt64
 		if err := rows.Scan(
 			&r.TeamGameNum, &r.GameNumber, &r.Day,
-			&r.HomeTeamHistoryID, &r.HomeTeamName,
-			&r.AwayTeamHistoryID, &r.AwayTeamName,
+			&r.HomeTeamHistoryID, &r.HomeTeamName, &r.HomeTeamID,
+			&r.AwayTeamHistoryID, &r.AwayTeamName, &r.AwayTeamID,
 			&homeScore, &awayScore,
 			&r.HomePitcherName, &r.AwayPitcherName,
 			&homePitcherID, &awayPitcherID,

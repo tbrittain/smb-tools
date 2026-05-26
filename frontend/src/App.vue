@@ -237,6 +237,7 @@ function goToCrumb(historyPosition: number) {
 .sidebar-nav a.router-link-active {
   background: var(--color-surface-2);
   color: var(--color-text-primary);
+  text-decoration: none;
 }
 
 .sidebar-footer {

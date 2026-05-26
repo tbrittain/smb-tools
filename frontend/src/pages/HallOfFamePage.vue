@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { GetHoFCandidates, GetHoFInducted, SetHallOfFamer } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
+import AppLink from '../components/AppLink.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
@@ -122,13 +123,13 @@ onMounted(load)
               @click.stop="toggleSelect(p.playerId)"
             />
             <div class="player-info">
-              <RouterLink
+              <AppLink
                 :to="`/players/${p.playerId}`"
                 class="player-name"
                 @click.stop
               >
                 {{ p.lastName }}, {{ p.firstName }}
-              </RouterLink>
+              </AppLink>
               <span class="player-meta">
                 Seasons {{ p.firstSeason }}–{{ p.lastSeason }}
                 ({{ p.seasons }} seasons)
@@ -165,9 +166,9 @@ onMounted(load)
         <div v-else class="player-list">
           <div v-for="p in inducted" :key="p.playerId" class="player-row inducted">
             <div class="player-info">
-              <RouterLink :to="`/players/${p.playerId}`" class="player-name">
+              <AppLink :to="`/players/${p.playerId}`" class="player-name">
                 {{ p.lastName }}, {{ p.firstName }}
-              </RouterLink>
+              </AppLink>
               <span class="player-meta">
                 Seasons {{ p.firstSeason }}–{{ p.lastSeason }}
               </span>
@@ -334,15 +335,9 @@ onMounted(load)
 .player-name {
   font-weight: 600;
   font-size: 0.875rem;
-  color: var(--color-text-primary);
-  text-decoration: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.player-name:hover {
-  color: var(--color-accent, #4c9aff);
 }
 
 .player-meta {

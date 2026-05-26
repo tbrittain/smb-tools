@@ -2,7 +2,6 @@
 import Column from 'primevue/column'
 import type { DataTablePageEvent, DataTableSortEvent } from 'primevue/datatable'
 import DataTable from 'primevue/datatable'
-import { RouterLink } from 'vue-router'
 import type { main } from '../../wailsjs/go/models'
 import {
   formatAdjustedStat,
@@ -13,6 +12,7 @@ import {
   formatWAR,
   formatWHIP,
 } from '../composables/useStatFormatters'
+import AppLink from './AppLink.vue'
 import EmptyState from './EmptyState.vue'
 
 const props = defineProps<{
@@ -54,9 +54,9 @@ const emit = defineEmits<{
     >
       <Column header="Player" sort-field="lastName" sortable style="min-width: 160px">
         <template #body="{ data: r }">
-          <RouterLink :to="'/players/' + r.playerId" class="player-link">
+          <AppLink :to="'/players/' + r.playerId">
             {{ r.firstName }} {{ r.lastName }}
-          </RouterLink>
+          </AppLink>
           <span v-if="r.isHallOfFamer" class="hof-badge">HoF</span>
         </template>
       </Column>
@@ -122,13 +122,6 @@ const emit = defineEmits<{
   flex-direction: column;
 }
 
-.player-link {
-  color: var(--color-accent);
-  text-decoration: none;
-}
-.player-link:hover {
-  text-decoration: underline;
-}
 .hof-badge {
   margin-left: 0.375rem;
   font-size: 0.625rem;

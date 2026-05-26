@@ -3,9 +3,9 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Select from 'primevue/select'
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
 import { GetHistoricalTeams, GetSeasonList } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
+import AppLink from '../components/AppLink.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
@@ -128,9 +128,9 @@ const rowCount = computed(() => {
       >
         <Column field="teamName" header="Team" sortable style="min-width: 160px" frozen>
           <template #body="{ data }">
-            <RouterLink :to="`/teams/${data.teamId}`" class="team-link">
+            <AppLink :to="`/teams/${data.teamId}`">
               {{ data.teamName }}
-            </RouterLink>
+            </AppLink>
           </template>
         </Column>
         <Column field="numSeasons" header="Seasons" sortable style="min-width: 80px" />
@@ -238,14 +238,6 @@ const rowCount = computed(() => {
   overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-}
-
-.team-link {
-  color: var(--color-text-primary);
-  text-decoration: none;
-}
-.team-link:hover {
-  color: var(--color-accent);
 }
 
 .champ-value {

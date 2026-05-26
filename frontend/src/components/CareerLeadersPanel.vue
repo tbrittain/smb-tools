@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import { RouterLink } from 'vue-router'
 import type { main } from '../../wailsjs/go/models'
+import AppLink from './AppLink.vue'
 
 defineProps<{
   leaders: main.CareerLeadersDTO | null
@@ -40,9 +40,9 @@ const groups: { label: string; categories: { key: keyof main.CareerLeadersDTO; l
               class="leader-row"
             >
               <span class="rank">{{ i + 1 }}</span>
-              <RouterLink :to="`/players/${row.playerId}`" class="player-name">
+              <AppLink :to="`/players/${row.playerId}`" class="player-name">
                 {{ row.firstName }} {{ row.lastName }}
-              </RouterLink>
+              </AppLink>
               <span class="stat-val">{{ Math.round(row.statValue) }}</span>
             </li>
             <li v-if="!leaders[cat.key]?.length" class="leader-row empty-row">
@@ -122,15 +122,9 @@ const groups: { label: string; categories: { key: keyof main.CareerLeadersDTO; l
 }
 
 .player-name {
-  color: var(--color-text-primary);
-  text-decoration: none;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.player-name:hover {
-  color: var(--color-accent);
 }
 
 .stat-val {

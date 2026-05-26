@@ -12,6 +12,7 @@ import {
   SubmitSeasonAwards,
 } from '../../wailsjs/go/main/App'
 import { main } from '../../wailsjs/go/models'
+import AppLink from '../components/AppLink.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import SeasonSelector from '../components/SeasonSelector.vue'
@@ -253,9 +254,9 @@ onMounted(loadSeasons)
             <tbody>
               <tr v-for="r in candidates.topBatters" :key="r.playerSeasonId">
                 <td class="col-player">
-                  <RouterLink :to="`/players/${r.playerId}`" class="player-link">
+                  <AppLink :to="`/players/${r.playerId}`" class="player-link">
                     {{ r.lastName }}, {{ r.firstName }}
-                  </RouterLink>
+                  </AppLink>
                 </td>
                 <td class="col-team">{{ r.teamName }}</td>
                 <td class="col-pos">{{ r.primaryPosition }}</td>
@@ -310,9 +311,9 @@ onMounted(loadSeasons)
             <tbody>
               <tr v-for="r in candidates.topPitchers" :key="r.playerSeasonId">
                 <td class="col-player">
-                  <RouterLink :to="`/players/${r.playerId}`" class="player-link">
+                  <AppLink :to="`/players/${r.playerId}`" class="player-link">
                     {{ r.lastName }}, {{ r.firstName }}
-                  </RouterLink>
+                  </AppLink>
                 </td>
                 <td class="col-team">{{ r.teamName }}</td>
                 <td class="col-pos">{{ r.pitcherRole }}</td>
@@ -366,9 +367,9 @@ onMounted(loadSeasons)
             <tbody>
               <tr v-for="r in candidates.topRookieBatters" :key="r.playerSeasonId">
                 <td class="col-player">
-                  <RouterLink :to="`/players/${r.playerId}`" class="player-link">
+                  <AppLink :to="`/players/${r.playerId}`" class="player-link">
                     {{ r.lastName }}, {{ r.firstName }}
-                  </RouterLink>
+                  </AppLink>
                 </td>
                 <td class="col-team">{{ r.teamName }}</td>
                 <td class="col-pos">{{ r.primaryPosition }}</td>
@@ -416,9 +417,9 @@ onMounted(loadSeasons)
             <tbody>
               <tr v-for="r in candidates.topRookiePitchers" :key="r.playerSeasonId">
                 <td class="col-player">
-                  <RouterLink :to="`/players/${r.playerId}`" class="player-link">
+                  <AppLink :to="`/players/${r.playerId}`" class="player-link">
                     {{ r.lastName }}, {{ r.firstName }}
-                  </RouterLink>
+                  </AppLink>
                 </td>
                 <td class="col-team">{{ r.teamName }}</td>
                 <td class="col-pos">{{ r.pitcherRole }}</td>
@@ -470,9 +471,9 @@ onMounted(loadSeasons)
                   <tbody>
                     <tr v-for="r in team.batters" :key="r.playerSeasonId">
                       <td class="col-player">
-                        <RouterLink :to="`/players/${r.playerId}`" class="player-link">
+                        <AppLink :to="`/players/${r.playerId}`" class="player-link">
                           {{ r.lastName }}, {{ r.firstName }}
-                        </RouterLink>
+                        </AppLink>
                       </td>
                       <td class="col-pos">{{ r.primaryPosition }}</td>
                       <td>{{ r.atBats }}</td>
@@ -513,9 +514,9 @@ onMounted(loadSeasons)
                   <tbody>
                     <tr v-for="r in team.pitchers" :key="r.playerSeasonId">
                       <td class="col-player">
-                        <RouterLink :to="`/players/${r.playerId}`" class="player-link">
+                        <AppLink :to="`/players/${r.playerId}`" class="player-link">
                           {{ r.lastName }}, {{ r.firstName }}
-                        </RouterLink>
+                        </AppLink>
                       </td>
                       <td class="col-pos">{{ r.pitcherRole }}</td>
                       <td>{{ r.wins }}</td>
@@ -565,9 +566,9 @@ onMounted(loadSeasons)
                 <tbody>
                   <tr v-for="r in pos.batters" :key="r.playerSeasonId">
                     <td class="col-player">
-                      <RouterLink :to="`/players/${r.playerId}`" class="player-link">
+                      <AppLink :to="`/players/${r.playerId}`" class="player-link">
                         {{ r.lastName }}, {{ r.firstName }}
-                      </RouterLink>
+                      </AppLink>
                     </td>
                     <td class="col-team">{{ r.teamName }}</td>
                     <td>{{ r.atBats }}</td>
@@ -618,9 +619,9 @@ onMounted(loadSeasons)
           <Column header="Player" style="min-width: 160px">
             <template #body="{ data }">
               <span v-if="data.isChampionTeam" aria-hidden="true">🏆 </span>
-              <RouterLink :to="`/players/${data.playerId}`" class="player-link">
+              <AppLink :to="`/players/${data.playerId}`" class="player-link">
                 {{ data.lastName }}, {{ data.firstName }}
-              </RouterLink>
+              </AppLink>
             </template>
           </Column>
           <Column field="teamName" header="Team" style="min-width: 90px" />
@@ -670,9 +671,9 @@ onMounted(loadSeasons)
           <Column header="Pitcher" style="min-width: 160px">
             <template #body="{ data }">
               <span v-if="data.isChampionTeam" aria-hidden="true">🏆 </span>
-              <RouterLink :to="`/players/${data.playerId}`" class="player-link">
+              <AppLink :to="`/players/${data.playerId}`" class="player-link">
                 {{ data.lastName }}, {{ data.firstName }}
-              </RouterLink>
+              </AppLink>
             </template>
           </Column>
           <Column field="teamName" header="Team" style="min-width: 90px" />
@@ -921,13 +922,7 @@ onMounted(loadSeasons)
 }
 
 .player-link {
-  color: var(--color-text-primary);
-  text-decoration: none;
   font-weight: 500;
-}
-
-.player-link:hover {
-  color: var(--color-accent, #4c9aff);
 }
 
 .stat-highlight {

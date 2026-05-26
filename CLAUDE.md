@@ -19,6 +19,7 @@ All design decisions, rationale, and domain knowledge live in `docs/`. Before im
 - `docs/architecture/ux-flows.md` — core user flows
 - `docs/roadmap.md` — current phase and what's in scope
 - `docs/domain/` — save game schema, player model, stats, traits, awards
+- `docs/frontend-style-guide.md` — canonical UI patterns (links, etc.) — check before hand-rolling any common UI element
 
 ## Tech Stack
 

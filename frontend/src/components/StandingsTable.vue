@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
-import { RouterLink } from 'vue-router'
 import type { main } from '../../wailsjs/go/models'
+import AppLink from './AppLink.vue'
 
 const props = defineProps<{
   standings: main.TeamStandingDTO[]
@@ -58,9 +58,9 @@ function fmtPct(v: number): string {
               :class="{ active: row.historyId === activeHistoryId }"
             >
               <td class="col-team">
-                <RouterLink :to="`/teams/${row.teamId}/seasons/${row.historyId}`" class="team-link">
+                <AppLink :to="`/teams/${row.teamId}/seasons/${row.historyId}`">
                   {{ row.teamName }}
-                </RouterLink>
+                </AppLink>
                 <span v-if="row.playoffSeed" class="playoff-badge">P{{ row.playoffSeed }}</span>
               </td>
               <td class="col-num">{{ row.wins }}</td>
@@ -140,12 +140,6 @@ function fmtPct(v: number): string {
 .col-team { min-width: 160px; }
 .col-num { text-align: right; width: 3rem; }
 .mono { font-family: var(--font-mono); }
-
-.team-link {
-  color: var(--color-text-primary);
-  text-decoration: none;
-}
-.team-link:hover { color: var(--color-accent); }
 
 .playoff-badge {
   margin-left: 0.375rem;
