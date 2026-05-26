@@ -392,6 +392,18 @@ WHERE award_id IN (SELECT id FROM awards WHERE is_user_assignable = 0)
 	return tx.Commit()
 }
 
+// AssignChampionshipAwards assigns League Champion and Conference Champion awards
+// for the given season within an existing transaction. Safe to call when
+// playoffs are incomplete — the season_champions view's completeness gate
+// will simply return no rows and no awards will be inserted.
+func (s *AwardStore) AssignChampionshipAwards(ctx context.Context, tx *sql.Tx, seasonID int64) error {
+	awardIDs, err := loadAutoAwardIDs(ctx, tx)
+	if err != nil {
+		return fmt.Errorf("loading auto award IDs for championship assignment: %w", err)
+	}
+	return s.assignChampionshipAwards(ctx, tx, seasonID, awardIDs)
+}
+
 func (s *AwardStore) assignChampionshipAwards(ctx context.Context, tx *sql.Tx, seasonID int64, awardIDs map[string]int64) error {
 	assign := func(query string, awardID int64) error {
 		var histID sql.NullInt64

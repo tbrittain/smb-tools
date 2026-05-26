@@ -580,6 +580,17 @@ func (svc *LegacyMigrationService) migrateInTx(
 		}
 	}
 
+	// ── 11b. Championship awards ─────────────────────────────────────────────────
+	// The legacy DB stores championship winners in a separate ChampionshipWinners
+	// table, not as player awards. Now that playoff schedules are migrated (step 11),
+	// the season_champions view can detect complete seasons and assign the awards.
+	awardStore := store.NewAwardStore(tx)
+	for legacySeasonID, newSeasonID := range legacySeasonIDToNew {
+		if err := awardStore.AssignChampionshipAwards(ctx, tx, newSeasonID); err != nil {
+			return result, fmt.Errorf("assigning championship awards for legacy season %d: %w", legacySeasonID, err)
+		}
+	}
+
 	// ── 12. Context stats (OPS+, ERA+, FIP, FIP-, smbWAR) ───────────────────────
 	// ImportSeason computes these immediately after writing counting stats.
 	// The legacy migration must do the same after all batting/pitching rows land.
