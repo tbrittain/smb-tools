@@ -30,6 +30,7 @@ type FranchiseDTO struct {
 	Name             string `json:"name"`
 	GameVersion      string `json:"gameVersion"`
 	HasActiveSource  bool   `json:"hasActiveSource"`
+	HasLegacySource  bool   `json:"hasLegacySource"`
 	ActiveSourcePath string `json:"activeSourcePath"` // empty when no source configured
 	LastSynced       string `json:"lastSynced"`        // ISO-8601 or ""
 	LastSeason       int    `json:"lastSeason"`        // 0 if never synced
@@ -42,6 +43,7 @@ type FranchiseSourceDTO struct {
 	LeagueGUID   string `json:"leagueGUID"`
 	SeasonOffset int    `json:"seasonOffset"`
 	AddedAt      string `json:"addedAt"` // ISO-8601
+	IsLegacy     bool   `json:"isLegacy"`
 }
 
 // App is the Wails application struct. It is intentionally thin: it wires
@@ -1040,6 +1042,7 @@ func franchiseToDTO(f models.Franchise, src models.FranchiseSource) FranchiseDTO
 		Name:        f.Name,
 		GameVersion: f.GameVersion.String(),
 		HasActiveSource:  src.SaveFilePath != "" && src.SaveFilePath != legacyMigrationSourcePath,
+		HasLegacySource:  src.SaveFilePath == legacyMigrationSourcePath,
 		ActiveSourcePath: src.SaveFilePath,
 	}
 	if f.LastSyncedAt != nil {
@@ -1058,6 +1061,7 @@ func sourceToDTO(s models.FranchiseSource) FranchiseSourceDTO {
 		LeagueGUID:   s.LeagueGUID,
 		SeasonOffset: s.SeasonOffset,
 		AddedAt:      s.AddedAt.Format("2006-01-02T15:04:05Z"),
+		IsLegacy:     s.SaveFilePath == legacyMigrationSourcePath,
 	}
 }
 

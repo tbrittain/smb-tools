@@ -31,7 +31,7 @@ const sourcesWithRanges = computed(() => {
 const usedSourceLabels = computed<Record<string, string>>(() => {
   const map: Record<string, string> = {}
   for (const s of sourcesWithRanges.value) {
-    if (s.saveFilePath === '(legacy migration)') continue
+    if (s.isLegacy) continue
     const label =
       s.end === 0 || s.start > s.end
         ? 'Previously used — no seasons synced yet'
@@ -56,9 +56,9 @@ const { set } = useBreadcrumbs()
 onMounted(() => set([{ label: 'Setup' }]))
 onMounted(loadSources)
 
-function sourceDisplayName(path: string): string {
-  if (path === '(legacy migration)') return 'Legacy import'
-  return path.split(/[\\/]/).pop() ?? path
+function sourceDisplayName(src: (typeof sourcesWithRanges.value)[number]): string {
+  if (src.isLegacy) return 'Legacy import'
+  return src.saveFilePath.split(/[\\/]/).pop() ?? src.saveFilePath
 }
 
 function formatRange(start: number, end: number): string {
@@ -165,11 +165,11 @@ async function handleSync() {
             class="source-row"
           >
             <div class="source-info">
-              <span class="source-name" :class="{ 'source-name--legacy': src.saveFilePath === '(legacy migration)' }">
-                {{ sourceDisplayName(src.saveFilePath) }}
+              <span class="source-name" :class="{ 'source-name--legacy': src.isLegacy }">
+                {{ sourceDisplayName(src) }}
               </span>
               <span class="source-meta">
-                <template v-if="src.saveFilePath !== '(legacy migration)'">
+                <template v-if="!src.isLegacy">
                   {{ formatRange(src.start, src.end) }} ·
                 </template>
                 Added {{ formatDate(src.addedAt) }}
@@ -177,7 +177,7 @@ async function handleSync() {
             </div>
             <!-- Replace link only on the active (last) real source -->
             <button
-              v-if="i === sourcesWithRanges.length - 1 && src.saveFilePath !== '(legacy migration)' && !showReplacePicker"
+              v-if="i === sourcesWithRanges.length - 1 && !src.isLegacy && !showReplacePicker"
               class="replace-link"
               @click="showReplacePicker = true"
             >
@@ -185,6 +185,13 @@ async function handleSync() {
             </button>
           </div>
         </div>
+
+        <!-- No real source yet (legacy-only franchise) — show picker to connect one -->
+        <template v-if="franchiseStore.active?.hasLegacySource && !showReplacePicker">
+          <p class="hint-text">Connect a save file to enable syncing.</p>
+          <SaveFilePicker :used-source-labels="usedSourceLabels" @change="handleSaveFileChange" />
+          <p v-if="replaceError" class="error-text">{{ replaceError }}</p>
+        </template>
 
         <!-- Inline replace picker -->
         <template v-if="showReplacePicker">

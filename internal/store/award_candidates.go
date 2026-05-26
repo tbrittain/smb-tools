@@ -565,9 +565,9 @@ func populatePitchers(pitchers []models.PitchingCandidate, m map[int64][]int64) 
 func (s *AwardStore) queryPlayoffBattingCandidates(ctx context.Context, seasonID int64, championsOnly bool) ([]models.BattingCandidate, error) {
 	champFilter := ""
 	if championsOnly {
-		champFilter = "  AND tsh.id IN (SELECT winner_history_id FROM champion WHERE season_id = ?)\n"
+		champFilter = "  AND tsh.id IN (SELECT winner_history_id FROM season_champions WHERE season_id = ?)\n"
 	}
-	q := championCTE + `
+	q := `
 SELECT
     ps.id,
     p.id,
@@ -590,7 +590,7 @@ SELECT
     COALESCE(b.obp, 0.0),
     COALESCE(b.slg, 0.0),
     COALESCE(b.ops, 0.0),
-    CASE WHEN tsh.id IN (SELECT winner_history_id FROM champion WHERE season_id = ?) THEN 1 ELSE 0 END AS is_champion_team
+    CASE WHEN tsh.id IN (SELECT winner_history_id FROM season_champions WHERE season_id = ?) THEN 1 ELSE 0 END AS is_champion_team
 FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
@@ -602,7 +602,7 @@ WHERE ps.season_id       = ?
 ` + champFilter + `ORDER BY COALESCE(b.ops, 0.0) DESC
 LIMIT 10
 `
-	args := []any{seasonID, seasonID} // CTE arg + is_champion_team subquery arg
+	args := []any{seasonID, seasonID} // is_champion_team subquery arg + WHERE season_id arg
 	if championsOnly {
 		args = append(args, seasonID) // extra arg for the champFilter subquery
 	}
@@ -638,9 +638,9 @@ LIMIT 10
 func (s *AwardStore) queryPlayoffPitchingCandidates(ctx context.Context, seasonID int64, championsOnly bool) ([]models.PitchingCandidate, error) {
 	champFilter := ""
 	if championsOnly {
-		champFilter = "  AND tsh.id IN (SELECT winner_history_id FROM champion WHERE season_id = ?)\n"
+		champFilter = "  AND tsh.id IN (SELECT winner_history_id FROM season_champions WHERE season_id = ?)\n"
 	}
-	q := championCTE + `
+	q := `
 SELECT
     ps.id,
     p.id,
@@ -667,7 +667,7 @@ SELECT
     COALESCE(pit.h_per_9,  0.0),
     COALESCE(pit.hr_per_9, 0.0),
     COALESCE(pit.k_per_bb, 0.0),
-    CASE WHEN tsh.id IN (SELECT winner_history_id FROM champion WHERE season_id = ?) THEN 1 ELSE 0 END AS is_champion_team
+    CASE WHEN tsh.id IN (SELECT winner_history_id FROM season_champions WHERE season_id = ?) THEN 1 ELSE 0 END AS is_champion_team
 FROM player_seasons ps
 JOIN players p ON p.id = ps.player_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
