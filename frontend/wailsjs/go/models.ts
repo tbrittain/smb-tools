@@ -1013,16 +1013,21 @@ export namespace main {
 		}
 	}
 	export class PlayoffGameDTO {
-	    seriesNumber: number;
+	    roundNumber: number;
+	    roundLabel: string;
 	    gameNumber: number;
 	    homeTeamHistoryId: number;
 	    homeTeamName: string;
+	    homeTeamId: number;
 	    awayTeamHistoryId: number;
 	    awayTeamName: string;
+	    awayTeamId: number;
 	    homeScore?: number;
 	    awayScore?: number;
 	    homePitcherName: string;
 	    awayPitcherName: string;
+	    homePitcherPlayerId?: number;
+	    awayPitcherPlayerId?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new PlayoffGameDTO(source);
@@ -1030,16 +1035,21 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.seriesNumber = source["seriesNumber"];
+	        this.roundNumber = source["roundNumber"];
+	        this.roundLabel = source["roundLabel"];
 	        this.gameNumber = source["gameNumber"];
 	        this.homeTeamHistoryId = source["homeTeamHistoryId"];
 	        this.homeTeamName = source["homeTeamName"];
+	        this.homeTeamId = source["homeTeamId"];
 	        this.awayTeamHistoryId = source["awayTeamHistoryId"];
 	        this.awayTeamName = source["awayTeamName"];
+	        this.awayTeamId = source["awayTeamId"];
 	        this.homeScore = source["homeScore"];
 	        this.awayScore = source["awayScore"];
 	        this.homePitcherName = source["homePitcherName"];
 	        this.awayPitcherName = source["awayPitcherName"];
+	        this.homePitcherPlayerId = source["homePitcherPlayerId"];
+	        this.awayPitcherPlayerId = source["awayPitcherPlayerId"];
 	    }
 	}
 	export class PositionAwardCandidatesDTO {
@@ -1184,8 +1194,10 @@ export namespace main {
 	    day: number;
 	    homeTeamHistoryId: number;
 	    homeTeamName: string;
+	    homeTeamId: number;
 	    awayTeamHistoryId: number;
 	    awayTeamName: string;
+	    awayTeamId: number;
 	    homeScore?: number;
 	    awayScore?: number;
 	    homePitcherName: string;
@@ -1204,8 +1216,10 @@ export namespace main {
 	        this.day = source["day"];
 	        this.homeTeamHistoryId = source["homeTeamHistoryId"];
 	        this.homeTeamName = source["homeTeamName"];
+	        this.homeTeamId = source["homeTeamId"];
 	        this.awayTeamHistoryId = source["awayTeamHistoryId"];
 	        this.awayTeamName = source["awayTeamName"];
+	        this.awayTeamId = source["awayTeamId"];
 	        this.homeScore = source["homeScore"];
 	        this.awayScore = source["awayScore"];
 	        this.homePitcherName = source["homePitcherName"];

@@ -36,17 +36,24 @@ const visibleRoster = computed(() => {
   return playoffEligibleOnly.value ? roster.filter((r) => r.isOnFinalRoster) : roster
 })
 
-// Group playoff games by series number
-const playoffBySeries = computed(() => {
+// Group playoff games by round number (1-based, derived from DENSE_RANK in backend)
+const playoffByRound = computed(() => {
   const games = detail.value?.playoffs ?? []
   const map = new Map<number, main.PlayoffGameDTO[]>()
   for (const g of games) {
-    if (!map.has(g.seriesNumber)) map.set(g.seriesNumber, [])
-    ;(map.get(g.seriesNumber) ?? []).push(g)
-    map.set(g.seriesNumber, map.get(g.seriesNumber) ?? [])
+    if (!map.has(g.roundNumber)) map.set(g.roundNumber, [])
+    ;(map.get(g.roundNumber) ?? []).push(g)
   }
   return map
 })
+
+function playoffWL(game: main.PlayoffGameDTO): 'W' | 'L' | '—' {
+  if (game.homeScore == null || game.awayScore == null) return '—'
+  const isHome = game.homeTeamHistoryId === props.historyId
+  const myScore = isHome ? game.homeScore : game.awayScore
+  const oppScore = isHome ? game.awayScore : game.homeScore
+  return myScore > oppScore ? 'W' : 'L'
+}
 
 function fmtPct(v: number): string {
   return v.toFixed(3).replace(/^0/, '')
@@ -85,6 +92,7 @@ onMounted(async () => {
         <header class="page-header">
           <h2>
             {{ detail.team.teamName }}
+            <span class="season-num-label">Season {{ detail.team.seasonNum }}</span>
             <span v-if="detail.team.isChampion" class="champ-badge">★ Champion</span>
           </h2>
           <div class="header-stats">
@@ -337,7 +345,16 @@ onMounted(async () => {
           </Column>
           <Column header="Opponent" style="min-width: 130px">
             <template #body="{ data }">
-              {{ data.homeTeamHistoryId === historyId ? '@ ' + data.awayTeamName : 'vs ' + data.homeTeamName }}
+              <template v-if="data.homeTeamHistoryId === historyId">
+                <RouterLink :to="`/teams/${data.awayTeamId}/seasons/${data.awayTeamHistoryId}`">
+                  @ {{ data.awayTeamName }}
+                </RouterLink>
+              </template>
+              <template v-else>
+                <RouterLink :to="`/teams/${data.homeTeamId}/seasons/${data.homeTeamHistoryId}`">
+                  vs {{ data.homeTeamName }}
+                </RouterLink>
+              </template>
             </template>
           </Column>
           <Column header="SP" style="min-width: 130px">
@@ -346,7 +363,6 @@ onMounted(async () => {
                 <RouterLink
                   v-if="data.homePitcherPlayerId"
                   :to="`/players/${data.homePitcherPlayerId}`"
-                  class="player-link"
                 >{{ data.homePitcherName }}</RouterLink>
                 <span v-else>{{ data.homePitcherName || '—' }}</span>
               </template>
@@ -354,7 +370,6 @@ onMounted(async () => {
                 <RouterLink
                   v-if="data.awayPitcherPlayerId"
                   :to="`/players/${data.awayPitcherPlayerId}`"
-                  class="player-link"
                 >{{ data.awayPitcherName }}</RouterLink>
                 <span v-else>{{ data.awayPitcherName || '—' }}</span>
               </template>
@@ -366,7 +381,6 @@ onMounted(async () => {
                 <RouterLink
                   v-if="data.awayPitcherPlayerId"
                   :to="`/players/${data.awayPitcherPlayerId}`"
-                  class="player-link"
                 >{{ data.awayPitcherName }}</RouterLink>
                 <span v-else>{{ data.awayPitcherName || '—' }}</span>
               </template>
@@ -374,7 +388,6 @@ onMounted(async () => {
                 <RouterLink
                   v-if="data.homePitcherPlayerId"
                   :to="`/players/${data.homePitcherPlayerId}`"
-                  class="player-link"
                 >{{ data.homePitcherName }}</RouterLink>
                 <span v-else>{{ data.homePitcherName || '—' }}</span>
               </template>
@@ -388,12 +401,12 @@ onMounted(async () => {
         <h3>Playoffs</h3>
         <div class="playoff-panel">
           <div
-            v-for="[seriesNum, games] in playoffBySeries"
-            :key="seriesNum"
+            v-for="[roundNum, games] in playoffByRound"
+            :key="roundNum"
             class="series-block"
           >
             <h4 class="series-label">
-              Round {{ seriesNum }}
+              {{ games[0].roundLabel }}
               <span class="series-teams">
                 {{ games[0].homeTeamName }} vs {{ games[0].awayTeamName }}
               </span>
@@ -402,16 +415,28 @@ onMounted(async () => {
               <thead>
                 <tr>
                   <th>Game</th>
+                  <th>W/L</th>
                   <th>Home</th>
                   <th class="score-col">Score</th>
                   <th>Away</th>
+                  <th>SP</th>
+                  <th>Opp SP</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="g in games" :key="g.gameNumber">
-                  <td>{{ g.gameNumber }}</td>
+                <tr v-for="(g, idx) in games" :key="g.gameNumber">
+                  <td>{{ idx + 1 }}</td>
+                  <td>
+                    <span
+                      v-if="g.homeScore != null"
+                      :class="playoffWL(g) === 'W' ? 'win' : 'loss'"
+                    >{{ playoffWL(g) }}</span>
+                    <span v-else>—</span>
+                  </td>
                   <td :class="g.homeTeamHistoryId === historyId ? 'our-team' : ''">
-                    {{ g.homeTeamName }}
+                    <RouterLink :to="`/teams/${g.homeTeamId}/seasons/${g.homeTeamHistoryId}`">
+                      {{ g.homeTeamName }}
+                    </RouterLink>
                   </td>
                   <td class="score-col mono">
                     <template v-if="g.homeScore != null">
@@ -420,7 +445,37 @@ onMounted(async () => {
                     <template v-else>—</template>
                   </td>
                   <td :class="g.awayTeamHistoryId === historyId ? 'our-team' : ''">
-                    {{ g.awayTeamName }}
+                    <RouterLink :to="`/teams/${g.awayTeamId}/seasons/${g.awayTeamHistoryId}`">
+                      {{ g.awayTeamName }}
+                    </RouterLink>
+                  </td>
+                  <td>
+                    <template v-if="g.homeTeamHistoryId === historyId">
+                      <RouterLink v-if="g.homePitcherPlayerId" :to="`/players/${g.homePitcherPlayerId}`">
+                        {{ g.homePitcherName }}
+                      </RouterLink>
+                      <span v-else>{{ g.homePitcherName || '—' }}</span>
+                    </template>
+                    <template v-else>
+                      <RouterLink v-if="g.awayPitcherPlayerId" :to="`/players/${g.awayPitcherPlayerId}`">
+                        {{ g.awayPitcherName }}
+                      </RouterLink>
+                      <span v-else>{{ g.awayPitcherName || '—' }}</span>
+                    </template>
+                  </td>
+                  <td>
+                    <template v-if="g.homeTeamHistoryId === historyId">
+                      <RouterLink v-if="g.awayPitcherPlayerId" :to="`/players/${g.awayPitcherPlayerId}`">
+                        {{ g.awayPitcherName }}
+                      </RouterLink>
+                      <span v-else>{{ g.awayPitcherName || '—' }}</span>
+                    </template>
+                    <template v-else>
+                      <RouterLink v-if="g.homePitcherPlayerId" :to="`/players/${g.homePitcherPlayerId}`">
+                        {{ g.homePitcherName }}
+                      </RouterLink>
+                      <span v-else>{{ g.homePitcherName || '—' }}</span>
+                    </template>
                   </td>
                 </tr>
               </tbody>
@@ -465,6 +520,12 @@ h2 {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+
+.season-num-label {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--color-text-secondary);
 }
 
 .champ-badge {
@@ -543,8 +604,8 @@ h3 {
 .tab-btn.active { border-color: var(--color-accent); color: var(--color-accent); background: var(--color-surface-2); }
 .tab-btn:hover:not(.active) { background: var(--color-surface-2); color: var(--color-text-primary); }
 
-.player-link { color: var(--color-text-primary); text-decoration: none; }
-.player-link:hover { color: var(--color-accent); }
+.player-link { text-decoration: none; }
+.player-link:hover { text-decoration: underline; }
 
 .hof-badge {
   margin-left: 0.375rem;
@@ -626,6 +687,9 @@ h3 {
 
 .score-col { text-align: center; width: 70px; }
 .our-team { font-weight: 600; }
+
+.series-table a { text-decoration: none; }
+.series-table a:hover { text-decoration: underline; }
 
 .error-text { font-size: 0.875rem; color: var(--color-error); }
 </style>
