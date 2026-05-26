@@ -92,6 +92,41 @@ async function handleSaveFileChange(path: string, leagueGUID: string) {
   }
 }
 
+// ── Legacy continuation (first real source after a legacy import) ────────────
+
+const pendingLegacySource = ref<{ path: string; leagueGUID: string; numSeasons: number } | null>(null)
+const legacyFranchiseSeason = ref(0)
+const legacyConnectError = ref<string | null>(null)
+
+const legacyOffsetValid = computed(
+  () => pendingLegacySource.value !== null && legacyFranchiseSeason.value >= pendingLegacySource.value.numSeasons,
+)
+
+function handleLegacyFileSelected(path: string, leagueGUID: string, probe: main.SaveFileCandidateDTO) {
+  pendingLegacySource.value = { path, leagueGUID, numSeasons: probe.numSeasons }
+  legacyFranchiseSeason.value = lastSeason.value
+  legacyConnectError.value = null
+}
+
+async function confirmLegacyConnection() {
+  if (!franchiseStore.active || !pendingLegacySource.value) return
+  legacyConnectError.value = null
+  const { path, leagueGUID, numSeasons } = pendingLegacySource.value
+  const offset = legacyFranchiseSeason.value - numSeasons
+  try {
+    await franchiseStore.addFranchiseSource(franchiseStore.active.id, path, leagueGUID, offset)
+    pendingLegacySource.value = null
+    await loadSources()
+  } catch (e) {
+    legacyConnectError.value = String(e)
+  }
+}
+
+function cancelLegacyConnection() {
+  pendingLegacySource.value = null
+  legacyConnectError.value = null
+}
+
 // ── Fork source ──────────────────────────────────────────────────────────────
 
 const showForkForm = ref(false)
@@ -186,11 +221,38 @@ async function handleSync() {
           </div>
         </div>
 
-        <!-- No real source yet (legacy-only franchise) — show picker to connect one -->
-        <template v-if="franchiseStore.active?.hasLegacySource && !showReplacePicker">
-          <p class="hint-text">Connect a save file to enable syncing.</p>
-          <SaveFilePicker :used-source-labels="usedSourceLabels" @change="handleSaveFileChange" />
-          <p v-if="replaceError" class="error-text">{{ replaceError }}</p>
+        <!-- No real source yet (legacy-only franchise) — connect with season mapping -->
+        <template v-if="franchiseStore.active?.hasLegacySource && !franchiseStore.active?.hasActiveSource && !showReplacePicker">
+          <template v-if="!pendingLegacySource">
+            <p class="hint-text">Connect a save file to enable syncing.</p>
+            <SaveFilePicker :used-source-labels="usedSourceLabels" @change="handleLegacyFileSelected" />
+          </template>
+          <template v-else>
+            <p class="hint-text">
+              This save game has <strong>{{ pendingLegacySource.numSeasons }}</strong> season(s).
+              Which franchise season does Season&nbsp;{{ pendingLegacySource.numSeasons }} correspond to?
+            </p>
+            <div class="fork-offset-row">
+              <label class="fork-label">Franchise season</label>
+              <input
+                v-model.number="legacyFranchiseSeason"
+                type="number"
+                :min="pendingLegacySource.numSeasons"
+                class="fork-offset-input"
+              />
+            </div>
+            <p class="hint-text">
+              Season {{ pendingLegacySource.numSeasons + 1 }} of this save game will become
+              franchise Season {{ legacyFranchiseSeason + 1 }}.
+            </p>
+            <p v-if="legacyConnectError" class="error-text">{{ legacyConnectError }}</p>
+            <div class="legacy-actions">
+              <AppButton variant="primary" size="sm" :disabled="!legacyOffsetValid" @click="confirmLegacyConnection">
+                Connect
+              </AppButton>
+              <AppButton variant="ghost" size="sm" @click="cancelLegacyConnection">Cancel</AppButton>
+            </div>
+          </template>
         </template>
 
         <!-- Inline replace picker -->
@@ -451,6 +513,11 @@ h3 {
   font-size: 0.875rem;
   color: var(--color-text-secondary);
   flex-wrap: wrap;
+}
+
+.legacy-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .error-text { font-size: 0.875rem; color: var(--color-error); }

@@ -327,7 +327,8 @@ func seedSaveGameData(db *sql.DB) error {
 		INSERT INTO t_baseball_player_options (baseballPlayerLocalID, optionKey, optionValue) VALUES (2, 4, 1);   -- pitcher: throw R
 		INSERT INTO t_baseball_player_options (baseballPlayerLocalID, optionKey, optionValue) VALUES (2, 107, 1); -- pitcher: Spirited
 
-		-- no trait rows → query subquery returns NULL → COALESCE gives '[]'
+		-- Player AA traits: Clutch (traitId=32, subtypeId=6) and Tough Out (traitId=4, subtypeId=6)
+		INSERT INTO t_baseball_player_traits (baseballPlayerLocalID, trait, subType) VALUES (1, 32, 6), (1, 4, 6);
 		INSERT INTO t_salary (baseballPlayerGUID, salary) VALUES (X'AA000000000000000000000000000000', 250);
 
 		-- Player BB: pitcher — localID 2

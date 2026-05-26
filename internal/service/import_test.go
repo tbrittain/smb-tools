@@ -604,6 +604,28 @@ func TestImportSeason_TransactionRollbackOnError(t *testing.T) {
 	}
 }
 
+// ── Traits ───────────────────────────────────────────────────────────────────
+
+func TestImportSeason_TraitsImported(t *testing.T) {
+	svc, companionDB, reader := newTestImportService(t)
+	ctx := context.Background()
+	importSeason1(t, svc, companionDB, reader)
+
+	// Fixture seeds player AA (batter) with Clutch (32,6) and Tough Out (4,6).
+	var traitsJSON string
+	if err := companionDB.QueryRowContext(ctx, `
+		SELECT ps.traits_json
+		FROM player_seasons ps
+		JOIN players p ON p.id = ps.player_id
+		WHERE p.first_name = 'Test' AND p.last_name = 'Batter'
+	`).Scan(&traitsJSON); err != nil {
+		t.Fatalf("querying batter traits_json: %v", err)
+	}
+	if traitsJSON != `["Clutch","Tough Out"]` {
+		t.Errorf("batter traits_json = %q, want [\"Clutch\",\"Tough Out\"]", traitsJSON)
+	}
+}
+
 // erroringReader wraps a real reader but injects an error on GetCurrentSeasonTeams.
 type erroringReader struct {
 	inner store.SaveGameReader
