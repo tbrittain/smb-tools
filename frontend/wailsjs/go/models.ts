@@ -178,6 +178,39 @@ export namespace main {
 	        this.smbWar = source["smbWar"];
 	    }
 	}
+	export class BattingLeaderPageDTO {
+	    rows: BattingLeaderRowDTO[];
+	    total: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new BattingLeaderPageDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.rows = this.convertValues(source["rows"], BattingLeaderRowDTO);
+	        this.total = source["total"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class CareerBattingStatsDTO {
 	    gamesPlayed: number;
 	    gamesBatting: number;
@@ -541,6 +574,10 @@ export namespace main {
 	    chemistryType: string;
 	    seasonStart: number;
 	    seasonEnd: number;
+	    sortField: string;
+	    sortDesc: boolean;
+	    offset: number;
+	    pageSize: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new LeaderboardFiltersDTO(source);
@@ -556,6 +593,10 @@ export namespace main {
 	        this.chemistryType = source["chemistryType"];
 	        this.seasonStart = source["seasonStart"];
 	        this.seasonEnd = source["seasonEnd"];
+	        this.sortField = source["sortField"];
+	        this.sortDesc = source["sortDesc"];
+	        this.offset = source["offset"];
+	        this.pageSize = source["pageSize"];
 	    }
 	}
 	export class LegacyFranchiseDTO {
@@ -760,6 +801,39 @@ export namespace main {
 	        this.smbWar = source["smbWar"];
 	    }
 	}
+	export class PitchingLeaderPageDTO {
+	    rows: PitchingLeaderRowDTO[];
+	    total: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new PitchingLeaderPageDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.rows = this.convertValues(source["rows"], PitchingLeaderRowDTO);
+	        this.total = source["total"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class PlayerAwardEntryDTO {
 	    playerSeasonId: number;
 	    awardIds: number[];

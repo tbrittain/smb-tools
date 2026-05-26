@@ -972,21 +972,21 @@ func (a *App) GetBattingCareerLeaders(filters LeaderboardFiltersDTO) ([]BattingL
 	return out, nil
 }
 
-// GetBattingSeasonLeaders returns per-season batting stats for all player-seasons
+// GetBattingSeasonLeaders returns a paginated page of per-season batting stats
 // matching the given filters. Rate stats are read from stored columns.
-func (a *App) GetBattingSeasonLeaders(filters LeaderboardFiltersDTO) ([]BattingLeaderRowDTO, error) {
+func (a *App) GetBattingSeasonLeaders(filters LeaderboardFiltersDTO) (BattingLeaderPageDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
-		return nil, err
+		return BattingLeaderPageDTO{}, err
 	}
-	rows, err := a.leaderboardQueryStore.GetBattingSeasonLeaders(a.ctx, leaderboardFiltersToDomain(filters))
+	rows, total, err := a.leaderboardQueryStore.GetBattingSeasonLeaders(a.ctx, leaderboardFiltersToDomain(filters))
 	if err != nil {
-		return nil, err
+		return BattingLeaderPageDTO{}, err
 	}
 	out := make([]BattingLeaderRowDTO, len(rows))
 	for i := range rows {
 		out[i] = battingSeasonLeaderToDTO(rows[i])
 	}
-	return out, nil
+	return BattingLeaderPageDTO{Rows: out, Total: total}, nil
 }
 
 // GetPitchingCareerLeaders returns career pitching totals for all players matching
@@ -1007,21 +1007,21 @@ func (a *App) GetPitchingCareerLeaders(filters LeaderboardFiltersDTO) ([]Pitchin
 	return out, nil
 }
 
-// GetPitchingSeasonLeaders returns per-season pitching stats for all player-seasons
+// GetPitchingSeasonLeaders returns a paginated page of per-season pitching stats
 // matching the given filters. Rate stats are read from stored columns.
-func (a *App) GetPitchingSeasonLeaders(filters LeaderboardFiltersDTO) ([]PitchingLeaderRowDTO, error) {
+func (a *App) GetPitchingSeasonLeaders(filters LeaderboardFiltersDTO) (PitchingLeaderPageDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
-		return nil, err
+		return PitchingLeaderPageDTO{}, err
 	}
-	rows, err := a.leaderboardQueryStore.GetPitchingSeasonLeaders(a.ctx, leaderboardFiltersToDomain(filters))
+	rows, total, err := a.leaderboardQueryStore.GetPitchingSeasonLeaders(a.ctx, leaderboardFiltersToDomain(filters))
 	if err != nil {
-		return nil, err
+		return PitchingLeaderPageDTO{}, err
 	}
 	out := make([]PitchingLeaderRowDTO, len(rows))
 	for i := range rows {
 		out[i] = pitchingSeasonLeaderToDTO(rows[i])
 	}
-	return out, nil
+	return PitchingLeaderPageDTO{Rows: out, Total: total}, nil
 }
 
 // ---- helpers ---------------------------------------------------------------

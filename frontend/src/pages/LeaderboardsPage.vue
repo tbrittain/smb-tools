@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import type { DataTablePageEvent, DataTableSortEvent } from 'primevue/datatable'
 import { computed, onMounted, ref, watch } from 'vue'
 import {
   GetBattingCareerLeaders,
@@ -30,15 +31,30 @@ function defaultFilters(): main.LeaderboardFiltersDTO {
     chemistryType: '',
     seasonStart: 0,
     seasonEnd: 0,
+    sortField: '',
+    sortDesc: true,
+    offset: 0,
+    pageSize: 50,
   })
 }
 
 const filters = ref<main.LeaderboardFiltersDTO>(defaultFilters())
 const seasons = ref<main.SeasonSummaryDTO[]>([])
+
 const battingCareerRows = ref<main.BattingLeaderRowDTO[]>([])
 const battingSeasonRows = ref<main.BattingLeaderRowDTO[]>([])
+const battingSeasonTotal = ref(0)
 const pitchingCareerRows = ref<main.PitchingLeaderRowDTO[]>([])
 const pitchingSeasonRows = ref<main.PitchingLeaderRowDTO[]>([])
+const pitchingSeasonTotal = ref(0)
+
+// Separate sort/page state for each season leaderboard so switching tabs
+// preserves the user's position.
+const battingSeasonSort = ref({ field: '', desc: true })
+const battingSeasonFirst = ref(0)
+const pitchingSeasonSort = ref({ field: '', desc: true })
+const pitchingSeasonFirst = ref(0)
+
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -47,7 +63,16 @@ const filterMode = computed<'batting' | 'pitching'>(() =>
   activeTab.value.startsWith('batting') ? 'batting' : 'pitching',
 )
 
-watch([activeTab, filters], loadCurrentTab, { deep: true })
+// Reset page to 0 when filters or tab change; keep sort.
+watch(
+  [activeTab, filters],
+  () => {
+    battingSeasonFirst.value = 0
+    pitchingSeasonFirst.value = 0
+    loadCurrentTab()
+  },
+  { deep: true },
+)
 
 onMounted(async () => {
   set([{ label: 'Leaderboards' }])
@@ -68,15 +93,39 @@ async function loadCurrentTab() {
       case 'batting-career':
         battingCareerRows.value = await GetBattingCareerLeaders(f)
         break
-      case 'batting-season':
-        battingSeasonRows.value = await GetBattingSeasonLeaders(f)
+      case 'batting-season': {
+        const s = battingSeasonSort.value
+        const page = await GetBattingSeasonLeaders(
+          new main.LeaderboardFiltersDTO({
+            ...f,
+            sortField: s.field,
+            sortDesc: s.desc,
+            offset: battingSeasonFirst.value,
+            pageSize: 50,
+          }),
+        )
+        battingSeasonRows.value = page.rows ?? []
+        battingSeasonTotal.value = page.total ?? 0
         break
+      }
       case 'pitching-career':
         pitchingCareerRows.value = await GetPitchingCareerLeaders(f)
         break
-      case 'pitching-season':
-        pitchingSeasonRows.value = await GetPitchingSeasonLeaders(f)
+      case 'pitching-season': {
+        const s = pitchingSeasonSort.value
+        const page = await GetPitchingSeasonLeaders(
+          new main.LeaderboardFiltersDTO({
+            ...f,
+            sortField: s.field,
+            sortDesc: s.desc,
+            offset: pitchingSeasonFirst.value,
+            pageSize: 50,
+          }),
+        )
+        pitchingSeasonRows.value = page.rows ?? []
+        pitchingSeasonTotal.value = page.total ?? 0
         break
+      }
     }
   } catch (e) {
     error.value = String(e)
@@ -88,8 +137,6 @@ async function loadCurrentTab() {
 function setTab(tab: LeaderboardTab) {
   if (tab !== activeTab.value) {
     activeTab.value = tab
-    // Reset handedness filter when switching between batting/pitching modes so
-    // a bat-hand filter doesn't silently carry over to a pitching query.
     const isBatting = tab.startsWith('batting')
     filters.value = new main.LeaderboardFiltersDTO({
       ...filters.value,
@@ -98,6 +145,30 @@ function setTab(tab: LeaderboardTab) {
       position: '',
     })
   }
+}
+
+function onBattingSeasonSort(event: DataTableSortEvent) {
+  const field = typeof event.sortField === 'string' ? event.sortField : ''
+  battingSeasonSort.value = { field, desc: (event.sortOrder ?? -1) === -1 }
+  battingSeasonFirst.value = 0
+  loadCurrentTab()
+}
+
+function onBattingSeasonPage(event: DataTablePageEvent) {
+  battingSeasonFirst.value = event.first
+  loadCurrentTab()
+}
+
+function onPitchingSeasonSort(event: DataTableSortEvent) {
+  const field = typeof event.sortField === 'string' ? event.sortField : ''
+  pitchingSeasonSort.value = { field, desc: (event.sortOrder ?? -1) === -1 }
+  pitchingSeasonFirst.value = 0
+  loadCurrentTab()
+}
+
+function onPitchingSeasonPage(event: DataTablePageEvent) {
+  pitchingSeasonFirst.value = event.first
+  loadCurrentTab()
 }
 </script>
 
@@ -144,6 +215,12 @@ function setTab(tab: LeaderboardTab) {
         v-else-if="activeTab === 'batting-season'"
         :rows="battingSeasonRows"
         :is-career="false"
+        :total-records="battingSeasonTotal"
+        :first="battingSeasonFirst"
+        :sort-field="battingSeasonSort.field || 'smbWar'"
+        :sort-order="battingSeasonSort.desc ? -1 : 1"
+        @sort="onBattingSeasonSort"
+        @page="onBattingSeasonPage"
       />
       <PitchingLeaderboardTable
         v-else-if="activeTab === 'pitching-career'"
@@ -154,6 +231,12 @@ function setTab(tab: LeaderboardTab) {
         v-else
         :rows="pitchingSeasonRows"
         :is-career="false"
+        :total-records="pitchingSeasonTotal"
+        :first="pitchingSeasonFirst"
+        :sort-field="pitchingSeasonSort.field || 'smbWar'"
+        :sort-order="pitchingSeasonSort.desc ? -1 : 1"
+        @sort="onPitchingSeasonSort"
+        @page="onPitchingSeasonPage"
       />
     </div>
   </div>

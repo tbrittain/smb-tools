@@ -291,7 +291,7 @@ func TestGetBattingSeasonLeaders_OneRowPerPlayerSeason(t *testing.T) {
 	seedBatting(t, db, psB1, true, 380, 95, 8, 35)
 	seedBatting(t, db, psB2, true, 350, 90, 12, 45)
 
-	rows, err := newLB(db).GetBattingSeasonLeaders(ctx, noFilters())
+	rows, _, err := newLB(db).GetBattingSeasonLeaders(ctx, noFilters())
 	if err != nil {
 		t.Fatalf("GetBattingSeasonLeaders: %v", err)
 	}
@@ -329,7 +329,7 @@ func TestGetBattingSeasonLeaders_BatHandFilter(t *testing.T) {
 	seedBatting(t, db, psL, true, 400, 100, 10, 40)
 	seedBatting(t, db, psR, true, 380, 95, 8, 35)
 
-	rows, err := newLB(db).GetBattingSeasonLeaders(ctx, models.LeaderboardFilters{BatHand: "L"})
+	rows, _, err := newLB(db).GetBattingSeasonLeaders(ctx, models.LeaderboardFilters{BatHand: "L"})
 	if err != nil {
 		t.Fatalf("GetBattingSeasonLeaders: %v", err)
 	}
@@ -354,7 +354,7 @@ func TestGetBattingSeasonLeaders_ExcludesZeroAB(t *testing.T) {
 	seedPitching(t, db, ps, true, 12, 8, 360, 40, 150)
 	// No batting row — pitcher appears in pitching leaderboard, not batting
 
-	rows, err := newLB(db).GetBattingSeasonLeaders(ctx, noFilters())
+	rows, _, err := newLB(db).GetBattingSeasonLeaders(ctx, noFilters())
 	if err != nil {
 		t.Fatalf("GetBattingSeasonLeaders: %v", err)
 	}
@@ -489,7 +489,7 @@ func TestGetPitchingSeasonLeaders_OneRowPerPlayerSeason(t *testing.T) {
 	seedPitching(t, db, psB1, true, 4, 3, 90, 12, 45)
 	seedPitching(t, db, psB2, true, 5, 4, 100, 14, 50)
 
-	rows, err := newLB(db).GetPitchingSeasonLeaders(ctx, noFilters())
+	rows, _, err := newLB(db).GetPitchingSeasonLeaders(ctx, noFilters())
 	if err != nil {
 		t.Fatalf("GetPitchingSeasonLeaders: %v", err)
 	}
@@ -511,7 +511,7 @@ func TestGetPitchingSeasonLeaders_ExcludesZeroOuts(t *testing.T) {
 	seedBatting(t, db, ps, true, 400, 100, 10, 40)
 	// No pitching row — position player should not appear in pitching leaderboard
 
-	rows, err := newLB(db).GetPitchingSeasonLeaders(ctx, noFilters())
+	rows, _, err := newLB(db).GetPitchingSeasonLeaders(ctx, noFilters())
 	if err != nil {
 		t.Fatalf("GetPitchingSeasonLeaders: %v", err)
 	}

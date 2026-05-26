@@ -89,6 +89,8 @@ Check off phases as they are completed. Individual phases will be broken into de
 
 > ~~**Known limitation — leaderboard default sort order:** All four leaderboard queries currently default to alphabetical order by player name.~~ **Resolved in Phase 8.5**: leaderboards now default to `smbWAR DESC` (career and season), with alphabetical tiebreaker for seasons where smbWAR has not yet been computed.
 
+> **Known limitation — leaderboard pagination is client-side:** All four leaderboard views fetch the full result set from the backend and paginate/sort in the browser via PrimeVue DataTable. Initial load slows as the franchise grows. Proper fix: add `SortField`, `SortDesc`, `Page`, `PageSize` to `LeaderboardFiltersDTO`; rewrite the career queries as CTEs that compute rate stats inline so `ORDER BY <column> LIMIT ? OFFSET ?` can be applied in SQL; return a `{rows, total}` envelope and switch the DataTable to server-side paginator mode. Season leaderboard queries have the same issue but are faster because they don't aggregate across seasons.
+
 ---
 
 ## Phase 7 — Awards & Hall of Fame

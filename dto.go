@@ -561,6 +561,7 @@ func playoffGameToDTO(g models.PlayoffGameRow) PlayoffGameDTO {
 
 // LeaderboardFiltersDTO carries filter parameters from the frontend.
 // Zero values (empty string, false, 0) mean "no filter applied".
+// SortField/SortDesc/Offset/PageSize are used only by season leader queries.
 type LeaderboardFiltersDTO struct {
 	IsPlayoffs       bool   `json:"isPlayoffs"`
 	OnlyHallOfFamers bool   `json:"onlyHallOfFamers"`
@@ -570,6 +571,22 @@ type LeaderboardFiltersDTO struct {
 	ChemistryType    string `json:"chemistryType"`
 	SeasonStart      int    `json:"seasonStart"`
 	SeasonEnd        int    `json:"seasonEnd"`
+	SortField        string `json:"sortField"`
+	SortDesc         bool   `json:"sortDesc"`
+	Offset           int    `json:"offset"`
+	PageSize         int    `json:"pageSize"`
+}
+
+// BattingLeaderPageDTO is the server-side pagination envelope for batting season leaders.
+type BattingLeaderPageDTO struct {
+	Rows  []BattingLeaderRowDTO `json:"rows"`
+	Total int                   `json:"total"`
+}
+
+// PitchingLeaderPageDTO is the server-side pagination envelope for pitching season leaders.
+type PitchingLeaderPageDTO struct {
+	Rows  []PitchingLeaderRowDTO `json:"rows"`
+	Total int                    `json:"total"`
 }
 
 // BattingLeaderRowDTO is one row in a batting leaderboard (career or season).
@@ -685,6 +702,10 @@ func leaderboardFiltersToDomain(f LeaderboardFiltersDTO) models.LeaderboardFilte
 		ChemistryType:    f.ChemistryType,
 		SeasonStart:      f.SeasonStart,
 		SeasonEnd:        f.SeasonEnd,
+		SortField:        f.SortField,
+		SortDesc:         f.SortDesc,
+		Offset:           f.Offset,
+		PageSize:         f.PageSize,
 	}
 }
 
