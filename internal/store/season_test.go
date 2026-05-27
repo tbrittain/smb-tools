@@ -89,6 +89,38 @@ func TestSeasonStore_GetByID_NotFound(t *testing.T) {
 	}
 }
 
+func TestSeasonStore_GetBySeasonNum(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	s := store.NewSeasonStore(db)
+	ctx := context.Background()
+
+	_, _ = s.Upsert(ctx, store.Season{LeagueGUID: testLG, SaveGameSeasonID: 42, SeasonNum: 5, NumGames: 82})
+
+	got, err := s.GetBySeasonNum(ctx, 5)
+	if err != nil {
+		t.Fatalf("GetBySeasonNum: %v", err)
+	}
+	if got.SeasonNum != 5 {
+		t.Errorf("SeasonNum: got %d, want 5", got.SeasonNum)
+	}
+	if got.SaveGameSeasonID != 42 {
+		t.Errorf("SaveGameSeasonID: got %d, want 42", got.SaveGameSeasonID)
+	}
+	if got.LeagueGUID != testLG {
+		t.Errorf("LeagueGUID: got %q, want %q", got.LeagueGUID, testLG)
+	}
+}
+
+func TestSeasonStore_GetBySeasonNum_NotFound(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	s := store.NewSeasonStore(db)
+
+	_, err := s.GetBySeasonNum(context.Background(), 99)
+	if !errors.Is(err, sql.ErrNoRows) {
+		t.Errorf("expected ErrNoRows, got %v", err)
+	}
+}
+
 func TestSeasonStore_List(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	s := store.NewSeasonStore(db)

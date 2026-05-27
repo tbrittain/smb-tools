@@ -1,9 +1,10 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue'
-import { ListFranchiseSources, SyncSeason } from '../../wailsjs/go/main/App'
+import { ListFranchiseSources, ListSnapshots, ReimportSeasonFromSnapshot, SyncSeason } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppButton from '../components/AppButton.vue'
 import SaveFilePicker from '../components/SaveFilePicker.vue'
+import SnapshotPicker from '../components/SnapshotPicker.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 import { useFranchiseStore } from '../stores/franchise'
 
@@ -55,6 +56,7 @@ async function loadSources() {
 const { set } = useBreadcrumbs()
 onMounted(() => set([{ label: 'Setup' }]))
 onMounted(loadSources)
+onMounted(loadSnapshots)
 
 function sourceDisplayName(src: (typeof sourcesWithRanges.value)[number]): string {
   if (src.isLegacy) return 'Legacy import'
@@ -169,6 +171,43 @@ async function handleSync() {
     syncError.value = String(e)
   } finally {
     syncing.value = false
+  }
+}
+
+// ── Reimport from snapshot ────────────────────────────────────────────────────
+
+const snapshots = ref<main.SnapshotDTO[]>([])
+const snapshotsLoading = ref(false)
+const selectedSnapshotId = ref<number | null>(null)
+const reimporting = ref(false)
+const reimportError = ref<string | null>(null)
+const reimportResult = ref<main.ReimportSeasonResult | null>(null)
+
+const selectedSnapshot = computed(() => snapshots.value.find((s) => s.id === selectedSnapshotId.value) ?? null)
+
+async function loadSnapshots() {
+  if (!franchiseStore.active) return
+  snapshotsLoading.value = true
+  try {
+    snapshots.value = await ListSnapshots()
+  } catch {
+    // non-fatal — snapshot list just won't display
+  } finally {
+    snapshotsLoading.value = false
+  }
+}
+
+async function handleReimport() {
+  if (!selectedSnapshot.value) return
+  reimporting.value = true
+  reimportError.value = null
+  reimportResult.value = null
+  try {
+    reimportResult.value = await ReimportSeasonFromSnapshot(selectedSnapshot.value.id, selectedSnapshot.value.seasonNum)
+  } catch (e) {
+    reimportError.value = String(e)
+  } finally {
+    reimporting.value = false
   }
 }
 </script>
@@ -333,6 +372,37 @@ async function handleSync() {
         @click="handleSync"
       >
         {{ syncing ? 'Syncing…' : 'Sync Season' }}
+      </AppButton>
+    </section>
+
+    <!-- Reimport from snapshot -->
+    <section v-if="franchiseStore.active" class="card-section">
+      <h3>Reimport Season from Snapshot</h3>
+      <p class="sync-help">
+        Select a previously captured snapshot and reimport its season data. Use this to
+        recover from a bad sync or correct data after the playoffs. Your awards for that
+        season will not be affected.
+      </p>
+      <SnapshotPicker
+        :snapshots="snapshots"
+        :loading="snapshotsLoading"
+        :selected-id="selectedSnapshotId"
+        @update:selected-id="selectedSnapshotId = $event"
+      />
+      <p v-if="reimportError" class="error-text">{{ reimportError }}</p>
+      <div v-if="reimportResult" class="sync-result">
+        <span>✓ Season {{ reimportResult.seasonNum }} reimported —</span>
+        <span>{{ reimportResult.players }} players,</span>
+        <span>{{ reimportResult.teams }} teams,</span>
+        <span>{{ reimportResult.games }} games</span>
+        <span v-if="reimportResult.playoffGames">, {{ reimportResult.playoffGames }} playoff games</span>
+      </div>
+      <AppButton
+        variant="secondary"
+        :disabled="reimporting || selectedSnapshotId === null"
+        @click="handleReimport"
+      >
+        {{ reimporting ? 'Reimporting…' : 'Reimport Selected Snapshot' }}
       </AppButton>
     </section>
   </div>

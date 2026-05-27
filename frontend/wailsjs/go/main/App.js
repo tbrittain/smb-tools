@@ -150,6 +150,10 @@ export function ListLegacyFranchises(arg1) {
   return window['go']['main']['App']['ListLegacyFranchises'](arg1);
 }
 
+export function ListSnapshots() {
+  return window['go']['main']['App']['ListSnapshots']();
+}
+
 export function MigrateLegacyFranchise(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['MigrateLegacyFranchise'](arg1, arg2, arg3, arg4);
 }
@@ -164,6 +168,10 @@ export function ProbeFranchiseSaveFile(arg1) {
 
 export function ProbeLeagues(arg1) {
   return window['go']['main']['App']['ProbeLeagues'](arg1);
+}
+
+export function ReimportSeasonFromSnapshot(arg1, arg2) {
+  return window['go']['main']['App']['ReimportSeasonFromSnapshot'](arg1, arg2);
 }
 
 export function RenameFranchise(arg1, arg2) {

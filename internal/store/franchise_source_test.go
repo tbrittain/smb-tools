@@ -122,6 +122,42 @@ func TestFranchiseSourceStore_ListByFranchise(t *testing.T) {
 	}
 }
 
+func TestFranchiseSourceStore_GetByLeagueGUID(t *testing.T) {
+	db := testutil.NewTestRegistryDB(t)
+	fs := store.NewFranchiseStore(db)
+	ss := store.NewFranchiseSourceStore(db)
+	ctx := context.Background()
+
+	_ = fs.Create(ctx, franchiseFixture("fid7"))
+	_, _ = ss.Add(ctx, "fid7", "/s1.sav", "LEAGUE-A", 0)
+	_, _ = ss.Add(ctx, "fid7", "/s2.sav", "LEAGUE-B", 5)
+
+	src, err := ss.GetByLeagueGUID(ctx, "fid7", "LEAGUE-B")
+	if err != nil {
+		t.Fatalf("GetByLeagueGUID: %v", err)
+	}
+	if src.LeagueGUID != "LEAGUE-B" {
+		t.Errorf("LeagueGUID: got %q, want LEAGUE-B", src.LeagueGUID)
+	}
+	if src.SeasonOffset != 5 {
+		t.Errorf("SeasonOffset: got %d, want 5", src.SeasonOffset)
+	}
+}
+
+func TestFranchiseSourceStore_GetByLeagueGUID_NotFound(t *testing.T) {
+	db := testutil.NewTestRegistryDB(t)
+	fs := store.NewFranchiseStore(db)
+	ss := store.NewFranchiseSourceStore(db)
+	ctx := context.Background()
+
+	_ = fs.Create(ctx, franchiseFixture("fid8"))
+
+	_, err := ss.GetByLeagueGUID(ctx, "fid8", "NO-SUCH-GUID")
+	if err != sql.ErrNoRows {
+		t.Errorf("expected sql.ErrNoRows, got %v", err)
+	}
+}
+
 func TestFranchiseSourceStore_DeleteByFranchise(t *testing.T) {
 	db := testutil.NewTestRegistryDB(t)
 	fs := store.NewFranchiseStore(db)

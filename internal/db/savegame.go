@@ -9,6 +9,21 @@ import (
 	"os"
 )
 
+// OpenSnapshot opens an already-decompressed snapshot SQLite file as a
+// read-only connection. Unlike DecompressAndOpen, no temp file is created —
+// the snapshot is opened in-place. The caller must call db.Close() when done.
+func OpenSnapshot(ctx context.Context, snapshotPath string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite", "file:"+snapshotPath+"?mode=ro")
+	if err != nil {
+		return nil, fmt.Errorf("opening snapshot DB: %w", err)
+	}
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("pinging snapshot DB: %w", err)
+	}
+	return db, nil
+}
+
 // DecompressAndOpen decompresses a zlib-compressed SMB save game file to a
 // temporary file and opens it as a read-only SQLite connection.
 //

@@ -1120,6 +1120,26 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class ReimportSeasonResult {
+	    seasonNum: number;
+	    players: number;
+	    teams: number;
+	    games: number;
+	    playoffGames: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ReimportSeasonResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.seasonNum = source["seasonNum"];
+	        this.players = source["players"];
+	        this.teams = source["teams"];
+	        this.games = source["games"];
+	        this.playoffGames = source["playoffGames"];
+	    }
+	}
 	export class RosterPlayerDTO {
 	    playerId: number;
 	    firstName: string;
@@ -1432,6 +1452,26 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.playerSeasonId = source["playerSeasonId"];
 	        this.awardIds = source["awardIds"];
+	    }
+	}
+	export class SnapshotDTO {
+	    id: number;
+	    seasonNum: number;
+	    capturedAt: string;
+	    fileSizeBytes: number;
+	    fileExists: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new SnapshotDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.seasonNum = source["seasonNum"];
+	        this.capturedAt = source["capturedAt"];
+	        this.fileSizeBytes = source["fileSizeBytes"];
+	        this.fileExists = source["fileExists"];
 	    }
 	}
 	export class StatLeaderDTO {

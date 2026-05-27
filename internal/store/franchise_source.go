@@ -100,6 +100,30 @@ func (s *FranchiseSourceStore) ListAll(ctx context.Context) ([]models.FranchiseS
 	return scanSources(rows)
 }
 
+// GetByLeagueGUID returns the source for a franchise that matches the given
+// leagueGUID. Returns sql.ErrNoRows if no such source exists.
+func (s *FranchiseSourceStore) GetByLeagueGUID(ctx context.Context, franchiseID, leagueGUID string) (models.FranchiseSource, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, franchise_id, save_file_path, league_guid, season_offset, added_at
+		FROM franchise_sources
+		WHERE franchise_id = ? AND league_guid = ?
+		LIMIT 1
+	`, franchiseID, leagueGUID)
+	if err != nil {
+		return models.FranchiseSource{}, fmt.Errorf("getting source by league GUID for franchise %q: %w", franchiseID, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	sources, err := scanSources(rows)
+	if err != nil {
+		return models.FranchiseSource{}, err
+	}
+	if len(sources) == 0 {
+		return models.FranchiseSource{}, sql.ErrNoRows
+	}
+	return sources[0], nil
+}
+
 // Replace updates the save_file_path and league_guid of an existing source
 // in-place. Used for path corrections (e.g. save file moved) — does not change
 // season_offset or create a new source row.

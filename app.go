@@ -64,8 +64,10 @@ type App struct {
 	importService           *service.ImportService
 	syncService             *service.SyncService
 	legacyMigrationService  *service.LegacyMigrationService
-	// Read-side query stores — initialised when a franchise is selected,
+	// Per-franchise stores — initialised when a franchise is selected,
 	// cleared when it is deselected or switched.
+	snapshotStore         *store.SnapshotStore
+	seasonStore           *store.SeasonStore
 	seasonQueryStore      *store.SeasonQueryStore
 	playerQueryStore      *store.PlayerQueryStore
 	teamQueryStore        *store.TeamQueryStore
@@ -192,7 +194,7 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 		return FranchiseDTO{}, fmt.Errorf("app not initialized")
 	}
 
-	// Close previous companion DB and clear query stores
+	// Close previous companion DB and clear per-franchise stores
 	if a.companionDB != nil {
 		if err := a.companionDB.Close(); err != nil {
 			log.Printf("SelectFranchise: closing previous companion DB: %v", err)
@@ -200,6 +202,8 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 		a.companionDB = nil
 		a.activeFranchise = nil
 		a.syncService = nil
+		a.snapshotStore = nil
+		a.seasonStore = nil
 		a.seasonQueryStore = nil
 		a.playerQueryStore = nil
 		a.teamQueryStore = nil
@@ -213,9 +217,11 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 	}
 	a.companionDB = companionDB
 	a.activeFranchise = &f
+	a.snapshotStore = store.NewSnapshotStore(companionDB)
+	a.seasonStore = store.NewSeasonStore(companionDB)
 	snapshotSvc := service.NewSnapshotService(
 		a.dirs.SnapshotsDir(id),
-		store.NewSnapshotStore(companionDB),
+		a.snapshotStore,
 	)
 	a.syncService = service.NewSyncService(snapshotSvc, a.importService)
 	a.seasonQueryStore = store.NewSeasonQueryStore(companionDB)
@@ -303,6 +309,94 @@ func (a *App) SyncSeason() (SyncSeasonResult, error) {
 
 	return SyncSeasonResult{
 		SeasonID:     result.SeasonID,
+		SeasonNum:    result.SeasonNum,
+		Players:      result.Players,
+		Teams:        result.Teams,
+		Games:        result.Games,
+		PlayoffGames: result.PlayoffGames,
+	}, nil
+}
+
+// ListSnapshots returns all save game snapshots for the active franchise,
+// ordered by capture time ascending. Each entry includes a FileExists flag
+// indicating whether the snapshot file is still present on disk.
+func (a *App) ListSnapshots() ([]SnapshotDTO, error) {
+	if a.activeFranchise == nil {
+		return nil, fmt.Errorf("no active franchise selected")
+	}
+	if a.snapshotStore == nil {
+		return nil, fmt.Errorf("companion database not open")
+	}
+	snaps, err := a.snapshotStore.List(a.ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing snapshots: %w", err)
+	}
+	out := make([]SnapshotDTO, len(snaps))
+	for i, sn := range snaps {
+		absPath := a.dirs.SnapshotsDir(a.activeFranchise.ID) + "/" + string(sn.FileName)
+		_, statErr := os.Stat(absPath)
+		out[i] = SnapshotDTO{
+			ID:            sn.ID,
+			SeasonNum:     sn.SeasonNum,
+			CapturedAt:    sn.CapturedAt.UTC().Format("2006-01-02T15:04:05Z"),
+			FileSizeBytes: sn.FileSizeBytes,
+			FileExists:    statErr == nil,
+		}
+	}
+	return out, nil
+}
+
+// ReimportSeasonFromSnapshot reimports a specific season using a previously
+// captured snapshot file. The season to reimport is identified by seasonNum
+// (the companion DB display season number). The snapshot is identified by
+// snapshotID. Awards for the season are left untouched.
+func (a *App) ReimportSeasonFromSnapshot(snapshotID int64, seasonNum int) (ReimportSeasonResult, error) {
+	if a.activeFranchise == nil {
+		return ReimportSeasonResult{}, fmt.Errorf("no active franchise selected")
+	}
+	if a.companionDB == nil {
+		return ReimportSeasonResult{}, fmt.Errorf("companion database not open")
+	}
+
+	snap, err := a.snapshotStore.GetByID(a.ctx, snapshotID)
+	if err != nil {
+		return ReimportSeasonResult{}, fmt.Errorf("looking up snapshot: %w", err)
+	}
+
+	snapshotPath := a.dirs.SnapshotsDir(a.activeFranchise.ID) + "/" + string(snap.FileName)
+
+	season, err := a.seasonStore.GetBySeasonNum(a.ctx, seasonNum)
+	if err != nil {
+		return ReimportSeasonResult{}, fmt.Errorf("looking up season %d: %w", seasonNum, err)
+	}
+
+	src, err := a.franchiseSourceStore.GetByLeagueGUID(a.ctx, a.activeFranchise.ID, season.LeagueGUID)
+	if err != nil {
+		return ReimportSeasonResult{}, fmt.Errorf("looking up source for league %q: %w", season.LeagueGUID, err)
+	}
+
+	saveGameSeasonNum := seasonNum - src.SeasonOffset
+
+	saveDB, err := internaldb.OpenSnapshot(a.ctx, snapshotPath)
+	if err != nil {
+		return ReimportSeasonResult{}, fmt.Errorf("opening snapshot: %w", err)
+	}
+	defer func() { _ = saveDB.Close() }()
+
+	reader := store.NewSqliteSaveGameReader(saveDB, "")
+
+	result, err := a.importService.ImportSeason(
+		a.ctx, a.companionDB, reader,
+		season.SaveGameSeasonID, saveGameSeasonNum,
+		season.LeagueGUID, src.SeasonOffset,
+	)
+	if err != nil {
+		return ReimportSeasonResult{}, fmt.Errorf("reimporting season %d: %w", seasonNum, err)
+	}
+	runtime.LogInfof(a.ctx, "ReimportSeasonFromSnapshot: reimported season %d from snapshot %d — %d players, %d teams, %d games",
+		seasonNum, snapshotID, result.Players, result.Teams, result.Games)
+
+	return ReimportSeasonResult{
 		SeasonNum:    result.SeasonNum,
 		Players:      result.Players,
 		Teams:        result.Teams,
