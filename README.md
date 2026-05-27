@@ -2,8 +2,6 @@
 
 A cross-platform desktop application for Super Mega Baseball 3/4 franchise management and statistics.
 
-> Work in progress. See [`docs/roadmap.md`](docs/roadmap.md) for current phase.
-
 ## Prerequisites
 
 | Tool | Version | Notes |
