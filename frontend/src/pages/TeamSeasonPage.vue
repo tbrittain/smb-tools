@@ -469,7 +469,7 @@ watch(
                     >{{ playoffWL(g) }}</span>
                     <span v-else>—</span>
                   </td>
-                  <td :class="g.homeTeamHistoryId === historyId ? 'our-team' : ''">
+                  <td>
                     <template v-if="g.homeTeamHistoryId === historyId">{{ g.homeTeamName }}</template>
                     <AppLink v-else :to="`/teams/${g.homeTeamId}/seasons/${g.homeTeamHistoryId}`">
                       {{ g.homeTeamName }}
@@ -481,7 +481,7 @@ watch(
                     </template>
                     <template v-else>—</template>
                   </td>
-                  <td :class="g.awayTeamHistoryId === historyId ? 'our-team' : ''">
+                  <td>
                     <template v-if="g.awayTeamHistoryId === historyId">{{ g.awayTeamName }}</template>
                     <AppLink v-else :to="`/teams/${g.awayTeamId}/seasons/${g.awayTeamHistoryId}`">
                       {{ g.awayTeamName }}
@@ -734,7 +734,6 @@ h3 {
 }
 
 .score-col { text-align: center; width: 70px; }
-.our-team { font-weight: 600; }
 
 .series-table a { text-decoration: none; }
 .series-table a:hover { text-decoration: underline; }
