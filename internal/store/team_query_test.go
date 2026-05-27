@@ -70,11 +70,13 @@ func TestGetTeamHistory_WithChampionFlag(t *testing.T) {
 	seedPlayoffGame(t, db, 1, 2, 2, hist1, rivalHist1, 3, 2)
 	seedPlayoffGame(t, db, 1, 2, 3, rivalHist1, hist1, 5, 0)  // rival wins at home
 	seedPlayoffGame(t, db, 1, 2, 4, hist1, rivalHist1, 6, 1)
+	setPlayoffConfig(t, db, 1, 1, 5)
 
 	// Season 2: rival wins final series
 	seedPlayoffGame(t, db, 2, 2, 1, rivalHist2, hist2, 3, 1)
 	seedPlayoffGame(t, db, 2, 2, 2, rivalHist2, hist2, 2, 0)
 	seedPlayoffGame(t, db, 2, 2, 3, rivalHist2, hist2, 4, 3)
+	setPlayoffConfig(t, db, 2, 1, 5)
 
 	tq := store.NewTeamQueryStore(db)
 	th, err := tq.GetTeamHistory(ctx, teamID)
@@ -315,6 +317,47 @@ func TestPlayoffRoundInfo(t *testing.T) {
 		if n != tc.wantNum || l != tc.wantLabel {
 			t.Errorf("PlayoffRoundInfo(rank=%d, total=%d): got (%d,%q), want (%d,%q)",
 				tc.rank, tc.totalSeries, n, l, tc.wantNum, tc.wantLabel)
+		}
+	}
+}
+
+// TestGetTeamSeasonPlayoffSchedule_RoundLabels_MidPlayoff verifies that when
+// playoff_rounds is set on the season, the round labels are derived from the
+// full expected bracket size — not just the series already in the DB. Without
+// this fix, a mid-playoff import (4 of 7 series present) would call the final
+// round "League Championship" instead of "Round of 8".
+func TestGetTeamSeasonPlayoffSchedule_RoundLabels_MidPlayoff(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	setPlayoffConfig(t, db, s1, 3, 7) // 3 rounds → 7 total series expected
+	t1 := seedTeam(t, db, "mid-t1")
+	t2 := seedTeam(t, db, "mid-t2")
+	hist1 := seedTeamHistory(t, db, t1, s1, "Team One", "E", "AL", 90, 52)
+	hist2 := seedTeamHistory(t, db, t2, s1, "Team Two", "W", "AL", 80, 62)
+
+	// Only 4 of the 7 series are present (mid-playoff import).
+	// Team 1 plays in series 4 (the highest-numbered present series).
+	// Without the fix, series 4 of 4 would look like "League Championship".
+	// With the fix, totalSeries=7, so series 4 is still in "Round of 8" territory.
+	for s := 1; s <= 3; s++ {
+		seedPlayoffGame(t, db, s1, s, 1, hist2, hist1, 4, 2)
+	}
+	seedPlayoffGame(t, db, s1, 4, 1, hist1, hist2, 3, 1)
+	seedPlayoffGame(t, db, s1, 4, 2, hist2, hist1, 5, 4)
+
+	tq := store.NewTeamQueryStore(db)
+	games, err := tq.GetTeamSeasonPlayoffSchedule(ctx, hist1, s1)
+	if err != nil {
+		t.Fatalf("GetTeamSeasonPlayoffSchedule: %v", err)
+	}
+	if len(games) == 0 {
+		t.Fatal("expected games for team1, got none")
+	}
+	for _, g := range games {
+		if g.RoundLabel != "Round of 8" {
+			t.Errorf("expected 'Round of 8' (mid-playoff, rounds=3, totalSeries=7), got %q", g.RoundLabel)
 		}
 	}
 }

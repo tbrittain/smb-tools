@@ -62,6 +62,22 @@ ORDER BY s.season_num ASC
 	return out, rows.Err()
 }
 
+// GetPlayoffSeriesLength returns the playoff_series_length for the given season,
+// or nil when the season has no playoff config (playoff_series_length = 0).
+func (s *SeasonQueryStore) GetPlayoffSeriesLength(ctx context.Context, seasonID int64) (*int, error) {
+	var sl int64
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT playoff_series_length FROM seasons WHERE id = ?`, seasonID,
+	).Scan(&sl); err != nil {
+		return nil, fmt.Errorf("getting playoff series length for season %d: %w", seasonID, err)
+	}
+	if sl == 0 {
+		return nil, nil
+	}
+	v := int(sl)
+	return &v, nil
+}
+
 // GetStandings returns all teams' standings for the given season, ordered by
 // conference, then division, then wins descending.
 func (s *SeasonQueryStore) GetStandings(ctx context.Context, seasonID int64) ([]models.TeamStandingRow, error) {

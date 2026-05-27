@@ -626,6 +626,27 @@ func TestImportSeason_TraitsImported(t *testing.T) {
 	}
 }
 
+func TestImportSeason_PersistsPlayoffConfig(t *testing.T) {
+	svc, companionDB, reader := newTestImportService(t)
+	ctx := context.Background()
+	result := importSeason1(t, svc, companionDB, reader)
+
+	var rounds, seriesLength int64
+	if err := companionDB.QueryRowContext(ctx,
+		`SELECT playoff_rounds, playoff_series_length FROM seasons WHERE id = ?`,
+		result.SeasonID,
+	).Scan(&rounds, &seriesLength); err != nil {
+		t.Fatalf("querying playoff config: %v", err)
+	}
+	// Fixture seeds t_playoffs with rounds=1, seriesLength=5 for season 100.
+	if rounds != 1 {
+		t.Errorf("playoff_rounds: want 1, got %d", rounds)
+	}
+	if seriesLength != 5 {
+		t.Errorf("playoff_series_length: want 5, got %d", seriesLength)
+	}
+}
+
 // erroringReader wraps a real reader but injects an error on GetCurrentSeasonTeams.
 type erroringReader struct {
 	inner store.SaveGameReader
@@ -670,4 +691,7 @@ func (r *erroringReader) GetCareerPitchingStats(ctx context.Context) ([]models.S
 }
 func (r *erroringReader) GetCurrentSeason(ctx context.Context, leagueGUID string) (models.SaveGameSeasonInfo, error) {
 	return r.inner.GetCurrentSeason(ctx, leagueGUID)
+}
+func (r *erroringReader) GetSeasonPlayoffConfig(ctx context.Context, seasonID int) (*models.SaveGamePlayoffConfig, error) {
+	return r.inner.GetSeasonPlayoffConfig(ctx, seasonID)
 }

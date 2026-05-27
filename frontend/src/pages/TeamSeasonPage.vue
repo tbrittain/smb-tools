@@ -55,6 +55,28 @@ function playoffWL(game: main.PlayoffGameDTO): 'W' | 'L' | '—' {
   return myScore > oppScore ? 'W' : 'L'
 }
 
+function seriesPlaceholders(games: main.PlayoffGameDTO[], seriesLength: number | undefined): number[] {
+  if (!seriesLength || games.length === 0) return []
+  const winsNeeded = Math.ceil(seriesLength / 2)
+  // Track wins by team identity, not home/away role — home/away alternates within a series.
+  const teamA = games[0].homeTeamHistoryId
+  let teamAWins = 0
+  let teamBWins = 0
+  for (const g of games) {
+    if (g.homeScore == null || g.awayScore == null || g.homeScore === g.awayScore) continue
+    const homeWon = g.homeScore > g.awayScore
+    const homeIsTeamA = g.homeTeamHistoryId === teamA
+    if ((homeWon && homeIsTeamA) || (!homeWon && !homeIsTeamA)) teamAWins++
+    else teamBWins++
+  }
+  if (Math.max(teamAWins, teamBWins) >= winsNeeded) return []
+  const result: number[] = []
+  for (let n = games.length + 1; n <= seriesLength; n++) {
+    result.push(n)
+  }
+  return result
+}
+
 function fmtPct(v: number): string {
   return v.toFixed(3).replace(/^0/, '')
 }
@@ -434,7 +456,12 @@ watch(
               </thead>
               <tbody>
                 <tr v-for="(g, idx) in games" :key="g.gameNumber">
-                  <td>{{ idx + 1 }}</td>
+                  <td>
+                    <template v-if="detail.playoffSeriesLength != null">
+                      Game {{ idx + 1 }} of {{ detail.playoffSeriesLength }}
+                    </template>
+                    <template v-else>{{ idx + 1 }}</template>
+                  </td>
                   <td>
                     <span
                       v-if="g.homeScore != null"
@@ -442,8 +469,9 @@ watch(
                     >{{ playoffWL(g) }}</span>
                     <span v-else>—</span>
                   </td>
-                  <td :class="g.homeTeamHistoryId === historyId ? 'our-team' : ''">
-                    <AppLink :to="`/teams/${g.homeTeamId}/seasons/${g.homeTeamHistoryId}`">
+                  <td>
+                    <template v-if="g.homeTeamHistoryId === historyId">{{ g.homeTeamName }}</template>
+                    <AppLink v-else :to="`/teams/${g.homeTeamId}/seasons/${g.homeTeamHistoryId}`">
                       {{ g.homeTeamName }}
                     </AppLink>
                   </td>
@@ -453,8 +481,9 @@ watch(
                     </template>
                     <template v-else>—</template>
                   </td>
-                  <td :class="g.awayTeamHistoryId === historyId ? 'our-team' : ''">
-                    <AppLink :to="`/teams/${g.awayTeamId}/seasons/${g.awayTeamHistoryId}`">
+                  <td>
+                    <template v-if="g.awayTeamHistoryId === historyId">{{ g.awayTeamName }}</template>
+                    <AppLink v-else :to="`/teams/${g.awayTeamId}/seasons/${g.awayTeamHistoryId}`">
                       {{ g.awayTeamName }}
                     </AppLink>
                   </td>
@@ -486,6 +515,19 @@ watch(
                       <span v-else>{{ g.homePitcherName || '—' }}</span>
                     </template>
                   </td>
+                </tr>
+                <tr
+                  v-for="gameNum in seriesPlaceholders(games, detail.playoffSeriesLength)"
+                  :key="`upcoming-${gameNum}`"
+                  class="upcoming-game"
+                >
+                  <td>Game {{ gameNum }} of {{ detail.playoffSeriesLength }}</td>
+                  <td>—</td>
+                  <td>—</td>
+                  <td class="score-col">—</td>
+                  <td>—</td>
+                  <td>—</td>
+                  <td>—</td>
                 </tr>
               </tbody>
             </table>
@@ -692,10 +734,15 @@ h3 {
 }
 
 .score-col { text-align: center; width: 70px; }
-.our-team { font-weight: 600; }
 
 .series-table a { text-decoration: none; }
 .series-table a:hover { text-decoration: underline; }
+
+.upcoming-game td {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  border-bottom-color: color-mix(in srgb, var(--color-border) 25%, transparent);
+}
 
 .error-text { font-size: 0.875rem; color: var(--color-error); }
 </style>

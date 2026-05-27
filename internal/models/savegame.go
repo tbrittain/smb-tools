@@ -143,6 +143,12 @@ type SaveGamePlayoffGame struct {
 	AwayPitcherName *string
 }
 
+// SaveGamePlayoffConfig holds the bracket configuration read from t_playoffs.
+type SaveGamePlayoffConfig struct {
+	Rounds       int // number of playoff rounds (e.g. 3 for an 8-team bracket)
+	SeriesLength int // max games per series (e.g. 7 for best-of-7)
+}
+
 // SaveGameBattingStat is a season batting stat row from t_stats_batting.
 type SaveGameBattingStat struct {
 	AggregatorID int

@@ -60,6 +60,12 @@ type SaveGameReader interface {
 	// currently active pitchers.
 	GetCareerPitchingStats(ctx context.Context) ([]models.SaveGamePitchingStat, error)
 
+	// GetSeasonPlayoffConfig returns the playoff bracket configuration for the
+	// given season (rounds and series length from t_playoffs). Returns nil if no
+	// t_playoffs row exists for the season — callers should infer the config from
+	// imported game data in that case.
+	GetSeasonPlayoffConfig(ctx context.Context, seasonID int) (*models.SaveGamePlayoffConfig, error)
+
 	// GetCurrentSeason returns the most recent season for the franchise
 	// identified by leagueGUID. If leagueGUID is empty (SMB3 single-league
 	// saves), returns the latest season across all franchise seasons.

@@ -585,7 +585,24 @@ func (svc *LegacyMigrationService) migrateInTx(
 		}
 	}
 
-	// ── 11b. Championship awards ─────────────────────────────────────────────────
+	// ── 11b. Playoff config inference ────────────────────────────────────────────
+	// t_playoffs is unavailable in the legacy path; derive rounds and series
+	// length from the playoff game data we just imported.
+	seenLegacySeasons := make(map[int]struct{})
+	for _, g := range playoffSchedules {
+		seenLegacySeasons[g.LegacySeasonID] = struct{}{}
+	}
+	for legacySeasonID := range seenLegacySeasons {
+		newSeasonID, ok := legacySeasonIDToNew[legacySeasonID]
+		if !ok {
+			continue
+		}
+		if err := seasonStore.InferAndSetPlayoffConfig(ctx, newSeasonID); err != nil {
+			return result, fmt.Errorf("inferring playoff config for legacy season %d: %w", legacySeasonID, err)
+		}
+	}
+
+	// ── 11c. Championship awards ─────────────────────────────────────────────────
 	// The legacy DB stores championship winners in ChampionshipWinners, not as
 	// player awards. We derive the runner-up from the highest-numbered played
 	// final-series games. The season_champions view is intentionally bypassed here

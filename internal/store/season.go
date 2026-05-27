@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"math/bits"
 )
 
 // Season is the companion DB representation of a franchise season.
@@ -48,6 +49,68 @@ func (s *SeasonStore) Upsert(ctx context.Context, season Season) (int64, error) 
 		return 0, fmt.Errorf("fetching season id after upsert: %w", err)
 	}
 	return id, nil
+}
+
+// UpdatePlayoffConfig persists the playoff bracket configuration (rounds and
+// series length) for the given season. Both values come from t_playoffs in the
+// save game and remain NULL for seasons imported via the legacy path until
+// InferAndSetPlayoffConfig backfills them.
+func (s *SeasonStore) UpdatePlayoffConfig(ctx context.Context, seasonID int64, rounds, seriesLength int) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE seasons SET playoff_rounds = ?, playoff_series_length = ? WHERE id = ?`,
+		rounds, seriesLength, seasonID,
+	)
+	if err != nil {
+		return fmt.Errorf("updating playoff config for season %d: %w", seasonID, err)
+	}
+	return nil
+}
+
+// InferAndSetPlayoffConfig derives playoff_rounds and playoff_series_length from
+// the playoff games already stored for the season and persists the inferred values.
+// Used for the legacy import path where t_playoffs is unavailable.
+//
+// Inference rules:
+//   - playoff_rounds  = bits.Len(total distinct series count)
+//   - playoff_series_length = 2*maxWins - 1, where maxWins is the highest win
+//     count recorded by any single team in any single series (scored games only).
+//
+// No-ops silently if there are no playoff games or no scored games for the season.
+func (s *SeasonStore) InferAndSetPlayoffConfig(ctx context.Context, seasonID int64) error {
+	var totalSeries int
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(DISTINCT series_number) FROM team_playoff_schedules WHERE season_id = ?`,
+		seasonID,
+	).Scan(&totalSeries); err != nil || totalSeries == 0 {
+		return err
+	}
+
+	playoffRounds := bits.Len(uint(totalSeries))
+
+	var maxWins int
+	if err := s.db.QueryRowContext(ctx, `
+		SELECT COALESCE(MAX(team_wins), 0) FROM (
+			SELECT
+				CASE WHEN home_score > away_score THEN home_team_history_id
+				     ELSE away_team_history_id END AS winner_id,
+				COUNT(*) AS team_wins
+			FROM team_playoff_schedules
+			WHERE season_id = ?
+			  AND home_score IS NOT NULL AND away_score IS NOT NULL
+			  AND home_score != away_score
+			GROUP BY series_number,
+			         CASE WHEN home_score > away_score THEN home_team_history_id
+			              ELSE away_team_history_id END
+		)
+	`, seasonID).Scan(&maxWins); err != nil {
+		return fmt.Errorf("inferring series length for season %d: %w", seasonID, err)
+	}
+	if maxWins == 0 {
+		return nil
+	}
+
+	seriesLength := 2*maxWins - 1
+	return s.UpdatePlayoffConfig(ctx, seasonID, playoffRounds, seriesLength)
 }
 
 // GetByID returns the season with the given companion DB id.
