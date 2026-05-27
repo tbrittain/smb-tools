@@ -54,12 +54,12 @@ export function GetHistoricalTeams(arg1, arg2) {
   return window['go']['main']['App']['GetHistoricalTeams'](arg1, arg2);
 }
 
-export function GetHoFCandidates() {
-  return window['go']['main']['App']['GetHoFCandidates']();
+export function GetHoFCandidates(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetHoFCandidates'](arg1, arg2, arg3);
 }
 
-export function GetHoFInducted() {
-  return window['go']['main']['App']['GetHoFInducted']();
+export function GetHoFInducted(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetHoFInducted'](arg1, arg2, arg3);
 }
 
 export function GetPitchingCareerLeaders(arg1) {

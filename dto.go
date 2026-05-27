@@ -835,26 +835,33 @@ type SetPlayerAwardsRequestDTO struct {
 	AwardIDs       []int64 `json:"awardIds"`
 }
 
+// HoFPageDTO is the paginated response for Hall of Fame candidates or inductees.
+type HoFPageDTO struct {
+	Items []HoFCandidateDTO `json:"items"`
+	Total int               `json:"total"`
+}
+
 // HoFCandidateDTO carries career stats for a Hall of Fame candidate or inductee.
 type HoFCandidateDTO struct {
-	PlayerID      int64  `json:"playerId"`
-	FirstName     string `json:"firstName"`
-	LastName      string `json:"lastName"`
-	IsHallOfFamer bool   `json:"isHallOfFamer"`
-	FirstSeason   int    `json:"firstSeason"`
-	LastSeason    int    `json:"lastSeason"`
-	Seasons       int    `json:"seasons"`
-	Hits          int    `json:"hits"`
-	HomeRuns      int    `json:"homeRuns"`
-	RBI           int    `json:"rbi"`
-	StolenBases   int    `json:"stolenBases"`
-	AtBats        int    `json:"atBats"`
-	Walks         int    `json:"walks"`
-	Wins          int    `json:"wins"`
-	Losses        int    `json:"losses"`
-	OutsPitched   int    `json:"outsPitched"`
-	Strikeouts    int    `json:"strikeouts"`
-	EarnedRuns    int    `json:"earnedRuns"`
+	PlayerID      int64   `json:"playerId"`
+	FirstName     string  `json:"firstName"`
+	LastName      string  `json:"lastName"`
+	IsHallOfFamer bool    `json:"isHallOfFamer"`
+	FirstSeason   int     `json:"firstSeason"`
+	LastSeason    int     `json:"lastSeason"`
+	Seasons       int     `json:"seasons"`
+	Hits          int     `json:"hits"`
+	HomeRuns      int     `json:"homeRuns"`
+	RBI           int     `json:"rbi"`
+	StolenBases   int     `json:"stolenBases"`
+	AtBats        int     `json:"atBats"`
+	Walks         int     `json:"walks"`
+	Wins          int     `json:"wins"`
+	Losses        int     `json:"losses"`
+	OutsPitched   int     `json:"outsPitched"`
+	Strikeouts    int     `json:"strikeouts"`
+	EarnedRuns    int     `json:"earnedRuns"`
+	SmbWAR        float64 `json:"smbWar"`
 }
 
 // ── Award delegation candidates ───────────────────────────────────────────────
@@ -1076,5 +1083,6 @@ func hofCandidateToDTO(c models.HoFCandidate) HoFCandidateDTO {
 		OutsPitched:   c.OutsPitched,
 		Strikeouts:    c.Strikeouts,
 		EarnedRuns:    c.EarnedRuns,
+		SmbWAR:        c.SmbWAR,
 	}
 }
