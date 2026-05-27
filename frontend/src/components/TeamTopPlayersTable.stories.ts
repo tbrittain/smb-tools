@@ -29,7 +29,7 @@ const batter = (
   position: 'CF',
   smbWarWithTeam: war,
   avgOpsPlus: opsPlus,
-  avgEraPlus: null,
+  avgEraPlus: undefined,
   awards,
 })
 
@@ -51,7 +51,7 @@ const pitcher = (
   isPitcher: true,
   position: 'SP',
   smbWarWithTeam: war,
-  avgOpsPlus: null,
+  avgOpsPlus: undefined,
   avgEraPlus: eraPlus,
   awards,
 })
