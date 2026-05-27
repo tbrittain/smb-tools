@@ -67,9 +67,8 @@ function seriesPlaceholders(games: main.PlayoffGameDTO[], seriesLength: number |
     }
   }
   if (Math.max(homeWins, awayWins) >= winsNeeded) return []
-  const lastGameNum = games.length > 0 ? Math.max(...games.map((g) => g.gameNumber)) : 0
   const result: number[] = []
-  for (let n = lastGameNum + 1; n <= seriesLength; n++) {
+  for (let n = games.length + 1; n <= seriesLength; n++) {
     result.push(n)
   }
   return result
@@ -453,12 +452,12 @@ watch(
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="g in games" :key="g.gameNumber">
+                <tr v-for="(g, idx) in games" :key="g.gameNumber">
                   <td>
                     <template v-if="detail.playoffSeriesLength != null">
-                      Game {{ g.gameNumber }} of {{ detail.playoffSeriesLength }}
+                      Game {{ idx + 1 }} of {{ detail.playoffSeriesLength }}
                     </template>
-                    <template v-else>{{ g.gameNumber }}</template>
+                    <template v-else>{{ idx + 1 }}</template>
                   </td>
                   <td>
                     <span
