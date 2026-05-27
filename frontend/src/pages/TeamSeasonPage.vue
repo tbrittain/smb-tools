@@ -238,7 +238,7 @@ watch(
                 {{ data.firstName }} {{ data.lastName }}
               </AppLink>
               <HofBadge v-if="data.isHallOfFamer" />
-              <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
+              <span v-if="!data.isOnFinalRoster" class="released-badge">Released</span>
             </template>
           </Column>
           <Column field="primaryPosition" header="Pos" sortable style="min-width: 55px" />
@@ -298,7 +298,7 @@ watch(
                 {{ data.firstName }} {{ data.lastName }}
               </AppLink>
               <HofBadge v-if="data.isHallOfFamer" />
-              <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
+              <span v-if="!data.isOnFinalRoster" class="released-badge">Released</span>
             </template>
           </Column>
           <Column field="pitcherRole" header="Role" sortable style="min-width: 55px" />
@@ -362,7 +362,7 @@ watch(
               <AppLink :to="`/players/${data.playerId}`">
                 {{ data.firstName }} {{ data.lastName }}
               </AppLink>
-              <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
+              <span v-if="!data.isOnFinalRoster" class="released-badge">Released</span>
             </template>
           </Column>
           <Column field="primaryPosition" header="Pos" sortable style="min-width: 55px" />
@@ -736,7 +736,7 @@ h3 {
 .tab-btn.active { border-color: var(--color-accent); color: var(--color-accent); background: var(--color-surface-2); }
 .tab-btn:hover:not(.active) { background: var(--color-surface-2); color: var(--color-text-primary); }
 
-.traded-badge {
+.released-badge {
   margin-left: 0.375rem;
   font-size: 0.6rem;
   font-weight: 600;
