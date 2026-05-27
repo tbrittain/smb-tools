@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 withDefaults(
   defineProps<{
-    variant?: 'primary' | 'secondary' | 'ghost'
+    variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
     size?: 'sm' | 'md'
     disabled?: boolean
     type?: 'button' | 'submit' | 'reset'
@@ -91,5 +91,14 @@ withDefaults(
 
 .app-btn--ghost:hover:not(:disabled) {
   text-decoration: underline;
+}
+
+.app-btn--danger {
+  background: var(--color-error, #dc2626);
+  color: #fff;
+}
+
+.app-btn--danger:hover:not(:disabled) {
+  opacity: 0.9;
 }
 </style>
