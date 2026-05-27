@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import Toast from 'primevue/toast'
+import { useToast } from 'primevue/usetoast'
 import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppButton from './components/AppButton.vue'
@@ -13,6 +14,7 @@ const router = useRouter()
 const route = useRoute()
 const franchiseStore = useFranchiseStore()
 const { crumbs, clear: clearCrumbs } = useBreadcrumbs()
+const toast = useToast()
 const showCreate = ref(false)
 const error = ref<string | null>(null)
 
@@ -47,6 +49,17 @@ async function handleSelect(id: string) {
   error.value = null
   try {
     await franchiseStore.selectFranchise(id)
+  } catch (e) {
+    error.value = String(e)
+  }
+}
+
+async function handleDelete(id: string) {
+  error.value = null
+  const name = franchiseStore.franchises.find((f) => f.id === id)?.name ?? 'Franchise'
+  try {
+    await franchiseStore.deleteFranchise(id)
+    toast.add({ severity: 'success', summary: `"${name}" deleted`, life: 4000 })
   } catch (e) {
     error.value = String(e)
   }
@@ -93,6 +106,7 @@ function goToCrumb(historyPosition: number) {
           @select="handleSelect"
           @create="showCreate = true"
           @import="router.push('/migrate-legacy')"
+          @delete="handleDelete"
         />
       </div>
     </div>

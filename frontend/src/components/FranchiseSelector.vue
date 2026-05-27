@@ -1,5 +1,8 @@
 <script lang="ts" setup>
-import { onMounted, ref, watch } from 'vue'
+import Dialog from 'primevue/dialog'
+import InputText from 'primevue/inputtext'
+import Menu from 'primevue/menu'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ProbeFranchiseSaveFile } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppButton from './AppButton.vue'
@@ -14,6 +17,7 @@ const emit = defineEmits<{
   select: [id: string]
   create: []
   import: []
+  delete: [id: string]
 }>()
 
 // ── Live save file probe state ────────────────────────────────────────────────
@@ -105,6 +109,45 @@ function liveLabel(f: main.FranchiseDTO): string | null {
   if (probe.playerTeamName) parts.push(probe.playerTeamName)
   return parts.length > 0 ? parts.join(' · ') : null
 }
+
+// ── Delete flow ───────────────────────────────────────────────────────────────
+
+const franchiseMenu = ref<{ toggle: (event: Event) => void } | null>(null)
+const menuTargetId = ref<string | null>(null)
+const showDeleteDialog = ref(false)
+const deleteNameInput = ref('')
+
+const franchiseToDelete = computed(() => props.franchises.find((f) => f.id === menuTargetId.value) ?? null)
+
+const menuItems = computed(() => [
+  {
+    label: 'Delete franchise',
+    command: () => {
+      deleteNameInput.value = ''
+      showDeleteDialog.value = true
+    },
+  },
+])
+
+function openMenu(event: MouseEvent, id: string) {
+  menuTargetId.value = id
+  franchiseMenu.value?.toggle(event)
+}
+
+const deleteNameMatches = computed(
+  () => !!franchiseToDelete.value && deleteNameInput.value === franchiseToDelete.value.name,
+)
+
+function submitDelete() {
+  if (!deleteNameMatches.value || !menuTargetId.value) return
+  emit('delete', menuTargetId.value)
+  showDeleteDialog.value = false
+}
+
+function onDialogHide() {
+  menuTargetId.value = null
+  deleteNameInput.value = ''
+}
 </script>
 
 <template>
@@ -137,12 +180,22 @@ function liveLabel(f: main.FranchiseDTO): string | null {
         :class="{ active: f.id === props.activeId }"
         @click="emit('select', f.id)"
       >
-        <!-- Top row: name + version badge -->
+        <!-- Top row: name + version badge + menu -->
         <div class="item-header">
           <span class="franchise-name">{{ f.name }}</span>
-          <div class="item-badges">
-            <span class="version-badge">{{ gameVersionLabel(f.gameVersion) }}</span>
-            <span v-if="f.id === props.activeId" class="active-badge">Active</span>
+          <div class="item-right">
+            <div class="item-badges">
+              <span class="version-badge">{{ gameVersionLabel(f.gameVersion) }}</span>
+              <span v-if="f.id === props.activeId" class="active-badge">Active</span>
+            </div>
+            <button
+              class="menu-btn"
+              title="Franchise options"
+              aria-label="Franchise options"
+              @click.stop="openMenu($event, f.id)"
+            >
+              ⋮
+            </button>
           </div>
         </div>
 
@@ -188,6 +241,48 @@ function liveLabel(f: main.FranchiseDTO): string | null {
       <span class="import-hint">Have a SmbExplorerCompanion database?</span>
       <button class="import-link" @click="emit('import')">Import franchise</button>
     </div>
+
+    <!-- Shared popup menu for franchise actions -->
+    <Menu ref="franchiseMenu" :model="menuItems" popup />
+
+    <!-- Delete confirmation dialog -->
+    <Dialog
+      v-model:visible="showDeleteDialog"
+      modal
+      header="Delete franchise"
+      :style="{ width: '26rem' }"
+      @hide="onDialogHide"
+    >
+      <div class="delete-dialog-body">
+        <p class="delete-warning">
+          This permanently deletes
+          <strong>{{ franchiseToDelete?.name }}</strong>
+          and all its seasons, stats, and save game snapshots. This cannot be undone.
+        </p>
+
+        <div class="delete-confirm-field">
+          <label class="delete-confirm-label" for="delete-name-input">
+            Type the franchise name to confirm:
+          </label>
+          <InputText
+            id="delete-name-input"
+            v-model="deleteNameInput"
+            class="delete-name-input"
+            autocomplete="off"
+            @keydown.enter.prevent="submitDelete"
+          />
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="delete-dialog-footer">
+          <AppButton variant="secondary" size="sm" @click="showDeleteDialog = false">Cancel</AppButton>
+          <AppButton variant="danger" size="sm" :disabled="!deleteNameMatches" @click="submitDelete">
+            Delete franchise
+          </AppButton>
+        </div>
+      </template>
+    </Dialog>
   </div>
 </template>
 
@@ -268,11 +363,17 @@ h2 {
   color: var(--color-text-primary);
 }
 
+.item-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
 .item-badges {
   display: flex;
   gap: 0.375rem;
   align-items: center;
-  flex-shrink: 0;
 }
 
 .version-badge {
@@ -293,6 +394,27 @@ h2 {
   background: var(--color-accent);
   color: #fff;
   border-radius: 99px;
+}
+
+/* Kebab menu button */
+.menu-btn {
+  background: none;
+  border: none;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.franchise-item:hover .menu-btn,
+.menu-btn:hover,
+.menu-btn:focus-visible {
+  opacity: 1;
+  background: var(--color-surface-1);
 }
 
 /* Live probe line */
@@ -383,5 +505,44 @@ h2 {
 
 .import-link:hover {
   text-decoration: underline;
+}
+
+/* Delete dialog */
+.delete-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.delete-warning {
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.delete-warning strong {
+  color: var(--color-text-primary);
+}
+
+.delete-confirm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.delete-confirm-label {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.delete-name-input {
+  width: 100%;
+}
+
+.delete-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.625rem;
 }
 </style>
