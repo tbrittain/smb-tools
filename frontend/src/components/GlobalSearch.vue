@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { SearchPlayers, SearchTeams } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import { useSearchDebounce } from '../composables/useSearchDebounce'
+import HofBadge from './HofBadge.vue'
 
 const router = useRouter()
 const containerRef = ref<HTMLElement | null>(null)
@@ -102,7 +103,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsi
           @click="navigateTo(`/players/${p.playerId}`)"
         >
           <span class="result-name">{{ p.firstName }} {{ p.lastName }}</span>
-          <span v-if="p.isHallOfFamer" class="hof-badge">HoF</span>
+          <HofBadge v-if="p.isHallOfFamer" />
           <span class="result-meta">{{ p.seasonsPlayed }}s</span>
         </button>
       </section>
@@ -245,17 +246,6 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsi
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.hof-badge {
-  flex-shrink: 0;
-  font-size: 0.625rem;
-  font-weight: 600;
-  color: #d29922;
-  background: color-mix(in srgb, #d29922 15%, transparent);
-  border: 1px solid color-mix(in srgb, #d29922 40%, transparent);
-  border-radius: 3px;
-  padding: 0 4px;
 }
 
 .result-meta {

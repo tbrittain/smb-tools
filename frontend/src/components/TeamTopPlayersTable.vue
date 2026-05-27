@@ -2,11 +2,32 @@
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import type { main } from '../../wailsjs/go/models'
-import { getAwardIcon } from '../composables/useAwardIcons'
+import { getAwardIcon, getAwardImportance } from '../composables/useAwardIcons'
 import { formatAdjustedStat, formatSeasonRanges, formatWAR } from '../composables/useStatFormatters'
 import AppLink from './AppLink.vue'
+import AwardBadge from './AwardBadge.vue'
+import HofBadge from './HofBadge.vue'
 
 defineProps<{ players: main.TeamTopPlayerDTO[] }>()
+
+interface GroupedAward {
+  originalName: string
+  name: string
+  importance: number
+  count: number
+}
+
+function groupAwards(awards: string[]): GroupedAward[] {
+  const counts = new Map<string, number>()
+  for (const name of awards) {
+    counts.set(name, (counts.get(name) ?? 0) + 1)
+  }
+  const groups: GroupedAward[] = []
+  for (const [originalName, count] of counts) {
+    groups.push({ originalName, name: originalName, importance: getAwardImportance(originalName), count })
+  }
+  return groups.sort((a, b) => a.importance - b.importance)
+}
 </script>
 
 <template>
@@ -22,7 +43,7 @@ defineProps<{ players: main.TeamTopPlayerDTO[] }>()
         <AppLink :to="`/players/${data.playerId}`">
           {{ data.firstName }} {{ data.lastName }}
         </AppLink>
-        <span v-if="data.isHallOfFamer" class="hof-badge" title="Hall of Famer"> HOF</span>
+        <HofBadge v-if="data.isHallOfFamer" />
       </template>
     </Column>
     <Column field="numSeasons" header="Seasons" sortable style="min-width: 80px" />
@@ -42,16 +63,17 @@ defineProps<{ players: main.TeamTopPlayerDTO[] }>()
         {{ formatAdjustedStat(data.isPitcher ? data.avgEraPlus : data.avgOpsPlus) }}
       </template>
     </Column>
-    <Column header="Awards" style="min-width: 180px">
+    <Column header="Awards" style="min-width: 200px">
       <template #body="{ data }: { data: main.TeamTopPlayerDTO }">
         <span v-if="!data.awards || data.awards.length === 0" class="no-awards">—</span>
         <span v-else class="awards-list">
-          <span
-            v-for="(award, idx) in data.awards"
-            :key="idx"
-            class="award-badge"
-            :title="award"
-          >{{ getAwardIcon(award) || award }}</span>
+          <AwardBadge
+            v-for="group in groupAwards(data.awards)"
+            :key="group.originalName"
+            :award="group"
+            :count="group.count"
+            size="sm"
+          />
         </span>
       </template>
     </Column>
@@ -59,25 +81,10 @@ defineProps<{ players: main.TeamTopPlayerDTO[] }>()
 </template>
 
 <style scoped>
-.hof-badge {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  margin-left: 0.25rem;
-}
-
 .awards-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
-}
-
-.award-badge {
-  font-size: 0.75rem;
-  background: var(--p-surface-100, #f3f4f6);
-  border-radius: 3px;
-  padding: 1px 4px;
-  white-space: nowrap;
 }
 
 .no-awards {

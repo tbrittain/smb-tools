@@ -7,6 +7,7 @@ import { GetTeamHistory, GetTeamSeasonDetail } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppLink from '../components/AppLink.vue'
 import EmptyState from '../components/EmptyState.vue'
+import HofBadge from '../components/HofBadge.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 import {
@@ -236,7 +237,7 @@ watch(
               <AppLink :to="`/players/${data.playerId}`">
                 {{ data.firstName }} {{ data.lastName }}
               </AppLink>
-              <span v-if="data.isHallOfFamer" class="hof-badge">HoF</span>
+              <HofBadge v-if="data.isHallOfFamer" />
               <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
             </template>
           </Column>
@@ -296,7 +297,7 @@ watch(
               <AppLink :to="`/players/${data.playerId}`">
                 {{ data.firstName }} {{ data.lastName }}
               </AppLink>
-              <span v-if="data.isHallOfFamer" class="hof-badge">HoF</span>
+              <HofBadge v-if="data.isHallOfFamer" />
               <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
             </template>
           </Column>
@@ -734,18 +735,6 @@ h3 {
 }
 .tab-btn.active { border-color: var(--color-accent); color: var(--color-accent); background: var(--color-surface-2); }
 .tab-btn:hover:not(.active) { background: var(--color-surface-2); color: var(--color-text-primary); }
-
-.hof-badge {
-  margin-left: 0.375rem;
-  font-size: 0.6rem;
-  font-weight: 600;
-  color: #d29922;
-  background: color-mix(in srgb, #d29922 15%, transparent);
-  border: 1px solid color-mix(in srgb, #d29922 40%, transparent);
-  border-radius: 3px;
-  padding: 0 4px;
-  vertical-align: middle;
-}
 
 .traded-badge {
   margin-left: 0.375rem;
