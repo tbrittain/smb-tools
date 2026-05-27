@@ -63,7 +63,7 @@ function groupAwards(awards: string[]): GroupedAward[] {
         {{ formatAdjustedStat(data.isPitcher ? data.avgEraPlus : data.avgOpsPlus) }}
       </template>
     </Column>
-    <Column header="Awards With Team" style="min-width: 200px">
+    <Column header="Awards w/ Team" style="min-width: 200px">
       <template #body="{ data }: { data: main.TeamTopPlayerDTO }">
         <span v-if="!data.awards || data.awards.length === 0" class="no-awards">—</span>
         <span v-else class="awards-list">
