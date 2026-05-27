@@ -61,7 +61,7 @@ function fmtPct(v: number): string {
                 <AppLink :to="`/teams/${row.teamId}/seasons/${row.historyId}`">
                   {{ row.teamName }}
                 </AppLink>
-                <span v-if="row.playoffSeed" class="playoff-badge">P{{ row.playoffSeed }}</span>
+                <span v-if="row.playoffSeed" class="playoff-badge">#{{ row.playoffSeed }} Seed</span>
               </td>
               <td class="col-num">{{ row.wins }}</td>
               <td class="col-num">{{ row.losses }}</td>
