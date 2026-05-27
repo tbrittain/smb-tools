@@ -28,9 +28,9 @@ export function GetCareerLeaders():Promise<main.CareerLeadersDTO>;
 
 export function GetHistoricalTeams(arg1:number,arg2:number):Promise<Array<main.HistoricalTeamDTO>>;
 
-export function GetHoFCandidates():Promise<Array<main.HoFCandidateDTO>>;
+export function GetHoFCandidates(arg1:number,arg2:number,arg3:number):Promise<main.HoFPageDTO>;
 
-export function GetHoFInducted():Promise<Array<main.HoFCandidateDTO>>;
+export function GetHoFInducted(arg1:number,arg2:number,arg3:number):Promise<main.HoFPageDTO>;
 
 export function GetPitchingCareerLeaders(arg1:main.LeaderboardFiltersDTO):Promise<Array<main.PitchingLeaderRowDTO>>;
 

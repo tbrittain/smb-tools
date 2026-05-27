@@ -835,6 +835,12 @@ type SetPlayerAwardsRequestDTO struct {
 	AwardIDs       []int64 `json:"awardIds"`
 }
 
+// HoFPageDTO is the paginated response for Hall of Fame candidates or inductees.
+type HoFPageDTO struct {
+	Items []HoFCandidateDTO `json:"items"`
+	Total int               `json:"total"`
+}
+
 // HoFCandidateDTO carries career stats for a Hall of Fame candidate or inductee.
 type HoFCandidateDTO struct {
 	PlayerID      int64  `json:"playerId"`

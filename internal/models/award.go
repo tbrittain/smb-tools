@@ -174,3 +174,9 @@ type HoFCandidate struct {
 	Strikeouts     int
 	EarnedRuns     int
 }
+
+// HoFPage is a paginated response for Hall of Fame candidates or inductees.
+type HoFPage struct {
+	Items []HoFCandidate
+	Total int
+}

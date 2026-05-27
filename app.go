@@ -1202,36 +1202,40 @@ func (a *App) GetSeasonChampionTeamHistoryID(seasonID int64) (*int64, error) {
 	return a.awardStore.GetSeasonChampionTeam(a.ctx, seasonID)
 }
 
-// GetHoFCandidates returns retired players eligible for Hall of Fame induction.
-func (a *App) GetHoFCandidates() ([]HoFCandidateDTO, error) {
+// GetHoFCandidates returns a paginated list of retired players eligible for Hall
+// of Fame induction. page is 1-based; pageSize controls rows per page;
+// lastSeasons limits results to players whose last season falls within the past
+// lastSeasons seasons.
+func (a *App) GetHoFCandidates(page, pageSize, lastSeasons int) (HoFPageDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
-		return nil, err
+		return HoFPageDTO{}, err
 	}
-	candidates, err := a.awardStore.GetHoFCandidates(a.ctx)
+	result, err := a.awardStore.GetHoFCandidates(a.ctx, page, pageSize, lastSeasons)
 	if err != nil {
-		return nil, err
+		return HoFPageDTO{}, err
 	}
-	out := make([]HoFCandidateDTO, len(candidates))
-	for i, c := range candidates {
-		out[i] = hofCandidateToDTO(c)
+	items := make([]HoFCandidateDTO, len(result.Items))
+	for i, c := range result.Items {
+		items[i] = hofCandidateToDTO(c)
 	}
-	return out, nil
+	return HoFPageDTO{Items: items, Total: result.Total}, nil
 }
 
-// GetHoFInducted returns all current Hall of Fame members.
-func (a *App) GetHoFInducted() ([]HoFCandidateDTO, error) {
+// GetHoFInducted returns a paginated list of current Hall of Fame members,
+// filtered and paginated with the same semantics as GetHoFCandidates.
+func (a *App) GetHoFInducted(page, pageSize, lastSeasons int) (HoFPageDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
-		return nil, err
+		return HoFPageDTO{}, err
 	}
-	inducted, err := a.awardStore.GetHoFInducted(a.ctx)
+	result, err := a.awardStore.GetHoFInducted(a.ctx, page, pageSize, lastSeasons)
 	if err != nil {
-		return nil, err
+		return HoFPageDTO{}, err
 	}
-	out := make([]HoFCandidateDTO, len(inducted))
-	for i, c := range inducted {
-		out[i] = hofCandidateToDTO(c)
+	items := make([]HoFCandidateDTO, len(result.Items))
+	for i, c := range result.Items {
+		items[i] = hofCandidateToDTO(c)
 	}
-	return out, nil
+	return HoFPageDTO{Items: items, Total: result.Total}, nil
 }
 
 // GetSeasonAwardCandidates returns all award delegation candidate groups for a season:

@@ -1,5 +1,7 @@
 <script lang="ts" setup>
-import { onMounted, ref } from 'vue'
+import InputNumber from 'primevue/inputnumber'
+import Paginator, { type PageState } from 'primevue/paginator'
+import { onMounted, ref, watch } from 'vue'
 import { GetHoFCandidates, GetHoFInducted, SetHallOfFamer } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppLink from '../components/AppLink.vue'
@@ -7,26 +9,72 @@ import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 
+const PAGE_SIZE = 25
+
 const candidates = ref<main.HoFCandidateDTO[]>([])
+const candidatesTotal = ref(0)
+const candidatesFirst = ref(0)
+
 const inducted = ref<main.HoFCandidateDTO[]>([])
+const inductedTotal = ref(0)
+const inductedFirst = ref(0)
+
 const selected = ref<Set<number>>(new Set())
-const loading = ref(false)
+const lastSeasons = ref(1)
+const loadingCandidates = ref(false)
+const loadingInducted = ref(false)
 const saving = ref(false)
 const error = ref<string | null>(null)
 
-async function load() {
-  loading.value = true
+async function loadCandidates() {
+  loadingCandidates.value = true
   error.value = null
   try {
-    const [cands, ind] = await Promise.all([GetHoFCandidates(), GetHoFInducted()])
-    candidates.value = cands ?? []
-    inducted.value = ind ?? []
+    const page = Math.floor(candidatesFirst.value / PAGE_SIZE) + 1
+    const result = await GetHoFCandidates(page, PAGE_SIZE, lastSeasons.value)
+    candidates.value = result.items ?? []
+    candidatesTotal.value = result.total ?? 0
     selected.value = new Set()
   } catch (e) {
     error.value = String(e)
   } finally {
-    loading.value = false
+    loadingCandidates.value = false
   }
+}
+
+async function loadInducted() {
+  loadingInducted.value = true
+  error.value = null
+  try {
+    const page = Math.floor(inductedFirst.value / PAGE_SIZE) + 1
+    const result = await GetHoFInducted(page, PAGE_SIZE, lastSeasons.value)
+    inducted.value = result.items ?? []
+    inductedTotal.value = result.total ?? 0
+  } catch (e) {
+    error.value = String(e)
+  } finally {
+    loadingInducted.value = false
+  }
+}
+
+async function load() {
+  await Promise.all([loadCandidates(), loadInducted()])
+}
+
+watch(lastSeasons, () => {
+  candidatesFirst.value = 0
+  inductedFirst.value = 0
+  load()
+})
+
+function onCandidatesPage(e: PageState) {
+  candidatesFirst.value = e.first
+  loadCandidates()
+}
+
+function onInductedPage(e: PageState) {
+  inductedFirst.value = e.first
+  loadInducted()
 }
 
 function toggleSelect(id: number) {
@@ -43,6 +91,8 @@ async function inductSelected() {
   error.value = null
   try {
     await Promise.all([...selected.value].map((id) => SetHallOfFamer(id, true)))
+    candidatesFirst.value = 0
+    inductedFirst.value = 0
     await load()
   } catch (e) {
     error.value = String(e)
@@ -56,6 +106,8 @@ async function removeInductee(id: number) {
   error.value = null
   try {
     await SetHallOfFamer(id, false)
+    inductedFirst.value = 0
+    candidatesFirst.value = 0
     await load()
   } catch (e) {
     error.value = String(e)
@@ -83,13 +135,21 @@ onMounted(load)
   <div class="hof-page">
     <div class="page-header">
       <h1 class="page-title">Hall of Fame</h1>
+      <div class="filter-row">
+        <label class="filter-label" for="last-seasons-input">Past seasons</label>
+        <InputNumber
+          id="last-seasons-input"
+          v-model="lastSeasons"
+          :min="1"
+          :allow-empty="false"
+          input-class="last-seasons-input"
+        />
+      </div>
     </div>
 
     <div v-if="error" class="error-msg">{{ error }}</div>
 
-    <LoadingSpinner v-if="loading" />
-
-    <div v-else class="panels">
+    <div class="panels">
       <!-- Left: Candidates -->
       <section class="panel">
         <div class="panel-header">
@@ -103,96 +163,120 @@ onMounted(load)
           </button>
         </div>
 
-        <EmptyState
-          v-if="candidates.length === 0"
-          message="No retired players eligible yet."
-        />
+        <LoadingSpinner v-if="loadingCandidates" />
 
-        <div v-else class="player-list">
-          <div
-            v-for="p in candidates"
-            :key="p.playerId"
-            class="player-row"
-            :class="{ selected: selected.has(p.playerId) }"
-            @click="toggleSelect(p.playerId)"
-          >
-            <input
-              type="checkbox"
-              :checked="selected.has(p.playerId)"
-              class="hof-checkbox"
-              @click.stop="toggleSelect(p.playerId)"
-            />
-            <div class="player-info">
-              <AppLink
-                :to="`/players/${p.playerId}`"
-                class="player-name"
-                @click.stop
-              >
-                {{ p.lastName }}, {{ p.firstName }}
-              </AppLink>
-              <span class="player-meta">
-                Seasons {{ p.firstSeason }}–{{ p.lastSeason }}
-                ({{ p.seasons }} seasons)
-              </span>
-            </div>
-            <div class="career-stats">
-              <template v-if="p.atBats > 0">
-                <span class="stat-item"><span class="stat-label">H</span>{{ p.hits }}</span>
-                <span class="stat-item"><span class="stat-label">HR</span>{{ p.homeRuns }}</span>
-                <span class="stat-item"><span class="stat-label">RBI</span>{{ p.rbi }}</span>
-                <span class="stat-item"><span class="stat-label">BA</span>{{ ba(p) }}</span>
-              </template>
-              <template v-if="p.outsPitched > 0">
-                <span class="stat-item"><span class="stat-label">W</span>{{ p.wins }}</span>
-                <span class="stat-item"><span class="stat-label">K</span>{{ p.strikeouts }}</span>
-                <span class="stat-item"><span class="stat-label">ERA</span>{{ era(p) }}</span>
-              </template>
+        <template v-else>
+          <EmptyState
+            v-if="candidates.length === 0"
+            message="No retired players eligible yet."
+          />
+
+          <div v-else class="player-list">
+            <div
+              v-for="p in candidates"
+              :key="p.playerId"
+              class="player-row"
+              :class="{ selected: selected.has(p.playerId) }"
+              @click="toggleSelect(p.playerId)"
+            >
+              <input
+                type="checkbox"
+                :checked="selected.has(p.playerId)"
+                class="hof-checkbox"
+                @click.stop="toggleSelect(p.playerId)"
+              />
+              <div class="player-info">
+                <AppLink
+                  :to="`/players/${p.playerId}`"
+                  class="player-name"
+                  @click.stop
+                >
+                  {{ p.lastName }}, {{ p.firstName }}
+                </AppLink>
+                <span class="player-meta">
+                  Seasons {{ p.firstSeason }}–{{ p.lastSeason }}
+                  ({{ p.seasons }} seasons)
+                </span>
+              </div>
+              <div class="career-stats">
+                <template v-if="p.atBats > 0">
+                  <span class="stat-item"><span class="stat-label">H</span>{{ p.hits }}</span>
+                  <span class="stat-item"><span class="stat-label">HR</span>{{ p.homeRuns }}</span>
+                  <span class="stat-item"><span class="stat-label">RBI</span>{{ p.rbi }}</span>
+                  <span class="stat-item"><span class="stat-label">BA</span>{{ ba(p) }}</span>
+                </template>
+                <template v-if="p.outsPitched > 0">
+                  <span class="stat-item"><span class="stat-label">W</span>{{ p.wins }}</span>
+                  <span class="stat-item"><span class="stat-label">K</span>{{ p.strikeouts }}</span>
+                  <span class="stat-item"><span class="stat-label">ERA</span>{{ era(p) }}</span>
+                </template>
+              </div>
             </div>
           </div>
-        </div>
+
+          <Paginator
+            v-if="candidatesTotal > PAGE_SIZE"
+            :first="candidatesFirst"
+            :rows="PAGE_SIZE"
+            :total-records="candidatesTotal"
+            @page="onCandidatesPage"
+          />
+        </template>
       </section>
 
       <!-- Right: Inducted -->
       <section class="panel">
         <div class="panel-header">
-          <h2 class="panel-title">Inducted ({{ inducted.length }})</h2>
+          <h2 class="panel-title">Inducted ({{ inductedTotal }})</h2>
         </div>
 
-        <EmptyState
-          v-if="inducted.length === 0"
-          message="No Hall of Famers yet."
-        />
+        <LoadingSpinner v-if="loadingInducted" />
 
-        <div v-else class="player-list">
-          <div v-for="p in inducted" :key="p.playerId" class="player-row inducted">
-            <div class="player-info">
-              <AppLink :to="`/players/${p.playerId}`" class="player-name">
-                {{ p.lastName }}, {{ p.firstName }}
-              </AppLink>
-              <span class="player-meta">
-                Seasons {{ p.firstSeason }}–{{ p.lastSeason }}
-              </span>
+        <template v-else>
+          <EmptyState
+            v-if="inducted.length === 0"
+            message="No Hall of Famers yet."
+          />
+
+          <div v-else class="player-list">
+            <div v-for="p in inducted" :key="p.playerId" class="player-row inducted">
+              <div class="player-info">
+                <AppLink :to="`/players/${p.playerId}`" class="player-name">
+                  {{ p.lastName }}, {{ p.firstName }}
+                </AppLink>
+                <span class="player-meta">
+                  Seasons {{ p.firstSeason }}–{{ p.lastSeason }}
+                </span>
+              </div>
+              <div class="career-stats">
+                <template v-if="p.atBats > 0">
+                  <span class="stat-item"><span class="stat-label">H</span>{{ p.hits }}</span>
+                  <span class="stat-item"><span class="stat-label">HR</span>{{ p.homeRuns }}</span>
+                  <span class="stat-item"><span class="stat-label">BA</span>{{ ba(p) }}</span>
+                </template>
+                <template v-if="p.outsPitched > 0">
+                  <span class="stat-item"><span class="stat-label">W</span>{{ p.wins }}</span>
+                  <span class="stat-item"><span class="stat-label">ERA</span>{{ era(p) }}</span>
+                </template>
+              </div>
+              <button
+                class="btn btn-ghost remove-btn"
+                :disabled="saving"
+                @click="removeInductee(p.playerId)"
+              >
+                Remove
+              </button>
             </div>
-            <div class="career-stats">
-              <template v-if="p.atBats > 0">
-                <span class="stat-item"><span class="stat-label">H</span>{{ p.hits }}</span>
-                <span class="stat-item"><span class="stat-label">HR</span>{{ p.homeRuns }}</span>
-                <span class="stat-item"><span class="stat-label">BA</span>{{ ba(p) }}</span>
-              </template>
-              <template v-if="p.outsPitched > 0">
-                <span class="stat-item"><span class="stat-label">W</span>{{ p.wins }}</span>
-                <span class="stat-item"><span class="stat-label">ERA</span>{{ era(p) }}</span>
-              </template>
-            </div>
-            <button
-              class="btn btn-ghost remove-btn"
-              :disabled="saving"
-              @click="removeInductee(p.playerId)"
-            >
-              Remove
-            </button>
           </div>
-        </div>
+
+          <Paginator
+            v-if="inductedTotal > PAGE_SIZE"
+            :first="inductedFirst"
+            :rows="PAGE_SIZE"
+            :total-records="inductedTotal"
+            @page="onInductedPage"
+          />
+        </template>
       </section>
     </div>
   </div>
@@ -206,12 +290,33 @@ onMounted(load)
 
 .page-header {
   margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .page-title {
   font-size: 1.5rem;
   font-weight: 600;
   margin: 0;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-label {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+:deep(.last-seasons-input) {
+  width: 5rem;
+  text-align: center;
 }
 
 .error-msg {

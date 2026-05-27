@@ -495,32 +495,54 @@ func (s *AwardStore) GetSeasonChampionTeam(ctx context.Context, seasonID int64) 
 
 // ── Hall of Fame ──────────────────────────────────────────────────────────────
 
-// GetHoFCandidates returns players who appeared in at least one season but are
-// absent from the most recently imported season (retired) and not yet inducted.
-func (s *AwardStore) GetHoFCandidates(ctx context.Context) ([]models.HoFCandidate, error) {
-	return s.queryHoFPlayers(ctx, false)
+// GetHoFCandidates returns a paginated list of players who appeared in at least
+// one season but are absent from the most recently imported season (retired) and
+// not yet inducted. lastSeasons limits results to players whose last season falls
+// within the past lastSeasons seasons; page and pageSize control pagination
+// (page is 1-based).
+func (s *AwardStore) GetHoFCandidates(ctx context.Context, page, pageSize, lastSeasons int) (*models.HoFPage, error) {
+	return s.queryHoFPlayers(ctx, false, page, pageSize, lastSeasons)
 }
 
-// GetHoFInducted returns all players currently marked as Hall of Famers.
-func (s *AwardStore) GetHoFInducted(ctx context.Context) ([]models.HoFCandidate, error) {
-	return s.queryHoFPlayers(ctx, true)
+// GetHoFInducted returns a paginated list of all players currently marked as
+// Hall of Famers, filtered and paginated with the same semantics as
+// GetHoFCandidates.
+func (s *AwardStore) GetHoFInducted(ctx context.Context, page, pageSize, lastSeasons int) (*models.HoFPage, error) {
+	return s.queryHoFPlayers(ctx, true, page, pageSize, lastSeasons)
 }
 
-func (s *AwardStore) queryHoFPlayers(ctx context.Context, inducted bool) ([]models.HoFCandidate, error) {
-	var filter string
+func (s *AwardStore) queryHoFPlayers(ctx context.Context, inducted bool, page, pageSize, lastSeasons int) (*models.HoFPage, error) {
+	var whereClause string
 	if inducted {
-		filter = `WHERE p.is_hall_of_famer = 1`
+		whereClause = `WHERE p.is_hall_of_famer = 1`
 	} else {
-		filter = `
-WHERE p.is_hall_of_famer = 0
+		whereClause = `WHERE p.is_hall_of_famer = 0
   AND p.id NOT IN (
       SELECT player_id FROM player_seasons
       WHERE season_id = (SELECT id FROM seasons ORDER BY season_num DESC LIMIT 1)
   )`
 	}
 
-	rows, err := s.db.QueryContext(ctx, `
-SELECT
+	baseFrom := `
+FROM players p
+JOIN player_seasons ps ON ps.player_id = p.id
+JOIN seasons s         ON s.id = ps.season_id
+LEFT JOIN player_season_batting_stats b
+    ON b.player_season_id = ps.id AND b.is_regular_season = 1
+LEFT JOIN player_season_pitching_stats pi
+    ON pi.player_season_id = ps.id AND pi.is_regular_season = 1
+` + whereClause + `
+GROUP BY p.id
+HAVING MAX(s.season_num) >= (SELECT MAX(season_num) FROM seasons) - ?`
+
+	var total int
+	countSQL := `SELECT COUNT(*) FROM (SELECT p.id ` + baseFrom + `)`
+	if err := s.db.QueryRowContext(ctx, countSQL, lastSeasons).Scan(&total); err != nil {
+		return nil, fmt.Errorf("counting HoF players (inducted=%v): %w", inducted, err)
+	}
+
+	offset := (page - 1) * pageSize
+	mainSQL := `SELECT
     p.id,
     p.first_name,
     p.last_name,
@@ -539,23 +561,17 @@ SELECT
     COALESCE(SUM(pi.outs_pitched), 0) AS outs_pitched,
     COALESCE(SUM(pi.strikeouts),   0) AS strikeouts,
     COALESCE(SUM(pi.earned_runs),  0) AS earned_runs
-FROM players p
-JOIN player_seasons ps ON ps.player_id = p.id
-JOIN seasons s         ON s.id = ps.season_id
-LEFT JOIN player_season_batting_stats b
-    ON b.player_season_id = ps.id AND b.is_regular_season = 1
-LEFT JOIN player_season_pitching_stats pi
-    ON pi.player_season_id = ps.id AND pi.is_regular_season = 1
-`+filter+`
-GROUP BY p.id
-ORDER BY hits DESC, home_runs DESC
-`)
+` + baseFrom + `
+ORDER BY MAX(s.season_num) DESC
+LIMIT ? OFFSET ?`
+
+	rows, err := s.db.QueryContext(ctx, mainSQL, lastSeasons, pageSize, offset)
 	if err != nil {
 		return nil, fmt.Errorf("querying HoF players (inducted=%v): %w", inducted, err)
 	}
 	defer func() { _ = rows.Close() }()
 
-	var out []models.HoFCandidate
+	var items []models.HoFCandidate
 	for rows.Next() {
 		var c models.HoFCandidate
 		var hofInt int
@@ -568,9 +584,12 @@ ORDER BY hits DESC, home_runs DESC
 			return nil, fmt.Errorf("scanning HoF candidate: %w", err)
 		}
 		c.IsHallOfFamer = hofInt == 1
-		out = append(out, c)
+		items = append(items, c)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return &models.HoFPage{Items: items, Total: total}, nil
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -543,20 +543,20 @@ func TestSetHallOfFamer(t *testing.T) {
 		t.Fatalf("SetHallOfFamer true: %v", err)
 	}
 
-	inducted, err := as.GetHoFInducted(ctx)
+	page, err := as.GetHoFInducted(ctx, 1, 25, 100)
 	if err != nil {
 		t.Fatalf("GetHoFInducted: %v", err)
 	}
-	if len(inducted) != 1 || inducted[0].PlayerID != p {
-		t.Errorf("expected player %d in inducted, got %+v", p, inducted)
+	if len(page.Items) != 1 || page.Items[0].PlayerID != p {
+		t.Errorf("expected player %d in inducted, got %+v", p, page.Items)
 	}
 
 	if err := pqs.SetHallOfFamer(ctx, p, false); err != nil {
 		t.Fatalf("SetHallOfFamer false: %v", err)
 	}
-	inducted, _ = as.GetHoFInducted(ctx)
-	if len(inducted) != 0 {
-		t.Errorf("expected empty inducted after removal, got %v", inducted)
+	page, _ = as.GetHoFInducted(ctx, 1, 25, 100)
+	if len(page.Items) != 0 {
+		t.Errorf("expected empty inducted after removal, got %v", page.Items)
 	}
 }
 
@@ -581,13 +581,13 @@ func TestGetHoFCandidates(t *testing.T) {
 	seedPlayerSeason(t, db, active, season1, &th1)
 	seedPlayerSeason(t, db, active, season2, &th2)
 
-	candidates, err := as.GetHoFCandidates(ctx)
+	candidatesPage, err := as.GetHoFCandidates(ctx, 1, 25, 100)
 	if err != nil {
 		t.Fatalf("GetHoFCandidates: %v", err)
 	}
 
 	foundRetired := false
-	for _, c := range candidates {
+	for _, c := range candidatesPage.Items {
 		if c.PlayerID == active {
 			t.Error("active player should not be a HoF candidate")
 		}
