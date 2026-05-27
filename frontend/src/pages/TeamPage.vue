@@ -22,15 +22,29 @@ const error = ref<string | null>(null)
 // Aggregate stats across all seasons
 const summary = computed(() => {
   const seasons = history.value?.seasons ?? []
+  const latest = seasons.length > 0 ? seasons[seasons.length - 1] : null
   return {
     totalWins: seasons.reduce((s, r) => s + r.wins, 0),
     totalLosses: seasons.reduce((s, r) => s + r.losses, 0),
     championships: seasons.filter((r) => r.isChampion).length,
-    playoffSeasons: seasons.filter((r) => r.playoffSeed != null).length,
+    playoffAppearances: seasons.filter((r) => r.playoffSeed != null).length,
     seasonCount: seasons.length,
-    currentName: seasons.length > 0 ? seasons[seasons.length - 1].teamName : '',
+    currentName: latest?.teamName ?? '',
+    conference: latest?.conferenceName ?? '',
+    division: latest?.divisionName ?? '',
   }
 })
+
+function hasChange<K extends keyof main.TeamSeasonSummaryDTO>(field: K): boolean {
+  const seasons = history.value?.seasons ?? []
+  if (seasons.length === 0) return false
+  const first = seasons[0][field]
+  return seasons.some((s) => s[field] !== first)
+}
+
+const hasNameChange = computed(() => hasChange('teamName'))
+const hasConferenceChange = computed(() => hasChange('conferenceName'))
+const hasDivisionChange = computed(() => hasChange('divisionName'))
 
 function fmtPct(v: number): string {
   return v.toFixed(3).replace(/^0/, '')
@@ -59,6 +73,7 @@ onMounted(async () => {
 
     <template v-else-if="history">
       <!-- Header -->
+      <div class="team-content">
       <header class="page-header">
         <h2>{{ summary.currentName }}</h2>
         <div class="header-stats">
@@ -73,15 +88,24 @@ onMounted(async () => {
           <div class="hstat">
             <span class="hstat-label">Championships</span>
             <span class="hstat-val">
-              {{ summary.championships > 0 ? `${summary.championships} ★` : '0' }}
+              {{ summary.championships > 0 ? `${summary.championships} 🏆` : '0' }}
             </span>
           </div>
           <div class="hstat">
-            <span class="hstat-label">Playoff Seasons</span>
-            <span class="hstat-val">{{ summary.playoffSeasons }}</span>
+            <span class="hstat-label">Playoff Appearances</span>
+            <span class="hstat-val">{{ summary.playoffAppearances }}</span>
+          </div>
+          <div class="hstat">
+            <span class="hstat-label">Conference</span>
+            <span class="hstat-val">{{ summary.conference }}</span>
+          </div>
+          <div class="hstat">
+            <span class="hstat-label">Division</span>
+            <span class="hstat-val">{{ summary.division }}</span>
           </div>
         </div>
       </header>
+      </div>
 
       <!-- Season history table -->
       <section class="section">
@@ -105,28 +129,45 @@ onMounted(async () => {
               </AppLink>
             </template>
           </Column>
-          <Column field="teamName" header="Team" sortable style="min-width: 140px" />
-          <Column field="conferenceName" header="Conf" sortable style="width: 80px" />
-          <Column field="divisionName" header="Div" sortable style="width: 80px" />
-          <Column field="wins" header="W" sortable style="width: 55px" />
-          <Column field="losses" header="L" sortable style="width: 55px" />
-          <Column field="winPct" header="PCT" sortable style="width: 68px">
+          <Column v-if="hasNameChange" field="teamName" header="Team" sortable style="min-width: 140px" />
+          <Column v-if="hasConferenceChange" field="conferenceName" sortable style="width: 80px">
+            <template #header><span title="Conference">Conf</span></template>
+          </Column>
+          <Column v-if="hasDivisionChange" field="divisionName" sortable style="width: 80px">
+            <template #header><span title="Division">Div</span></template>
+          </Column>
+          <Column field="wins" sortable style="width: 55px">
+            <template #header><span title="Wins">W</span></template>
+          </Column>
+          <Column field="losses" sortable style="width: 55px">
+            <template #header><span title="Losses">L</span></template>
+          </Column>
+          <Column field="winPct" sortable style="width: 68px">
+            <template #header><span title="Win Percentage">PCT</span></template>
             <template #body="{ data }">{{ fmtPct(data.winPct) }}</template>
           </Column>
-          <Column field="runsFor" header="R" sortable style="width: 55px" />
-          <Column field="runsAgainst" header="RA" sortable style="width: 55px" />
-          <Column field="playoffSeed" header="Seed" sortable style="width: 62px">
+          <Column field="runsFor" sortable style="width: 55px">
+            <template #header><span title="Runs Scored">R</span></template>
+          </Column>
+          <Column field="runsAgainst" sortable style="width: 55px">
+            <template #header><span title="Runs Allowed">RA</span></template>
+          </Column>
+          <Column field="playoffSeed" sortable style="width: 62px">
+            <template #header><span title="Playoff Seed">Seed</span></template>
             <template #body="{ data }">{{ data.playoffSeed ?? '—' }}</template>
           </Column>
-          <Column field="playoffWins" header="PW" sortable style="width: 52px">
+          <Column field="playoffWins" sortable style="width: 52px">
+            <template #header><span title="Playoff Wins">PW</span></template>
             <template #body="{ data }">{{ data.playoffWins ?? '—' }}</template>
           </Column>
-          <Column field="playoffLosses" header="PL" sortable style="width: 52px">
+          <Column field="playoffLosses" sortable style="width: 52px">
+            <template #header><span title="Playoff Losses">PL</span></template>
             <template #body="{ data }">{{ data.playoffLosses ?? '—' }}</template>
           </Column>
-          <Column field="isChampion" header="" sortable style="width: 50px">
+          <Column field="isChampion" sortable style="width: 55px">
+            <template #header><span title="League Champion">Champ</span></template>
             <template #body="{ data }">
-              <span v-if="data.isChampion" class="champ-star" title="Champion">★</span>
+              <span v-if="data.isChampion">🏆</span>
             </template>
           </Column>
         </DataTable>
@@ -145,10 +186,15 @@ onMounted(async () => {
 
 <style scoped>
 .team-page {
-  padding: 2rem;
+  padding-bottom: 2rem;
   display: flex;
   flex-direction: column;
   gap: 1.75rem;
+}
+
+.team-content {
+  padding: 2rem 2rem 0;
+  max-width: 1000px;
 }
 
 .page-header {
@@ -196,6 +242,7 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  padding: 0 2rem;
 }
 
 h3 {
@@ -205,7 +252,6 @@ h3 {
   margin: 0;
 }
 
-.champ-star { color: #d29922; }
 
 .error-text { font-size: 0.875rem; color: var(--color-error); }
 </style>

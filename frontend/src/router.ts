@@ -14,6 +14,7 @@ const router = createRouter({
       path: '/teams/:teamId',
       component: () => import('./pages/TeamPage.vue'),
       props: (route) => ({ teamId: Number(route.params.teamId) }),
+      meta: { fullWidth: true },
     },
     {
       path: '/teams/:teamId/seasons/:historyId',

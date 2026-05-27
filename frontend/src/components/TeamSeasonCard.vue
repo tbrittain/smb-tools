@@ -21,7 +21,7 @@ function fmtPct(v: number): string {
         >
           {{ season.teamName }}
         </AppLink>
-        <span v-if="season.isChampion" class="champ-badge">★ Champion</span>
+        <span v-if="season.isChampion" class="champ-badge">🏆 Champion</span>
         <span v-else-if="season.playoffSeed" class="playoff-badge">Playoffs #{{ season.playoffSeed }}</span>
       </div>
       <span class="season-label">Season {{ season.seasonNum }}</span>

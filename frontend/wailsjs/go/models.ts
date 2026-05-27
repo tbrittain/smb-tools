@@ -466,6 +466,7 @@ export namespace main {
 	export class HistoricalTeamDTO {
 	    teamId: number;
 	    teamName: string;
+	    historyId?: number;
 	    numSeasons: number;
 	    firstSeason: number;
 	    lastSeason: number;
@@ -498,6 +499,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.teamId = source["teamId"];
 	        this.teamName = source["teamName"];
+	        this.historyId = source["historyId"];
 	        this.numSeasons = source["numSeasons"];
 	        this.firstSeason = source["firstSeason"];
 	        this.lastSeason = source["lastSeason"];

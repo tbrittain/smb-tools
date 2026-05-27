@@ -22,6 +22,8 @@ const seasonEnd = ref<number | null>(null)
 
 const seasonOptions = computed(() => seasons.value.map((s) => ({ label: `Season ${s.seasonNum}`, value: s.seasonNum })))
 
+const isSingleSeason = computed(() => seasonStart.value !== null && seasonStart.value === seasonEnd.value)
+
 async function fetchTeams() {
   if (seasonStart.value == null || seasonEnd.value == null) return
   loading.value = true
@@ -128,7 +130,7 @@ const rowCount = computed(() => {
       >
         <Column field="teamName" header="Team" sortable style="min-width: 160px" frozen>
           <template #body="{ data }">
-            <AppLink :to="`/teams/${data.teamId}`">
+            <AppLink :to="isSingleSeason && data.historyId ? `/teams/${data.teamId}/seasons/${data.historyId}` : `/teams/${data.teamId}`">
               {{ data.teamName }}
             </AppLink>
           </template>

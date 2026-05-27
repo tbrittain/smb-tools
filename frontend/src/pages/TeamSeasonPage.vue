@@ -170,9 +170,9 @@ watch(
       <div class="season-content">
         <header class="page-header">
           <h2>
-            {{ detail.team.teamName }}
+            <AppLink :to="`/teams/${props.teamId}`" class="team-name-link">{{ detail.team.teamName }}</AppLink>
             <span class="season-num-label">Season {{ detail.team.seasonNum }}</span>
-            <span v-if="detail.team.isChampion" class="champ-badge">★ Champion</span>
+            <span v-if="detail.team.isChampion" class="champ-badge">🏆 Champion</span>
           </h2>
           <div class="header-stats">
             <div class="hstat">
@@ -238,7 +238,7 @@ watch(
                 {{ data.firstName }} {{ data.lastName }}
               </AppLink>
               <HofBadge v-if="data.isHallOfFamer" />
-              <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
+              <span v-if="!data.isOnFinalRoster" class="released-badge">Released</span>
             </template>
           </Column>
           <Column field="primaryPosition" header="Pos" sortable style="min-width: 55px" />
@@ -298,7 +298,7 @@ watch(
                 {{ data.firstName }} {{ data.lastName }}
               </AppLink>
               <HofBadge v-if="data.isHallOfFamer" />
-              <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
+              <span v-if="!data.isOnFinalRoster" class="released-badge">Released</span>
             </template>
           </Column>
           <Column field="pitcherRole" header="Role" sortable style="min-width: 55px" />
@@ -362,7 +362,7 @@ watch(
               <AppLink :to="`/players/${data.playerId}`">
                 {{ data.firstName }} {{ data.lastName }}
               </AppLink>
-              <span v-if="!data.isOnFinalRoster" class="traded-badge">Traded</span>
+              <span v-if="!data.isOnFinalRoster" class="released-badge">Released</span>
             </template>
           </Column>
           <Column field="primaryPosition" header="Pos" sortable style="min-width: 55px" />
@@ -654,6 +654,11 @@ h2 {
   gap: 0.75rem;
 }
 
+.team-name-link {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
 .season-num-label {
   font-size: 0.875rem;
   font-weight: 400;
@@ -736,7 +741,7 @@ h3 {
 .tab-btn.active { border-color: var(--color-accent); color: var(--color-accent); background: var(--color-surface-2); }
 .tab-btn:hover:not(.active) { background: var(--color-surface-2); color: var(--color-text-primary); }
 
-.traded-badge {
+.released-badge {
   margin-left: 0.375rem;
   font-size: 0.6rem;
   font-weight: 600;
