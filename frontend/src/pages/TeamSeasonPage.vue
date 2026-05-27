@@ -56,17 +56,20 @@ function playoffWL(game: main.PlayoffGameDTO): 'W' | 'L' | '—' {
 }
 
 function seriesPlaceholders(games: main.PlayoffGameDTO[], seriesLength: number | undefined): number[] {
-  if (!seriesLength) return []
+  if (!seriesLength || games.length === 0) return []
   const winsNeeded = Math.ceil(seriesLength / 2)
-  let homeWins = 0
-  let awayWins = 0
+  // Track wins by team identity, not home/away role — home/away alternates within a series.
+  const teamA = games[0].homeTeamHistoryId
+  let teamAWins = 0
+  let teamBWins = 0
   for (const g of games) {
-    if (g.homeScore != null && g.awayScore != null) {
-      if (g.homeScore > g.awayScore) homeWins++
-      else awayWins++
-    }
+    if (g.homeScore == null || g.awayScore == null || g.homeScore === g.awayScore) continue
+    const homeWon = g.homeScore > g.awayScore
+    const homeIsTeamA = g.homeTeamHistoryId === teamA
+    if ((homeWon && homeIsTeamA) || (!homeWon && !homeIsTeamA)) teamAWins++
+    else teamBWins++
   }
-  if (Math.max(homeWins, awayWins) >= winsNeeded) return []
+  if (Math.max(teamAWins, teamBWins) >= winsNeeded) return []
   const result: number[] = []
   for (let n = games.length + 1; n <= seriesLength; n++) {
     result.push(n)
