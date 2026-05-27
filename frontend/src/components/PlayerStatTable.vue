@@ -178,6 +178,22 @@ const poPitchingSummary = computed(() => {
   return computePitchingSummary(statsArr)
 })
 
+const careerBattingSummary = computed(() => {
+  const statsArr = [
+    ...props.rows.map((r) => r.batting).filter((b): b is main.CareerBattingStatsDTO => b != null),
+    ...props.rows.map((r) => r.playoffBatting).filter((b): b is main.CareerBattingStatsDTO => b != null),
+  ]
+  return computeBattingSummary(statsArr)
+})
+
+const careerPitchingSummary = computed(() => {
+  const statsArr = [
+    ...props.rows.map((r) => r.pitching).filter((p): p is main.CareerPitchingStatsDTO => p != null),
+    ...props.rows.map((r) => r.playoffPitching).filter((p): p is main.CareerPitchingStatsDTO => p != null),
+  ]
+  return computePitchingSummary(statsArr)
+})
+
 // Non-stat prefix columns: Season, Team, Age, Pos/Role, Traits, [Awards]
 const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
 </script>
@@ -198,7 +214,7 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
     >
       <ColumnGroup type="footer">
         <Row v-if="rsBattingSummary">
-          <Column :colspan="batchingPrefixCols" footer="Career" footer-class="summary-label" />
+          <Column :colspan="batchingPrefixCols" footer="Regular Season" footer-class="summary-label" />
           <Column :footer="String(rsBattingSummary.g)" footer-class="summary-cell" />
           <Column :footer="String(rsBattingSummary.ab)" footer-class="summary-cell" />
           <Column :footer="String(rsBattingSummary.h)" footer-class="summary-cell" />
@@ -230,6 +246,23 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
           <Column :footer="formatBA(poBattingSummary.ops)" footer-class="summary-cell summary-po" />
           <Column footer="—" footer-class="summary-cell summary-po" />
           <Column :footer="formatWAR(poBattingSummary.war)" footer-class="summary-cell summary-po" />
+        </Row>
+        <Row v-if="careerBattingSummary">
+          <Column :colspan="batchingPrefixCols" footer="Career" footer-class="summary-label summary-career" />
+          <Column :footer="String(careerBattingSummary.g)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerBattingSummary.ab)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerBattingSummary.h)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerBattingSummary.hr)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerBattingSummary.rbi)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerBattingSummary.sb)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerBattingSummary.bb)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerBattingSummary.k)" footer-class="summary-cell summary-career" />
+          <Column :footer="formatBA(careerBattingSummary.ba)" footer-class="summary-cell summary-career" />
+          <Column :footer="formatBA(careerBattingSummary.obp)" footer-class="summary-cell summary-career" />
+          <Column :footer="formatBA(careerBattingSummary.slg)" footer-class="summary-cell summary-career" />
+          <Column :footer="formatBA(careerBattingSummary.ops)" footer-class="summary-cell summary-career" />
+          <Column footer="—" footer-class="summary-cell summary-career" />
+          <Column :footer="formatWAR(careerBattingSummary.war)" footer-class="summary-cell summary-career" />
         </Row>
       </ColumnGroup>
 
@@ -331,7 +364,7 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
     >
       <ColumnGroup type="footer">
         <Row v-if="rsPitchingSummary">
-          <Column :colspan="batchingPrefixCols" footer="Career" footer-class="summary-label" />
+          <Column :colspan="batchingPrefixCols" footer="Regular Season" footer-class="summary-label" />
           <Column :footer="String(rsPitchingSummary.g)" footer-class="summary-cell" />
           <Column :footer="String(rsPitchingSummary.gs)" footer-class="summary-cell" />
           <Column :footer="String(rsPitchingSummary.w)" footer-class="summary-cell" />
@@ -369,6 +402,26 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
           <Column footer="—" footer-class="summary-cell summary-po" />
           <Column footer="—" footer-class="summary-cell summary-po" />
           <Column :footer="formatWAR(poPitchingSummary.war)" footer-class="summary-cell summary-po" />
+        </Row>
+        <Row v-if="careerPitchingSummary">
+          <Column :colspan="batchingPrefixCols" footer="Career" footer-class="summary-label summary-career" />
+          <Column :footer="String(careerPitchingSummary.g)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerPitchingSummary.gs)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerPitchingSummary.w)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerPitchingSummary.l)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerPitchingSummary.sv)" footer-class="summary-cell summary-career" />
+          <Column :footer="formatIP(careerPitchingSummary.outsPitched)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerPitchingSummary.h)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerPitchingSummary.er)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerPitchingSummary.bb)" footer-class="summary-cell summary-career" />
+          <Column :footer="String(careerPitchingSummary.k)" footer-class="summary-cell summary-career" />
+          <Column :footer="formatERA(careerPitchingSummary.era)" footer-class="summary-cell summary-career" />
+          <Column :footer="formatWHIP(careerPitchingSummary.whip)" footer-class="summary-cell summary-career" />
+          <Column :footer="formatK9(careerPitchingSummary.k9)" footer-class="summary-cell summary-career" />
+          <Column footer="—" footer-class="summary-cell summary-career" />
+          <Column footer="—" footer-class="summary-cell summary-career" />
+          <Column footer="—" footer-class="summary-cell summary-career" />
+          <Column :footer="formatWAR(careerPitchingSummary.war)" footer-class="summary-cell summary-career" />
         </Row>
       </ColumnGroup>
 
@@ -540,5 +593,12 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
   background: var(--color-surface-1, var(--p-datatable-footer-background));
   border-top: none;
   font-style: italic;
+}
+
+:deep(.summary-career) {
+  font-weight: 700;
+  color: var(--color-text-primary);
+  background: var(--color-surface-2, var(--p-datatable-footer-background));
+  border-top: 2px solid var(--color-border);
 }
 </style>
