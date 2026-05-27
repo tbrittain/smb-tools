@@ -126,6 +126,10 @@ function era(p: main.HoFCandidateDTO): string {
   return ((p.earnedRuns * 27) / p.outsPitched).toFixed(2)
 }
 
+function smbWar(p: main.HoFCandidateDTO): string {
+  return p.smbWar.toFixed(1)
+}
+
 const { set } = useBreadcrumbs()
 onMounted(() => set([{ label: 'Hall of Fame' }]))
 onMounted(load)
@@ -199,6 +203,7 @@ onMounted(load)
                 </span>
               </div>
               <div class="career-stats">
+                <span class="stat-item war-stat"><span class="stat-label">smbWAR</span>{{ smbWar(p) }}</span>
                 <template v-if="p.atBats > 0">
                   <span class="stat-item"><span class="stat-label">H</span>{{ p.hits }}</span>
                   <span class="stat-item"><span class="stat-label">HR</span>{{ p.homeRuns }}</span>
@@ -249,6 +254,7 @@ onMounted(load)
                 </span>
               </div>
               <div class="career-stats">
+                <span class="stat-item war-stat"><span class="stat-label">smbWAR</span>{{ smbWar(p) }}</span>
                 <template v-if="p.atBats > 0">
                   <span class="stat-item"><span class="stat-label">H</span>{{ p.hits }}</span>
                   <span class="stat-item"><span class="stat-label">HR</span>{{ p.homeRuns }}</span>
@@ -470,5 +476,10 @@ onMounted(load)
 
 .remove-btn {
   flex-shrink: 0;
+}
+
+.war-stat {
+  font-weight: 600;
+  color: var(--color-accent, #4c9aff);
 }
 </style>

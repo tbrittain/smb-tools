@@ -173,6 +173,7 @@ type HoFCandidate struct {
 	OutsPitched    int
 	Strikeouts     int
 	EarnedRuns     int
+	SmbWAR         float64
 }
 
 // HoFPage is a paginated response for Hall of Fame candidates or inductees.

@@ -560,9 +560,10 @@ HAVING MAX(s.season_num) >= (SELECT MAX(season_num) FROM seasons) - ?`
     COALESCE(SUM(pi.losses),       0) AS losses,
     COALESCE(SUM(pi.outs_pitched), 0) AS outs_pitched,
     COALESCE(SUM(pi.strikeouts),   0) AS strikeouts,
-    COALESCE(SUM(pi.earned_runs),  0) AS earned_runs
+    COALESCE(SUM(pi.earned_runs),  0) AS earned_runs,
+    COALESCE(SUM(b.smb_war), 0) + COALESCE(SUM(pi.smb_war), 0) AS career_smb_war
 ` + baseFrom + `
-ORDER BY MAX(s.season_num) DESC
+ORDER BY career_smb_war DESC, MAX(s.season_num) DESC
 LIMIT ? OFFSET ?`
 
 	rows, err := s.db.QueryContext(ctx, mainSQL, lastSeasons, pageSize, offset)
@@ -580,6 +581,7 @@ LIMIT ? OFFSET ?`
 			&c.FirstSeason, &c.LastSeason, &c.Seasons,
 			&c.Hits, &c.HomeRuns, &c.RBI, &c.StolenBases, &c.AtBats, &c.Walks,
 			&c.Wins, &c.Losses, &c.OutsPitched, &c.Strikeouts, &c.EarnedRuns,
+			&c.SmbWAR,
 		); err != nil {
 			return nil, fmt.Errorf("scanning HoF candidate: %w", err)
 		}

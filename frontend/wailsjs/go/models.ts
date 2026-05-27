@@ -542,6 +542,7 @@ export namespace main {
 	    outsPitched: number;
 	    strikeouts: number;
 	    earnedRuns: number;
+	    smbWar: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new HoFCandidateDTO(source);
@@ -567,6 +568,7 @@ export namespace main {
 	        this.outsPitched = source["outsPitched"];
 	        this.strikeouts = source["strikeouts"];
 	        this.earnedRuns = source["earnedRuns"];
+	        this.smbWar = source["smbWar"];
 	    }
 	}
 	export class HoFPageDTO {
