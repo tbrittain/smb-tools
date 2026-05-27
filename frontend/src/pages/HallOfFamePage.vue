@@ -195,7 +195,7 @@ onMounted(load)
                   class="player-name"
                   @click.stop
                 >
-                  {{ p.lastName }}, {{ p.firstName }}
+                  {{ p.firstName }} {{ p.lastName }}
                 </AppLink>
                 <span class="player-meta">
                   Seasons {{ p.firstSeason }}–{{ p.lastSeason }}
@@ -247,7 +247,7 @@ onMounted(load)
             <div v-for="p in inducted" :key="p.playerId" class="player-row inducted">
               <div class="player-info">
                 <AppLink :to="`/players/${p.playerId}`" class="player-name">
-                  {{ p.lastName }}, {{ p.firstName }}
+                  {{ p.firstName }} {{ p.lastName }}
                 </AppLink>
                 <span class="player-meta">
                   Seasons {{ p.firstSeason }}–{{ p.lastSeason }}
