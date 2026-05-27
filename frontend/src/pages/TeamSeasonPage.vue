@@ -2,7 +2,8 @@
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import { computed, onMounted, ref, watch } from 'vue'
-import { GetTeamSeasonDetail } from '../../wailsjs/go/main/App'
+import { useRouter } from 'vue-router'
+import { GetTeamHistory, GetTeamSeasonDetail } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppLink from '../components/AppLink.vue'
 import EmptyState from '../components/EmptyState.vue'
@@ -22,10 +23,28 @@ import {
 const props = defineProps<{ teamId: number; historyId: number }>()
 
 const { set } = useBreadcrumbs()
+const router = useRouter()
 
 const detail = ref<main.TeamSeasonDetailDTO | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
+const teamSeasons = ref<main.TeamSeasonSummaryDTO[]>([])
+
+const sortedSeasons = computed(() => [...teamSeasons.value].sort((a, b) => a.seasonNum - b.seasonNum))
+
+const currentIndex = computed(() => sortedSeasons.value.findIndex((s) => s.historyId === props.historyId))
+
+const prevSeason = computed(() => (currentIndex.value > 0 ? sortedSeasons.value[currentIndex.value - 1] : null))
+
+const nextSeason = computed(() =>
+  currentIndex.value >= 0 && currentIndex.value < sortedSeasons.value.length - 1
+    ? sortedSeasons.value[currentIndex.value + 1]
+    : null,
+)
+
+function navigateSeason(historyId: number) {
+  router.push(`/teams/${props.teamId}/seasons/${historyId}`)
+}
 
 type RosterView = 'batting' | 'pitching' | 'attributes'
 const rosterView = ref<RosterView>('batting')
@@ -105,10 +124,24 @@ async function fetchDetail(historyId: number) {
   }
 }
 
-onMounted(() => fetchDetail(props.historyId))
+onMounted(async () => {
+  const [, historyResult] = await Promise.allSettled([fetchDetail(props.historyId), GetTeamHistory(props.teamId)])
+  if (historyResult.status === 'fulfilled') {
+    teamSeasons.value = historyResult.value.seasons
+  }
+})
+
 watch(
   () => props.historyId,
   (id) => fetchDetail(id),
+)
+
+watch(
+  () => props.teamId,
+  async (id) => {
+    const result = await GetTeamHistory(id)
+    teamSeasons.value = result.seasons
+  },
 )
 </script>
 
@@ -118,6 +151,20 @@ watch(
     <p v-else-if="error" class="error-text">{{ error }}</p>
 
     <template v-else-if="detail">
+      <!-- Season nav toolbar (top-right) -->
+      <div v-if="sortedSeasons.length > 1" class="season-toolbar">
+        <button
+          class="nav-btn"
+          :disabled="!prevSeason"
+          @click="prevSeason && navigateSeason(prevSeason.historyId)"
+        >‹ Prev Season</button>
+        <button
+          class="nav-btn"
+          :disabled="!nextSeason"
+          @click="nextSeason && navigateSeason(nextSeason.historyId)"
+        >Next Season ›</button>
+      </div>
+
       <!-- Header (constrained width) -->
       <div class="season-content">
         <header class="page-header">
@@ -561,6 +608,39 @@ watch(
   flex-direction: column;
   gap: 0.75rem;
   padding: 0 2rem;
+}
+
+.season-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 2rem 0;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nav-btn:hover:not(:disabled) {
+  background: var(--color-surface-2);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 h2 {

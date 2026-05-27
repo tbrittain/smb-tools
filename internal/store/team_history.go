@@ -164,6 +164,20 @@ func (s *TeamHistoryStore) UpsertSeasonHistory(ctx context.Context, h TeamSeason
 	return id, nil
 }
 
+// UpdatePlayoffSeeds writes the playoff seed for each team_season_history row in
+// historyIDToSeed. Called after playoff games are imported so the seed is
+// available as soon as the first playoff game appears in the save file.
+func (s *TeamHistoryStore) UpdatePlayoffSeeds(ctx context.Context, historyIDToSeed map[int64]int) error {
+	for histID, seed := range historyIDToSeed {
+		if _, err := s.db.ExecContext(ctx,
+			`UPDATE team_season_history SET playoff_seed = ? WHERE id = ?`, seed, histID,
+		); err != nil {
+			return fmt.Errorf("updating playoff seed for history %d: %w", histID, err)
+		}
+	}
+	return nil
+}
+
 // GetHistoryID returns the team_season_history.id for a given team and season.
 func (s *TeamHistoryStore) GetHistoryID(ctx context.Context, teamID int64, seasonID int64) (int64, error) {
 	var id int64

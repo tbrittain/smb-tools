@@ -61,7 +61,7 @@ function fmtPct(v: number): string {
                 <AppLink :to="`/teams/${row.teamId}/seasons/${row.historyId}`">
                   {{ row.teamName }}
                 </AppLink>
-                <span v-if="row.playoffSeed" class="playoff-badge">P{{ row.playoffSeed }}</span>
+                <span v-if="row.playoffSeed" class="playoff-badge">#{{ row.playoffSeed }} Seed</span>
               </td>
               <td class="col-num">{{ row.wins }}</td>
               <td class="col-num">{{ row.losses }}</td>
@@ -145,10 +145,11 @@ function fmtPct(v: number): string {
   margin-left: 0.375rem;
   font-size: 0.625rem;
   font-weight: 600;
-  background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
   border-radius: 3px;
-  padding: 0 3px;
+  padding: 0 4px;
   vertical-align: middle;
 }
 
