@@ -172,7 +172,7 @@ watch(
           <h2>
             {{ detail.team.teamName }}
             <span class="season-num-label">Season {{ detail.team.seasonNum }}</span>
-            <span v-if="detail.team.isChampion" class="champ-badge">★ Champion</span>
+            <span v-if="detail.team.isChampion" class="champ-badge">🏆 Champion</span>
           </h2>
           <div class="header-stats">
             <div class="hstat">
