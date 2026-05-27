@@ -339,6 +339,9 @@ type HistoricalTeamRow struct {
 	TotalEarnedRuns     int
 	TotalOutsPitched    int
 
+	// Populated only when the query covers exactly one season
+	HistoryID *int64
+
 	// Computed in Go after scanning
 	WinPct       float64
 	GamesOver500 int

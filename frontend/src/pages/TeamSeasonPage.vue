@@ -170,7 +170,7 @@ watch(
       <div class="season-content">
         <header class="page-header">
           <h2>
-            {{ detail.team.teamName }}
+            <AppLink :to="`/teams/${props.teamId}`" class="team-name-link">{{ detail.team.teamName }}</AppLink>
             <span class="season-num-label">Season {{ detail.team.seasonNum }}</span>
             <span v-if="detail.team.isChampion" class="champ-badge">🏆 Champion</span>
           </h2>
@@ -652,6 +652,11 @@ h2 {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+
+.team-name-link {
+  font-size: inherit;
+  font-weight: inherit;
 }
 
 .season-num-label {

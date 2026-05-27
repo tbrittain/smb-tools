@@ -218,7 +218,9 @@ SELECT
               AND s3.season_num <= ?
               AND tsh3.id IN (SELECT winner_history_id FROM season_champions)
         ), 0
-    )                                                                AS championship_drought
+    )                                                                AS championship_drought,
+    -- Only populated when the query covers exactly one season
+    CASE WHEN COUNT(DISTINCT tsh.id) = 1 THEN MIN(tsh.id) ELSE NULL END AS history_id
 FROM teams t
 JOIN team_season_history tsh ON tsh.team_id = t.id
 JOIN seasons s ON s.id = tsh.season_id
@@ -259,6 +261,7 @@ ORDER BY SUM(tsh.wins) DESC
 			&r.NumPlayers, &r.NumHoF,
 			&r.TotalEarnedRuns, &r.TotalOutsPitched,
 			&r.ChampionshipDrought,
+			&r.HistoryID,
 		); err != nil {
 			return nil, fmt.Errorf("scanning historical team row: %w", err)
 		}

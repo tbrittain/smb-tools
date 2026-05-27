@@ -931,6 +931,7 @@ func (a *App) GetHistoricalTeams(seasonStart, seasonEnd int) ([]HistoricalTeamDT
 		out[i] = HistoricalTeamDTO{
 			TeamID:              r.TeamID,
 			TeamName:            r.TeamName,
+			HistoryID:           r.HistoryID,
 			NumSeasons:          r.NumSeasons,
 			FirstSeason:         r.FirstSeason,
 			LastSeason:          r.LastSeason,

@@ -266,6 +266,7 @@ type TeamHistoryDTO struct {
 type HistoricalTeamDTO struct {
 	TeamID              int64    `json:"teamId"`
 	TeamName            string   `json:"teamName"`
+	HistoryID           *int64   `json:"historyId"`
 	NumSeasons          int      `json:"numSeasons"`
 	FirstSeason         int      `json:"firstSeason"`
 	LastSeason          int      `json:"lastSeason"`
