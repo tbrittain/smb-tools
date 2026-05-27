@@ -88,6 +88,35 @@ func (s *SnapshotStore) MarkCompressed(ctx context.Context, id int64, compressed
 	return nil
 }
 
+// GetByID returns the snapshot with the given id.
+func (s *SnapshotStore) GetByID(ctx context.Context, id int64) (Snapshot, error) {
+	var sn Snapshot
+	var capturedAt, fileName, sha256Hash string
+	var compressedSize sql.NullInt64
+	var compressed int
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, season_num, captured_at, file_name, sha256_hash,
+		       file_size_bytes, compressed, compressed_size_bytes
+		FROM save_game_snapshots
+		WHERE id = ?
+	`, id).Scan(
+		&sn.ID, &sn.SeasonNum, &capturedAt, &fileName,
+		&sha256Hash, &sn.FileSizeBytes, &compressed, &compressedSize,
+	)
+	if err != nil {
+		return Snapshot{}, fmt.Errorf("getting snapshot %d: %w", id, err)
+	}
+	sn.FileName = SnapshotFileName(fileName)
+	sn.SHA256Hash = SHA256Hex(sha256Hash)
+	sn.Compressed = compressed == 1
+	if compressedSize.Valid {
+		sn.CompressedSizeBytes = &compressedSize.Int64
+	}
+	t, _ := time.Parse("2006-01-02T15:04:05Z", capturedAt)
+	sn.CapturedAt = t
+	return sn, nil
+}
+
 // List returns all snapshots for the franchise, ordered by capture time ascending.
 func (s *SnapshotStore) List(ctx context.Context) ([]Snapshot, error) {
 	rows, err := s.db.QueryContext(ctx, `

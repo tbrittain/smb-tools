@@ -76,6 +76,8 @@ export function ListFranchises():Promise<Array<main.FranchiseDTO>>;
 
 export function ListLegacyFranchises(arg1:string):Promise<Array<main.LegacyFranchiseDTO>>;
 
+export function ListSnapshots():Promise<Array<main.SnapshotDTO>>;
+
 export function MigrateLegacyFranchise(arg1:string,arg2:number,arg3:string,arg4:string):Promise<main.MigrateLegacyResult>;
 
 export function OpenAppDataDir():Promise<void>;
@@ -83,6 +85,8 @@ export function OpenAppDataDir():Promise<void>;
 export function ProbeFranchiseSaveFile(arg1:string):Promise<main.SaveFileCandidateDTO>;
 
 export function ProbeLeagues(arg1:string):Promise<Array<main.SaveFileCandidateDTO>>;
+
+export function ReimportSeasonFromSnapshot(arg1:number,arg2:number):Promise<main.ReimportSeasonResult>;
 
 export function RenameFranchise(arg1:string,arg2:string):Promise<void>;
 

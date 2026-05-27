@@ -113,6 +113,21 @@ func (s *SeasonStore) InferAndSetPlayoffConfig(ctx context.Context, seasonID int
 	return s.UpdatePlayoffConfig(ctx, seasonID, playoffRounds, seriesLength)
 }
 
+// GetBySeasonNum returns the season with the given display season number.
+// Returns sql.ErrNoRows if no season with that number exists.
+func (s *SeasonStore) GetBySeasonNum(ctx context.Context, seasonNum int) (Season, error) {
+	var season Season
+	err := s.db.QueryRowContext(ctx,
+		`SELECT id, league_guid, save_game_season_id, season_num, num_games
+		 FROM seasons WHERE season_num = ?`, seasonNum,
+	).Scan(&season.ID, &season.LeagueGUID, &season.SaveGameSeasonID,
+		&season.SeasonNum, &season.NumGames)
+	if err != nil {
+		return Season{}, fmt.Errorf("getting season by num %d: %w", seasonNum, err)
+	}
+	return season, nil
+}
+
 // GetByID returns the season with the given companion DB id.
 func (s *SeasonStore) GetByID(ctx context.Context, id int64) (Season, error) {
 	var season Season

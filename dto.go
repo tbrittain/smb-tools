@@ -4,6 +4,26 @@ import (
 	"smb-tools/internal/models"
 )
 
+// ── Snapshots ─────────────────────────────────────────────────────────────────
+
+// SnapshotDTO represents one captured save game snapshot for the active franchise.
+type SnapshotDTO struct {
+	ID            int64  `json:"id"`
+	SeasonNum     int    `json:"seasonNum"`
+	CapturedAt    string `json:"capturedAt"` // ISO 8601
+	FileSizeBytes int64  `json:"fileSizeBytes"`
+	FileExists    bool   `json:"fileExists"`
+}
+
+// ReimportSeasonResult is the DTO returned after a successful snapshot reimport.
+type ReimportSeasonResult struct {
+	SeasonNum    int `json:"seasonNum"`
+	Players      int `json:"players"`
+	Teams        int `json:"teams"`
+	Games        int `json:"games"`
+	PlayoffGames int `json:"playoffGames"`
+}
+
 // ── Seasons ───────────────────────────────────────────────────────────────────
 
 // SeasonSummaryDTO is the frontend representation of one franchise season.
