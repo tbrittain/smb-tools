@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-
 	"os"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -827,6 +829,36 @@ func (a *App) GetTeamHistory(teamID int64) (TeamHistoryDTO, error) {
 	}, nil
 }
 
+// GetTeamTopPlayers returns the top 25 all-time players for a team, ranked by
+// cumulative smbWAR accumulated while with that team.
+func (a *App) GetTeamTopPlayers(teamID int64) ([]TeamTopPlayerDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	players, err := a.teamQueryStore.GetTeamTopPlayers(a.ctx, teamID, 25)
+	if err != nil {
+		return nil, fmt.Errorf("getting top players for team %d: %w", teamID, err)
+	}
+	out := make([]TeamTopPlayerDTO, len(players))
+	for i, p := range players {
+		out[i] = TeamTopPlayerDTO{
+			PlayerID:       p.PlayerID,
+			FirstName:      p.FirstName,
+			LastName:       p.LastName,
+			IsHallOfFamer:  p.IsHallOfFamer,
+			NumSeasons:     p.NumSeasons,
+			SeasonNums:     parseSortedSeasonNums(p.SeasonNumsCSV),
+			IsPitcher:      p.IsPitcher,
+			Position:       p.PrimaryPosition,
+			SmbWARWithTeam: p.TotalSmbWAR,
+			AvgOpsPlus:     p.AvgOpsPlus,
+			AvgEraPlus:     p.AvgEraPlus,
+			Awards:         p.Awards,
+		}
+	}
+	return out, nil
+}
+
 // GetTeamSeasonDetail returns the roster, schedule, and playoff results for one
 // team season. Rate stats are computed on roster players before returning.
 // Only teamHistoryID is required — seasonID is derived from the team summary.
@@ -1426,4 +1458,22 @@ func (a *App) MigrateLegacyFranchise(
 		AwardsMigrated:  migResult.AwardsMigrated,
 		LogosSkipped:    migResult.LogosSkipped,
 	}, nil
+}
+
+// parseSortedSeasonNums converts a comma-separated season number string
+// (as returned by GROUP_CONCAT) into a sorted integer slice.
+func parseSortedSeasonNums(csv string) []int {
+	if csv == "" {
+		return []int{}
+	}
+	parts := strings.Split(csv, ",")
+	nums := make([]int, 0, len(parts))
+	for _, p := range parts {
+		n, err := strconv.Atoi(strings.TrimSpace(p))
+		if err == nil {
+			nums = append(nums, n)
+		}
+	}
+	sort.Ints(nums)
+	return nums
 }

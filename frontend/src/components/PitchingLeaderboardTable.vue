@@ -14,6 +14,7 @@ import {
 } from '../composables/useStatFormatters'
 import AppLink from './AppLink.vue'
 import EmptyState from './EmptyState.vue'
+import HofBadge from './HofBadge.vue'
 
 const props = defineProps<{
   rows: main.PitchingLeaderRowDTO[]
@@ -57,7 +58,7 @@ const emit = defineEmits<{
           <AppLink :to="'/players/' + r.playerId">
             {{ r.firstName }} {{ r.lastName }}
           </AppLink>
-          <span v-if="r.isHallOfFamer" class="hof-badge">HoF</span>
+          <HofBadge v-if="r.isHallOfFamer" />
         </template>
       </Column>
 
@@ -122,17 +123,6 @@ const emit = defineEmits<{
   flex-direction: column;
 }
 
-.hof-badge {
-  margin-left: 0.375rem;
-  font-size: 0.625rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: var(--color-gold, #c9a227);
-  border: 1px solid var(--color-gold, #c9a227);
-  border-radius: 3px;
-  padding: 0 3px;
-  vertical-align: middle;
-}
 :deep(.col-rate) {
   font-variant-numeric: tabular-nums;
 }

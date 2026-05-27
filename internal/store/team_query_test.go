@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"testing"
 
+	"smb-tools/internal/models"
 	"smb-tools/internal/store"
 	"smb-tools/internal/testutil"
 )
@@ -68,7 +69,7 @@ func TestGetTeamHistory_WithChampionFlag(t *testing.T) {
 	// Season 1: team wins final series 3-1
 	seedPlayoffGame(t, db, 1, 2, 1, hist1, rivalHist1, 4, 1)
 	seedPlayoffGame(t, db, 1, 2, 2, hist1, rivalHist1, 3, 2)
-	seedPlayoffGame(t, db, 1, 2, 3, rivalHist1, hist1, 5, 0)  // rival wins at home
+	seedPlayoffGame(t, db, 1, 2, 3, rivalHist1, hist1, 5, 0) // rival wins at home
 	seedPlayoffGame(t, db, 1, 2, 4, hist1, rivalHist1, 6, 1)
 	setPlayoffConfig(t, db, 1, 1, 5)
 
@@ -360,6 +361,278 @@ func TestGetTeamSeasonPlayoffSchedule_RoundLabels_MidPlayoff(t *testing.T) {
 			t.Errorf("expected 'Round of 8' (mid-playoff, rounds=3, totalSeries=7), got %q", g.RoundLabel)
 		}
 	}
+}
+
+func TestGetTeamTopPlayers(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	s2 := seedSeason(t, db, 2, 2, 40)
+	t1 := seedTeam(t, db, "tp-t1")
+	t2 := seedTeam(t, db, "tp-t2")
+	h1s1 := seedTeamHistory(t, db, t1, s1, "Team One", "E", "AL", 90, 52)
+	h1s2 := seedTeamHistory(t, db, t1, s2, "Team One", "E", "AL", 85, 57)
+	h2s1 := seedTeamHistory(t, db, t2, s1, "Team Two", "W", "AL", 80, 62)
+
+	// Player A: 2 seasons on team 1, total smbWAR = 7.5
+	pA := seedPlayer(t, db, "tp-pa", "Aaron", "Alpha")
+	psA1 := seedPlayerSeason(t, db, pA, s1, &h1s1)
+	psA2 := seedPlayerSeason(t, db, pA, s2, &h1s2)
+	seedBatting(t, db, psA1, true, 500, 150, 20, 80)
+	seedBatting(t, db, psA2, true, 480, 140, 18, 75)
+	setTopPlayerBattingWAR(t, db, psA1, 125.0, 4.0)
+	setTopPlayerBattingWAR(t, db, psA2, 118.0, 3.5)
+
+	// Player B: 1 season on team 1, smbWAR = 1.5
+	pB := seedPlayer(t, db, "tp-pb", "Brad", "Beta")
+	psB1 := seedPlayerSeason(t, db, pB, s1, &h1s1)
+	seedBatting(t, db, psB1, true, 400, 110, 10, 55)
+	setTopPlayerBattingWAR(t, db, psB1, 105.0, 1.5)
+
+	// Player C: only on team 2 — must not appear in team 1 results
+	pC := seedPlayer(t, db, "tp-pc", "Carl", "Charlie")
+	psC1 := seedPlayerSeason(t, db, pC, s1, &h2s1)
+	seedBatting(t, db, psC1, true, 500, 160, 30, 100)
+	setTopPlayerBattingWAR(t, db, psC1, 145.0, 6.0)
+
+	tq := store.NewTeamQueryStore(db)
+
+	t.Run("excludes players from other teams", func(t *testing.T) {
+		results, err := tq.GetTeamTopPlayers(ctx, t1, 25)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, r := range results {
+			if r.PlayerID == pC {
+				t.Errorf("player C (team 2 only) should not appear in team 1 results")
+			}
+		}
+		if len(results) != 2 {
+			t.Errorf("expected 2 players for team 1, got %d", len(results))
+		}
+	})
+
+	t.Run("sorted by total smbWAR descending", func(t *testing.T) {
+		results, err := tq.GetTeamTopPlayers(ctx, t1, 25)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if results[0].PlayerID != pA {
+			t.Errorf("expected player A first (highest smbWAR 7.5), got playerID=%d", results[0].PlayerID)
+		}
+		const want = 7.5
+		if abs64(results[0].TotalSmbWAR-want) > 0.001 {
+			t.Errorf("expected player A total smbWAR=%.1f, got %.4f", want, results[0].TotalSmbWAR)
+		}
+	})
+
+	t.Run("num_seasons counts correctly for multi-season player", func(t *testing.T) {
+		results, err := tq.GetTeamTopPlayers(ctx, t1, 25)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got int
+		for _, r := range results {
+			if r.PlayerID == pA {
+				got = r.NumSeasons
+			}
+		}
+		if got != 2 {
+			t.Errorf("expected player A NumSeasons=2, got %d", got)
+		}
+	})
+
+	t.Run("capped at limit", func(t *testing.T) {
+		results, err := tq.GetTeamTopPlayers(ctx, t1, 1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(results) != 1 {
+			t.Errorf("expected 1 row with limit=1, got %d", len(results))
+		}
+		if results[0].PlayerID != pA {
+			t.Errorf("expected player A as top result, got playerID=%d", results[0].PlayerID)
+		}
+	})
+
+	t.Run("player with null smbWAR gets 0.0 and sorts to bottom", func(t *testing.T) {
+		// Player D: on team 1 season 2 but no context stats set (smb_war remains NULL)
+		pD := seedPlayer(t, db, "tp-pd", "Dave", "Delta")
+		psD2 := seedPlayerSeason(t, db, pD, s2, &h1s2)
+		seedBatting(t, db, psD2, true, 300, 80, 5, 30)
+		// No setTopPlayerBattingWAR call — smb_war stays NULL
+
+		results, err := tq.GetTeamTopPlayers(ctx, t1, 25)
+		if err != nil {
+			t.Fatal(err)
+		}
+		last := results[len(results)-1]
+		if last.PlayerID != pD {
+			t.Errorf("expected player D (null smbWAR→0) to sort last, got playerID=%d", last.PlayerID)
+		}
+		if last.TotalSmbWAR != 0.0 {
+			t.Errorf("expected TotalSmbWAR=0.0 for null smb_war, got %f", last.TotalSmbWAR)
+		}
+	})
+
+	t.Run("hof flag reflected correctly", func(t *testing.T) {
+		_, err := db.ExecContext(ctx, `UPDATE players SET is_hall_of_famer=1 WHERE id=?`, pA)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			_, _ = db.ExecContext(ctx, `UPDATE players SET is_hall_of_famer=0 WHERE id=?`, pA)
+		})
+		results, err := tq.GetTeamTopPlayers(ctx, t1, 25)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, r := range results {
+			switch r.PlayerID {
+			case pA:
+				if !r.IsHallOfFamer {
+					t.Errorf("player A: expected IsHallOfFamer=true")
+				}
+			case pB:
+				if r.IsHallOfFamer {
+					t.Errorf("player B: expected IsHallOfFamer=false")
+				}
+			}
+		}
+	})
+
+	t.Run("awards scoped to seasons with target team", func(t *testing.T) {
+		s3 := seedSeason(t, db, 3, 3, 40)
+		h2s3 := seedTeamHistory(t, db, t2, s3, "Team Two", "W", "AL", 75, 67)
+		psA3 := seedPlayerSeason(t, db, pA, s3, &h2s3)
+		seedBatting(t, db, psA3, true, 490, 145, 22, 82)
+		// Award earned with team 1 (s1)
+		linkTopPlayerAward(t, db, psA1, "All-Star")
+		// Award earned with team 2 (s3) — must not appear in team 1 results
+		linkTopPlayerAward(t, db, psA3, "MVP")
+
+		results, err := tq.GetTeamTopPlayers(ctx, t1, 25)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var playerA *models.TeamTopPlayer
+		for i := range results {
+			if results[i].PlayerID == pA {
+				playerA = &results[i]
+			}
+		}
+		if playerA == nil {
+			t.Fatal("player A not found in results")
+		}
+		for _, aw := range playerA.Awards {
+			if aw == "MVP" {
+				t.Errorf("award 'MVP' earned on team 2 should not appear in team 1 results")
+			}
+		}
+		found := false
+		for _, aw := range playerA.Awards {
+			if aw == "All-Star" {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("award 'All-Star' earned on team 1 should appear in results; got %v", playerA.Awards)
+		}
+	})
+
+	t.Run("traded player appears for both teams", func(t *testing.T) {
+		// Player E has a player_season linked to both teams in s1 (traded mid-season).
+		pE := seedPlayer(t, db, "tp-pe", "Eli", "Echo")
+		// seedPlayerSeason inserts with sort_order=0 → team 1 is final team
+		psE1 := seedPlayerSeason(t, db, pE, s1, &h1s1)
+		// Add second association: team 2 (the team player came from, sort_order=1)
+		addTopPlayerTeam(t, db, psE1, h2s1, 1)
+		seedBatting(t, db, psE1, true, 450, 130, 15, 70)
+		setTopPlayerBattingWAR(t, db, psE1, 110.0, 2.0)
+
+		team1Results, err := tq.GetTeamTopPlayers(ctx, t1, 25)
+		if err != nil {
+			t.Fatal(err)
+		}
+		team2Results, err := tq.GetTeamTopPlayers(ctx, t2, 25)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		foundInT1, foundInT2 := false, false
+		for _, r := range team1Results {
+			if r.PlayerID == pE {
+				foundInT1 = true
+			}
+		}
+		for _, r := range team2Results {
+			if r.PlayerID == pE {
+				foundInT2 = true
+			}
+		}
+		if !foundInT1 {
+			t.Errorf("traded player E should appear in team 1 results (final team)")
+		}
+		if !foundInT2 {
+			t.Errorf("traded player E should appear in team 2 results (traded from)")
+		}
+	})
+}
+
+// ── Helpers for TestGetTeamTopPlayers ─────────────────────────────────────────
+
+func setTopPlayerBattingWAR(t *testing.T, db *sql.DB, playerSeasonID int64, opsPlus, smbWAR float64) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(),
+		`UPDATE player_season_batting_stats SET ops_plus=?, smb_war=? WHERE player_season_id=? AND is_regular_season=1`,
+		opsPlus, smbWAR, playerSeasonID)
+	if err != nil {
+		t.Fatalf("setTopPlayerBattingWAR: %v", err)
+	}
+}
+
+func setTopPlayerPitchingWAR(t *testing.T, db *sql.DB, playerSeasonID int64, eraPlus, smbWAR float64) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(),
+		`UPDATE player_season_pitching_stats SET era_plus=?, smb_war=? WHERE player_season_id=? AND is_regular_season=1`,
+		eraPlus, smbWAR, playerSeasonID)
+	if err != nil {
+		t.Fatalf("setTopPlayerPitchingWAR: %v", err)
+	}
+}
+
+func linkTopPlayerAward(t *testing.T, db *sql.DB, playerSeasonID int64, awardName string) {
+	t.Helper()
+	var awardID int64
+	err := db.QueryRowContext(context.Background(),
+		`SELECT id FROM awards WHERE original_name=? LIMIT 1`, awardName).Scan(&awardID)
+	if err != nil {
+		t.Fatalf("linkTopPlayerAward: looking up %q: %v", awardName, err)
+	}
+	_, err = db.ExecContext(context.Background(),
+		`INSERT OR IGNORE INTO player_season_awards (player_season_id, award_id) VALUES (?,?)`,
+		playerSeasonID, awardID)
+	if err != nil {
+		t.Fatalf("linkTopPlayerAward: inserting %q: %v", awardName, err)
+	}
+}
+
+func addTopPlayerTeam(t *testing.T, db *sql.DB, playerSeasonID, teamHistID int64, sortOrder int) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(),
+		`INSERT OR IGNORE INTO player_season_teams (player_season_id, team_history_id, sort_order) VALUES (?,?,?)`,
+		playerSeasonID, teamHistID, sortOrder)
+	if err != nil {
+		t.Fatalf("addTopPlayerTeam: %v", err)
+	}
+}
+
+func abs64(x float64) float64 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 func insertScheduleGame(t *testing.T, db *sql.DB, seasonID, gameNum int, homeHistID, awayHistID int64, homeScore, awayScore int) {

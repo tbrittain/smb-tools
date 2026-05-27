@@ -1,10 +1,15 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
-import type { main } from '../../wailsjs/go/models'
 import { getAwardIcon } from '../composables/useAwardIcons'
 
+interface AwardLike {
+  importance: number
+  name: string
+  originalName: string
+}
+
 const props = defineProps<{
-  award: main.AwardDTO
+  award: AwardLike
   size?: 'sm' | 'md' | 'lg'
   count?: number
 }>()

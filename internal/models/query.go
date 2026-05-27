@@ -276,6 +276,23 @@ type TeamHistory struct {
 	Seasons  []TeamSeasonSummary
 }
 
+// TeamTopPlayer is one row in the all-time top players list for a team,
+// ranked by cumulative smbWAR accumulated while with that team.
+type TeamTopPlayer struct {
+	PlayerID        int64
+	FirstName       string
+	LastName        string
+	IsHallOfFamer   bool
+	NumSeasons      int
+	SeasonNumsCSV   string // comma-separated season numbers from GROUP_CONCAT; Go sorts before use
+	IsPitcher       bool
+	PrimaryPosition string
+	TotalSmbWAR     float64
+	AvgOpsPlus      *float64 // nil when player has no batting rows with this team
+	AvgEraPlus      *float64 // nil when player has no pitching rows with this team
+	Awards          []string // award original_name values, ordered by importance; set by second query
+}
+
 // TeamSeasonListRow is one row in the historical teams list page.
 type TeamSeasonListRow struct {
 	SeasonNum      int

@@ -1785,6 +1785,40 @@ export namespace main {
 	        this.playoffSeed = source["playoffSeed"];
 	    }
 	}
+	export class TeamTopPlayerDTO {
+	    playerId: number;
+	    firstName: string;
+	    lastName: string;
+	    isHallOfFamer: boolean;
+	    numSeasons: number;
+	    seasonNums: number[];
+	    isPitcher: boolean;
+	    position: string;
+	    smbWarWithTeam: number;
+	    avgOpsPlus?: number;
+	    avgEraPlus?: number;
+	    awards: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new TeamTopPlayerDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.playerId = source["playerId"];
+	        this.firstName = source["firstName"];
+	        this.lastName = source["lastName"];
+	        this.isHallOfFamer = source["isHallOfFamer"];
+	        this.numSeasons = source["numSeasons"];
+	        this.seasonNums = source["seasonNums"];
+	        this.isPitcher = source["isPitcher"];
+	        this.position = source["position"];
+	        this.smbWarWithTeam = source["smbWarWithTeam"];
+	        this.avgOpsPlus = source["avgOpsPlus"];
+	        this.avgEraPlus = source["avgEraPlus"];
+	        this.awards = source["awards"];
+	    }
+	}
 
 }
 
