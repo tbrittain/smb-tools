@@ -291,6 +291,23 @@ type HistoricalTeamDTO struct {
 	ERA                 *float64 `json:"era"`
 }
 
+// TeamTopPlayerDTO is one row in a team's all-time top players list,
+// ranked by cumulative smbWAR accumulated while with that team.
+type TeamTopPlayerDTO struct {
+	PlayerID       int64    `json:"playerId"`
+	FirstName      string   `json:"firstName"`
+	LastName       string   `json:"lastName"`
+	IsHallOfFamer  bool     `json:"isHallOfFamer"`
+	NumSeasons     int      `json:"numSeasons"`
+	SeasonNums     []int    `json:"seasonNums"`    // sorted ascending; frontend formats as ranges
+	IsPitcher      bool     `json:"isPitcher"`
+	Position       string   `json:"position"`
+	SmbWARWithTeam float64  `json:"smbWarWithTeam"`
+	AvgOpsPlus     *float64 `json:"avgOpsPlus"`    // nil when player has no batting rows with this team
+	AvgEraPlus     *float64 `json:"avgEraPlus"`    // nil when player has no pitching rows with this team
+	Awards         []string `json:"awards"`         // award original_name values, ordered by importance
+}
+
 // TeamSeasonListDTO is one row in the historical teams list page.
 type TeamSeasonListDTO struct {
 	SeasonNum      int     `json:"seasonNum"`

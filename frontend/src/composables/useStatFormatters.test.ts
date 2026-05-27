@@ -7,6 +7,7 @@ import {
   formatK9,
   formatPct,
   formatSalary,
+  formatSeasonRanges,
   formatWHIP,
 } from './useStatFormatters'
 
@@ -91,5 +92,26 @@ describe('formatCount', () => {
   })
   it('rounds floats', () => {
     expect(formatCount(42.7)).toBe('43')
+  })
+})
+
+describe('formatSeasonRanges', () => {
+  it('returns — for empty array', () => {
+    expect(formatSeasonRanges([])).toBe('—')
+  })
+  it('formats single season', () => {
+    expect(formatSeasonRanges([5])).toBe('5')
+  })
+  it('formats contiguous range', () => {
+    expect(formatSeasonRanges([1, 2, 3])).toBe('1–3')
+  })
+  it('formats non-contiguous seasons as comma-separated values', () => {
+    expect(formatSeasonRanges([1, 3, 5])).toBe('1, 3, 5')
+  })
+  it('formats mixed contiguous and non-contiguous', () => {
+    expect(formatSeasonRanges([1, 2, 4, 5, 7])).toBe('1–2, 4–5, 7')
+  })
+  it('sorts unsorted input before formatting', () => {
+    expect(formatSeasonRanges([3, 1, 2])).toBe('1–3')
   })
 })

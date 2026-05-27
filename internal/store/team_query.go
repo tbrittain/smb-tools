@@ -815,3 +815,130 @@ func scanScheduleRows(rows *sql.Rows) ([]models.ScheduleGameRow, error) {
 	}
 	return out, rows.Err()
 }
+
+// GetTeamTopPlayers returns the top `limit` players by cumulative smbWAR
+// accumulated while playing for the given team, across all seasons. A player
+// who was traded mid-season contributes fully to both the team they left and
+// the team they joined — granular split stats are not stored.
+func (s *TeamQueryStore) GetTeamTopPlayers(ctx context.Context, teamID int64, limit int) ([]models.TeamTopPlayer, error) {
+	rows, err := s.db.QueryContext(ctx, `
+WITH player_team_seasons AS (
+    SELECT DISTINCT
+        ps.player_id,
+        ps.id          AS player_season_id,
+        ps.season_id,
+        ps.pitcher_role
+    FROM player_seasons ps
+    JOIN player_season_teams pst ON pst.player_season_id = ps.id
+    JOIN team_season_history  tsh ON tsh.id = pst.team_history_id
+    WHERE tsh.team_id = ?
+)
+SELECT
+    p.id,
+    p.first_name,
+    p.last_name,
+    p.is_hall_of_famer,
+    COUNT(DISTINCT pts.season_id)                                       AS num_seasons,
+    GROUP_CONCAT(s.season_num)                                          AS season_nums_csv,
+    MAX(CASE WHEN pts.pitcher_role != '' THEN 1 ELSE 0 END)            AS is_pitcher,
+    (
+        SELECT ps2.primary_position
+        FROM player_team_seasons pts2
+        JOIN player_seasons ps2 ON ps2.id = pts2.player_season_id
+        JOIN seasons        s2  ON s2.id  = pts2.season_id
+        WHERE pts2.player_id = p.id
+        ORDER BY s2.season_num DESC
+        LIMIT 1
+    )                                                                   AS primary_position,
+    COALESCE(SUM(b.smb_war),   0) +
+    COALESCE(SUM(pit.smb_war), 0)                                       AS total_smb_war,
+    AVG(CASE WHEN b.ops_plus   IS NOT NULL THEN b.ops_plus   END)       AS avg_ops_plus,
+    AVG(CASE WHEN pit.era_plus IS NOT NULL THEN pit.era_plus END)       AS avg_era_plus
+FROM player_team_seasons pts
+JOIN players p ON p.id = pts.player_id
+JOIN seasons  s ON s.id = pts.season_id
+LEFT JOIN player_season_batting_stats  b
+    ON b.player_season_id   = pts.player_season_id AND b.is_regular_season = 1
+LEFT JOIN player_season_pitching_stats pit
+    ON pit.player_season_id = pts.player_season_id AND pit.is_regular_season = 1
+GROUP BY p.id, p.first_name, p.last_name, p.is_hall_of_famer
+ORDER BY total_smb_war DESC
+LIMIT ?
+`, teamID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("getting top players for team %d: %w", teamID, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []models.TeamTopPlayer
+	for rows.Next() {
+		var r models.TeamTopPlayer
+		var hof, isPitcher int
+		var seasonNumsCSV sql.NullString
+		var avgOpsPlus, avgEraPlus sql.NullFloat64
+		if err := rows.Scan(
+			&r.PlayerID, &r.FirstName, &r.LastName, &hof,
+			&r.NumSeasons, &seasonNumsCSV, &isPitcher, &r.PrimaryPosition,
+			&r.TotalSmbWAR, &avgOpsPlus, &avgEraPlus,
+		); err != nil {
+			return nil, fmt.Errorf("scanning team top player: %w", err)
+		}
+		r.IsHallOfFamer = hof == 1
+		r.IsPitcher = isPitcher == 1
+		r.SeasonNumsCSV = seasonNumsCSV.String
+		if avgOpsPlus.Valid {
+			v := avgOpsPlus.Float64
+			r.AvgOpsPlus = &v
+		}
+		if avgEraPlus.Valid {
+			v := avgEraPlus.Float64
+			r.AvgEraPlus = &v
+		}
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating team top players: %w", err)
+	}
+
+	if len(out) == 0 {
+		return out, nil
+	}
+
+	// Second query: awards scoped to each player's seasons with this team.
+	awardRows, err := s.db.QueryContext(ctx, `
+SELECT
+    ps.player_id,
+    a.original_name
+FROM player_season_awards psa
+JOIN player_seasons        ps  ON ps.id  = psa.player_season_id
+JOIN awards                a   ON a.id   = psa.award_id
+JOIN player_season_teams   pst ON pst.player_season_id = psa.player_season_id
+JOIN team_season_history   tsh ON tsh.id = pst.team_history_id
+WHERE tsh.team_id = ?
+ORDER BY ps.player_id ASC, a.importance ASC, a.name ASC
+`, teamID)
+	if err != nil {
+		return nil, fmt.Errorf("getting awards for team %d top players: %w", teamID, err)
+	}
+	defer func() { _ = awardRows.Close() }()
+
+	awardsByPlayer := make(map[int64][]string)
+	for awardRows.Next() {
+		var playerID int64
+		var originalName string
+		if err := awardRows.Scan(&playerID, &originalName); err != nil {
+			return nil, fmt.Errorf("scanning team top player award: %w", err)
+		}
+		awardsByPlayer[playerID] = append(awardsByPlayer[playerID], originalName)
+	}
+	if err := awardRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating team top player awards: %w", err)
+	}
+
+	for i := range out {
+		if awards, ok := awardsByPlayer[out[i].PlayerID]; ok {
+			out[i].Awards = awards
+		}
+	}
+	return out, nil
+}

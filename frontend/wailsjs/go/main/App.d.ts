@@ -60,6 +60,8 @@ export function GetTeamHistory(arg1:number):Promise<main.TeamHistoryDTO>;
 
 export function GetTeamSeasonDetail(arg1:number):Promise<main.TeamSeasonDetailDTO>;
 
+export function GetTeamTopPlayers(arg1:number):Promise<Array<main.TeamTopPlayerDTO>>;
+
 export function GetVersion():Promise<string>;
 
 export function ListAllAwards():Promise<Array<main.AwardDTO>>;

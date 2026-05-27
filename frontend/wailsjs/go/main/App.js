@@ -118,6 +118,10 @@ export function GetTeamSeasonDetail(arg1) {
   return window['go']['main']['App']['GetTeamSeasonDetail'](arg1);
 }
 
+export function GetTeamTopPlayers(arg1) {
+  return window['go']['main']['App']['GetTeamTopPlayers'](arg1);
+}
+
 export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
 }

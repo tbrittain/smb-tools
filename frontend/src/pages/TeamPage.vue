@@ -2,11 +2,12 @@
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import { computed, onMounted, ref } from 'vue'
-import { GetTeamHistory } from '../../wailsjs/go/main/App'
+import { GetTeamHistory, GetTeamTopPlayers } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppLink from '../components/AppLink.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import TeamTopPlayersTable from '../components/TeamTopPlayersTable.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 
 const props = defineProps<{ teamId: number }>()
@@ -14,6 +15,7 @@ const props = defineProps<{ teamId: number }>()
 const { set } = useBreadcrumbs()
 
 const history = ref<main.TeamHistoryDTO | null>(null)
+const topPlayers = ref<main.TeamTopPlayerDTO[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -38,7 +40,9 @@ onMounted(async () => {
   loading.value = true
   error.value = null
   try {
-    history.value = await GetTeamHistory(props.teamId)
+    const [hist, players] = await Promise.all([GetTeamHistory(props.teamId), GetTeamTopPlayers(props.teamId)])
+    history.value = hist
+    topPlayers.value = players ?? []
     set([{ label: summary.value.currentName }])
   } catch (e) {
     error.value = String(e)
@@ -126,6 +130,12 @@ onMounted(async () => {
             </template>
           </Column>
         </DataTable>
+      </section>
+      <!-- Top players section -->
+      <section class="section">
+        <h3>Top Players</h3>
+        <EmptyState v-if="topPlayers.length === 0" message="No player data yet — import a season to see top players" />
+        <TeamTopPlayersTable v-else :players="topPlayers" />
       </section>
     </template>
 
