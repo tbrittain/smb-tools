@@ -330,6 +330,25 @@ func (svc *ImportService) importInTx(
 	}
 	result.PlayoffGames = len(playoffGames)
 
+	// Collect seeds from the series data (Team1Seed/Team2Seed are bracket seeds,
+	// present as soon as the first game in a series is in the save file).
+	// The save game stores standings 0-indexed (0 = #1 seed); add 1 for display.
+	// Use a map to deduplicate — multiple games per team all carry the same seed.
+	if len(playoffGames) > 0 {
+		seedMap := make(map[int64]int)
+		for _, g := range playoffGames {
+			if histID := teamGUIDToHistoryID[g.Team1GUID]; histID != 0 {
+				seedMap[histID] = g.Team1Seed + 1
+			}
+			if histID := teamGUIDToHistoryID[g.Team2GUID]; histID != 0 {
+				seedMap[histID] = g.Team2Seed + 1
+			}
+		}
+		if err := teams.UpdatePlayoffSeeds(ctx, seedMap); err != nil {
+			return result, fmt.Errorf("updating playoff seeds: %w", err)
+		}
+	}
+
 	// ── 10. Playoff config ───────────────────────────────────────────────────
 	// Prefer the authoritative values from t_playoffs; fall back to inference
 	// from the game data we just persisted (covers saves where t_playoffs is

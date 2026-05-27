@@ -396,8 +396,9 @@ func seedSaveGameData(db *sql.DB) error {
 		-- t_playoffs.seasonGUID links to t_seasons.GUID for season 100
 		INSERT INTO t_playoffs (GUID, seasonGUID, rounds, seriesLength)
 		VALUES (X'CC000000000000000000000000000000', X'DD000000000000000000000000000000', 1, 5);
+		-- team1Standing/team2Standing are 0-indexed in the real save game (0 = #1 seed).
 		INSERT INTO t_playoff_series (playoffGUID, seriesNumber, team1GUID, team2GUID, team1Standing, team2Standing)
-		VALUES (X'CC000000000000000000000000000000', 1, X'01000000000000000000000000000000', X'02000000000000000000000000000000', 1, 2);
+		VALUES (X'CC000000000000000000000000000000', 1, X'01000000000000000000000000000000', X'02000000000000000000000000000000', 0, 1);
 
 		-- Playoff game result (ID=3) linked via t_playoff_games, not t_season_games
 		INSERT INTO t_game_results (ID, homeTeamLocalID, awayTeamLocalID, homeRunsScored, awayRunsScored, homePitcherLocalID, awayPitcherLocalID)

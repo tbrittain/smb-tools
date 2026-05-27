@@ -626,6 +626,57 @@ func TestImportSeason_TraitsImported(t *testing.T) {
 	}
 }
 
+func TestImportSeason_PlayoffSeedsStored(t *testing.T) {
+	// team1Standing=0 (0-indexed #1 seed) must be stored as playoff_seed=1.
+	// team2Standing=1 (0-indexed #2 seed) must be stored as playoff_seed=2.
+	// The > 0 guard that previously skipped 0-indexed #1 seeds is the regression
+	// this test is protecting against.
+	svc, companionDB, reader := newTestImportService(t)
+	ctx := context.Background()
+	importSeason1(t, svc, companionDB, reader)
+
+	rows, err := companionDB.QueryContext(ctx,
+		`SELECT t.game_guid, tsh.playoff_seed
+		 FROM team_season_history tsh
+		 JOIN teams t ON t.id = tsh.team_id
+		 WHERE tsh.playoff_seed IS NOT NULL
+		 ORDER BY tsh.playoff_seed`,
+	)
+	if err != nil {
+		t.Fatalf("querying playoff seeds: %v", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	type row struct {
+		guid string
+		seed int
+	}
+	var got []row
+	for rows.Next() {
+		var r row
+		if err := rows.Scan(&r.guid, &r.seed); err != nil {
+			t.Fatalf("scanning row: %v", err)
+		}
+		got = append(got, r)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows error: %v", err)
+	}
+
+	want := []row{
+		{"01000000000000000000000000000000", 1},
+		{"02000000000000000000000000000000", 2},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("playoff seed rows: got %d, want %d; rows=%v", len(got), len(want), got)
+	}
+	for i, w := range want {
+		if got[i].guid != w.guid || got[i].seed != w.seed {
+			t.Errorf("row %d: got {%s, %d}, want {%s, %d}", i, got[i].guid, got[i].seed, w.guid, w.seed)
+		}
+	}
+}
+
 func TestImportSeason_PersistsPlayoffConfig(t *testing.T) {
 	svc, companionDB, reader := newTestImportService(t)
 	ctx := context.Background()
