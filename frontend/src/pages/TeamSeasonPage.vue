@@ -470,7 +470,8 @@ watch(
                     <span v-else>—</span>
                   </td>
                   <td :class="g.homeTeamHistoryId === historyId ? 'our-team' : ''">
-                    <AppLink :to="`/teams/${g.homeTeamId}/seasons/${g.homeTeamHistoryId}`">
+                    <template v-if="g.homeTeamHistoryId === historyId">{{ g.homeTeamName }}</template>
+                    <AppLink v-else :to="`/teams/${g.homeTeamId}/seasons/${g.homeTeamHistoryId}`">
                       {{ g.homeTeamName }}
                     </AppLink>
                   </td>
@@ -481,7 +482,8 @@ watch(
                     <template v-else>—</template>
                   </td>
                   <td :class="g.awayTeamHistoryId === historyId ? 'our-team' : ''">
-                    <AppLink :to="`/teams/${g.awayTeamId}/seasons/${g.awayTeamHistoryId}`">
+                    <template v-if="g.awayTeamHistoryId === historyId">{{ g.awayTeamName }}</template>
+                    <AppLink v-else :to="`/teams/${g.awayTeamId}/seasons/${g.awayTeamHistoryId}`">
                       {{ g.awayTeamName }}
                     </AppLink>
                   </td>
