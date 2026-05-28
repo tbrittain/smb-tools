@@ -73,6 +73,7 @@ type App struct {
 	teamQueryStore        *store.TeamQueryStore
 	leaderboardQueryStore *store.LeaderboardQueryStore
 	awardStore            *store.AwardStore
+	statRecordsService    *service.StatRecordsService
 }
 
 func NewApp(version string) *App {
@@ -209,6 +210,7 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 		a.teamQueryStore = nil
 		a.leaderboardQueryStore = nil
 		a.awardStore = nil
+		a.statRecordsService = nil
 	}
 
 	companionDB, f, err := a.franchiseService.OpenFranchise(a.ctx, id)
@@ -229,6 +231,7 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 	a.teamQueryStore = store.NewTeamQueryStore(companionDB)
 	a.leaderboardQueryStore = store.NewLeaderboardQueryStore(companionDB)
 	a.awardStore = store.NewAwardStore(companionDB)
+	a.statRecordsService = service.NewStatRecordsService(store.NewStatRecordQueryStore(companionDB))
 
 	src, _ := a.franchiseSourceStore.GetActive(a.ctx, id)
 	return franchiseToDTO(f, src), nil
@@ -306,6 +309,7 @@ func (a *App) SyncSeason() (SyncSeasonResult, error) {
 	if err := a.franchiseStore.RecordSync(a.ctx, a.activeFranchise.ID, result.SeasonNum); err != nil {
 		log.Printf("SyncSeason: recording sync: %v", err)
 	}
+	a.statRecordsService.Invalidate()
 
 	return SyncSeasonResult{
 		SeasonID:     result.SeasonID,
@@ -395,6 +399,7 @@ func (a *App) ReimportSeasonFromSnapshot(snapshotID int64, seasonNum int) (Reimp
 	}
 	runtime.LogInfof(a.ctx, "ReimportSeasonFromSnapshot: reimported season %d from snapshot %d — %d players, %d teams, %d games",
 		seasonNum, snapshotID, result.Players, result.Teams, result.Games)
+	a.statRecordsService.Invalidate()
 
 	return ReimportSeasonResult{
 		SeasonNum:    result.SeasonNum,
@@ -1157,6 +1162,56 @@ func (a *App) GetPitchingSeasonLeaders(filters LeaderboardFiltersDTO) (PitchingL
 		out[i] = pitchingSeasonLeaderToDTO(rows[i])
 	}
 	return PitchingLeaderPageDTO{Rows: out, Total: total}, nil
+}
+
+// GetStatHighlights returns the franchise-wide stat highlight data: per-season
+// league leaders and all-time counting-stat records. The result is computed once
+// per session and cached until a new season import invalidates it.
+func (a *App) GetStatHighlights() (StatHighlightsDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return StatHighlightsDTO{}, err
+	}
+	cache, err := a.statRecordsService.Get(a.ctx)
+	if err != nil {
+		return StatHighlightsDTO{}, err
+	}
+
+	leadersBatting := make(map[string]map[string][]int64, len(cache.LeagueLeadersBatting))
+	for seasonNum, stats := range cache.LeagueLeadersBatting {
+		leadersBatting[strconv.Itoa(seasonNum)] = stats
+	}
+	leadersPitching := make(map[string]map[string][]int64, len(cache.LeagueLeadersPitching))
+	for seasonNum, stats := range cache.LeagueLeadersPitching {
+		leadersPitching[strconv.Itoa(seasonNum)] = stats
+	}
+
+	singleBatting := make(map[string][]StatRecordHolderDTO, len(cache.SingleSeasonBatting))
+	for key, refs := range cache.SingleSeasonBatting {
+		holders := make([]StatRecordHolderDTO, len(refs))
+		for i, r := range refs {
+			holders[i] = StatRecordHolderDTO{PlayerID: r.PlayerID, SeasonNum: r.SeasonNum}
+		}
+		singleBatting[key] = holders
+	}
+	singlePitching := make(map[string][]StatRecordHolderDTO, len(cache.SingleSeasonPitching))
+	for key, refs := range cache.SingleSeasonPitching {
+		holders := make([]StatRecordHolderDTO, len(refs))
+		for i, r := range refs {
+			holders[i] = StatRecordHolderDTO{PlayerID: r.PlayerID, SeasonNum: r.SeasonNum}
+		}
+		singlePitching[key] = holders
+	}
+
+	return StatHighlightsDTO{
+		LeagueLeadersBatting:  leadersBatting,
+		LeagueLeadersPitching: leadersPitching,
+		SingleSeasonBatting:   singleBatting,
+		SingleSeasonPitching:  singlePitching,
+		CareerBattingRS:       cache.CareerBattingRS,
+		CareerBattingPO:       cache.CareerBattingPO,
+		CareerPitchingRS:      cache.CareerPitchingRS,
+		CareerPitchingPO:      cache.CareerPitchingPO,
+	}, nil
 }
 
 // ---- helpers ---------------------------------------------------------------

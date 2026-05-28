@@ -14,10 +14,12 @@ import LeaderboardFilters from '../components/LeaderboardFilters.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import PitchingLeaderboardTable from '../components/PitchingLeaderboardTable.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
+import { useStatHighlightsStore } from '../stores/statHighlights'
 
 type LeaderboardTab = 'batting-career' | 'batting-season' | 'pitching-career' | 'pitching-season'
 
 const { set } = useBreadcrumbs()
+const highlightsStore = useStatHighlightsStore()
 
 const activeTab = ref<LeaderboardTab>('batting-career')
 
@@ -76,6 +78,7 @@ watch(
 
 onMounted(async () => {
   set([{ label: 'Leaderboards' }])
+  highlightsStore.fetch()
   try {
     seasons.value = await GetSeasonList()
   } catch {
@@ -210,11 +213,13 @@ function onPitchingSeasonPage(event: DataTablePageEvent) {
         v-if="activeTab === 'batting-career'"
         :rows="battingCareerRows"
         :is-career="true"
+        :highlights="highlightsStore.highlights"
       />
       <BattingLeaderboardTable
         v-else-if="activeTab === 'batting-season'"
         :rows="battingSeasonRows"
         :is-career="false"
+        :highlights="highlightsStore.highlights"
         :total-records="battingSeasonTotal"
         :first="battingSeasonFirst"
         :sort-field="battingSeasonSort.field || 'smbWar'"
@@ -226,11 +231,13 @@ function onPitchingSeasonPage(event: DataTablePageEvent) {
         v-else-if="activeTab === 'pitching-career'"
         :rows="pitchingCareerRows"
         :is-career="true"
+        :highlights="highlightsStore.highlights"
       />
       <PitchingLeaderboardTable
         v-else
         :rows="pitchingSeasonRows"
         :is-career="false"
+        :highlights="highlightsStore.highlights"
         :total-records="pitchingSeasonTotal"
         :first="pitchingSeasonFirst"
         :sort-field="pitchingSeasonSort.field || 'smbWar'"

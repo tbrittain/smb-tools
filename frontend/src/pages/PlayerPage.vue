@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { GetPlayerCareer, GetPlayerCareerAwards, GetPlayerSeasonLog } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AttributesTable from '../components/AttributesTable.vue'
@@ -9,10 +9,12 @@ import LoadingSpinner from '../components/LoadingSpinner.vue'
 import PlayerBioCard from '../components/PlayerBioCard.vue'
 import PlayerStatTable from '../components/PlayerStatTable.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
+import { useStatHighlightsStore } from '../stores/statHighlights'
 
 const props = defineProps<{ playerId: number }>()
 
 const { set } = useBreadcrumbs()
+const highlightsStore = useStatHighlightsStore()
 
 const career = ref<main.PlayerCareerDTO | null>(null)
 const seasonLog = ref<main.PlayerSeasonLogDTO[]>([])
@@ -40,26 +42,34 @@ const isPitcher = computed(() => {
   return s != null && (s.primaryPosition === 'P' || s.pitcherRole !== '')
 })
 
-onMounted(async () => {
-  loading.value = true
-  error.value = null
-  try {
-    const [c, log, awards] = await Promise.all([
-      GetPlayerCareer(props.playerId),
-      GetPlayerSeasonLog(props.playerId),
-      GetPlayerCareerAwards(props.playerId),
-    ])
-    career.value = c
-    seasonLog.value = log ?? []
-    awardsBySeason.value = awards ?? {}
-    statMode.value = isPitcher.value ? 'pitching' : 'batting'
-    set([{ label: c ? `${c.firstName} ${c.lastName}` : 'Player' }])
-  } catch (e) {
-    error.value = String(e)
-  } finally {
-    loading.value = false
-  }
-})
+watch(
+  () => props.playerId,
+  async (id) => {
+    career.value = null
+    seasonLog.value = []
+    awardsBySeason.value = {}
+    loading.value = true
+    error.value = null
+    highlightsStore.fetch()
+    try {
+      const [c, log, awards] = await Promise.all([
+        GetPlayerCareer(id),
+        GetPlayerSeasonLog(id),
+        GetPlayerCareerAwards(id),
+      ])
+      career.value = c
+      seasonLog.value = log ?? []
+      awardsBySeason.value = awards ?? {}
+      statMode.value = isPitcher.value ? 'pitching' : 'batting'
+      set([{ label: c ? `${c.firstName} ${c.lastName}` : 'Player' }])
+    } catch (e) {
+      error.value = String(e)
+    } finally {
+      loading.value = false
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -128,6 +138,8 @@ onMounted(async () => {
           :mode="statMode"
           :show-playoffs="showPlayoffs"
           :awards-by-season="awardsBySeason"
+          :player-id="props.playerId"
+          :highlights="highlightsStore.highlights"
         />
       </section>
     </template>

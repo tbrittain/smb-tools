@@ -15,9 +15,18 @@ import {
   formatWAR,
   formatWHIP,
 } from '../composables/useStatFormatters'
+import {
+  highlightTooltip,
+  isCareerRecordPO,
+  isCareerRecordRS,
+  isSeasonLeader,
+  isSingleSeasonRecord,
+} from '../composables/useStatHighlightHelpers'
 import AppLink from './AppLink.vue'
 import AwardBadge from './AwardBadge.vue'
 import EmptyState from './EmptyState.vue'
+import StatHighlightCell from './StatHighlightCell.vue'
+import StatHighlightLegend from './StatHighlightLegend.vue'
 
 // Trait names that carry a negative effect — everything else is positive.
 const NEGATIVE_TRAITS = new Set([
@@ -52,6 +61,8 @@ const props = defineProps<{
   mode: 'batting' | 'pitching'
   showPlayoffs: boolean
   awardsBySeason?: Record<string, main.AwardDTO[]>
+  playerId?: number
+  highlights?: main.StatHighlightsDTO | null
 }>()
 
 // Flatten the selected stat block into each row for easy field access
@@ -196,6 +207,62 @@ const careerPitchingSummary = computed(() => {
 
 // Non-stat prefix columns: Season, Team, Age, Pos/Role, Traits, [Awards]
 const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
+
+// ── Highlight helpers ─────────────────────────────────────────────────────────
+
+function bSeasonClass(r: { seasonNum: number }, statKey: string): Record<string, boolean> {
+  const pid = props.playerId
+  if (!pid || props.showPlayoffs) return {}
+  return {
+    'stat-leader': isSeasonLeader(pid, r.seasonNum, statKey, props.highlights, 'batting'),
+    'stat-record': isSingleSeasonRecord(pid, r.seasonNum, statKey, props.highlights, 'batting'),
+  }
+}
+
+function pSeasonClass(r: { seasonNum: number }, statKey: string): Record<string, boolean> {
+  const pid = props.playerId
+  if (!pid || props.showPlayoffs) return {}
+  return {
+    'stat-leader': isSeasonLeader(pid, r.seasonNum, statKey, props.highlights, 'pitching'),
+    'stat-record': isSingleSeasonRecord(pid, r.seasonNum, statKey, props.highlights, 'pitching'),
+  }
+}
+
+function bSeasonTip(r: { seasonNum: number }, statKey: string, label: string): string {
+  const pid = props.playerId
+  if (!pid || props.showPlayoffs) return ''
+  return highlightTooltip(pid, r.seasonNum, statKey, label, props.highlights, 'batting', 'season')
+}
+
+function pSeasonTip(r: { seasonNum: number }, statKey: string, label: string): string {
+  const pid = props.playerId
+  if (!pid || props.showPlayoffs) return ''
+  return highlightTooltip(pid, r.seasonNum, statKey, label, props.highlights, 'pitching', 'season')
+}
+
+function rsFooterClass(statKey: string, type: 'batting' | 'pitching'): Record<string, boolean> {
+  const pid = props.playerId
+  if (!pid) return {}
+  return { 'stat-record': isCareerRecordRS(pid, statKey, props.highlights, type) }
+}
+
+function poFooterClass(statKey: string, type: 'batting' | 'pitching'): Record<string, boolean> {
+  const pid = props.playerId
+  if (!pid) return {}
+  return { 'stat-record': isCareerRecordPO(pid, statKey, props.highlights, type) }
+}
+
+function rsFooterTip(statKey: string, label: string, type: 'batting' | 'pitching'): string {
+  const pid = props.playerId
+  if (!pid) return ''
+  return highlightTooltip(pid, 0, statKey, label, props.highlights, type, 'careerRS')
+}
+
+function poFooterTip(statKey: string, label: string, type: 'batting' | 'pitching'): string {
+  const pid = props.playerId
+  if (!pid) return ''
+  return highlightTooltip(pid, 0, statKey, label, props.highlights, type, 'careerPO')
+}
 </script>
 
 <template>
@@ -215,14 +282,30 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
       <ColumnGroup type="footer">
         <Row v-if="rsBattingSummary">
           <Column :colspan="batchingPrefixCols" footer="Regular Season" footer-class="summary-label" />
-          <Column :footer="String(rsBattingSummary.g)" footer-class="summary-cell" />
-          <Column :footer="String(rsBattingSummary.ab)" footer-class="summary-cell" />
-          <Column :footer="String(rsBattingSummary.h)" footer-class="summary-cell" />
-          <Column :footer="String(rsBattingSummary.hr)" footer-class="summary-cell" />
-          <Column :footer="String(rsBattingSummary.rbi)" footer-class="summary-cell" />
-          <Column :footer="String(rsBattingSummary.sb)" footer-class="summary-cell" />
-          <Column :footer="String(rsBattingSummary.bb)" footer-class="summary-cell" />
-          <Column :footer="String(rsBattingSummary.k)" footer-class="summary-cell" />
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsBattingSummary.g" :class-map="rsFooterClass('gamesPlayed', 'batting')" :tooltip="rsFooterTip('gamesPlayed', 'G', 'batting')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsBattingSummary.ab" :class-map="rsFooterClass('atBats', 'batting')" :tooltip="rsFooterTip('atBats', 'AB', 'batting')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsBattingSummary.h" :class-map="rsFooterClass('hits', 'batting')" :tooltip="rsFooterTip('hits', 'H', 'batting')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsBattingSummary.hr" :class-map="rsFooterClass('homeRuns', 'batting')" :tooltip="rsFooterTip('homeRuns', 'HR', 'batting')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsBattingSummary.rbi" :class-map="rsFooterClass('rbi', 'batting')" :tooltip="rsFooterTip('rbi', 'RBI', 'batting')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsBattingSummary.sb" :class-map="rsFooterClass('stolenBases', 'batting')" :tooltip="rsFooterTip('stolenBases', 'SB', 'batting')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsBattingSummary.bb" :class-map="rsFooterClass('walks', 'batting')" :tooltip="rsFooterTip('walks', 'BB', 'batting')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsBattingSummary.k" :class-map="rsFooterClass('strikeouts', 'batting')" :tooltip="rsFooterTip('strikeouts', 'K', 'batting')" /></template>
+          </Column>
           <Column :footer="formatBA(rsBattingSummary.ba)" footer-class="summary-cell" />
           <Column :footer="formatBA(rsBattingSummary.obp)" footer-class="summary-cell" />
           <Column :footer="formatBA(rsBattingSummary.slg)" footer-class="summary-cell" />
@@ -232,14 +315,30 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
         </Row>
         <Row v-if="poBattingSummary">
           <Column :colspan="batchingPrefixCols" footer="Playoffs" footer-class="summary-label summary-po" />
-          <Column :footer="String(poBattingSummary.g)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poBattingSummary.ab)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poBattingSummary.h)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poBattingSummary.hr)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poBattingSummary.rbi)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poBattingSummary.sb)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poBattingSummary.bb)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poBattingSummary.k)" footer-class="summary-cell summary-po" />
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poBattingSummary.g" :class-map="poFooterClass('gamesPlayed', 'batting')" :tooltip="poFooterTip('gamesPlayed', 'G', 'batting')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poBattingSummary.ab" :class-map="poFooterClass('atBats', 'batting')" :tooltip="poFooterTip('atBats', 'AB', 'batting')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poBattingSummary.h" :class-map="poFooterClass('hits', 'batting')" :tooltip="poFooterTip('hits', 'H', 'batting')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poBattingSummary.hr" :class-map="poFooterClass('homeRuns', 'batting')" :tooltip="poFooterTip('homeRuns', 'HR', 'batting')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poBattingSummary.rbi" :class-map="poFooterClass('rbi', 'batting')" :tooltip="poFooterTip('rbi', 'RBI', 'batting')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poBattingSummary.sb" :class-map="poFooterClass('stolenBases', 'batting')" :tooltip="poFooterTip('stolenBases', 'SB', 'batting')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poBattingSummary.bb" :class-map="poFooterClass('walks', 'batting')" :tooltip="poFooterTip('walks', 'BB', 'batting')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poBattingSummary.k" :class-map="poFooterClass('strikeouts', 'batting')" :tooltip="poFooterTip('strikeouts', 'K', 'batting')" /></template>
+          </Column>
           <Column :footer="formatBA(poBattingSummary.ba)" footer-class="summary-cell summary-po" />
           <Column :footer="formatBA(poBattingSummary.obp)" footer-class="summary-cell summary-po" />
           <Column :footer="formatBA(poBattingSummary.slg)" footer-class="summary-cell summary-po" />
@@ -309,28 +408,44 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
         </template>
       </Column>
       <Column header="G" sortable sort-field="_b.gamesPlayed" style="min-width: 55px">
-        <template #body="{ data: r }">{{ r._b?.gamesPlayed ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._b?.gamesPlayed" />
+        </template>
       </Column>
       <Column header="AB" sortable sort-field="_b.atBats" style="min-width: 60px">
-        <template #body="{ data: r }">{{ r._b?.atBats ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._b?.atBats" :class-map="bSeasonClass(r, 'atBats')" :tooltip="bSeasonTip(r, 'atBats', 'AB')" />
+        </template>
       </Column>
       <Column header="H" sortable sort-field="_b.hits" style="min-width: 55px">
-        <template #body="{ data: r }">{{ r._b?.hits ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._b?.hits" :class-map="bSeasonClass(r, 'hits')" :tooltip="bSeasonTip(r, 'hits', 'H')" />
+        </template>
       </Column>
       <Column header="HR" sortable sort-field="_b.homeRuns" style="min-width: 55px">
-        <template #body="{ data: r }">{{ r._b?.homeRuns ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._b?.homeRuns" :class-map="bSeasonClass(r, 'homeRuns')" :tooltip="bSeasonTip(r, 'homeRuns', 'HR')" />
+        </template>
       </Column>
       <Column header="RBI" sortable sort-field="_b.rbi" style="min-width: 60px">
-        <template #body="{ data: r }">{{ r._b?.rbi ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._b?.rbi" :class-map="bSeasonClass(r, 'rbi')" :tooltip="bSeasonTip(r, 'rbi', 'RBI')" />
+        </template>
       </Column>
       <Column header="SB" sortable sort-field="_b.stolenBases" style="min-width: 55px">
-        <template #body="{ data: r }">{{ r._b?.stolenBases ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._b?.stolenBases" :class-map="bSeasonClass(r, 'stolenBases')" :tooltip="bSeasonTip(r, 'stolenBases', 'SB')" />
+        </template>
       </Column>
       <Column header="BB" sortable sort-field="_b.walks" style="min-width: 55px">
-        <template #body="{ data: r }">{{ r._b?.walks ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._b?.walks" :class-map="bSeasonClass(r, 'walks')" :tooltip="bSeasonTip(r, 'walks', 'BB')" />
+        </template>
       </Column>
       <Column header="K" sortable sort-field="_b.strikeouts" style="min-width: 55px">
-        <template #body="{ data: r }">{{ r._b?.strikeouts ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._b?.strikeouts" :class-map="bSeasonClass(r, 'strikeouts')" :tooltip="bSeasonTip(r, 'strikeouts', 'K')" />
+        </template>
       </Column>
       <Column header="BA" sortable sort-field="_b.ba" style="min-width: 65px" class="col-rate">
         <template #body="{ data: r }">{{ formatBA(r._b?.ba) }}</template>
@@ -365,16 +480,36 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
       <ColumnGroup type="footer">
         <Row v-if="rsPitchingSummary">
           <Column :colspan="batchingPrefixCols" footer="Regular Season" footer-class="summary-label" />
-          <Column :footer="String(rsPitchingSummary.g)" footer-class="summary-cell" />
-          <Column :footer="String(rsPitchingSummary.gs)" footer-class="summary-cell" />
-          <Column :footer="String(rsPitchingSummary.w)" footer-class="summary-cell" />
-          <Column :footer="String(rsPitchingSummary.l)" footer-class="summary-cell" />
-          <Column :footer="String(rsPitchingSummary.sv)" footer-class="summary-cell" />
-          <Column :footer="formatIP(rsPitchingSummary.outsPitched)" footer-class="summary-cell" />
-          <Column :footer="String(rsPitchingSummary.h)" footer-class="summary-cell" />
-          <Column :footer="String(rsPitchingSummary.er)" footer-class="summary-cell" />
-          <Column :footer="String(rsPitchingSummary.bb)" footer-class="summary-cell" />
-          <Column :footer="String(rsPitchingSummary.k)" footer-class="summary-cell" />
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsPitchingSummary.g" :class-map="rsFooterClass('games', 'pitching')" :tooltip="rsFooterTip('games', 'G', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsPitchingSummary.gs" :class-map="rsFooterClass('gamesStarted', 'pitching')" :tooltip="rsFooterTip('gamesStarted', 'GS', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsPitchingSummary.w" :class-map="rsFooterClass('wins', 'pitching')" :tooltip="rsFooterTip('wins', 'W', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsPitchingSummary.l" :class-map="rsFooterClass('losses', 'pitching')" :tooltip="rsFooterTip('losses', 'L', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsPitchingSummary.sv" :class-map="rsFooterClass('saves', 'pitching')" :tooltip="rsFooterTip('saves', 'SV', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="formatIP(rsPitchingSummary.outsPitched)" :class-map="rsFooterClass('outsPitched', 'pitching')" :tooltip="rsFooterTip('outsPitched', 'IP', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsPitchingSummary.h" :class-map="rsFooterClass('hitsAllowed', 'pitching')" :tooltip="rsFooterTip('hitsAllowed', 'H', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsPitchingSummary.er" :class-map="rsFooterClass('earnedRuns', 'pitching')" :tooltip="rsFooterTip('earnedRuns', 'ER', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsPitchingSummary.bb" :class-map="rsFooterClass('walks', 'pitching')" :tooltip="rsFooterTip('walks', 'BB', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell">
+            <template #footer><StatHighlightCell :value="rsPitchingSummary.k" :class-map="rsFooterClass('strikeouts', 'pitching')" :tooltip="rsFooterTip('strikeouts', 'K', 'pitching')" /></template>
+          </Column>
           <Column :footer="formatERA(rsPitchingSummary.era)" footer-class="summary-cell" />
           <Column :footer="formatWHIP(rsPitchingSummary.whip)" footer-class="summary-cell" />
           <Column :footer="formatK9(rsPitchingSummary.k9)" footer-class="summary-cell" />
@@ -385,16 +520,36 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
         </Row>
         <Row v-if="poPitchingSummary">
           <Column :colspan="batchingPrefixCols" footer="Playoffs" footer-class="summary-label summary-po" />
-          <Column :footer="String(poPitchingSummary.g)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poPitchingSummary.gs)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poPitchingSummary.w)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poPitchingSummary.l)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poPitchingSummary.sv)" footer-class="summary-cell summary-po" />
-          <Column :footer="formatIP(poPitchingSummary.outsPitched)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poPitchingSummary.h)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poPitchingSummary.er)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poPitchingSummary.bb)" footer-class="summary-cell summary-po" />
-          <Column :footer="String(poPitchingSummary.k)" footer-class="summary-cell summary-po" />
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poPitchingSummary.g" :class-map="poFooterClass('games', 'pitching')" :tooltip="poFooterTip('games', 'G', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poPitchingSummary.gs" :class-map="poFooterClass('gamesStarted', 'pitching')" :tooltip="poFooterTip('gamesStarted', 'GS', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poPitchingSummary.w" :class-map="poFooterClass('wins', 'pitching')" :tooltip="poFooterTip('wins', 'W', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poPitchingSummary.l" :class-map="poFooterClass('losses', 'pitching')" :tooltip="poFooterTip('losses', 'L', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poPitchingSummary.sv" :class-map="poFooterClass('saves', 'pitching')" :tooltip="poFooterTip('saves', 'SV', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="formatIP(poPitchingSummary.outsPitched)" :class-map="poFooterClass('outsPitched', 'pitching')" :tooltip="poFooterTip('outsPitched', 'IP', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poPitchingSummary.h" :class-map="poFooterClass('hitsAllowed', 'pitching')" :tooltip="poFooterTip('hitsAllowed', 'H', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poPitchingSummary.er" :class-map="poFooterClass('earnedRuns', 'pitching')" :tooltip="poFooterTip('earnedRuns', 'ER', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poPitchingSummary.bb" :class-map="poFooterClass('walks', 'pitching')" :tooltip="poFooterTip('walks', 'BB', 'pitching')" /></template>
+          </Column>
+          <Column footer-class="summary-cell summary-po">
+            <template #footer><StatHighlightCell :value="poPitchingSummary.k" :class-map="poFooterClass('strikeouts', 'pitching')" :tooltip="poFooterTip('strikeouts', 'K', 'pitching')" /></template>
+          </Column>
           <Column :footer="formatERA(poPitchingSummary.era)" footer-class="summary-cell summary-po" />
           <Column :footer="formatWHIP(poPitchingSummary.whip)" footer-class="summary-cell summary-po" />
           <Column :footer="formatK9(poPitchingSummary.k9)" footer-class="summary-cell summary-po" />
@@ -466,34 +621,54 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
         </template>
       </Column>
       <Column header="G" sortable sort-field="_p.games" style="min-width: 55px">
-        <template #body="{ data: r }">{{ r._p?.games ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._p?.games" />
+        </template>
       </Column>
       <Column header="GS" sortable sort-field="_p.gamesStarted" style="min-width: 55px">
-        <template #body="{ data: r }">{{ r._p?.gamesStarted ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._p?.gamesStarted" :class-map="pSeasonClass(r, 'gamesStarted')" :tooltip="pSeasonTip(r, 'gamesStarted', 'GS')" />
+        </template>
       </Column>
       <Column header="W" sortable sort-field="_p.wins" style="min-width: 50px">
-        <template #body="{ data: r }">{{ r._p?.wins ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._p?.wins" :class-map="pSeasonClass(r, 'wins')" :tooltip="pSeasonTip(r, 'wins', 'W')" />
+        </template>
       </Column>
       <Column header="L" sortable sort-field="_p.losses" style="min-width: 50px">
-        <template #body="{ data: r }">{{ r._p?.losses ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._p?.losses" :class-map="pSeasonClass(r, 'losses')" :tooltip="pSeasonTip(r, 'losses', 'L')" />
+        </template>
       </Column>
       <Column header="SV" sortable sort-field="_p.saves" style="min-width: 55px">
-        <template #body="{ data: r }">{{ r._p?.saves ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._p?.saves" :class-map="pSeasonClass(r, 'saves')" :tooltip="pSeasonTip(r, 'saves', 'SV')" />
+        </template>
       </Column>
       <Column header="IP" sortable sort-field="_p.outsPitched" style="min-width: 68px">
-        <template #body="{ data: r }">{{ r._p != null ? formatIP(r._p.outsPitched) : '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._p != null ? formatIP(r._p.outsPitched) : null" :class-map="pSeasonClass(r, 'outsPitched')" :tooltip="pSeasonTip(r, 'outsPitched', 'IP')" />
+        </template>
       </Column>
       <Column header="H" sortable sort-field="_p.hitsAllowed" style="min-width: 55px">
-        <template #body="{ data: r }">{{ r._p?.hitsAllowed ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._p?.hitsAllowed" :class-map="pSeasonClass(r, 'hitsAllowed')" :tooltip="pSeasonTip(r, 'hitsAllowed', 'H')" />
+        </template>
       </Column>
       <Column header="ER" sortable sort-field="_p.earnedRuns" style="min-width: 55px">
-        <template #body="{ data: r }">{{ r._p?.earnedRuns ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._p?.earnedRuns" :class-map="pSeasonClass(r, 'earnedRuns')" :tooltip="pSeasonTip(r, 'earnedRuns', 'ER')" />
+        </template>
       </Column>
       <Column header="BB" sortable sort-field="_p.walks" style="min-width: 55px">
-        <template #body="{ data: r }">{{ r._p?.walks ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._p?.walks" :class-map="pSeasonClass(r, 'walks')" :tooltip="pSeasonTip(r, 'walks', 'BB')" />
+        </template>
       </Column>
       <Column header="K" sortable sort-field="_p.strikeouts" style="min-width: 55px">
-        <template #body="{ data: r }">{{ r._p?.strikeouts ?? '—' }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="r._p?.strikeouts" :class-map="pSeasonClass(r, 'strikeouts')" :tooltip="pSeasonTip(r, 'strikeouts', 'K')" />
+        </template>
       </Column>
       <Column header="ERA" sortable sort-field="_p.era" style="min-width: 68px" class="col-rate">
         <template #body="{ data: r }">{{ formatERA(r._p?.era) }}</template>
@@ -517,6 +692,8 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
         <template #body="{ data: r }">{{ formatWAR(r._p?.smbWar) }}</template>
       </Column>
     </DataTable>
+
+    <StatHighlightLegend v-if="rows.length > 0" :show-leader="!showPlayoffs" />
   </div>
 </template>
 
@@ -601,4 +778,5 @@ const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
   background: var(--color-surface-2, var(--p-datatable-footer-background));
   border-top: 2px solid var(--color-border);
 }
+
 </style>

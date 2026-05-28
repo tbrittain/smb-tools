@@ -110,6 +110,10 @@ export function GetStandings(arg1) {
   return window['go']['main']['App']['GetStandings'](arg1);
 }
 
+export function GetStatHighlights() {
+  return window['go']['main']['App']['GetStatHighlights']();
+}
+
 export function GetTeamHistory(arg1) {
   return window['go']['main']['App']['GetTeamHistory'](arg1);
 }

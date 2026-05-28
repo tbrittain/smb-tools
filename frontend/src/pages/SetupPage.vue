@@ -7,8 +7,10 @@ import SaveFilePicker from '../components/SaveFilePicker.vue'
 import SnapshotPicker from '../components/SnapshotPicker.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 import { useFranchiseStore } from '../stores/franchise'
+import { useStatHighlightsStore } from '../stores/statHighlights'
 
 const franchiseStore = useFranchiseStore()
+const highlightsStore = useStatHighlightsStore()
 
 // ── Source history ────────────────────────────────────────────────────────────
 
@@ -164,6 +166,7 @@ async function handleSync() {
   lastResult.value = null
   try {
     lastResult.value = await SyncSeason()
+    highlightsStore.invalidate()
     if (franchiseStore.active) {
       await franchiseStore.selectFranchise(franchiseStore.active.id)
     }
@@ -204,6 +207,7 @@ async function handleReimport() {
   reimportResult.value = null
   try {
     reimportResult.value = await ReimportSeasonFromSnapshot(selectedSnapshot.value.id, selectedSnapshot.value.seasonNum)
+    highlightsStore.invalidate()
   } catch (e) {
     reimportError.value = String(e)
   } finally {

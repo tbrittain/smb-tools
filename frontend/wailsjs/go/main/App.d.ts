@@ -56,6 +56,8 @@ export function GetSeasonStatLeaders(arg1:number):Promise<main.StatLeadersDTO>;
 
 export function GetStandings(arg1:number):Promise<Array<main.TeamStandingDTO>>;
 
+export function GetStatHighlights():Promise<main.StatHighlightsDTO>;
+
 export function GetTeamHistory(arg1:number):Promise<main.TeamHistoryDTO>;
 
 export function GetTeamSeasonDetail(arg1:number):Promise<main.TeamSeasonDetailDTO>;

@@ -2,6 +2,11 @@ import type { Meta, StoryObj } from '@storybook/vue3'
 import { main } from '../../wailsjs/go/models'
 import BattingLeaderboardTable from './BattingLeaderboardTable.vue'
 
+// Player IDs used in stories
+const P0 = 0
+const P1 = 1
+const P2 = 2
+
 const meta: Meta<typeof BattingLeaderboardTable> = {
   title: 'Components/BattingLeaderboardTable',
   component: BattingLeaderboardTable,
@@ -121,5 +126,43 @@ export const LargeSet: Story = {
   args: {
     rows: Array.from({ length: 80 }, (_, i) => makeCareerRow(i)),
     isCareer: true,
+  },
+}
+
+// Mock highlights: P0 is both season leader AND single-season record holder in HR (season 1);
+// P1 is season leader only in hits (season 2); P2 holds the career RS HR record.
+const mockHighlights: main.StatHighlightsDTO = new main.StatHighlightsDTO({
+  leagueLeadersBatting: {
+    '1': { homeRuns: [P0] },
+    '2': { hits: [P1], homeRuns: [P1] },
+  },
+  leagueLeadersPitching: {},
+  singleSeasonBatting: {
+    homeRuns: [{ playerId: P0, seasonNum: 1 }],
+  },
+  singleSeasonPitching: {},
+  careerBattingRS: { homeRuns: [P2] },
+  careerBattingPO: {},
+  careerPitchingRS: {},
+  careerPitchingPO: {},
+})
+
+export const SeasonViewWithHighlights: Story = {
+  args: {
+    rows: [0, 1, 2].map(makeSeasonRow),
+    isCareer: false,
+    highlights: mockHighlights,
+    totalRecords: 3,
+    first: 0,
+    sortField: 'smbWar',
+    sortOrder: -1,
+  },
+}
+
+export const CareerViewWithHighlights: Story = {
+  args: {
+    rows: [0, 1, 2, 3, 4].map(makeCareerRow),
+    isCareer: true,
+    highlights: mockHighlights,
   },
 }
