@@ -21,6 +21,7 @@ defineProps<{
 }
 
 .stat-record {
+  color: inherit;
   background: color-mix(in srgb, #d4a017 25%, transparent);
   border-radius: 3px;
   padding: 1px 3px;
