@@ -183,7 +183,7 @@ describe('highlightTooltip', () => {
 
   it('returns leader tooltip for season leader only', () => {
     const h = makeHighlights({ leagueLeadersBatting: { '3': { homeRuns: [42] } } })
-    expect(highlightTooltip(42, 3, 'homeRuns', 'HR', h, 'batting', 'season')).toBe('Led the league in HR — Season 3')
+    expect(highlightTooltip(42, 3, 'homeRuns', 'HR', h, 'batting', 'season')).toBe('Led the league in HR (Season 3)')
   })
 
   it('returns record tooltip for single-season record only', () => {
@@ -228,7 +228,7 @@ describe('highlightTooltip', () => {
     const h = makeHighlights({
       leagueLeadersPitching: { '2': { strikeouts: [7] } },
     })
-    expect(highlightTooltip(7, 2, 'strikeouts', 'K', h, 'pitching', 'season')).toBe('Led the league in K — Season 2')
+    expect(highlightTooltip(7, 2, 'strikeouts', 'K', h, 'pitching', 'season')).toBe('Led the league in K (Season 2)')
     expect(highlightTooltip(7, 2, 'strikeouts', 'K', h, 'batting', 'season')).toBe('')
   })
 })
