@@ -16,8 +16,10 @@ import SeasonSelector from '../components/SeasonSelector.vue'
 import StandingsTable from '../components/StandingsTable.vue'
 import StatLeadersPanel from '../components/StatLeadersPanel.vue'
 import { useFranchiseStore } from '../stores/franchise'
+import { useStatHighlightsStore } from '../stores/statHighlights'
 
 const franchiseStore = useFranchiseStore()
+const highlightsStore = useStatHighlightsStore()
 
 // ── Sync form ────────────────────────────────────────────────────────────────
 
@@ -31,6 +33,7 @@ async function handleSync() {
   lastResult.value = null
   try {
     lastResult.value = await SyncSeason()
+    highlightsStore.invalidate()
     if (franchiseStore.active) {
       await franchiseStore.selectFranchise(franchiseStore.active.id)
     }

@@ -9,6 +9,8 @@ import AppLink from '../components/AppLink.vue'
 import EmptyState from '../components/EmptyState.vue'
 import HofBadge from '../components/HofBadge.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import StatHighlightCell from '../components/StatHighlightCell.vue'
+import StatHighlightLegend from '../components/StatHighlightLegend.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 import {
   formatAdjustedStat,
@@ -20,11 +22,14 @@ import {
   formatWAR,
   formatWHIP,
 } from '../composables/useStatFormatters'
+import { highlightTooltip, isSeasonLeader, isSingleSeasonRecord } from '../composables/useStatHighlightHelpers'
+import { useStatHighlightsStore } from '../stores/statHighlights'
 
 const props = defineProps<{ teamId: number; historyId: number }>()
 
 const { set } = useBreadcrumbs()
 const router = useRouter()
+const highlightsStore = useStatHighlightsStore()
 
 const detail = ref<main.TeamSeasonDetailDTO | null>(null)
 const loading = ref(false)
@@ -126,6 +131,7 @@ async function fetchDetail(historyId: number) {
 }
 
 onMounted(async () => {
+  highlightsStore.fetch()
   const [, historyResult] = await Promise.allSettled([fetchDetail(props.historyId), GetTeamHistory(props.teamId)])
   if (historyResult.status === 'fulfilled') {
     teamSeasons.value = historyResult.value.seasons
@@ -144,6 +150,36 @@ watch(
     teamSeasons.value = result.seasons
   },
 )
+
+function rosterBClass(playerId: number, statKey: string): Record<string, boolean> {
+  const seasonNum = detail.value?.team.seasonNum
+  if (!seasonNum) return {}
+  return {
+    'stat-leader': isSeasonLeader(playerId, seasonNum, statKey, highlightsStore.highlights, 'batting'),
+    'stat-record': isSingleSeasonRecord(playerId, seasonNum, statKey, highlightsStore.highlights, 'batting'),
+  }
+}
+
+function rosterBTip(playerId: number, statKey: string, label: string): string {
+  const seasonNum = detail.value?.team.seasonNum
+  if (!seasonNum) return ''
+  return highlightTooltip(playerId, seasonNum, statKey, label, highlightsStore.highlights, 'batting', 'season')
+}
+
+function rosterPClass(playerId: number, statKey: string): Record<string, boolean> {
+  const seasonNum = detail.value?.team.seasonNum
+  if (!seasonNum) return {}
+  return {
+    'stat-leader': isSeasonLeader(playerId, seasonNum, statKey, highlightsStore.highlights, 'pitching'),
+    'stat-record': isSingleSeasonRecord(playerId, seasonNum, statKey, highlightsStore.highlights, 'pitching'),
+  }
+}
+
+function rosterPTip(playerId: number, statKey: string, label: string): string {
+  const seasonNum = detail.value?.team.seasonNum
+  if (!seasonNum) return ''
+  return highlightTooltip(playerId, seasonNum, statKey, label, highlightsStore.highlights, 'pitching', 'season')
+}
 </script>
 
 <template>
@@ -244,25 +280,39 @@ watch(
           <Column field="primaryPosition" header="Pos" sortable style="min-width: 55px" />
           <Column field="age" header="Age" sortable style="min-width: 50px" />
           <Column field="batting.gamesPlayed" header="G" sortable style="min-width: 52px">
-            <template #body="{ data }">{{ data.batting?.gamesPlayed ?? '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.batting?.gamesPlayed" :class-map="rosterBClass(data.playerId, 'gamesPlayed')" :tooltip="rosterBTip(data.playerId, 'gamesPlayed', 'G')" />
+            </template>
           </Column>
           <Column field="batting.atBats" header="AB" sortable style="min-width: 55px">
-            <template #body="{ data }">{{ data.batting?.atBats ?? '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.batting?.atBats" :class-map="rosterBClass(data.playerId, 'atBats')" :tooltip="rosterBTip(data.playerId, 'atBats', 'AB')" />
+            </template>
           </Column>
           <Column field="batting.hits" header="H" sortable style="min-width: 52px">
-            <template #body="{ data }">{{ data.batting?.hits ?? '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.batting?.hits" :class-map="rosterBClass(data.playerId, 'hits')" :tooltip="rosterBTip(data.playerId, 'hits', 'H')" />
+            </template>
           </Column>
           <Column field="batting.homeRuns" header="HR" sortable style="min-width: 52px">
-            <template #body="{ data }">{{ data.batting?.homeRuns ?? '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.batting?.homeRuns" :class-map="rosterBClass(data.playerId, 'homeRuns')" :tooltip="rosterBTip(data.playerId, 'homeRuns', 'HR')" />
+            </template>
           </Column>
           <Column field="batting.rbi" header="RBI" sortable style="min-width: 55px">
-            <template #body="{ data }">{{ data.batting?.rbi ?? '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.batting?.rbi" :class-map="rosterBClass(data.playerId, 'rbi')" :tooltip="rosterBTip(data.playerId, 'rbi', 'RBI')" />
+            </template>
           </Column>
           <Column field="batting.stolenBases" header="SB" sortable style="min-width: 52px">
-            <template #body="{ data }">{{ data.batting?.stolenBases ?? '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.batting?.stolenBases" :class-map="rosterBClass(data.playerId, 'stolenBases')" :tooltip="rosterBTip(data.playerId, 'stolenBases', 'SB')" />
+            </template>
           </Column>
           <Column field="batting.walks" header="BB" sortable style="min-width: 52px">
-            <template #body="{ data }">{{ data.batting?.walks ?? '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.batting?.walks" :class-map="rosterBClass(data.playerId, 'walks')" :tooltip="rosterBTip(data.playerId, 'walks', 'BB')" />
+            </template>
           </Column>
           <Column field="batting.ba" header="BA" sortable style="min-width: 65px">
             <template #body="{ data }">{{ formatBA(data.batting?.ba) }}</template>
@@ -303,28 +353,44 @@ watch(
           </Column>
           <Column field="pitcherRole" header="Role" sortable style="min-width: 55px" />
           <Column field="pitching.games" header="G" sortable style="min-width: 52px">
-            <template #body="{ data }">{{ data.pitching?.games ?? '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.pitching?.games" :class-map="rosterPClass(data.playerId, 'games')" :tooltip="rosterPTip(data.playerId, 'games', 'G')" />
+            </template>
           </Column>
           <Column field="pitching.gamesStarted" header="GS" sortable style="min-width: 52px">
-            <template #body="{ data }">{{ data.pitching?.gamesStarted ?? '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.pitching?.gamesStarted" :class-map="rosterPClass(data.playerId, 'gamesStarted')" :tooltip="rosterPTip(data.playerId, 'gamesStarted', 'GS')" />
+            </template>
           </Column>
           <Column field="pitching.wins" header="W" sortable style="min-width: 48px">
-            <template #body="{ data }">{{ data.pitching?.wins ?? '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.pitching?.wins" :class-map="rosterPClass(data.playerId, 'wins')" :tooltip="rosterPTip(data.playerId, 'wins', 'W')" />
+            </template>
           </Column>
           <Column field="pitching.losses" header="L" sortable style="min-width: 48px">
-            <template #body="{ data }">{{ data.pitching?.losses ?? '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.pitching?.losses" :class-map="rosterPClass(data.playerId, 'losses')" :tooltip="rosterPTip(data.playerId, 'losses', 'L')" />
+            </template>
           </Column>
           <Column field="pitching.saves" header="SV" sortable style="min-width: 52px">
-            <template #body="{ data }">{{ data.pitching?.saves ?? '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.pitching?.saves" :class-map="rosterPClass(data.playerId, 'saves')" :tooltip="rosterPTip(data.playerId, 'saves', 'SV')" />
+            </template>
           </Column>
           <Column field="pitching.outsPitched" header="IP" sortable style="min-width: 68px">
-            <template #body="{ data }">{{ data.pitching != null ? formatIP(data.pitching.outsPitched) : '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.pitching != null ? formatIP(data.pitching.outsPitched) : null" :class-map="rosterPClass(data.playerId, 'outsPitched')" :tooltip="rosterPTip(data.playerId, 'outsPitched', 'IP')" />
+            </template>
           </Column>
           <Column field="pitching.strikeouts" header="K" sortable style="min-width: 52px">
-            <template #body="{ data }">{{ data.pitching?.strikeouts ?? '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.pitching?.strikeouts" :class-map="rosterPClass(data.playerId, 'strikeouts')" :tooltip="rosterPTip(data.playerId, 'strikeouts', 'K')" />
+            </template>
           </Column>
           <Column field="pitching.walks" header="BB" sortable style="min-width: 52px">
-            <template #body="{ data }">{{ data.pitching?.walks ?? '—' }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="data.pitching?.walks" :class-map="rosterPClass(data.playerId, 'walks')" :tooltip="rosterPTip(data.playerId, 'walks', 'BB')" />
+            </template>
           </Column>
           <Column field="pitching.era" header="ERA" sortable style="min-width: 68px">
             <template #body="{ data }">{{ formatERA(data.pitching?.era) }}</template>
@@ -384,6 +450,8 @@ watch(
             <template #body="{ data }">${{ data.salary.toLocaleString() }}</template>
           </Column>
         </DataTable>
+
+        <StatHighlightLegend v-if="rosterView !== 'attributes'" />
       </section>
 
       <!-- Schedule -->

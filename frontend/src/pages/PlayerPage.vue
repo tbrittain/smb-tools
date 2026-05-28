@@ -9,10 +9,12 @@ import LoadingSpinner from '../components/LoadingSpinner.vue'
 import PlayerBioCard from '../components/PlayerBioCard.vue'
 import PlayerStatTable from '../components/PlayerStatTable.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
+import { useStatHighlightsStore } from '../stores/statHighlights'
 
 const props = defineProps<{ playerId: number }>()
 
 const { set } = useBreadcrumbs()
+const highlightsStore = useStatHighlightsStore()
 
 const career = ref<main.PlayerCareerDTO | null>(null)
 const seasonLog = ref<main.PlayerSeasonLogDTO[]>([])
@@ -43,6 +45,7 @@ const isPitcher = computed(() => {
 onMounted(async () => {
   loading.value = true
   error.value = null
+  highlightsStore.fetch()
   try {
     const [c, log, awards] = await Promise.all([
       GetPlayerCareer(props.playerId),
@@ -128,6 +131,8 @@ onMounted(async () => {
           :mode="statMode"
           :show-playoffs="showPlayoffs"
           :awards-by-season="awardsBySeason"
+          :player-id="props.playerId"
+          :highlights="highlightsStore.highlights"
         />
       </section>
     </template>

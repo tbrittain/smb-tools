@@ -1474,6 +1474,50 @@ export namespace main {
 	        this.fileExists = source["fileExists"];
 	    }
 	}
+	export class StatHighlightsDTO {
+	    leagueLeadersBatting: Record<string, any>;
+	    leagueLeadersPitching: Record<string, any>;
+	    singleSeasonBatting: Record<string, Array<StatRecordHolderDTO>>;
+	    singleSeasonPitching: Record<string, Array<StatRecordHolderDTO>>;
+	    careerBattingRS: Record<string, Array<number>>;
+	    careerBattingPO: Record<string, Array<number>>;
+	    careerPitchingRS: Record<string, Array<number>>;
+	    careerPitchingPO: Record<string, Array<number>>;
+	
+	    static createFrom(source: any = {}) {
+	        return new StatHighlightsDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.leagueLeadersBatting = source["leagueLeadersBatting"];
+	        this.leagueLeadersPitching = source["leagueLeadersPitching"];
+	        this.singleSeasonBatting = this.convertValues(source["singleSeasonBatting"], Array<StatRecordHolderDTO>, true);
+	        this.singleSeasonPitching = this.convertValues(source["singleSeasonPitching"], Array<StatRecordHolderDTO>, true);
+	        this.careerBattingRS = source["careerBattingRS"];
+	        this.careerBattingPO = source["careerBattingPO"];
+	        this.careerPitchingRS = source["careerPitchingRS"];
+	        this.careerPitchingPO = source["careerPitchingPO"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class StatLeaderDTO {
 	    playerId: number;
 	    firstName: string;
@@ -1535,6 +1579,20 @@ export namespace main {
 		    }
 		    return a;
 		}
+	}
+	export class StatRecordHolderDTO {
+	    playerId: number;
+	    seasonNum: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new StatRecordHolderDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.playerId = source["playerId"];
+	        this.seasonNum = source["seasonNum"];
+	    }
 	}
 	export class SubmitSeasonAwardsDTO {
 	    seasonId: number;

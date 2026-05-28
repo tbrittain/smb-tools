@@ -642,6 +642,28 @@ type PitchingLeaderPageDTO struct {
 	Total int                    `json:"total"`
 }
 
+// StatHighlightsDTO carries all stat highlight data for one franchise session.
+// It is fetched once per session and cached; call GetStatHighlights to retrieve it.
+//
+// LeagueLeadersBatting/Pitching keys are strconv.Itoa(seasonNum) → statKey → []playerID.
+// All highlights apply to regular season data only except CareerBattingPO/CareerPitchingPO.
+type StatHighlightsDTO struct {
+	LeagueLeadersBatting  map[string]map[string][]int64    `json:"leagueLeadersBatting"`
+	LeagueLeadersPitching map[string]map[string][]int64    `json:"leagueLeadersPitching"`
+	SingleSeasonBatting   map[string][]StatRecordHolderDTO `json:"singleSeasonBatting"`
+	SingleSeasonPitching  map[string][]StatRecordHolderDTO `json:"singleSeasonPitching"`
+	CareerBattingRS       map[string][]int64               `json:"careerBattingRS"`
+	CareerBattingPO       map[string][]int64               `json:"careerBattingPO"`
+	CareerPitchingRS      map[string][]int64               `json:"careerPitchingRS"`
+	CareerPitchingPO      map[string][]int64               `json:"careerPitchingPO"`
+}
+
+// StatRecordHolderDTO identifies the player and season that holds an all-time record.
+type StatRecordHolderDTO struct {
+	PlayerID  int64 `json:"playerId"`
+	SeasonNum int   `json:"seasonNum"`
+}
+
 // BattingLeaderRowDTO is one row in a batting leaderboard (career or season).
 // The DTO is flat so PrimeVue DataTable sort-field can reference top-level keys.
 // Career rows have SeasonsPlayed > 0; season rows have SeasonNum > 0.
