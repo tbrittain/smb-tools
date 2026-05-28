@@ -53,8 +53,8 @@ const props = withDefaults(
 
 .swatch-leader {
   font-weight: 700;
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
+  color: #000000;
+  background: color-mix(in srgb, #ffffff 85%, transparent);
 }
 
 .swatch-record {

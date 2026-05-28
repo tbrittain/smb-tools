@@ -97,7 +97,7 @@ function careerTip(r: main.BattingLeaderRowDTO, statKey: string, label: string):
         <!-- Stat columns -->
         <Column field="gamesPlayed" header="G" sortable style="min-width: 55px">
           <template #body="{ data: r }">
-            <StatHighlightCell :value="r.gamesPlayed" :class-map="isCareer ? careerClass(r, 'gamesPlayed') : leaderClass(r, 'gamesPlayed')" :tooltip="isCareer ? careerTip(r, 'gamesPlayed', 'G') : seasonTip(r, 'gamesPlayed', 'G')" />
+            <StatHighlightCell :value="r.gamesPlayed" :class-map="isCareer ? careerClass(r, 'gamesPlayed') : {}" :tooltip="isCareer ? careerTip(r, 'gamesPlayed', 'G') : ''" />
           </template>
         </Column>
         <Column field="atBats" header="AB" sortable style="min-width: 60px">

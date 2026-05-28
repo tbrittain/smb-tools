@@ -409,7 +409,7 @@ function poFooterTip(statKey: string, label: string, type: 'batting' | 'pitching
       </Column>
       <Column header="G" sortable sort-field="_b.gamesPlayed" style="min-width: 55px">
         <template #body="{ data: r }">
-          <StatHighlightCell :value="r._b?.gamesPlayed" :class-map="bSeasonClass(r, 'gamesPlayed')" :tooltip="bSeasonTip(r, 'gamesPlayed', 'G')" />
+          <StatHighlightCell :value="r._b?.gamesPlayed" />
         </template>
       </Column>
       <Column header="AB" sortable sort-field="_b.atBats" style="min-width: 60px">
@@ -622,7 +622,7 @@ function poFooterTip(statKey: string, label: string, type: 'batting' | 'pitching
       </Column>
       <Column header="G" sortable sort-field="_p.games" style="min-width: 55px">
         <template #body="{ data: r }">
-          <StatHighlightCell :value="r._p?.games" :class-map="pSeasonClass(r, 'games')" :tooltip="pSeasonTip(r, 'games', 'G')" />
+          <StatHighlightCell :value="r._p?.games" />
         </template>
       </Column>
       <Column header="GS" sortable sort-field="_p.gamesStarted" style="min-width: 55px">

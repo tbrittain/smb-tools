@@ -281,7 +281,7 @@ function rosterPTip(playerId: number, statKey: string, label: string): string {
           <Column field="age" header="Age" sortable style="min-width: 50px" />
           <Column field="batting.gamesPlayed" header="G" sortable style="min-width: 52px">
             <template #body="{ data }">
-              <StatHighlightCell :value="data.batting?.gamesPlayed" :class-map="rosterBClass(data.playerId, 'gamesPlayed')" :tooltip="rosterBTip(data.playerId, 'gamesPlayed', 'G')" />
+              <StatHighlightCell :value="data.batting?.gamesPlayed" />
             </template>
           </Column>
           <Column field="batting.atBats" header="AB" sortable style="min-width: 55px">
@@ -354,7 +354,7 @@ function rosterPTip(playerId: number, statKey: string, label: string): string {
           <Column field="pitcherRole" header="Role" sortable style="min-width: 55px" />
           <Column field="pitching.games" header="G" sortable style="min-width: 52px">
             <template #body="{ data }">
-              <StatHighlightCell :value="data.pitching?.games" :class-map="rosterPClass(data.playerId, 'games')" :tooltip="rosterPTip(data.playerId, 'games', 'G')" />
+              <StatHighlightCell :value="data.pitching?.games" />
             </template>
           </Column>
           <Column field="pitching.gamesStarted" header="GS" sortable style="min-width: 52px">

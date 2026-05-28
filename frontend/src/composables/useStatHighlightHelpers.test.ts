@@ -195,13 +195,13 @@ describe('highlightTooltip', () => {
     )
   })
 
-  it('joins both tooltips with · when player is both leader and record holder', () => {
+  it('shows only record tooltip when player is both leader and all-time record holder', () => {
     const h = makeHighlights({
       leagueLeadersBatting: { '3': { homeRuns: [42] } },
       singleSeasonBatting: { homeRuns: [{ playerId: 42, seasonNum: 3 }] },
     })
     expect(highlightTooltip(42, 3, 'homeRuns', 'HR', h, 'batting', 'season')).toBe(
-      'Led the league in HR — Season 3 · All-time single-season record in HR (Season 3)',
+      'All-time single-season record in HR (Season 3)',
     )
   })
 

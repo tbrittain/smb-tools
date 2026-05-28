@@ -112,11 +112,10 @@ export function highlightTooltip(
   const parts: string[] = []
 
   if (context === 'season') {
-    if (isSeasonLeader(playerId, seasonNum, statKey, highlights, type)) {
-      parts.push(`Led the league in ${statLabel} — Season ${seasonNum}`)
-    }
     if (isSingleSeasonRecord(playerId, seasonNum, statKey, highlights, type)) {
       parts.push(`All-time single-season record in ${statLabel} (Season ${seasonNum})`)
+    } else if (isSeasonLeader(playerId, seasonNum, statKey, highlights, type)) {
+      parts.push(`Led the league in ${statLabel} — Season ${seasonNum}`)
     }
   } else if (context === 'careerRS') {
     if (isCareerRecordRS(playerId, statKey, highlights, type)) {

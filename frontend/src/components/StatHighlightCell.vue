@@ -14,6 +14,10 @@ defineProps<{
 <style scoped>
 .stat-leader {
   font-weight: 700;
+  color: #000000;
+  background: color-mix(in srgb, #ffffff 85%, transparent);
+  border-radius: 3px;
+  padding: 1px 3px;
 }
 
 .stat-record {
