@@ -100,6 +100,7 @@ export namespace main {
 	    primaryPosition: string;
 	    batHand: string;
 	    chemistryType: string;
+	    traits: string[];
 	    gamesPlayed: number;
 	    gamesBatting: number;
 	    atBats: number;
@@ -147,6 +148,7 @@ export namespace main {
 	        this.primaryPosition = source["primaryPosition"];
 	        this.batHand = source["batHand"];
 	        this.chemistryType = source["chemistryType"];
+	        this.traits = source["traits"];
 	        this.gamesPlayed = source["gamesPlayed"];
 	        this.gamesBatting = source["gamesBatting"];
 	        this.atBats = source["atBats"];
@@ -614,6 +616,7 @@ export namespace main {
 	    chemistryType: string;
 	    seasonStart: number;
 	    seasonEnd: number;
+	    traits: string[];
 	    sortField: string;
 	    sortDesc: boolean;
 	    offset: number;
@@ -633,6 +636,7 @@ export namespace main {
 	        this.chemistryType = source["chemistryType"];
 	        this.seasonStart = source["seasonStart"];
 	        this.seasonEnd = source["seasonEnd"];
+	        this.traits = source["traits"];
 	        this.sortField = source["sortField"];
 	        this.sortDesc = source["sortDesc"];
 	        this.offset = source["offset"];
@@ -755,6 +759,7 @@ export namespace main {
 	    pitcherRole: string;
 	    throwHand: string;
 	    chemistryType: string;
+	    traits: string[];
 	    wins: number;
 	    losses: number;
 	    games: number;
@@ -806,6 +811,7 @@ export namespace main {
 	        this.pitcherRole = source["pitcherRole"];
 	        this.throwHand = source["throwHand"];
 	        this.chemistryType = source["chemistryType"];
+	        this.traits = source["traits"];
 	        this.wins = source["wins"];
 	        this.losses = source["losses"];
 	        this.games = source["games"];

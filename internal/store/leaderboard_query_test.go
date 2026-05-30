@@ -519,3 +519,178 @@ func TestGetPitchingSeasonLeaders_ExcludesZeroOuts(t *testing.T) {
 		t.Errorf("want 0 rows for position player with no outs, got %d", len(rows))
 	}
 }
+
+// ── Trait filter tests ────────────────────────────────────────────────────────
+
+// setTraits updates the traits_json column for an existing player_seasons row.
+func setTraits(t *testing.T, db *sql.DB, playerSeasonID int64, traits []string) {
+	t.Helper()
+	b := "[]"
+	if len(traits) > 0 {
+		parts := make([]byte, 0, 64)
+		parts = append(parts, '[')
+		for i, tr := range traits {
+			if i > 0 {
+				parts = append(parts, ',')
+			}
+			parts = append(parts, '"')
+			parts = append(parts, []byte(tr)...)
+			parts = append(parts, '"')
+		}
+		parts = append(parts, ']')
+		b = string(parts)
+	}
+	_, err := db.ExecContext(context.Background(),
+		`UPDATE player_seasons SET traits_json = ? WHERE id = ?`, b, playerSeasonID)
+	if err != nil {
+		t.Fatalf("setTraits: %v", err)
+	}
+}
+
+func TestGetBattingSeasonLeaders_SingleTraitFilter(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+
+	pClutch := seedPlayer(t, db, "gC", "Clutch", "Player")
+	pNone := seedPlayer(t, db, "gN", "No", "Trait")
+
+	psC := seedPlayerSeason(t, db, pClutch, 1, &h1)
+	psN := seedPlayerSeason(t, db, pNone, 1, &h1)
+	setTraits(t, db, psC, []string{"Clutch"})
+	seedBatting(t, db, psC, true, 400, 120, 20, 80)
+	seedBatting(t, db, psN, true, 380, 100, 10, 50)
+
+	rows, total, err := newLB(db).GetBattingSeasonLeaders(ctx, models.LeaderboardFilters{Traits: []string{"Clutch"}})
+	if err != nil {
+		t.Fatalf("GetBattingSeasonLeaders: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("want total=1, got %d", total)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1 row, got %d", len(rows))
+	}
+	if rows[0].PlayerID != pClutch {
+		t.Errorf("want Clutch player, got playerID %d", rows[0].PlayerID)
+	}
+}
+
+func TestGetBattingSeasonLeaders_TwoTraitANDFilter(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+
+	// pBoth has Clutch+Durable; pOne has only Clutch; pNone has no traits
+	pBoth := seedPlayer(t, db, "gB", "Both", "Traits")
+	pOne := seedPlayer(t, db, "gO", "One", "Trait")
+	pNone := seedPlayer(t, db, "gN", "No", "Trait")
+
+	psB := seedPlayerSeason(t, db, pBoth, 1, &h1)
+	psO := seedPlayerSeason(t, db, pOne, 1, &h1)
+	psN := seedPlayerSeason(t, db, pNone, 1, &h1)
+	setTraits(t, db, psB, []string{"Clutch", "Durable"})
+	setTraits(t, db, psO, []string{"Clutch"})
+	seedBatting(t, db, psB, true, 400, 120, 20, 80)
+	seedBatting(t, db, psO, true, 380, 110, 15, 60)
+	seedBatting(t, db, psN, true, 350, 90, 5, 30)
+
+	rows, total, err := newLB(db).GetBattingSeasonLeaders(ctx,
+		models.LeaderboardFilters{Traits: []string{"Clutch", "Durable"}})
+	if err != nil {
+		t.Fatalf("GetBattingSeasonLeaders: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("want total=1 (AND logic), got %d", total)
+	}
+	if rows[0].PlayerID != pBoth {
+		t.Errorf("want pBoth, got playerID %d", rows[0].PlayerID)
+	}
+}
+
+func TestGetBattingSeasonLeaders_TraitsPopulatedOnRow(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+
+	pid := seedPlayer(t, db, "gP", "Trait", "Player")
+	ps := seedPlayerSeason(t, db, pid, 1, &h1)
+	setTraits(t, db, ps, []string{"Clutch", "Durable"})
+	seedBatting(t, db, ps, true, 400, 120, 20, 80)
+
+	rows, _, err := newLB(db).GetBattingSeasonLeaders(ctx, noFilters())
+	if err != nil {
+		t.Fatalf("GetBattingSeasonLeaders: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1 row, got %d", len(rows))
+	}
+	got := rows[0].Traits
+	if len(got) != 2 || got[0] != "Clutch" || got[1] != "Durable" {
+		t.Errorf("Traits: want [Clutch Durable], got %v", got)
+	}
+}
+
+func TestGetPitchingSeasonLeaders_SingleTraitFilter(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+
+	pWH := seedPlayer(t, db, "gW", "Workhorse", "Pitcher")
+	pNone := seedPlayer(t, db, "gN", "Plain", "Pitcher")
+
+	psW := seedPlayerSeason(t, db, pWH, 1, &h1)
+	psN := seedPlayerSeason(t, db, pNone, 1, &h1)
+	setTraits(t, db, psW, []string{"Workhorse"})
+	seedPitching(t, db, psW, true, 15, 5, 540, 50, 200)
+	seedPitching(t, db, psN, true, 10, 8, 360, 40, 120)
+
+	rows, total, err := newLB(db).GetPitchingSeasonLeaders(ctx,
+		models.LeaderboardFilters{Traits: []string{"Workhorse"}})
+	if err != nil {
+		t.Fatalf("GetPitchingSeasonLeaders: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("want total=1, got %d", total)
+	}
+	if rows[0].PlayerID != pWH {
+		t.Errorf("want Workhorse pitcher, got playerID %d", rows[0].PlayerID)
+	}
+}
+
+func TestGetPitchingSeasonLeaders_TraitsPopulatedOnRow(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+
+	pid := seedPlayer(t, db, "gP", "Trait", "Pitcher")
+	ps := seedPlayerSeason(t, db, pid, 1, &h1)
+	setTraits(t, db, ps, []string{"Workhorse"})
+	seedPitching(t, db, ps, true, 12, 6, 450, 45, 150)
+
+	rows, _, err := newLB(db).GetPitchingSeasonLeaders(ctx, noFilters())
+	if err != nil {
+		t.Fatalf("GetPitchingSeasonLeaders: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1 row, got %d", len(rows))
+	}
+	if len(rows[0].Traits) != 1 || rows[0].Traits[0] != "Workhorse" {
+		t.Errorf("Traits: want [Workhorse], got %v", rows[0].Traits)
+	}
+}

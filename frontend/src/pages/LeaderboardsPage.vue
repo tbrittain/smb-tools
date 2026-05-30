@@ -33,6 +33,7 @@ function defaultFilters(): main.LeaderboardFiltersDTO {
     chemistryType: '',
     seasonStart: 0,
     seasonEnd: 0,
+    traits: [],
     sortField: '',
     sortDesc: true,
     offset: 0,
@@ -204,7 +205,7 @@ function onPitchingSeasonPage(event: DataTablePageEvent) {
       </button>
     </div>
 
-    <LeaderboardFilters v-model="filters" :mode="filterMode" :seasons="seasons" />
+    <LeaderboardFilters v-model="filters" :mode="filterMode" :is-career="isCareer" :seasons="seasons" />
 
     <LoadingSpinner v-if="loading" />
     <p v-else-if="error" class="error-text">{{ error }}</p>

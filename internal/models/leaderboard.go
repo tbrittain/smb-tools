@@ -11,6 +11,9 @@ type LeaderboardFilters struct {
 	ChemistryType    string
 	SeasonStart      int // season_num >= SeasonStart (0 = no lower bound)
 	SeasonEnd        int // season_num <= SeasonEnd (0 = no upper bound)
+	// Traits filters the season leaderboards to players who have ALL listed traits
+	// in their traits_json for that season (AND logic). Max 2 entries; SMB4 only.
+	Traits []string
 	// Server-side pagination/sort — used by season leader queries only.
 	// SortField is the frontend camelCase field name (e.g. "ba", "homeRuns", "smbWar").
 	// Empty SortField defaults to smbWAR DESC. Offset/PageSize default to 0/50.
@@ -44,6 +47,7 @@ type BattingSeasonLeaderRow struct {
 	PrimaryPosition string
 	BatHand         string
 	ChemistryType   string
+	Traits          []string
 	CareerBattingStats
 }
 
@@ -71,5 +75,6 @@ type PitchingSeasonLeaderRow struct {
 	PitcherRole   string
 	ThrowHand     string
 	ChemistryType string
+	Traits        []string
 	CareerPitchingStats
 }

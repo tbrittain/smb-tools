@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -249,9 +250,15 @@ func (s *LeaderboardQueryStore) GetBattingSeasonLeaders(
 	w := buildLeaderboardConditions(f, "ps.primary_position", "s")
 	filterArgs = append(filterArgs, w.args...)
 
+	conds := w.conds
+	for _, trait := range f.Traits {
+		conds = append(conds, "EXISTS (SELECT 1 FROM json_each(ps.traits_json) WHERE value = ?)")
+		filterArgs = append(filterArgs, trait)
+	}
+
 	whereExtra := ""
-	if len(w.conds) > 0 {
-		whereExtra = " AND " + strings.Join(w.conds, " AND ")
+	if len(conds) > 0 {
+		whereExtra = " AND " + strings.Join(conds, " AND ")
 	}
 
 	joins := `
@@ -289,6 +296,7 @@ WHERE b.is_regular_season = ?
     ps.primary_position,
     ps.bat_hand,
     ps.chemistry_type,
+    ps.traits_json,
     b.games_played, b.games_batting,
     b.at_bats, b.runs, b.hits, b.doubles, b.triples, b.home_runs, b.rbi,
     b.stolen_bases, b.caught_stealing, b.walks, b.strikeouts,
@@ -309,12 +317,14 @@ LIMIT ? OFFSET ?`
 	for rows.Next() {
 		var r models.BattingSeasonLeaderRow
 		var hof int
+		var traitsJSON string
 		var bBA, bOBP, bSLG, bOPS, bISO, bBABIP, bKPct, bBBPct, bABPerHR sql.NullFloat64
 		var bOPSPlus, bSmbWAR sql.NullFloat64
 		if err := rows.Scan(
 			&r.PlayerID, &r.FirstName, &r.LastName, &hof,
 			&r.SeasonNum, &r.TeamName, &r.Age,
 			&r.PrimaryPosition, &r.BatHand, &r.ChemistryType,
+			&traitsJSON,
 			&r.GamesPlayed, &r.GamesBatting,
 			&r.AtBats, &r.Runs, &r.Hits, &r.Doubles, &r.Triples, &r.HomeRuns, &r.RBI,
 			&r.StolenBases, &r.CaughtStealing, &r.Walks, &r.Strikeouts,
@@ -325,6 +335,12 @@ LIMIT ? OFFSET ?`
 			return nil, 0, fmt.Errorf("GetBattingSeasonLeaders scan: %w", err)
 		}
 		r.IsHallOfFamer = hof == 1
+		if traitsJSON != "" {
+			_ = json.Unmarshal([]byte(traitsJSON), &r.Traits)
+		}
+		if r.Traits == nil {
+			r.Traits = []string{}
+		}
 		if bBA.Valid      { r.BA      = &bBA.Float64 }
 		if bOBP.Valid     { r.OBP     = &bOBP.Float64 }
 		if bSLG.Valid     { r.SLG     = &bSLG.Float64 }
@@ -450,9 +466,15 @@ func (s *LeaderboardQueryStore) GetPitchingSeasonLeaders(
 	w := buildLeaderboardConditions(f, "ps.pitcher_role", "s")
 	filterArgs = append(filterArgs, w.args...)
 
+	conds := w.conds
+	for _, trait := range f.Traits {
+		conds = append(conds, "EXISTS (SELECT 1 FROM json_each(ps.traits_json) WHERE value = ?)")
+		filterArgs = append(filterArgs, trait)
+	}
+
 	whereExtra := ""
-	if len(w.conds) > 0 {
-		whereExtra = " AND " + strings.Join(w.conds, " AND ")
+	if len(conds) > 0 {
+		whereExtra = " AND " + strings.Join(conds, " AND ")
 	}
 
 	joins := `
@@ -490,6 +512,7 @@ WHERE pit.is_regular_season = ?
     ps.pitcher_role,
     ps.throw_hand,
     ps.chemistry_type,
+    ps.traits_json,
     pit.wins, pit.losses, pit.games, pit.games_started,
     pit.complete_games, pit.shutouts, pit.saves, pit.outs_pitched,
     pit.hits_allowed, pit.earned_runs, pit.home_runs_allowed, pit.walks,
@@ -512,12 +535,14 @@ LIMIT ? OFFSET ?`
 	for rows.Next() {
 		var r models.PitchingSeasonLeaderRow
 		var hof int
+		var traitsJSON string
 		var pERA, pWHIP, pK9, pBB9, pH9, pHR9, pKPerBB, pKPct, pWinPct, pPPerIP sql.NullFloat64
 		var pERAPlus, pFIP, pFIPMinus, pSmbWAR sql.NullFloat64
 		if err := rows.Scan(
 			&r.PlayerID, &r.FirstName, &r.LastName, &hof,
 			&r.SeasonNum, &r.TeamName, &r.Age,
 			&r.PitcherRole, &r.ThrowHand, &r.ChemistryType,
+			&traitsJSON,
 			&r.Wins, &r.Losses, &r.Games, &r.GamesStarted,
 			&r.CompleteGames, &r.Shutouts, &r.Saves, &r.OutsPitched,
 			&r.HitsAllowed, &r.EarnedRuns, &r.HomeRunsAllowed, &r.Walks,
@@ -529,6 +554,12 @@ LIMIT ? OFFSET ?`
 			return nil, 0, fmt.Errorf("GetPitchingSeasonLeaders scan: %w", err)
 		}
 		r.IsHallOfFamer = hof == 1
+		if traitsJSON != "" {
+			_ = json.Unmarshal([]byte(traitsJSON), &r.Traits)
+		}
+		if r.Traits == nil {
+			r.Traits = []string{}
+		}
 		if pERA.Valid    { r.ERA    = &pERA.Float64 }
 		if pWHIP.Valid   { r.WHIP   = &pWHIP.Float64 }
 		if pK9.Valid     { r.K9     = &pK9.Float64 }

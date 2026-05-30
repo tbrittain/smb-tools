@@ -27,34 +27,7 @@ import AwardBadge from './AwardBadge.vue'
 import EmptyState from './EmptyState.vue'
 import StatHighlightCell from './StatHighlightCell.vue'
 import StatHighlightLegend from './StatHighlightLegend.vue'
-
-// Trait names that carry a negative effect — everything else is positive.
-const NEGATIVE_TRAITS = new Set([
-  // SMB3
-  'RBI Dud',
-  'Whiffer',
-  'BB Prone',
-  'K Dud',
-  'Bad Jumps',
-  // SMB4 (additional / renamed)
-  'Base Jogger',
-  'Butter Fingers',
-  'Choker',
-  'Crossed Up',
-  'Easy Jumps',
-  'Easy Target',
-  'Falls Behind',
-  'First Pitch Prayer',
-  'Injury Prone',
-  'K Neglector',
-  'Meltdown',
-  'Noodle Arm',
-  'RBI Zero',
-  'Slow Poke',
-  'Surrounded',
-  'Wild Thing',
-  'Wild Thrower',
-])
+import TraitList from './TraitList.vue'
 
 const props = defineProps<{
   rows: main.PlayerSeasonLogDTO[]
@@ -78,10 +51,6 @@ const hasAwards = computed(() => Object.keys(props.awardsBySeason ?? {}).length 
 
 function teamSortKey(r: main.PlayerSeasonLogDTO): string {
   return r.teams[0]?.teamName ?? 'FA'
-}
-
-function traitClass(trait: string): string {
-  return NEGATIVE_TRAITS.has(trait) ? 'trait-neg' : 'trait-pos'
 }
 
 // ── Summary row types ─────────────────────────────────────────────────────────
@@ -385,13 +354,7 @@ function poFooterTip(statKey: string, label: string, type: 'batting' | 'pitching
       </Column>
       <Column header="Traits" style="min-width: 160px">
         <template #body="{ data: r }">
-          <span v-if="r.traits.length > 0" class="traits">
-            <template v-for="(trait, i) in r.traits" :key="trait">
-              <span v-if="i" class="trait-sep">, </span>
-              <span :class="traitClass(trait)">{{ trait }}</span>
-            </template>
-          </span>
-          <span v-else class="no-traits">—</span>
+          <TraitList :traits="r.traits" />
         </template>
       </Column>
       <Column v-if="hasAwards" header="Awards" style="min-width: 200px">
@@ -598,13 +561,7 @@ function poFooterTip(statKey: string, label: string, type: 'batting' | 'pitching
       </Column>
       <Column header="Traits" style="min-width: 160px">
         <template #body="{ data: r }">
-          <span v-if="r.traits.length > 0" class="traits">
-            <template v-for="(trait, i) in r.traits" :key="trait">
-              <span v-if="i" class="trait-sep">, </span>
-              <span :class="traitClass(trait)">{{ trait }}</span>
-            </template>
-          </span>
-          <span v-else class="no-traits">—</span>
+          <TraitList :traits="r.traits" />
         </template>
       </Column>
       <Column v-if="hasAwards" header="Awards" style="min-width: 200px">
@@ -725,25 +682,6 @@ function poFooterTip(statKey: string, label: string, type: 'batting' | 'pitching
   color: var(--color-text-secondary);
 }
 
-.traits {
-  font-size: 0.8125rem;
-}
-
-.trait-pos {
-  color: #4a9eff;
-}
-
-.trait-neg {
-  color: var(--color-error, #e05252);
-}
-
-.trait-sep {
-  color: var(--color-text-secondary);
-}
-
-.no-traits {
-  color: var(--color-text-secondary);
-}
 
 .award-cell {
   display: flex;
