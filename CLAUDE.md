@@ -4,7 +4,9 @@ Context and coding standards for smb-tools. Read this at the start of every sess
 
 ## What This Project Is
 
-smb-tools is a cross-platform desktop application (Wails v2 + Go backend + Vue 3 frontend) that reads Super Mega Baseball 3/4 save game files and provides a Baseball Reference–style franchise history viewer, stat tracker, and team management tool. It is a ground-up rewrite and consolidation of two prior Windows-only C# applications: SMB3Explorer and SmbExplorerCompanion.
+smb-tools is a cross-platform desktop application (Wails v2 + Go backend + Vue 3 frontend) that reads Super Mega Baseball save game files and provides a Baseball Reference–style franchise history viewer, stat tracker, and team management tool. It is a ground-up rewrite and consolidation of two prior Windows-only C# applications: SMB3Explorer and SmbExplorerCompanion.
+
+**This application currently supports Super Mega Baseball 4 (SMB4) only.** SMB3 save game import is not supported. The legacy migration path (importing historical data from SmbExplorerCompanion) can ingest older SMB3 franchise data, but all live save game syncing, trait data, and domain constants are SMB4-only. Do not add SMB3 trait names, SMB3-specific column mappings, or version-gated logic unless SMB3 support is explicitly scoped in the roadmap.
 
 **The single most important UX principle**: one button click imports an entire season from the save game. No CSV exports. No multi-step wizards. No two separate apps.
 

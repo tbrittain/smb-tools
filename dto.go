@@ -615,19 +615,21 @@ func playoffGameToDTO(g models.PlayoffGameRow) PlayoffGameDTO {
 // LeaderboardFiltersDTO carries filter parameters from the frontend.
 // Zero values (empty string, false, 0) mean "no filter applied".
 // SortField/SortDesc/Offset/PageSize are used only by season leader queries.
+// Traits filters season leaderboards by AND logic (max 2); SMB4 only.
 type LeaderboardFiltersDTO struct {
-	IsPlayoffs       bool   `json:"isPlayoffs"`
-	OnlyHallOfFamers bool   `json:"onlyHallOfFamers"`
-	Position         string `json:"position"`
-	BatHand          string `json:"batHand"`
-	ThrowHand        string `json:"throwHand"`
-	ChemistryType    string `json:"chemistryType"`
-	SeasonStart      int    `json:"seasonStart"`
-	SeasonEnd        int    `json:"seasonEnd"`
-	SortField        string `json:"sortField"`
-	SortDesc         bool   `json:"sortDesc"`
-	Offset           int    `json:"offset"`
-	PageSize         int    `json:"pageSize"`
+	IsPlayoffs       bool     `json:"isPlayoffs"`
+	OnlyHallOfFamers bool     `json:"onlyHallOfFamers"`
+	Position         string   `json:"position"`
+	BatHand          string   `json:"batHand"`
+	ThrowHand        string   `json:"throwHand"`
+	ChemistryType    string   `json:"chemistryType"`
+	SeasonStart      int      `json:"seasonStart"`
+	SeasonEnd        int      `json:"seasonEnd"`
+	Traits           []string `json:"traits"`
+	SortField        string   `json:"sortField"`
+	SortDesc         bool     `json:"sortDesc"`
+	Offset           int      `json:"offset"`
+	PageSize         int      `json:"pageSize"`
 }
 
 // BattingLeaderPageDTO is the server-side pagination envelope for batting season leaders.
@@ -676,9 +678,10 @@ type BattingLeaderRowDTO struct {
 	SeasonNum       int    `json:"seasonNum"`
 	TeamName        string `json:"teamName"`
 	Age             int    `json:"age"`
-	PrimaryPosition string `json:"primaryPosition"`
-	BatHand         string `json:"batHand"`
-	ChemistryType   string `json:"chemistryType"`
+	PrimaryPosition string   `json:"primaryPosition"`
+	BatHand         string   `json:"batHand"`
+	ChemistryType   string   `json:"chemistryType"`
+	Traits          []string `json:"traits"`
 	// Counting stats
 	GamesPlayed    int `json:"gamesPlayed"`
 	GamesBatting   int `json:"gamesBatting"`
@@ -724,9 +727,10 @@ type PitchingLeaderRowDTO struct {
 	SeasonNum     int    `json:"seasonNum"`
 	TeamName      string `json:"teamName"`
 	Age           int    `json:"age"`
-	PitcherRole   string `json:"pitcherRole"`
-	ThrowHand     string `json:"throwHand"`
-	ChemistryType string `json:"chemistryType"`
+	PitcherRole   string   `json:"pitcherRole"`
+	ThrowHand     string   `json:"throwHand"`
+	ChemistryType string   `json:"chemistryType"`
+	Traits        []string `json:"traits"`
 	// Counting stats
 	Wins            int `json:"wins"`
 	Losses          int `json:"losses"`
@@ -777,6 +781,7 @@ func leaderboardFiltersToDomain(f LeaderboardFiltersDTO) models.LeaderboardFilte
 		ChemistryType:    f.ChemistryType,
 		SeasonStart:      f.SeasonStart,
 		SeasonEnd:        f.SeasonEnd,
+		Traits:           f.Traits,
 		SortField:        f.SortField,
 		SortDesc:         f.SortDesc,
 		Offset:           f.Offset,
@@ -809,6 +814,7 @@ func battingSeasonLeaderToDTO(r models.BattingSeasonLeaderRow) BattingLeaderRowD
 		IsHallOfFamer: r.IsHallOfFamer,
 		SeasonNum: r.SeasonNum, TeamName: r.TeamName, Age: r.Age,
 		PrimaryPosition: r.PrimaryPosition, BatHand: r.BatHand, ChemistryType: r.ChemistryType,
+		Traits: r.Traits,
 		GamesPlayed: b.GamesPlayed, GamesBatting: b.GamesBatting,
 		AtBats: b.AtBats, Runs: b.Runs, Hits: b.Hits,
 		Doubles: b.Doubles, Triples: b.Triples, HomeRuns: b.HomeRuns, RBI: b.RBI,
@@ -847,6 +853,7 @@ func pitchingSeasonLeaderToDTO(r models.PitchingSeasonLeaderRow) PitchingLeaderR
 		IsHallOfFamer: r.IsHallOfFamer,
 		SeasonNum: r.SeasonNum, TeamName: r.TeamName, Age: r.Age,
 		PitcherRole: r.PitcherRole, ThrowHand: r.ThrowHand, ChemistryType: r.ChemistryType,
+		Traits: r.Traits,
 		Wins: p.Wins, Losses: p.Losses, Games: p.Games, GamesStarted: p.GamesStarted,
 		CompleteGames: p.CompleteGames, Shutouts: p.Shutouts, Saves: p.Saves,
 		OutsPitched: p.OutsPitched,

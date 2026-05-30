@@ -1,11 +1,20 @@
 <script lang="ts" setup>
+import MultiSelect from 'primevue/multiselect'
 import { ref, watch } from 'vue'
 import type { main } from '../../wailsjs/go/models'
-import { BAT_HANDS, BATTING_POSITIONS, CHEMISTRY_TYPES, PITCHING_ROLES, THROW_HANDS } from '../constants/domain'
+import {
+  BAT_HANDS,
+  BATTING_POSITIONS,
+  CHEMISTRY_TYPES,
+  PITCHING_ROLES,
+  SMB4_TRAITS,
+  THROW_HANDS,
+} from '../constants/domain'
 import FilterBar from './FilterBar.vue'
 
 const props = defineProps<{
   mode: 'batting' | 'pitching'
+  isCareer: boolean
   seasons: main.SeasonSummaryDTO[]
   modelValue: main.LeaderboardFiltersDTO
 }>()
@@ -27,6 +36,10 @@ watch(
 function update(patch: Partial<main.LeaderboardFiltersDTO>) {
   local.value = { ...local.value, ...patch }
   emit('update:modelValue', { ...local.value })
+}
+
+function onTraitsChange(selected: string[]) {
+  update({ traits: selected.slice(0, 2) })
 }
 </script>
 
@@ -98,6 +111,21 @@ function update(patch: Partial<main.LeaderboardFiltersDTO>) {
       </select>
     </div>
 
+    <div v-if="!isCareer" class="filter-group">
+      <span class="filter-label">Traits</span>
+      <MultiSelect
+        :model-value="local.traits ?? []"
+        :options="[...SMB4_TRAITS]"
+        placeholder="Any"
+        :selection-limit="2"
+        :max-selected-labels="2"
+        :show-toggle-all="false"
+        filter
+        class="trait-select"
+        @update:model-value="onTraitsChange"
+      />
+    </div>
+
     <div class="filter-group">
       <span class="filter-label">From Season</span>
       <select
@@ -161,5 +189,10 @@ function update(patch: Partial<main.LeaderboardFiltersDTO>) {
   background: var(--color-surface-2);
   color: var(--color-text-primary);
   cursor: pointer;
+}
+
+.trait-select {
+  font-size: 0.8125rem;
+  min-width: 160px;
 }
 </style>

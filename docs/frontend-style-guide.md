@@ -180,6 +180,40 @@ When a column also has a `#body` slot, both coexist on the same `<Column>`:
 
 ---
 
+## Traits
+
+### Use `TraitList` to display player traits
+
+`TraitList` (`src/components/TraitList.vue`) is the single component for rendering a player's trait list. It handles all trait-specific formatting: positive traits are blue (`#4a9eff`), negative traits are red (`var(--color-error)`), and empty trait lists render as a muted em dash. Never hand-roll trait coloring inline.
+
+```vue
+<!-- In a DataTable column body -->
+<TraitList :traits="r.traits" />
+
+<!-- When the source may be undefined (e.g., career rows) -->
+<TraitList :traits="r.traits ?? []" />
+```
+
+The component accepts exactly one prop:
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `traits` | `string[]` | Trait names to display. Pass `[]` for players with no traits — renders `—`. |
+
+The negative trait set is defined inside `TraitList.vue` and covers both SMB4 names and legacy SMB3 names present in migrated franchise data. Do not duplicate this set elsewhere.
+
+### What NOT to do
+
+```vue
+<!-- Bad: inline coloring scattered across components -->
+<span :class="isNegative(t) ? 'text-red' : 'text-blue'">{{ trait }}</span>
+
+<!-- Bad: plain join with no coloring -->
+{{ r.traits.join(', ') }}
+```
+
+---
+
 ## Storybook
 
 Every non-trivial component in `src/components/` must have a `.stories.ts` file. See `AppLink.stories.ts` for the canonical structure: individual named exports per variant, plus an `AllVariants` story that shows them together in a realistic dark-background layout.

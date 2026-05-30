@@ -1,6 +1,8 @@
 # smb-tools
 
-A cross-platform desktop application for Super Mega Baseball 3/4 franchise management and statistics.
+A cross-platform desktop application for **Super Mega Baseball 4** franchise management and statistics.
+
+> **SMB4 only.** Live save game syncing and all domain data (traits, positions, chemistry types) target SMB4 exclusively. SMB3 save files are not supported for import.
 
 ## Prerequisites
 

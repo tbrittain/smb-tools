@@ -15,6 +15,7 @@ import EmptyState from './EmptyState.vue'
 import HofBadge from './HofBadge.vue'
 import StatHighlightCell from './StatHighlightCell.vue'
 import StatHighlightLegend from './StatHighlightLegend.vue'
+import TraitList from './TraitList.vue'
 
 const props = defineProps<{
   rows: main.BattingLeaderRowDTO[]
@@ -93,6 +94,9 @@ function careerTip(r: main.BattingLeaderRowDTO, statKey: string, label: string):
         <Column v-if="!isCareer" field="age" header="Age" sortable style="min-width: 55px" />
         <Column v-if="!isCareer" field="primaryPosition" header="Pos" sortable style="min-width: 55px" />
         <Column v-if="!isCareer" field="batHand" header="Hand" sortable style="min-width: 60px" />
+        <Column v-if="!isCareer" header="Traits" style="min-width: 180px">
+          <template #body="{ data: r }"><TraitList :traits="r.traits ?? []" /></template>
+        </Column>
 
         <!-- Stat columns -->
         <Column field="gamesPlayed" header="G" sortable style="min-width: 55px">
