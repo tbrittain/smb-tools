@@ -226,12 +226,52 @@ func TestGetBattingCareerLeaders_PlayoffToggle(t *testing.T) {
 	}
 
 	// Playoffs: 3 HR
-	playoffRows, err := newLB(db).GetBattingCareerLeaders(ctx, models.LeaderboardFilters{IsPlayoffs: true})
+	playoffRows, err := newLB(db).GetBattingCareerLeaders(ctx, models.LeaderboardFilters{GameType: "playoffs"})
 	if err != nil {
 		t.Fatalf("playoffs: %v", err)
 	}
 	if len(playoffRows) != 1 || playoffRows[0].HomeRuns != 3 {
 		t.Errorf("playoff HR: want 3, got %v", playoffRows)
+	}
+}
+
+func TestGetBattingCareerLeaders_CombinedGameType(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	seedSeason(t, db, 2, 2, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+	h2 := seedTeamHistory(t, db, t1, 2, "Team", "E", "AL", 20, 20)
+
+	pid := seedPlayer(t, db, "gP", "Combined", "Test")
+	ps1 := seedPlayerSeason(t, db, pid, 1, &h1)
+	ps2 := seedPlayerSeason(t, db, pid, 2, &h2)
+	// Season 1: 10 regular, 3 playoff HR
+	seedBatting(t, db, ps1, true, 400, 100, 10, 40)
+	seedBatting(t, db, ps1, false, 50, 15, 3, 10)
+	// Season 2: 15 regular HR only
+	seedBatting(t, db, ps2, true, 420, 110, 15, 60)
+
+	rows, err := newLB(db).GetBattingCareerLeaders(ctx, models.LeaderboardFilters{GameType: "combined"})
+	if err != nil {
+		t.Fatalf("combined: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1 row, got %d", len(rows))
+	}
+	r := rows[0]
+	if r.HomeRuns != 28 {
+		t.Errorf("combined HR: want 28 (10+3+15), got %d", r.HomeRuns)
+	}
+	// SeasonsPlayed counts distinct game seasons, not stat rows
+	if r.SeasonsPlayed != 2 {
+		t.Errorf("combined SeasonsPlayed: want 2, got %d", r.SeasonsPlayed)
+	}
+	// OPS+ is NULL for combined (league context ambiguous)
+	if r.OPSPlus != nil {
+		t.Errorf("combined OPS+: want nil, got %v", r.OPSPlus)
 	}
 }
 
@@ -461,6 +501,45 @@ func TestGetPitchingCareerLeaders_ThrowHandFilter(t *testing.T) {
 	}
 	if rows[0].PlayerID != pL {
 		t.Errorf("want lefty, got playerID %d", rows[0].PlayerID)
+	}
+}
+
+func TestGetPitchingCareerLeaders_CombinedGameType(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	seedSeason(t, db, 2, 2, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+	h2 := seedTeamHistory(t, db, t1, 2, "Team", "E", "AL", 20, 20)
+
+	pid := seedPlayer(t, db, "gP", "Combined", "Pitcher")
+	ps1 := seedPlayerSeason(t, db, pid, 1, &h1)
+	ps2 := seedPlayerSeason(t, db, pid, 2, &h2)
+	// Season 1: 10W regular, 2W playoff
+	seedPitching(t, db, ps1, true, 10, 5, 270, 30, 100)
+	seedPitching(t, db, ps1, false, 2, 1, 60, 8, 25)
+	// Season 2: 12W regular only
+	seedPitching(t, db, ps2, true, 12, 6, 300, 35, 120)
+
+	rows, err := newLB(db).GetPitchingCareerLeaders(ctx, models.LeaderboardFilters{GameType: "combined"})
+	if err != nil {
+		t.Fatalf("combined: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1 row, got %d", len(rows))
+	}
+	r := rows[0]
+	if r.Wins != 24 {
+		t.Errorf("combined Wins: want 24 (10+2+12), got %d", r.Wins)
+	}
+	if r.SeasonsPlayed != 2 {
+		t.Errorf("combined SeasonsPlayed: want 2, got %d", r.SeasonsPlayed)
+	}
+	// ERA+ is NULL for combined
+	if r.ERAPlus != nil {
+		t.Errorf("combined ERA+: want nil, got %v", r.ERAPlus)
 	}
 }
 

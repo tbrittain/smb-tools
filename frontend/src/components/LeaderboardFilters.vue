@@ -45,14 +45,33 @@ function onTraitsChange(selected: string[]) {
 
 <template>
   <FilterBar>
-    <label class="filter-item">
-      <input
-        type="checkbox"
-        :checked="local.isPlayoffs"
-        @change="update({ isPlayoffs: ($event.target as HTMLInputElement).checked })"
-      />
-      Playoffs
-    </label>
+    <div class="filter-group">
+      <span class="filter-label">Game Type</span>
+      <div class="toggle-group">
+        <button
+          class="toggle-btn"
+          :class="{ active: !local.gameType || local.gameType === 'regular' }"
+          @click="update({ gameType: 'regular' })"
+        >
+          Reg Season
+        </button>
+        <button
+          class="toggle-btn"
+          :class="{ active: local.gameType === 'playoffs' }"
+          @click="update({ gameType: 'playoffs' })"
+        >
+          Playoffs
+        </button>
+        <button
+          v-if="isCareer"
+          class="toggle-btn"
+          :class="{ active: local.gameType === 'combined' }"
+          @click="update({ gameType: 'combined' })"
+        >
+          Combined
+        </button>
+      </div>
+    </div>
 
     <label class="filter-item">
       <input
@@ -194,5 +213,47 @@ function onTraitsChange(selected: string[]) {
 .trait-select {
   font-size: 0.8125rem;
   min-width: 160px;
+}
+
+.toggle-group {
+  display: flex;
+}
+
+.toggle-btn {
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  border-radius: 0;
+  transition:
+    background 0.1s,
+    color 0.1s;
+}
+
+.toggle-btn:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.toggle-btn:last-child {
+  border-radius: 0 4px 4px 0;
+}
+
+.toggle-btn + .toggle-btn {
+  margin-left: -1px;
+}
+
+.toggle-btn:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+.toggle-btn.active {
+  background: var(--color-surface-2);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  position: relative;
+  z-index: 1;
 }
 </style>

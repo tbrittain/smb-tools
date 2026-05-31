@@ -25,7 +25,7 @@ const activeTab = ref<LeaderboardTab>('batting-career')
 
 function defaultFilters(): main.LeaderboardFiltersDTO {
   return new main.LeaderboardFiltersDTO({
-    isPlayoffs: false,
+    gameType: '',
     onlyHallOfFamers: false,
     position: '',
     batHand: '',
@@ -142,11 +142,14 @@ function setTab(tab: LeaderboardTab) {
   if (tab !== activeTab.value) {
     activeTab.value = tab
     const isBatting = tab.startsWith('batting')
+    const isSeason = tab.endsWith('season')
     filters.value = new main.LeaderboardFiltersDTO({
       ...filters.value,
       batHand: isBatting ? filters.value.batHand : '',
       throwHand: isBatting ? '' : filters.value.throwHand,
       position: '',
+      // "combined" only applies to career tabs; reset to regular when switching to season
+      gameType: isSeason && filters.value.gameType === 'combined' ? '' : filters.value.gameType,
     })
   }
 }

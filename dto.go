@@ -616,8 +616,9 @@ func playoffGameToDTO(g models.PlayoffGameRow) PlayoffGameDTO {
 // Zero values (empty string, false, 0) mean "no filter applied".
 // SortField/SortDesc/Offset/PageSize are used only by season leader queries.
 // Traits filters season leaderboards by AND logic (max 2); SMB4 only.
+// GameType controls which stats are included: "regular" (default/empty), "playoffs", or "combined".
 type LeaderboardFiltersDTO struct {
-	IsPlayoffs       bool     `json:"isPlayoffs"`
+	GameType         string   `json:"gameType"`
 	OnlyHallOfFamers bool     `json:"onlyHallOfFamers"`
 	Position         string   `json:"position"`
 	BatHand          string   `json:"batHand"`
@@ -773,7 +774,7 @@ type PitchingLeaderRowDTO struct {
 
 func leaderboardFiltersToDomain(f LeaderboardFiltersDTO) models.LeaderboardFilters {
 	return models.LeaderboardFilters{
-		IsPlayoffs:       f.IsPlayoffs,
+		GameType:         f.GameType,
 		OnlyHallOfFamers: f.OnlyHallOfFamers,
 		Position:         f.Position,
 		BatHand:          f.BatHand,

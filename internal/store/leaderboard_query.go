@@ -27,6 +27,21 @@ type whereFragment struct {
 	args  []any
 }
 
+// gameTypeClause translates the GameType filter into an is_regular_season value and a
+// combined flag. "playoffs" maps to is_regular_season=0, "combined" suppresses the
+// is_regular_season WHERE condition entirely, and anything else (including "") defaults
+// to regular season (is_regular_season=1).
+func gameTypeClause(gameType string) (isRegular int, isCombined bool) {
+	switch gameType {
+	case "playoffs":
+		return 0, false
+	case "combined":
+		return 0, true
+	default:
+		return 1, false
+	}
+}
+
 // buildLeaderboardConditions returns extra WHERE conditions for the given filters.
 // positionCol is the fully-qualified column name for the position filter
 // ("ps.primary_position" for batting, "ps.pitcher_role" for pitching).
@@ -70,21 +85,59 @@ func buildLeaderboardConditions(f models.LeaderboardFilters, positionCol, season
 func (s *LeaderboardQueryStore) GetBattingCareerLeaders(
 	ctx context.Context, f models.LeaderboardFilters,
 ) ([]models.BattingCareerLeaderRow, error) {
-	isReg := 1
-	if f.IsPlayoffs {
-		isReg = 0
+	isRegArg, isCombined := gameTypeClause(f.GameType)
+
+	var args []any
+	var conds []string
+
+	if !isCombined {
+		conds = append(conds, "b.is_regular_season = ?")
+		args = append(args, isRegArg)
 	}
 
-	args := []any{isReg}
 	w := buildLeaderboardConditions(f, "ps.primary_position", "s")
 	args = append(args, w.args...)
+	conds = append(conds, w.conds...)
 
-	whereExtra := ""
-	if len(w.conds) > 0 {
-		whereExtra = " AND " + strings.Join(w.conds, " AND ")
+	whereClause := ""
+	if len(conds) > 0 {
+		whereClause = "WHERE " + strings.Join(conds, " AND ")
 	}
 
-	q := `
+	// Career OPS+ requires per-season league context; meaningless when combining regular
+	// season and playoff rows from different environments. Skip the lss JOIN entirely in
+	// combined mode — keeping it without the is_regular_season match condition would
+	// cross-join each stat row against two lss rows (regular + playoff), doubling all SUMs.
+	var lssJoin, opsPlusExpr string
+	if isCombined {
+		opsPlusExpr = "NULL"
+	} else {
+		lssJoin = `
+LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
+    AND lss.is_regular_season = b.is_regular_season`
+		opsPlusExpr = `CASE
+        WHEN COALESCE(SUM(b.at_bats), 0) > 0
+         AND COALESCE(SUM(b.at_bats + b.walks + b.hit_by_pitch + b.sac_flies), 0) > 0
+         AND COALESCE(SUM(lss.total_at_bats), 0) > 0
+         AND COALESCE(SUM(lss.total_at_bats + lss.total_walks + lss.total_hbp + lss.total_sac_flies), 0) > 0
+        THEN 100.0 * (
+            CAST(SUM(b.hits + b.walks + b.hit_by_pitch) AS REAL)
+                / SUM(b.at_bats + b.walks + b.hit_by_pitch + b.sac_flies)
+                / (CAST(SUM(lss.total_hits + lss.total_walks + lss.total_hbp) AS REAL)
+                   / SUM(lss.total_at_bats + lss.total_walks + lss.total_hbp + lss.total_sac_flies))
+            + CAST(SUM(b.hits - b.doubles - b.triples - b.home_runs
+                        + b.doubles * 2 + b.triples * 3 + b.home_runs * 4) AS REAL)
+                / SUM(b.at_bats)
+                / (CAST(SUM(lss.total_hits - lss.total_doubles - lss.total_triples - lss.total_home_runs
+                             + lss.total_doubles * 2 + lss.total_triples * 3 + lss.total_home_runs * 4) AS REAL)
+                   / SUM(lss.total_at_bats))
+            - 1.0
+        )
+        ELSE NULL
+    END`
+	}
+
+	q := fmt.Sprintf(`
 SELECT
     p.id, p.first_name, p.last_name, p.is_hall_of_famer,
     COUNT(DISTINCT ps.season_id)           AS seasons_played,
@@ -107,38 +160,16 @@ SELECT
     COALESCE(SUM(b.errors),          0),
     COALESCE(SUM(b.passed_balls),    0),
     SUM(b.smb_war),
-    -- Career OPS+: career totals vs career-weighted league averages from league_season_stats.
-    -- NULL when no league_season_stats rows exist (seasons not yet re-synced post-8.5).
-    CASE
-        WHEN COALESCE(SUM(b.at_bats), 0) > 0
-         AND COALESCE(SUM(b.at_bats + b.walks + b.hit_by_pitch + b.sac_flies), 0) > 0
-         AND COALESCE(SUM(lss.total_at_bats), 0) > 0
-         AND COALESCE(SUM(lss.total_at_bats + lss.total_walks + lss.total_hbp + lss.total_sac_flies), 0) > 0
-        THEN 100.0 * (
-            CAST(SUM(b.hits + b.walks + b.hit_by_pitch) AS REAL)
-                / SUM(b.at_bats + b.walks + b.hit_by_pitch + b.sac_flies)
-                / (CAST(SUM(lss.total_hits + lss.total_walks + lss.total_hbp) AS REAL)
-                   / SUM(lss.total_at_bats + lss.total_walks + lss.total_hbp + lss.total_sac_flies))
-            + CAST(SUM(b.hits - b.doubles - b.triples - b.home_runs
-                        + b.doubles * 2 + b.triples * 3 + b.home_runs * 4) AS REAL)
-                / SUM(b.at_bats)
-                / (CAST(SUM(lss.total_hits - lss.total_doubles - lss.total_triples - lss.total_home_runs
-                             + lss.total_doubles * 2 + lss.total_triples * 3 + lss.total_home_runs * 4) AS REAL)
-                   / SUM(lss.total_at_bats))
-            - 1.0
-        )
-        ELSE NULL
-    END AS career_ops_plus
+    %s AS career_ops_plus
 FROM player_season_batting_stats b
 JOIN player_seasons ps ON ps.id = b.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
-JOIN players p         ON p.id  = ps.player_id
-LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
-    AND lss.is_regular_season = b.is_regular_season
-WHERE b.is_regular_season = ?` + whereExtra + `
+JOIN players p         ON p.id  = ps.player_id%s
+%s
 GROUP BY p.id
 HAVING COALESCE(SUM(b.at_bats), 0) > 0
-ORDER BY COALESCE(SUM(b.smb_war), -9999.0) DESC, p.last_name, p.first_name`
+ORDER BY COALESCE(SUM(b.smb_war), -9999.0) DESC, p.last_name, p.first_name`,
+		opsPlusExpr, lssJoin, whereClause)
 
 	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
@@ -241,24 +272,24 @@ func buildSeasonOrderBy(fieldKey string, desc bool, colMap map[string]string, nu
 func (s *LeaderboardQueryStore) GetBattingSeasonLeaders(
 	ctx context.Context, f models.LeaderboardFilters,
 ) ([]models.BattingSeasonLeaderRow, int, error) {
-	isReg := 1
-	if f.IsPlayoffs {
-		isReg = 0
-	}
+	isRegArg, isCombined := gameTypeClause(f.GameType)
 
-	filterArgs := []any{isReg}
+	var filterArgs []any
+	var whereParts []string
+
+	if !isCombined {
+		whereParts = append(whereParts, "b.is_regular_season = ?")
+		filterArgs = append(filterArgs, isRegArg)
+	}
+	whereParts = append(whereParts, "b.at_bats > 0")
+
 	w := buildLeaderboardConditions(f, "ps.primary_position", "s")
 	filterArgs = append(filterArgs, w.args...)
+	whereParts = append(whereParts, w.conds...)
 
-	conds := w.conds
 	for _, trait := range f.Traits {
-		conds = append(conds, "EXISTS (SELECT 1 FROM json_each(ps.traits_json) WHERE value = ?)")
+		whereParts = append(whereParts, "EXISTS (SELECT 1 FROM json_each(ps.traits_json) WHERE value = ?)")
 		filterArgs = append(filterArgs, trait)
-	}
-
-	whereExtra := ""
-	if len(conds) > 0 {
-		whereExtra = " AND " + strings.Join(conds, " AND ")
 	}
 
 	joins := `
@@ -268,8 +299,7 @@ JOIN seasons s         ON s.id  = ps.season_id
 JOIN players p         ON p.id  = ps.player_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
 LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
-WHERE b.is_regular_season = ?
-  AND b.at_bats > 0` + whereExtra
+WHERE ` + strings.Join(whereParts, "\n  AND ")
 
 	var total int
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*)`+joins, filterArgs...).Scan(&total); err != nil {
@@ -362,21 +392,48 @@ LIMIT ? OFFSET ?`
 func (s *LeaderboardQueryStore) GetPitchingCareerLeaders(
 	ctx context.Context, f models.LeaderboardFilters,
 ) ([]models.PitchingCareerLeaderRow, error) {
-	isReg := 1
-	if f.IsPlayoffs {
-		isReg = 0
+	isRegArg, isCombined := gameTypeClause(f.GameType)
+
+	var args []any
+	var conds []string
+
+	if !isCombined {
+		conds = append(conds, "pit.is_regular_season = ?")
+		args = append(args, isRegArg)
 	}
 
-	args := []any{isReg}
 	w := buildLeaderboardConditions(f, "ps.pitcher_role", "s")
 	args = append(args, w.args...)
+	conds = append(conds, w.conds...)
 
-	whereExtra := ""
-	if len(w.conds) > 0 {
-		whereExtra = " AND " + strings.Join(w.conds, " AND ")
+	whereClause := ""
+	if len(conds) > 0 {
+		whereClause = "WHERE " + strings.Join(conds, " AND ")
 	}
 
-	q := `
+	// Career ERA+ requires per-season league context; meaningless when combining regular
+	// season and playoff rows from different environments. Skip the lss JOIN entirely in
+	// combined mode — keeping it without the is_regular_season match condition would
+	// cross-join each stat row against two lss rows (regular + playoff), doubling all SUMs.
+	var lssJoin, eraPlusExpr string
+	if isCombined {
+		eraPlusExpr = "NULL"
+	} else {
+		lssJoin = `
+LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
+    AND lss.is_regular_season = pit.is_regular_season`
+		eraPlusExpr = `CASE
+        WHEN COALESCE(SUM(pit.outs_pitched), 0) > 0
+         AND COALESCE(SUM(pit.earned_runs),  0) > 0
+         AND COALESCE(SUM(lss.total_outs_pitched), 0) > 0
+        THEN CAST(SUM(lss.total_earned_runs) AS REAL) * 27.0 / SUM(lss.total_outs_pitched)
+             / (CAST(SUM(pit.earned_runs) AS REAL) * 27.0 / SUM(pit.outs_pitched))
+             * 100.0
+        ELSE NULL
+    END`
+	}
+
+	q := fmt.Sprintf(`
 SELECT
     p.id, p.first_name, p.last_name, p.is_hall_of_famer,
     COUNT(DISTINCT ps.season_id)                   AS seasons_played,
@@ -400,27 +457,16 @@ SELECT
     COALESCE(SUM(pit.wild_pitches),     0),
     COALESCE(SUM(pit.total_pitches),    0),
     SUM(pit.smb_war),
-    -- Career ERA+: career ERA vs career-weighted league ERA from league_season_stats.
-    -- NULL when no league_season_stats rows exist (seasons not yet re-synced post-8.5).
-    CASE
-        WHEN COALESCE(SUM(pit.outs_pitched), 0) > 0
-         AND COALESCE(SUM(pit.earned_runs),  0) > 0
-         AND COALESCE(SUM(lss.total_outs_pitched), 0) > 0
-        THEN CAST(SUM(lss.total_earned_runs) AS REAL) * 27.0 / SUM(lss.total_outs_pitched)
-             / (CAST(SUM(pit.earned_runs) AS REAL) * 27.0 / SUM(pit.outs_pitched))
-             * 100.0
-        ELSE NULL
-    END AS career_era_plus
+    %s AS career_era_plus
 FROM player_season_pitching_stats pit
 JOIN player_seasons ps ON ps.id = pit.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
-JOIN players p         ON p.id  = ps.player_id
-LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
-    AND lss.is_regular_season = pit.is_regular_season
-WHERE pit.is_regular_season = ?` + whereExtra + `
+JOIN players p         ON p.id  = ps.player_id%s
+%s
 GROUP BY p.id
 HAVING COALESCE(SUM(pit.outs_pitched), 0) > 0
-ORDER BY COALESCE(SUM(pit.smb_war), -9999.0) DESC, p.last_name, p.first_name`
+ORDER BY COALESCE(SUM(pit.smb_war), -9999.0) DESC, p.last_name, p.first_name`,
+		eraPlusExpr, lssJoin, whereClause)
 
 	rows, err := s.db.QueryContext(ctx, q, args...)
 	if err != nil {
@@ -457,24 +503,24 @@ ORDER BY COALESCE(SUM(pit.smb_war), -9999.0) DESC, p.last_name, p.first_name`
 func (s *LeaderboardQueryStore) GetPitchingSeasonLeaders(
 	ctx context.Context, f models.LeaderboardFilters,
 ) ([]models.PitchingSeasonLeaderRow, int, error) {
-	isReg := 1
-	if f.IsPlayoffs {
-		isReg = 0
-	}
+	isRegArg, isCombined := gameTypeClause(f.GameType)
 
-	filterArgs := []any{isReg}
+	var filterArgs []any
+	var whereParts []string
+
+	if !isCombined {
+		whereParts = append(whereParts, "pit.is_regular_season = ?")
+		filterArgs = append(filterArgs, isRegArg)
+	}
+	whereParts = append(whereParts, "pit.outs_pitched > 0")
+
 	w := buildLeaderboardConditions(f, "ps.pitcher_role", "s")
 	filterArgs = append(filterArgs, w.args...)
+	whereParts = append(whereParts, w.conds...)
 
-	conds := w.conds
 	for _, trait := range f.Traits {
-		conds = append(conds, "EXISTS (SELECT 1 FROM json_each(ps.traits_json) WHERE value = ?)")
+		whereParts = append(whereParts, "EXISTS (SELECT 1 FROM json_each(ps.traits_json) WHERE value = ?)")
 		filterArgs = append(filterArgs, trait)
-	}
-
-	whereExtra := ""
-	if len(conds) > 0 {
-		whereExtra = " AND " + strings.Join(conds, " AND ")
 	}
 
 	joins := `
@@ -484,8 +530,7 @@ JOIN seasons s         ON s.id  = ps.season_id
 JOIN players p         ON p.id  = ps.player_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
 LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
-WHERE pit.is_regular_season = ?
-  AND pit.outs_pitched > 0` + whereExtra
+WHERE ` + strings.Join(whereParts, "\n  AND ")
 
 	var total int
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*)`+joins, filterArgs...).Scan(&total); err != nil {
