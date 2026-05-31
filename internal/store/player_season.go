@@ -60,6 +60,7 @@ type PlayerSeasonBattingStats struct {
 	GamesPlayed     int
 	GamesBatting    int
 	AtBats          int
+	PlateAppearances int
 	Runs            int
 	Hits            int
 	Doubles         int
@@ -305,43 +306,44 @@ func (s *PlayerSeasonStore) UpsertBattingStats(ctx context.Context, bs PlayerSea
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO player_season_batting_stats (
 			player_season_id, is_regular_season,
-			games_played, games_batting, at_bats, runs, hits,
+			games_played, games_batting, at_bats, plate_appearances, runs, hits,
 			doubles, triples, home_runs, rbi,
 			stolen_bases, caught_stealing, walks, strikeouts, hit_by_pitch,
 			sac_hits, sac_flies, errors, passed_balls,
 			ba, obp, slg, ops, iso, babip, k_pct, bb_pct, ab_per_hr
-		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+		) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(player_season_id, is_regular_season) DO UPDATE SET
-			games_played    = excluded.games_played,
-			games_batting   = excluded.games_batting,
-			at_bats         = excluded.at_bats,
-			runs            = excluded.runs,
-			hits            = excluded.hits,
-			doubles         = excluded.doubles,
-			triples         = excluded.triples,
-			home_runs       = excluded.home_runs,
-			rbi             = excluded.rbi,
-			stolen_bases    = excluded.stolen_bases,
-			caught_stealing = excluded.caught_stealing,
-			walks           = excluded.walks,
-			strikeouts      = excluded.strikeouts,
-			hit_by_pitch    = excluded.hit_by_pitch,
-			sac_hits        = excluded.sac_hits,
-			sac_flies       = excluded.sac_flies,
-			errors          = excluded.errors,
-			passed_balls    = excluded.passed_balls,
-			ba              = excluded.ba,
-			obp             = excluded.obp,
-			slg             = excluded.slg,
-			ops             = excluded.ops,
-			iso             = excluded.iso,
-			babip           = excluded.babip,
-			k_pct           = excluded.k_pct,
-			bb_pct          = excluded.bb_pct,
-			ab_per_hr       = excluded.ab_per_hr
+			games_played      = excluded.games_played,
+			games_batting     = excluded.games_batting,
+			at_bats           = excluded.at_bats,
+			plate_appearances = excluded.plate_appearances,
+			runs              = excluded.runs,
+			hits              = excluded.hits,
+			doubles           = excluded.doubles,
+			triples           = excluded.triples,
+			home_runs         = excluded.home_runs,
+			rbi               = excluded.rbi,
+			stolen_bases      = excluded.stolen_bases,
+			caught_stealing   = excluded.caught_stealing,
+			walks             = excluded.walks,
+			strikeouts        = excluded.strikeouts,
+			hit_by_pitch      = excluded.hit_by_pitch,
+			sac_hits          = excluded.sac_hits,
+			sac_flies         = excluded.sac_flies,
+			errors            = excluded.errors,
+			passed_balls      = excluded.passed_balls,
+			ba                = excluded.ba,
+			obp               = excluded.obp,
+			slg               = excluded.slg,
+			ops               = excluded.ops,
+			iso               = excluded.iso,
+			babip             = excluded.babip,
+			k_pct             = excluded.k_pct,
+			bb_pct            = excluded.bb_pct,
+			ab_per_hr         = excluded.ab_per_hr
 	`,
 		bs.PlayerSeasonID, isReg,
-		bs.GamesPlayed, bs.GamesBatting, bs.AtBats, bs.Runs, bs.Hits,
+		bs.GamesPlayed, bs.GamesBatting, bs.AtBats, bs.PlateAppearances, bs.Runs, bs.Hits,
 		bs.Doubles, bs.Triples, bs.HomeRuns, bs.RBI,
 		bs.StolenBases, bs.CaughtStealing, bs.Walks, bs.Strikeouts, bs.HitByPitch,
 		bs.SacHits, bs.SacFlies, bs.Errors, bs.PassedBalls,

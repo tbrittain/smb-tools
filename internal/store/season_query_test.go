@@ -112,11 +112,11 @@ func seedBatting(t *testing.T, db *sql.DB, playerSeasonID int64, isReg bool, ab,
 	_, err := db.ExecContext(context.Background(), `
 INSERT INTO player_season_batting_stats
     (player_season_id, is_regular_season, games_played, games_batting,
-     at_bats, runs, hits, doubles, triples, home_runs, rbi,
+     at_bats, plate_appearances, runs, hits, doubles, triples, home_runs, rbi,
      stolen_bases, caught_stealing, walks, strikeouts, hit_by_pitch,
      sac_hits, sac_flies, errors, passed_balls)
-VALUES (?,?,?,?,?,0,?,0,0,?,?,0,0,0,0,0,0,0,0,0)
-`, playerSeasonID, isRegInt, ab, ab, ab, hits, hr, rbi)
+VALUES (?,?,?,?,?,?,0,?,0,0,?,?,0,0,0,0,0,0,0,0,0)
+`, playerSeasonID, isRegInt, ab, ab, ab, ab, hits, hr, rbi)
 	if err != nil {
 		t.Fatalf("seedBatting: %v", err)
 	}

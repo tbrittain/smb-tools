@@ -617,6 +617,7 @@ export namespace main {
 	    seasonStart: number;
 	    seasonEnd: number;
 	    traits: string[];
+	    qualifiedOnly: boolean;
 	    sortField: string;
 	    sortDesc: boolean;
 	    offset: number;
@@ -637,6 +638,7 @@ export namespace main {
 	        this.seasonStart = source["seasonStart"];
 	        this.seasonEnd = source["seasonEnd"];
 	        this.traits = source["traits"];
+	        this.qualifiedOnly = source["qualifiedOnly"];
 	        this.sortField = source["sortField"];
 	        this.sortDesc = source["sortDesc"];
 	        this.offset = source["offset"];

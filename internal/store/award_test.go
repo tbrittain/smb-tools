@@ -133,12 +133,12 @@ func TestSetPlayerSeasonAwards_AutoAwardsUntouched(t *testing.T) {
 	// BA leader — does NOT lead HR/RBI, so no Triple Crown.
 	p := seedPlayer(t, db, "P2", "Jane", "Smith")
 	ps := seedPlayerSeason(t, db, p, season, &th)
-	seedBatting(t, db, ps, true, 120, 44, 5, 30) // BA=.367, low HR/RBI
+	seedBatting(t, db, ps, true, 125, 44, 5, 30) // BA=.352, low HR/RBI
 
 	// HR + RBI leader — different player, so Triple Crown won't fire.
 	p2 := seedPlayer(t, db, "P3", "Mark", "Power")
 	ps2 := seedPlayerSeason(t, db, p2, season, &th)
-	seedBatting(t, db, ps2, true, 120, 36, 25, 80)
+	seedBatting(t, db, ps2, true, 125, 36, 25, 80)
 
 	// Pitcher so ERA computation has data to work with.
 	pp := seedPlayer(t, db, "P2P", "Pete", "Pitcher")
@@ -183,20 +183,20 @@ func TestComputeStatLeaderAwards_BasicLeaders(t *testing.T) {
 	ctx := context.Background()
 	s := store.NewAwardStore(db)
 
-	// 40-game season → batting threshold: at_bats >= 120; pitching: outs >= 120.
+	// 40-game season → batting threshold: plate_appearances >= 124 (40*3.1); pitching: outs >= 120.
 	season := seedSeason(t, db, 1, 1, 40)
 	team := seedTeam(t, db, "CCC")
 	th := seedTeamHistory(t, db, team, season, "Team C", "", "", 20, 20)
 
-	// BA leader (.375), does NOT lead HR/RBI (so no Triple Crown).
+	// BA leader (.360), does NOT lead HR/RBI (so no Triple Crown).
 	p1 := seedPlayer(t, db, "B1", "Al", "Bat")
 	ps1 := seedPlayerSeason(t, db, p1, season, &th)
-	seedBatting(t, db, ps1, true, 120, 45, 5, 30)
+	seedBatting(t, db, ps1, true, 125, 45, 5, 30)
 
 	// HR and RBI leader (lower BA).
 	p2 := seedPlayer(t, db, "B2", "Bo", "Power")
 	ps2 := seedPlayerSeason(t, db, p2, season, &th)
-	seedBatting(t, db, ps2, true, 120, 36, 25, 80)
+	seedBatting(t, db, ps2, true, 125, 36, 25, 80)
 
 	// ERA leader: 120 outs (40 IP), 8 ER → ERA 1.80.
 	p3 := seedPlayer(t, db, "P1", "Carl", "Arm")
@@ -238,17 +238,17 @@ func TestComputeStatLeaderAwards_TripleCrownBatting(t *testing.T) {
 	// TC winner: leads BA, HR, RBI.
 	p1 := seedPlayer(t, db, "TC1", "Triple", "Crown")
 	ps1 := seedPlayerSeason(t, db, p1, season, &th)
-	seedBatting(t, db, ps1, true, 120, 48, 30, 100)
+	seedBatting(t, db, ps1, true, 125, 48, 30, 100)
 
 	// HR tie partner — should still get Home Run Title even when TC fires.
 	p2 := seedPlayer(t, db, "TC2", "Bob", "Runner")
 	ps2 := seedPlayerSeason(t, db, p2, season, &th)
-	seedBatting(t, db, ps2, true, 120, 36, 30, 70)
+	seedBatting(t, db, ps2, true, 125, 36, 30, 70)
 
 	// Third batter: no titles.
 	p3 := seedPlayer(t, db, "TC3", "Carl", "Third")
 	ps3 := seedPlayerSeason(t, db, p3, season, &th)
-	seedBatting(t, db, ps3, true, 120, 30, 5, 50)
+	seedBatting(t, db, ps3, true, 125, 30, 5, 50)
 
 	// Pitcher so the pitching branch also executes.
 	pp := seedPlayer(t, db, "PP1", "Ed", "Pitcher")
@@ -327,12 +327,12 @@ func TestComputeStatLeaderAwards_Idempotent(t *testing.T) {
 	// BA leader — not HR/RBI leader, so no TC.
 	p := seedPlayer(t, db, "Q1", "Ida", "Leader")
 	ps := seedPlayerSeason(t, db, p, season, &th)
-	seedBatting(t, db, ps, true, 120, 42, 5, 30)
+	seedBatting(t, db, ps, true, 125, 42, 5, 30)
 
 	// HR + RBI leader — keeps BA leader from getting TC.
 	p2 := seedPlayer(t, db, "Q3", "Jake", "Slugger")
 	ps2 := seedPlayerSeason(t, db, p2, season, &th)
-	seedBatting(t, db, ps2, true, 120, 30, 25, 80)
+	seedBatting(t, db, ps2, true, 125, 30, 25, 80)
 
 	// Pitcher.
 	pp := seedPlayer(t, db, "Q2", "Pete", "Pitch")

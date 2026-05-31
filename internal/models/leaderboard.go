@@ -16,6 +16,10 @@ type LeaderboardFilters struct {
 	// Traits filters the season leaderboards to players who have ALL listed traits
 	// in their traits_json for that season (AND logic). Max 2 entries; SMB4 only.
 	Traits []string
+	// QualifiedOnly filters season leaderboards to players who meet the MLB
+	// qualification threshold: batters ≥ 3.1 PA/scheduled game, pitchers ≥ 1.0 IP/game.
+	// Has no effect on career leaderboard queries.
+	QualifiedOnly bool
 	// Server-side pagination/sort — used by season leader queries only.
 	// SortField is the frontend camelCase field name (e.g. "ba", "homeRuns", "smbWar").
 	// Empty SortField defaults to smbWAR DESC. Offset/PageSize default to 0/50.

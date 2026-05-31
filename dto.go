@@ -617,6 +617,8 @@ func playoffGameToDTO(g models.PlayoffGameRow) PlayoffGameDTO {
 // SortField/SortDesc/Offset/PageSize are used only by season leader queries.
 // Traits filters season leaderboards by AND logic (max 2); SMB4 only.
 // GameType controls which stats are included: "regular" (default/empty), "playoffs", or "combined".
+// QualifiedOnly filters season leaderboards to players meeting the MLB qualification threshold
+// (batters: ≥3.1 PA/game; pitchers: ≥1.0 IP/game). Ignored for career queries.
 type LeaderboardFiltersDTO struct {
 	GameType         string   `json:"gameType"`
 	OnlyHallOfFamers bool     `json:"onlyHallOfFamers"`
@@ -627,6 +629,7 @@ type LeaderboardFiltersDTO struct {
 	SeasonStart      int      `json:"seasonStart"`
 	SeasonEnd        int      `json:"seasonEnd"`
 	Traits           []string `json:"traits"`
+	QualifiedOnly    bool     `json:"qualifiedOnly"`
 	SortField        string   `json:"sortField"`
 	SortDesc         bool     `json:"sortDesc"`
 	Offset           int      `json:"offset"`
@@ -783,6 +786,7 @@ func leaderboardFiltersToDomain(f LeaderboardFiltersDTO) models.LeaderboardFilte
 		SeasonStart:      f.SeasonStart,
 		SeasonEnd:        f.SeasonEnd,
 		Traits:           f.Traits,
+		QualifiedOnly:    f.QualifiedOnly,
 		SortField:        f.SortField,
 		SortDesc:         f.SortDesc,
 		Offset:           f.Offset,
