@@ -647,23 +647,25 @@ func loadAutoAwardIDs(ctx context.Context, tx *sql.Tx) (map[string]int64, error)
 }
 
 // queryQualifiedLeader returns the single player_season_id of the BA or ERA
-// leader who meets the qualification threshold (at_bats >= numGames*3 for
-// batting; outs_pitched >= numGames*3 for pitching). Returns 0 if no one qualifies.
+// leader who meets the qualification threshold (plate_appearances >= numGames*3.1
+// for batting; outs_pitched >= numGames*3 for pitching). Returns 0 if no one qualifies.
 func queryQualifiedLeader(ctx context.Context, tx *sql.Tx, seasonID int64, numGames int, isPitching bool) (int64, error) {
-	threshold := numGames * 3
 	var q string
+	var threshold float64
 	if !isPitching {
+		threshold = float64(numGames) * 3.1
 		q = `
 SELECT ps.id
 FROM player_seasons ps
 JOIN player_season_batting_stats b ON b.player_season_id = ps.id
-WHERE ps.season_id      = ?
-  AND b.is_regular_season = 1
-  AND b.at_bats          >= ?
-  AND b.at_bats          >  0
-ORDER BY CAST(b.hits AS REAL) / b.at_bats DESC, b.at_bats DESC
+WHERE ps.season_id        = ?
+  AND b.is_regular_season  = 1
+  AND b.plate_appearances >= ?
+  AND b.at_bats            > 0
+ORDER BY CAST(b.hits AS REAL) / b.at_bats DESC, b.plate_appearances DESC
 LIMIT 1`
 	} else {
+		threshold = float64(numGames) * 3
 		q = `
 SELECT ps.id
 FROM player_seasons ps

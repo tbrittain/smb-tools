@@ -164,7 +164,7 @@ JOIN players p         ON p.id  = ps.player_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
 LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
 WHERE ps.season_id = ? AND b.is_regular_season = 1
-  AND b.at_bats > 0 AND b.at_bats >= s.num_games * 3
+  AND b.plate_appearances >= CAST(s.num_games AS REAL) * 3.1
 ORDER BY ba DESC LIMIT 1`,
 			args: []any{seasonID},
 		},

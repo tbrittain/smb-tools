@@ -168,26 +168,27 @@ type LegacyGameStats struct {
 
 // LegacyBattingStat represents one row from PlayerSeasonBattingStats (counting stats only).
 type LegacyBattingStat struct {
-	PlayerSeasonID  int
-	IsRegularSeason bool
-	GamesPlayed     int
-	GamesBatting    int
-	AtBats          int
-	Runs            int
-	Hits            int
-	Doubles         int
-	Triples         int
-	HomeRuns        int
-	RunsBattedIn    int
-	StolenBases     int
-	CaughtStealing  int
-	Walks           int
-	Strikeouts      int
-	HitByPitch      int
-	SacrificeHits   int
-	SacrificeFlies  int
-	Errors          int
-	PassedBalls     int
+	PlayerSeasonID   int
+	IsRegularSeason  bool
+	GamesPlayed      int
+	GamesBatting     int
+	AtBats           int
+	PlateAppearances int
+	Runs             int
+	Hits             int
+	Doubles          int
+	Triples          int
+	HomeRuns         int
+	RunsBattedIn     int
+	StolenBases      int
+	CaughtStealing   int
+	Walks            int
+	Strikeouts       int
+	HitByPitch       int
+	SacrificeHits    int
+	SacrificeFlies   int
+	Errors           int
+	PassedBalls      int
 }
 
 // LegacyPitchingStat represents one row from PlayerSeasonPitchingStats (counting stats only).
@@ -584,7 +585,7 @@ func (r *LegacyCompanionReader) ReadGameStats(ctx context.Context, franchiseID i
 func (r *LegacyCompanionReader) ReadBattingStats(ctx context.Context, franchiseID int) ([]LegacyBattingStat, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT psb.PlayerSeasonId, psb.IsRegularSeason,
-		       psb.GamesPlayed, psb.GamesBatting, psb.AtBats, psb.Runs, psb.Hits,
+		       psb.GamesPlayed, psb.GamesBatting, psb.AtBats, psb.PlateAppearances, psb.Runs, psb.Hits,
 		       psb.Doubles, psb.Triples, psb.HomeRuns, psb.RunsBattedIn,
 		       psb.StolenBases, psb.CaughtStealing, psb.Walks, psb.Strikeouts,
 		       psb.HitByPitch, psb.SacrificeHits, psb.SacrificeFlies,
@@ -604,7 +605,7 @@ func (r *LegacyCompanionReader) ReadBattingStats(ctx context.Context, franchiseI
 		var isReg int
 		if err := rows.Scan(
 			&bs.PlayerSeasonID, &isReg,
-			&bs.GamesPlayed, &bs.GamesBatting, &bs.AtBats, &bs.Runs, &bs.Hits,
+			&bs.GamesPlayed, &bs.GamesBatting, &bs.AtBats, &bs.PlateAppearances, &bs.Runs, &bs.Hits,
 			&bs.Doubles, &bs.Triples, &bs.HomeRuns, &bs.RunsBattedIn,
 			&bs.StolenBases, &bs.CaughtStealing, &bs.Walks, &bs.Strikeouts,
 			&bs.HitByPitch, &bs.SacrificeHits, &bs.SacrificeFlies,
