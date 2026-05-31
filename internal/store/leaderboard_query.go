@@ -291,6 +291,10 @@ func (s *LeaderboardQueryStore) GetBattingSeasonLeaders(
 		whereParts = append(whereParts, "EXISTS (SELECT 1 FROM json_each(ps.traits_json) WHERE value = ?)")
 		filterArgs = append(filterArgs, trait)
 	}
+	if f.QualifiedOnly {
+		// MLB standard: ≥3.1 PA per scheduled game.
+		whereParts = append(whereParts, "CAST(b.plate_appearances AS REAL) >= CAST(s.num_games AS REAL) * 3.1")
+	}
 
 	joins := `
 FROM player_season_batting_stats b
@@ -521,6 +525,10 @@ func (s *LeaderboardQueryStore) GetPitchingSeasonLeaders(
 	for _, trait := range f.Traits {
 		whereParts = append(whereParts, "EXISTS (SELECT 1 FROM json_each(ps.traits_json) WHERE value = ?)")
 		filterArgs = append(filterArgs, trait)
+	}
+	if f.QualifiedOnly {
+		// MLB standard: ≥1.0 IP per scheduled game (3 outs per game).
+		whereParts = append(whereParts, "pit.outs_pitched >= s.num_games * 3")
 	}
 
 	joins := `
