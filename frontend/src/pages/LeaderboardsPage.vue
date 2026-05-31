@@ -25,7 +25,7 @@ const activeTab = ref<LeaderboardTab>('batting-career')
 
 function defaultFilters(): main.LeaderboardFiltersDTO {
   return new main.LeaderboardFiltersDTO({
-    gameType: '',
+    gameType: activeTab.value.endsWith('career') ? 'combined' : '',
     onlyHallOfFamers: false,
     position: '',
     batHand: '',
