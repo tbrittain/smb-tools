@@ -608,7 +608,7 @@ export namespace main {
 		}
 	}
 	export class LeaderboardFiltersDTO {
-	    isPlayoffs: boolean;
+	    gameType: string;
 	    onlyHallOfFamers: boolean;
 	    position: string;
 	    batHand: string;
@@ -628,7 +628,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.isPlayoffs = source["isPlayoffs"];
+	        this.gameType = source["gameType"];
 	        this.onlyHallOfFamers = source["onlyHallOfFamers"];
 	        this.position = source["position"];
 	        this.batHand = source["batHand"];

@@ -63,8 +63,8 @@ LIMIT 50
 	return out, rows.Err()
 }
 
-// GetPlayerCareer returns the player's bio and career totals (regular season).
-// Reads from pre-computed career tables — no on-read rate computation.
+// GetPlayerCareer returns the player's bio and combined career totals (regular season + playoffs).
+// Reads from pre-computed career tables (stat_type='total_career') — no on-read rate computation.
 // Returns sql.ErrNoRows wrapped in an error if the player does not exist.
 func (s *PlayerQueryStore) GetPlayerCareer(ctx context.Context, playerID int64) (models.PlayerCareer, error) {
 	var c models.PlayerCareer
@@ -89,7 +89,7 @@ SELECT
     ba, obp, slg, ops, iso, babip, k_pct, bb_pct, ab_per_hr,
     ops_plus, smb_war
 FROM player_career_batting_stats
-WHERE player_id = ? AND stat_type = 'regular_season'
+WHERE player_id = ? AND stat_type = 'total_career'
 `, playerID).Scan(
 		&b.GamesPlayed, &b.GamesBatting, &b.AtBats, &b.Runs, &b.Hits,
 		&b.Doubles, &b.Triples, &b.HomeRuns, &b.RBI, &b.StolenBases, &b.CaughtStealing,
@@ -128,7 +128,7 @@ SELECT
     era, whip, k_per_9, bb_per_9, h_per_9, hr_per_9, k_per_bb, k_pct, win_pct, p_per_ip,
     era_plus, fip, fip_minus, smb_war
 FROM player_career_pitching_stats
-WHERE player_id = ? AND stat_type = 'regular_season'
+WHERE player_id = ? AND stat_type = 'total_career'
 `, playerID).Scan(
 		&p.Wins, &p.Losses, &p.Games, &p.GamesStarted, &p.CompleteGames, &p.Shutouts, &p.Saves,
 		&p.OutsPitched, &p.HitsAllowed, &p.EarnedRuns, &p.HomeRunsAllowed, &p.Walks, &p.Strikeouts,

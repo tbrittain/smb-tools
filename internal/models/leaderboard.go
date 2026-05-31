@@ -2,8 +2,10 @@ package models
 
 // LeaderboardFilters carries optional filter parameters for all leaderboard queries.
 // Zero values mean "no filter applied": empty string = any, 0 = no bound.
+// GameType controls which stats are included: "regular" (default/empty), "playoffs", or "combined".
+// "combined" is only meaningful for career queries; season queries treat it as "regular".
 type LeaderboardFilters struct {
-	IsPlayoffs       bool
+	GameType         string // "regular"|"playoffs"|"combined"; empty defaults to "regular"
 	OnlyHallOfFamers bool
 	Position         string // primary_position for batting; pitcher_role for pitching
 	BatHand          string // "L", "R", "S" — batting only
