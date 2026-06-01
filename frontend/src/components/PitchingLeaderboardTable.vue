@@ -15,8 +15,12 @@ import {
 import {
   highlightTooltip,
   isCareerRecordRS,
+  isRateCareerRecordRS,
+  isRateSeasonLeader,
+  isRateSingleSeasonRecord,
   isSeasonLeader,
   isSingleSeasonRecord,
+  rateHighlightTooltip,
 } from '../composables/useStatHighlightHelpers'
 import AppLink from './AppLink.vue'
 import EmptyState from './EmptyState.vue'
@@ -59,6 +63,27 @@ function seasonTip(r: main.PitchingLeaderRowDTO, statKey: string, label: string)
 
 function careerTip(r: main.PitchingLeaderRowDTO, statKey: string, label: string): string {
   return highlightTooltip(r.playerId, r.seasonNum, statKey, label, props.highlights, 'pitching', 'careerRS')
+}
+
+function rateLeaderClass(r: main.PitchingLeaderRowDTO, statKey: string): Record<string, boolean> {
+  return {
+    'stat-leader': isRateSeasonLeader(r.playerId, r.seasonNum, statKey, props.highlights, 'pitching'),
+    'stat-record': isRateSingleSeasonRecord(r.playerId, r.seasonNum, statKey, props.highlights, 'pitching'),
+  }
+}
+
+function rateCareerClass(r: main.PitchingLeaderRowDTO, statKey: string): Record<string, boolean> {
+  return {
+    'stat-record': isRateCareerRecordRS(r.playerId, statKey, props.highlights, 'pitching'),
+  }
+}
+
+function rateSeasonTip(r: main.PitchingLeaderRowDTO, statKey: string, label: string): string {
+  return rateHighlightTooltip(r.playerId, r.seasonNum, statKey, label, props.highlights, 'pitching', 'season')
+}
+
+function rateCareerTip(r: main.PitchingLeaderRowDTO, statKey: string, label: string): string {
+  return rateHighlightTooltip(r.playerId, r.seasonNum, statKey, label, props.highlights, 'pitching', 'careerRS')
 }
 </script>
 
@@ -165,31 +190,45 @@ function careerTip(r: main.PitchingLeaderRowDTO, statKey: string, label: string)
           </template>
         </Column>
         <Column header="ERA" sort-field="era" sortable style="min-width: 65px" class="col-rate">
-          <template #body="{ data: r }">{{ formatERA(r.era) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatERA(r.era)" :class-map="isCareer ? rateCareerClass(r, 'era') : rateLeaderClass(r, 'era')" :tooltip="isCareer ? rateCareerTip(r, 'era', 'ERA') : rateSeasonTip(r, 'era', 'ERA')" />
+          </template>
         </Column>
         <Column header="WHIP" sort-field="whip" sortable style="min-width: 70px" class="col-rate">
-          <template #body="{ data: r }">{{ formatWHIP(r.whip) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatWHIP(r.whip)" :class-map="isCareer ? rateCareerClass(r, 'whip') : rateLeaderClass(r, 'whip')" :tooltip="isCareer ? rateCareerTip(r, 'whip', 'WHIP') : rateSeasonTip(r, 'whip', 'WHIP')" />
+          </template>
         </Column>
         <Column header="K/9" sort-field="k9" sortable style="min-width: 65px" class="col-rate">
-          <template #body="{ data: r }">{{ formatK9(r.k9) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatK9(r.k9)" :class-map="isCareer ? rateCareerClass(r, 'k9') : rateLeaderClass(r, 'k9')" :tooltip="isCareer ? rateCareerTip(r, 'k9', 'K/9') : rateSeasonTip(r, 'k9', 'K/9')" />
+          </template>
         </Column>
         <Column header="BB/9" sort-field="bb9" sortable style="min-width: 65px" class="col-rate">
-          <template #body="{ data: r }">{{ formatK9(r.bb9) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatK9(r.bb9)" :class-map="isCareer ? rateCareerClass(r, 'bb9') : rateLeaderClass(r, 'bb9')" :tooltip="isCareer ? rateCareerTip(r, 'bb9', 'BB/9') : rateSeasonTip(r, 'bb9', 'BB/9')" />
+          </template>
         </Column>
         <Column header="K/BB" sort-field="kPerBb" sortable style="min-width: 65px" class="col-rate">
-          <template #body="{ data: r }">{{ formatK9(r.kPerBb) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatK9(r.kPerBb)" :class-map="isCareer ? rateCareerClass(r, 'kPerBb') : rateLeaderClass(r, 'kPerBb')" :tooltip="isCareer ? rateCareerTip(r, 'kPerBb', 'K/BB') : rateSeasonTip(r, 'kPerBb', 'K/BB')" />
+          </template>
         </Column>
         <Column header="ERA+" sort-field="eraPlus" sortable style="min-width: 68px" class="col-rate">
           <template #body="{ data: r }">{{ formatAdjustedStat(r.eraPlus) }}</template>
         </Column>
         <Column v-if="!isCareer" header="FIP" sort-field="fip" sortable style="min-width: 65px" class="col-rate">
-          <template #body="{ data: r }">{{ formatFIP(r.fip) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatFIP(r.fip)" :class-map="rateLeaderClass(r, 'fip')" :tooltip="rateSeasonTip(r, 'fip', 'FIP')" />
+          </template>
         </Column>
         <Column v-if="!isCareer" header="FIP-" sort-field="fipMinus" sortable style="min-width: 65px" class="col-rate">
           <template #body="{ data: r }">{{ formatAdjustedStat(r.fipMinus) }}</template>
         </Column>
         <Column header="smbWAR" sort-field="smbWar" sortable style="min-width: 80px" class="col-rate">
-          <template #body="{ data: r }">{{ formatWAR(r.smbWar) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatWAR(r.smbWar)" :class-map="isCareer ? rateCareerClass(r, 'smbWar') : rateLeaderClass(r, 'smbWar')" :tooltip="isCareer ? rateCareerTip(r, 'smbWar', 'smbWAR') : rateSeasonTip(r, 'smbWar', 'smbWAR')" />
+          </template>
         </Column>
       </DataTable>
       <StatHighlightLegend :show-leader="!isCareer" />

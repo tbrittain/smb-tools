@@ -22,7 +22,14 @@ import {
   formatWAR,
   formatWHIP,
 } from '../composables/useStatFormatters'
-import { highlightTooltip, isSeasonLeader, isSingleSeasonRecord } from '../composables/useStatHighlightHelpers'
+import {
+  highlightTooltip,
+  isRateSeasonLeader,
+  isRateSingleSeasonRecord,
+  isSeasonLeader,
+  isSingleSeasonRecord,
+  rateHighlightTooltip,
+} from '../composables/useStatHighlightHelpers'
 import { useStatHighlightsStore } from '../stores/statHighlights'
 
 const props = defineProps<{ teamId: number; historyId: number }>()
@@ -180,6 +187,36 @@ function rosterPTip(playerId: number, statKey: string, label: string): string {
   if (!seasonNum) return ''
   return highlightTooltip(playerId, seasonNum, statKey, label, highlightsStore.highlights, 'pitching', 'season')
 }
+
+function rosterBRateClass(playerId: number, statKey: string): Record<string, boolean> {
+  const seasonNum = detail.value?.team.seasonNum
+  if (!seasonNum) return {}
+  return {
+    'stat-leader': isRateSeasonLeader(playerId, seasonNum, statKey, highlightsStore.highlights, 'batting'),
+    'stat-record': isRateSingleSeasonRecord(playerId, seasonNum, statKey, highlightsStore.highlights, 'batting'),
+  }
+}
+
+function rosterBRateTip(playerId: number, statKey: string, label: string): string {
+  const seasonNum = detail.value?.team.seasonNum
+  if (!seasonNum) return ''
+  return rateHighlightTooltip(playerId, seasonNum, statKey, label, highlightsStore.highlights, 'batting', 'season')
+}
+
+function rosterPRateClass(playerId: number, statKey: string): Record<string, boolean> {
+  const seasonNum = detail.value?.team.seasonNum
+  if (!seasonNum) return {}
+  return {
+    'stat-leader': isRateSeasonLeader(playerId, seasonNum, statKey, highlightsStore.highlights, 'pitching'),
+    'stat-record': isRateSingleSeasonRecord(playerId, seasonNum, statKey, highlightsStore.highlights, 'pitching'),
+  }
+}
+
+function rosterPRateTip(playerId: number, statKey: string, label: string): string {
+  const seasonNum = detail.value?.team.seasonNum
+  if (!seasonNum) return ''
+  return rateHighlightTooltip(playerId, seasonNum, statKey, label, highlightsStore.highlights, 'pitching', 'season')
+}
 </script>
 
 <template>
@@ -315,22 +352,32 @@ function rosterPTip(playerId: number, statKey: string, label: string): string {
             </template>
           </Column>
           <Column field="batting.ba" header="BA" sortable style="min-width: 65px">
-            <template #body="{ data }">{{ formatBA(data.batting?.ba) }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="formatBA(data.batting?.ba)" :class-map="rosterBRateClass(data.playerId, 'ba')" :tooltip="rosterBRateTip(data.playerId, 'ba', 'BA')" />
+            </template>
           </Column>
           <Column field="batting.obp" header="OBP" sortable style="min-width: 68px">
-            <template #body="{ data }">{{ formatBA(data.batting?.obp) }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="formatBA(data.batting?.obp)" :class-map="rosterBRateClass(data.playerId, 'obp')" :tooltip="rosterBRateTip(data.playerId, 'obp', 'OBP')" />
+            </template>
           </Column>
           <Column field="batting.slg" header="SLG" sortable style="min-width: 68px">
-            <template #body="{ data }">{{ formatBA(data.batting?.slg) }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="formatBA(data.batting?.slg)" :class-map="rosterBRateClass(data.playerId, 'slg')" :tooltip="rosterBRateTip(data.playerId, 'slg', 'SLG')" />
+            </template>
           </Column>
           <Column field="batting.ops" header="OPS" sortable style="min-width: 72px">
-            <template #body="{ data }">{{ formatBA(data.batting?.ops) }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="formatBA(data.batting?.ops)" :class-map="rosterBRateClass(data.playerId, 'ops')" :tooltip="rosterBRateTip(data.playerId, 'ops', 'OPS')" />
+            </template>
           </Column>
           <Column field="batting.opsPlus" header="OPS+" sortable style="min-width: 68px">
             <template #body="{ data }">{{ formatAdjustedStat(data.batting?.opsPlus) }}</template>
           </Column>
           <Column field="batting.smbWar" header="smbWAR" sortable style="min-width: 75px">
-            <template #body="{ data }">{{ formatWAR(data.batting?.smbWar) }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="formatWAR(data.batting?.smbWar)" :class-map="rosterBRateClass(data.playerId, 'smbWar')" :tooltip="rosterBRateTip(data.playerId, 'smbWar', 'smbWAR')" />
+            </template>
           </Column>
         </DataTable>
 
@@ -393,25 +440,35 @@ function rosterPTip(playerId: number, statKey: string, label: string): string {
             </template>
           </Column>
           <Column field="pitching.era" header="ERA" sortable style="min-width: 68px">
-            <template #body="{ data }">{{ formatERA(data.pitching?.era) }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="formatERA(data.pitching?.era)" :class-map="rosterPRateClass(data.playerId, 'era')" :tooltip="rosterPRateTip(data.playerId, 'era', 'ERA')" />
+            </template>
           </Column>
           <Column field="pitching.whip" header="WHIP" sortable style="min-width: 72px">
-            <template #body="{ data }">{{ formatWHIP(data.pitching?.whip) }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="formatWHIP(data.pitching?.whip)" :class-map="rosterPRateClass(data.playerId, 'whip')" :tooltip="rosterPRateTip(data.playerId, 'whip', 'WHIP')" />
+            </template>
           </Column>
           <Column field="pitching.k9" header="K/9" sortable style="min-width: 65px">
-            <template #body="{ data }">{{ formatK9(data.pitching?.k9) }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="formatK9(data.pitching?.k9)" :class-map="rosterPRateClass(data.playerId, 'k9')" :tooltip="rosterPRateTip(data.playerId, 'k9', 'K/9')" />
+            </template>
           </Column>
           <Column field="pitching.eraPlus" header="ERA+" sortable style="min-width: 68px">
             <template #body="{ data }">{{ formatAdjustedStat(data.pitching?.eraPlus) }}</template>
           </Column>
           <Column field="pitching.fip" header="FIP" sortable style="min-width: 65px">
-            <template #body="{ data }">{{ formatFIP(data.pitching?.fip) }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="formatFIP(data.pitching?.fip)" :class-map="rosterPRateClass(data.playerId, 'fip')" :tooltip="rosterPRateTip(data.playerId, 'fip', 'FIP')" />
+            </template>
           </Column>
           <Column field="pitching.fipMinus" header="FIP-" sortable style="min-width: 65px">
             <template #body="{ data }">{{ formatAdjustedStat(data.pitching?.fipMinus) }}</template>
           </Column>
           <Column field="pitching.smbWar" header="smbWAR" sortable style="min-width: 75px">
-            <template #body="{ data }">{{ formatWAR(data.pitching?.smbWar) }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="formatWAR(data.pitching?.smbWar)" :class-map="rosterPRateClass(data.playerId, 'smbWar')" :tooltip="rosterPRateTip(data.playerId, 'smbWar', 'smbWAR')" />
+            </template>
           </Column>
         </DataTable>
 

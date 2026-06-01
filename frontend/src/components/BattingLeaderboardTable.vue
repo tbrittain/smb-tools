@@ -7,8 +7,12 @@ import { formatAdjustedStat, formatBA, formatWAR } from '../composables/useStatF
 import {
   highlightTooltip,
   isCareerRecordRS,
+  isRateCareerRecordRS,
+  isRateSeasonLeader,
+  isRateSingleSeasonRecord,
   isSeasonLeader,
   isSingleSeasonRecord,
+  rateHighlightTooltip,
 } from '../composables/useStatHighlightHelpers'
 import AppLink from './AppLink.vue'
 import EmptyState from './EmptyState.vue'
@@ -51,6 +55,27 @@ function seasonTip(r: main.BattingLeaderRowDTO, statKey: string, label: string):
 
 function careerTip(r: main.BattingLeaderRowDTO, statKey: string, label: string): string {
   return highlightTooltip(r.playerId, r.seasonNum, statKey, label, props.highlights, 'batting', 'careerRS')
+}
+
+function rateLeaderClass(r: main.BattingLeaderRowDTO, statKey: string): Record<string, boolean> {
+  return {
+    'stat-leader': isRateSeasonLeader(r.playerId, r.seasonNum, statKey, props.highlights, 'batting'),
+    'stat-record': isRateSingleSeasonRecord(r.playerId, r.seasonNum, statKey, props.highlights, 'batting'),
+  }
+}
+
+function rateCareerClass(r: main.BattingLeaderRowDTO, statKey: string): Record<string, boolean> {
+  return {
+    'stat-record': isRateCareerRecordRS(r.playerId, statKey, props.highlights, 'batting'),
+  }
+}
+
+function rateSeasonTip(r: main.BattingLeaderRowDTO, statKey: string, label: string): string {
+  return rateHighlightTooltip(r.playerId, r.seasonNum, statKey, label, props.highlights, 'batting', 'season')
+}
+
+function rateCareerTip(r: main.BattingLeaderRowDTO, statKey: string, label: string): string {
+  return rateHighlightTooltip(r.playerId, r.seasonNum, statKey, label, props.highlights, 'batting', 'careerRS')
 }
 </script>
 
@@ -157,22 +182,32 @@ function careerTip(r: main.BattingLeaderRowDTO, statKey: string, label: string):
           </template>
         </Column>
         <Column header="BA" sort-field="ba" sortable style="min-width: 65px" class="col-rate">
-          <template #body="{ data: r }">{{ formatBA(r.ba) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatBA(r.ba)" :class-map="isCareer ? rateCareerClass(r, 'ba') : rateLeaderClass(r, 'ba')" :tooltip="isCareer ? rateCareerTip(r, 'ba', 'BA') : rateSeasonTip(r, 'ba', 'BA')" />
+          </template>
         </Column>
         <Column header="OBP" sort-field="obp" sortable style="min-width: 68px" class="col-rate">
-          <template #body="{ data: r }">{{ formatBA(r.obp) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatBA(r.obp)" :class-map="isCareer ? rateCareerClass(r, 'obp') : rateLeaderClass(r, 'obp')" :tooltip="isCareer ? rateCareerTip(r, 'obp', 'OBP') : rateSeasonTip(r, 'obp', 'OBP')" />
+          </template>
         </Column>
         <Column header="SLG" sort-field="slg" sortable style="min-width: 68px" class="col-rate">
-          <template #body="{ data: r }">{{ formatBA(r.slg) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatBA(r.slg)" :class-map="isCareer ? rateCareerClass(r, 'slg') : rateLeaderClass(r, 'slg')" :tooltip="isCareer ? rateCareerTip(r, 'slg', 'SLG') : rateSeasonTip(r, 'slg', 'SLG')" />
+          </template>
         </Column>
         <Column header="OPS" sort-field="ops" sortable style="min-width: 72px" class="col-rate">
-          <template #body="{ data: r }">{{ formatBA(r.ops) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatBA(r.ops)" :class-map="isCareer ? rateCareerClass(r, 'ops') : rateLeaderClass(r, 'ops')" :tooltip="isCareer ? rateCareerTip(r, 'ops', 'OPS') : rateSeasonTip(r, 'ops', 'OPS')" />
+          </template>
         </Column>
         <Column header="OPS+" sort-field="opsPlus" sortable style="min-width: 68px" class="col-rate">
           <template #body="{ data: r }">{{ formatAdjustedStat(r.opsPlus) }}</template>
         </Column>
         <Column header="smbWAR" sort-field="smbWar" sortable style="min-width: 80px" class="col-rate">
-          <template #body="{ data: r }">{{ formatWAR(r.smbWar) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatWAR(r.smbWar)" :class-map="isCareer ? rateCareerClass(r, 'smbWar') : rateLeaderClass(r, 'smbWar')" :tooltip="isCareer ? rateCareerTip(r, 'smbWar', 'smbWAR') : rateSeasonTip(r, 'smbWar', 'smbWAR')" />
+          </template>
         </Column>
       </DataTable>
       <StatHighlightLegend :show-leader="!isCareer" />

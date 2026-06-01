@@ -252,3 +252,158 @@ func TestGetPitchingCountRows_BasicAndRSPOSplit(t *testing.T) {
 		t.Errorf("PO Strikeouts: want 25, got %d", poRows[0].Strikeouts)
 	}
 }
+
+// ── Rate stat query tests ─────────────────────────────────────────────────────
+
+// seedBattingRate inserts a batting row with rate stats and plate_appearances set.
+func seedBattingRate(t *testing.T, db *sql.DB, playerSeasonID int64, isReg bool,
+	pa, ab, hits int, ba, obp *float64,
+) {
+	t.Helper()
+	isRegInt := 0
+	if isReg {
+		isRegInt = 1
+	}
+	_, err := db.ExecContext(context.Background(), `
+INSERT INTO player_season_batting_stats
+    (player_season_id, is_regular_season, games_played, games_batting,
+     at_bats, runs, hits, doubles, triples, home_runs, rbi,
+     stolen_bases, caught_stealing, walks, strikeouts, hit_by_pitch,
+     sac_hits, sac_flies, errors, passed_balls, plate_appearances, ba, obp)
+VALUES (?,?,?,?,?,0,?,0,0,0,0,0,0,0,0,0,0,0,0,0,?,?,?)
+`, playerSeasonID, isRegInt, 1, 1, ab, hits, pa, ba, obp)
+	if err != nil {
+		t.Fatalf("seedBattingRate: %v", err)
+	}
+}
+
+// seedPitchingRate inserts a pitching row with rate stats and outs_pitched set.
+func seedPitchingRate(t *testing.T, db *sql.DB, playerSeasonID int64, isReg bool,
+	outs int, era, whip *float64,
+) {
+	t.Helper()
+	isRegInt := 0
+	if isReg {
+		isRegInt = 1
+	}
+	_, err := db.ExecContext(context.Background(), `
+INSERT INTO player_season_pitching_stats
+    (player_season_id, is_regular_season, wins, losses, games, games_started,
+     complete_games, shutouts, saves, outs_pitched, hits_allowed, earned_runs,
+     home_runs_allowed, walks, strikeouts, hit_batters, batters_faced,
+     games_finished, runs_allowed, wild_pitches, total_pitches, era, whip)
+VALUES (?,?,0,0,1,0,0,0,0,?,0,0,0,0,0,0,0,0,0,0,0,?,?)
+`, playerSeasonID, isRegInt, outs, era, whip)
+	if err != nil {
+		t.Fatalf("seedPitchingRate: %v", err)
+	}
+}
+
+func TestGetBattingRateRows_RSPOSplit(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team A", "E", "AL", 20, 20)
+	pA := seedPlayer(t, db, "gA", "Alice", "Alpha")
+	pB := seedPlayer(t, db, "gB", "Bob", "Beta")
+	psA := seedPlayerSeason(t, db, pA, 1, &h1)
+	psB := seedPlayerSeason(t, db, pB, 1, &h1)
+
+	ba := 0.320
+	obp := 0.400
+	seedBattingRate(t, db, psA, true, 200, 180, 58, &ba, &obp)
+	seedBattingRate(t, db, psB, false, 30, 28, 8, nil, nil) // playoff only
+
+	rsRows, err := newStatRecordStore(db).GetBattingRateRows(ctx, true)
+	if err != nil {
+		t.Fatalf("GetBattingRateRows RS: %v", err)
+	}
+	if len(rsRows) != 1 {
+		t.Fatalf("want 1 RS row, got %d", len(rsRows))
+	}
+	r := rsRows[0]
+	if r.PlayerID != pA {
+		t.Errorf("want playerID %d, got %d", pA, r.PlayerID)
+	}
+	if r.BA == nil || *r.BA != ba {
+		t.Errorf("BA: want %v, got %v", ba, r.BA)
+	}
+	if r.PlateAppearances != 200 {
+		t.Errorf("PlateAppearances: want 200, got %d", r.PlateAppearances)
+	}
+	if r.NumGames != 40 {
+		t.Errorf("NumGames: want 40, got %d", r.NumGames)
+	}
+
+	poRows, err := newStatRecordStore(db).GetBattingRateRows(ctx, false)
+	if err != nil {
+		t.Fatalf("GetBattingRateRows PO: %v", err)
+	}
+	if len(poRows) != 1 || poRows[0].PlayerID != pB {
+		t.Fatalf("want 1 PO row for player B, got %v", poRows)
+	}
+}
+
+func TestGetPitchingRateRows_OutsPitchedAndNumGamesPresent(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team A", "E", "AL", 20, 20)
+	p1 := seedPlayer(t, db, "g1", "One", "Pitcher")
+	ps1 := seedPlayerSeason(t, db, p1, 1, &h1)
+
+	era := 3.00
+	whip := 1.20
+	seedPitchingRate(t, db, ps1, true, 270, &era, &whip)
+
+	rows, err := newStatRecordStore(db).GetPitchingRateRows(ctx, true)
+	if err != nil {
+		t.Fatalf("GetPitchingRateRows: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1 row, got %d", len(rows))
+	}
+	r := rows[0]
+	if r.OutsPitched != 270 {
+		t.Errorf("OutsPitched: want 270, got %d", r.OutsPitched)
+	}
+	if r.NumGames != 40 {
+		t.Errorf("NumGames: want 40, got %d", r.NumGames)
+	}
+	if r.ERA == nil || *r.ERA != era {
+		t.Errorf("ERA: want %v, got %v", era, r.ERA)
+	}
+}
+
+func TestGetFranchiseSeasonLength_ReturnsFirstSeasonNumGames(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	seedSeason(t, db, 2, 2, 50) // second season with different length
+
+	got, err := newStatRecordStore(db).GetFranchiseSeasonLength(ctx)
+	if err != nil {
+		t.Fatalf("GetFranchiseSeasonLength: %v", err)
+	}
+	if got != 40 {
+		t.Errorf("want 40 (first season), got %d", got)
+	}
+}
+
+func TestGetFranchiseSeasonLength_NoSeasons(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	got, err := newStatRecordStore(db).GetFranchiseSeasonLength(ctx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != 0 {
+		t.Errorf("want 0 when no seasons, got %d", got)
+	}
+}
