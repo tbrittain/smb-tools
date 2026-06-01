@@ -653,6 +653,8 @@ type PitchingLeaderPageDTO struct {
 //
 // LeagueLeadersBatting/Pitching keys are strconv.Itoa(seasonNum) → statKey → []playerID.
 // All highlights apply to regular season data only except CareerBattingPO/CareerPitchingPO.
+// Rate stat maps use the same shape but stat keys match the frontend DTO JSON field names
+// (e.g. "ba", "era", "k9"). Qualification thresholds are enforced before population.
 type StatHighlightsDTO struct {
 	LeagueLeadersBatting  map[string]map[string][]int64    `json:"leagueLeadersBatting"`
 	LeagueLeadersPitching map[string]map[string][]int64    `json:"leagueLeadersPitching"`
@@ -662,6 +664,16 @@ type StatHighlightsDTO struct {
 	CareerBattingPO       map[string][]int64               `json:"careerBattingPO"`
 	CareerPitchingRS      map[string][]int64               `json:"careerPitchingRS"`
 	CareerPitchingPO      map[string][]int64               `json:"careerPitchingPO"`
+
+	// Rate stat highlights — qualified players only.
+	LeagueLeadersBattingRate  map[string]map[string][]int64    `json:"leagueLeadersBattingRate"`
+	LeagueLeadersPitchingRate map[string]map[string][]int64    `json:"leagueLeadersPitchingRate"`
+	SingleSeasonBattingRate   map[string][]StatRecordHolderDTO `json:"singleSeasonBattingRate"`
+	SingleSeasonPitchingRate  map[string][]StatRecordHolderDTO `json:"singleSeasonPitchingRate"`
+	CareerBattingRSRate       map[string][]int64               `json:"careerBattingRSRate"`
+	CareerBattingPORate       map[string][]int64               `json:"careerBattingPORate"`
+	CareerPitchingRSRate      map[string][]int64               `json:"careerPitchingRSRate"`
+	CareerPitchingPORate      map[string][]int64               `json:"careerPitchingPORate"`
 }
 
 // StatRecordHolderDTO identifies the player and season that holds an all-time record.

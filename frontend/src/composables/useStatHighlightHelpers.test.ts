@@ -4,8 +4,13 @@ import {
   highlightTooltip,
   isCareerRecordPO,
   isCareerRecordRS,
+  isRateCareerRecordPO,
+  isRateCareerRecordRS,
+  isRateSeasonLeader,
+  isRateSingleSeasonRecord,
   isSeasonLeader,
   isSingleSeasonRecord,
+  rateHighlightTooltip,
 } from './useStatHighlightHelpers'
 
 function makeHighlights(overrides: Partial<main.StatHighlightsDTO> = {}): main.StatHighlightsDTO {
@@ -230,5 +235,161 @@ describe('highlightTooltip', () => {
     })
     expect(highlightTooltip(7, 2, 'strikeouts', 'K', h, 'pitching', 'season')).toBe('Led the league in K (Season 2)')
     expect(highlightTooltip(7, 2, 'strikeouts', 'K', h, 'batting', 'season')).toBe('')
+  })
+})
+
+// ── Rate stat helpers ─────────────────────────────────────────────────────────
+
+describe('isRateSeasonLeader', () => {
+  it('returns false when highlights is null', () => {
+    expect(isRateSeasonLeader(1, 1, 'ba', null, 'batting')).toBe(false)
+  })
+
+  it('returns false when highlights is undefined', () => {
+    expect(isRateSeasonLeader(1, 1, 'ba', undefined, 'batting')).toBe(false)
+  })
+
+  it('returns true when player is in leagueLeadersBattingRate for the season', () => {
+    const h = makeHighlights({ leagueLeadersBattingRate: { '1': { ba: [42] } } })
+    expect(isRateSeasonLeader(42, 1, 'ba', h, 'batting')).toBe(true)
+  })
+
+  it('returns false when player is not in the rate leader list', () => {
+    const h = makeHighlights({ leagueLeadersBattingRate: { '1': { ba: [99] } } })
+    expect(isRateSeasonLeader(42, 1, 'ba', h, 'batting')).toBe(false)
+  })
+
+  it('uses pitching leaders when type is pitching', () => {
+    const h = makeHighlights({ leagueLeadersPitchingRate: { '3': { era: [10] } } })
+    expect(isRateSeasonLeader(10, 3, 'era', h, 'pitching')).toBe(true)
+    expect(isRateSeasonLeader(10, 3, 'era', h, 'batting')).toBe(false)
+  })
+})
+
+describe('isRateSingleSeasonRecord', () => {
+  it('returns true when playerId and seasonNum both match', () => {
+    const h = makeHighlights({
+      singleSeasonBattingRate: { ba: [{ playerId: 42, seasonNum: 5 }] },
+    })
+    expect(isRateSingleSeasonRecord(42, 5, 'ba', h, 'batting')).toBe(true)
+  })
+
+  it('returns false when seasonNum does not match', () => {
+    const h = makeHighlights({
+      singleSeasonBattingRate: { ba: [{ playerId: 42, seasonNum: 5 }] },
+    })
+    expect(isRateSingleSeasonRecord(42, 6, 'ba', h, 'batting')).toBe(false)
+  })
+
+  it('returns false when highlights is null', () => {
+    expect(isRateSingleSeasonRecord(1, 1, 'ba', null, 'batting')).toBe(false)
+  })
+})
+
+describe('isRateCareerRecordRS', () => {
+  it('returns true when player is in careerBattingRSRate', () => {
+    const h = makeHighlights({ careerBattingRSRate: { obp: [7] } })
+    expect(isRateCareerRecordRS(7, 'obp', h, 'batting')).toBe(true)
+  })
+
+  it('returns false when player is not in the list', () => {
+    const h = makeHighlights({ careerBattingRSRate: { obp: [7] } })
+    expect(isRateCareerRecordRS(99, 'obp', h, 'batting')).toBe(false)
+  })
+
+  it('uses pitching map when type is pitching', () => {
+    const h = makeHighlights({ careerPitchingRSRate: { era: [10] } })
+    expect(isRateCareerRecordRS(10, 'era', h, 'pitching')).toBe(true)
+    expect(isRateCareerRecordRS(10, 'era', h, 'batting')).toBe(false)
+  })
+})
+
+describe('isRateCareerRecordPO', () => {
+  it('returns true when player is in careerPitchingPORate', () => {
+    const h = makeHighlights({ careerPitchingPORate: { whip: [5] } })
+    expect(isRateCareerRecordPO(5, 'whip', h, 'pitching')).toBe(true)
+  })
+
+  it('returns false when highlights is null', () => {
+    expect(isRateCareerRecordPO(1, 'whip', null, 'pitching')).toBe(false)
+  })
+})
+
+describe('rateHighlightTooltip', () => {
+  it('returns season leader text when player leads in rate stat', () => {
+    const h = makeHighlights({ leagueLeadersBattingRate: { '2': { ba: [42] } } })
+    expect(rateHighlightTooltip(42, 2, 'ba', 'BA', h, 'batting', 'season')).toBe('Led the league in BA (Season 2)')
+  })
+
+  it('returns single-season record text when player holds the record', () => {
+    const h = makeHighlights({
+      singleSeasonBattingRate: { ba: [{ playerId: 42, seasonNum: 3 }] },
+    })
+    expect(rateHighlightTooltip(42, 3, 'ba', 'BA', h, 'batting', 'season')).toBe(
+      'All-time single-season record in BA (Season 3)',
+    )
+  })
+
+  it('single-season record takes precedence over league leader in tooltip', () => {
+    const h = makeHighlights({
+      leagueLeadersBattingRate: { '3': { ba: [42] } },
+      singleSeasonBattingRate: { ba: [{ playerId: 42, seasonNum: 3 }] },
+    })
+    const tip = rateHighlightTooltip(42, 3, 'ba', 'BA', h, 'batting', 'season')
+    expect(tip).toBe('All-time single-season record in BA (Season 3)')
+  })
+
+  it('returns career RS record text', () => {
+    const h = makeHighlights({ careerBattingRSRate: { ops: [7] } })
+    expect(rateHighlightTooltip(7, 0, 'ops', 'OPS', h, 'batting', 'careerRS')).toBe(
+      'All-time career record (Regular Season): OPS',
+    )
+  })
+
+  it('returns empty string when no highlight applies', () => {
+    const h = makeHighlights()
+    expect(rateHighlightTooltip(1, 1, 'ba', 'BA', h, 'batting', 'season')).toBe('')
+  })
+})
+
+describe('opsPlus/eraPlus/fipMinus season rate highlights', () => {
+  it('isRateSeasonLeader returns true for opsPlus in batting rate leaders', () => {
+    const h = makeHighlights({ leagueLeadersBattingRate: { '5': { opsPlus: [42] } } })
+    expect(isRateSeasonLeader(42, 5, 'opsPlus', h, 'batting')).toBe(true)
+    expect(isRateSeasonLeader(99, 5, 'opsPlus', h, 'batting')).toBe(false)
+  })
+
+  it('isRateSingleSeasonRecord returns true for eraPlus in pitching rate records', () => {
+    const h = makeHighlights({
+      singleSeasonPitchingRate: { eraPlus: [{ playerId: 10, seasonNum: 3 }] },
+    })
+    expect(isRateSingleSeasonRecord(10, 3, 'eraPlus', h, 'pitching')).toBe(true)
+    expect(isRateSingleSeasonRecord(10, 4, 'eraPlus', h, 'pitching')).toBe(false)
+  })
+
+  it('isRateSeasonLeader returns true for fipMinus in pitching rate leaders', () => {
+    const h = makeHighlights({ leagueLeadersPitchingRate: { '2': { fipMinus: [10] } } })
+    expect(isRateSeasonLeader(10, 2, 'fipMinus', h, 'pitching')).toBe(true)
+  })
+
+  it('rateHighlightTooltip formats OPS+ correctly', () => {
+    const h = makeHighlights({ leagueLeadersBattingRate: { '4': { opsPlus: [42] } } })
+    expect(rateHighlightTooltip(42, 4, 'opsPlus', 'OPS+', h, 'batting', 'season')).toBe(
+      'Led the league in OPS+ (Season 4)',
+    )
+  })
+
+  it('rateHighlightTooltip formats ERA+ record correctly', () => {
+    const h = makeHighlights({
+      singleSeasonPitchingRate: { eraPlus: [{ playerId: 10, seasonNum: 6 }] },
+    })
+    expect(rateHighlightTooltip(10, 6, 'eraPlus', 'ERA+', h, 'pitching', 'season')).toBe(
+      'All-time single-season record in ERA+ (Season 6)',
+    )
+  })
+
+  it('opsPlus does not appear in careerBattingRSRate (not tracked at career level)', () => {
+    const h = makeHighlights({ careerBattingRSRate: { ops: [7] } })
+    expect(isRateCareerRecordRS(7, 'opsPlus', h, 'batting')).toBe(false)
   })
 })

@@ -1199,6 +1199,32 @@ func (a *App) GetStatHighlights() (StatHighlightsDTO, error) {
 		singlePitching[key] = holders
 	}
 
+	leadersRateBatting := make(map[string]map[string][]int64, len(cache.LeagueLeadersBattingRate))
+	for seasonNum, stats := range cache.LeagueLeadersBattingRate {
+		leadersRateBatting[strconv.Itoa(seasonNum)] = stats
+	}
+	leadersRatePitching := make(map[string]map[string][]int64, len(cache.LeagueLeadersPitchingRate))
+	for seasonNum, stats := range cache.LeagueLeadersPitchingRate {
+		leadersRatePitching[strconv.Itoa(seasonNum)] = stats
+	}
+
+	singleRateBatting := make(map[string][]StatRecordHolderDTO, len(cache.SingleSeasonBattingRate))
+	for key, refs := range cache.SingleSeasonBattingRate {
+		holders := make([]StatRecordHolderDTO, len(refs))
+		for i, r := range refs {
+			holders[i] = StatRecordHolderDTO{PlayerID: r.PlayerID, SeasonNum: r.SeasonNum}
+		}
+		singleRateBatting[key] = holders
+	}
+	singleRatePitching := make(map[string][]StatRecordHolderDTO, len(cache.SingleSeasonPitchingRate))
+	for key, refs := range cache.SingleSeasonPitchingRate {
+		holders := make([]StatRecordHolderDTO, len(refs))
+		for i, r := range refs {
+			holders[i] = StatRecordHolderDTO{PlayerID: r.PlayerID, SeasonNum: r.SeasonNum}
+		}
+		singleRatePitching[key] = holders
+	}
+
 	return StatHighlightsDTO{
 		LeagueLeadersBatting:  leadersBatting,
 		LeagueLeadersPitching: leadersPitching,
@@ -1208,6 +1234,15 @@ func (a *App) GetStatHighlights() (StatHighlightsDTO, error) {
 		CareerBattingPO:       cache.CareerBattingPO,
 		CareerPitchingRS:      cache.CareerPitchingRS,
 		CareerPitchingPO:      cache.CareerPitchingPO,
+
+		LeagueLeadersBattingRate:  leadersRateBatting,
+		LeagueLeadersPitchingRate: leadersRatePitching,
+		SingleSeasonBattingRate:   singleRateBatting,
+		SingleSeasonPitchingRate:  singleRatePitching,
+		CareerBattingRSRate:       cache.CareerBattingRSRate,
+		CareerBattingPORate:       cache.CareerBattingPORate,
+		CareerPitchingRSRate:      cache.CareerPitchingRSRate,
+		CareerPitchingPORate:      cache.CareerPitchingPORate,
 	}, nil
 }
 

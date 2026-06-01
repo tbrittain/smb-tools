@@ -1527,6 +1527,14 @@ export namespace main {
 	    careerBattingPO: Record<string, Array<number>>;
 	    careerPitchingRS: Record<string, Array<number>>;
 	    careerPitchingPO: Record<string, Array<number>>;
+	    leagueLeadersBattingRate: Record<string, any>;
+	    leagueLeadersPitchingRate: Record<string, any>;
+	    singleSeasonBattingRate: Record<string, Array<StatRecordHolderDTO>>;
+	    singleSeasonPitchingRate: Record<string, Array<StatRecordHolderDTO>>;
+	    careerBattingRSRate: Record<string, Array<number>>;
+	    careerBattingPORate: Record<string, Array<number>>;
+	    careerPitchingRSRate: Record<string, Array<number>>;
+	    careerPitchingPORate: Record<string, Array<number>>;
 	
 	    static createFrom(source: any = {}) {
 	        return new StatHighlightsDTO(source);
@@ -1542,6 +1550,14 @@ export namespace main {
 	        this.careerBattingPO = source["careerBattingPO"];
 	        this.careerPitchingRS = source["careerPitchingRS"];
 	        this.careerPitchingPO = source["careerPitchingPO"];
+	        this.leagueLeadersBattingRate = source["leagueLeadersBattingRate"];
+	        this.leagueLeadersPitchingRate = source["leagueLeadersPitchingRate"];
+	        this.singleSeasonBattingRate = this.convertValues(source["singleSeasonBattingRate"], Array<StatRecordHolderDTO>, true);
+	        this.singleSeasonPitchingRate = this.convertValues(source["singleSeasonPitchingRate"], Array<StatRecordHolderDTO>, true);
+	        this.careerBattingRSRate = source["careerBattingRSRate"];
+	        this.careerBattingPORate = source["careerBattingPORate"];
+	        this.careerPitchingRSRate = source["careerPitchingRSRate"];
+	        this.careerPitchingPORate = source["careerPitchingPORate"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
