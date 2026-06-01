@@ -351,3 +351,45 @@ describe('rateHighlightTooltip', () => {
     expect(rateHighlightTooltip(1, 1, 'ba', 'BA', h, 'batting', 'season')).toBe('')
   })
 })
+
+describe('opsPlus/eraPlus/fipMinus season rate highlights', () => {
+  it('isRateSeasonLeader returns true for opsPlus in batting rate leaders', () => {
+    const h = makeHighlights({ leagueLeadersBattingRate: { '5': { opsPlus: [42] } } })
+    expect(isRateSeasonLeader(42, 5, 'opsPlus', h, 'batting')).toBe(true)
+    expect(isRateSeasonLeader(99, 5, 'opsPlus', h, 'batting')).toBe(false)
+  })
+
+  it('isRateSingleSeasonRecord returns true for eraPlus in pitching rate records', () => {
+    const h = makeHighlights({
+      singleSeasonPitchingRate: { eraPlus: [{ playerId: 10, seasonNum: 3 }] },
+    })
+    expect(isRateSingleSeasonRecord(10, 3, 'eraPlus', h, 'pitching')).toBe(true)
+    expect(isRateSingleSeasonRecord(10, 4, 'eraPlus', h, 'pitching')).toBe(false)
+  })
+
+  it('isRateSeasonLeader returns true for fipMinus in pitching rate leaders', () => {
+    const h = makeHighlights({ leagueLeadersPitchingRate: { '2': { fipMinus: [10] } } })
+    expect(isRateSeasonLeader(10, 2, 'fipMinus', h, 'pitching')).toBe(true)
+  })
+
+  it('rateHighlightTooltip formats OPS+ correctly', () => {
+    const h = makeHighlights({ leagueLeadersBattingRate: { '4': { opsPlus: [42] } } })
+    expect(rateHighlightTooltip(42, 4, 'opsPlus', 'OPS+', h, 'batting', 'season')).toBe(
+      'Led the league in OPS+ (Season 4)',
+    )
+  })
+
+  it('rateHighlightTooltip formats ERA+ record correctly', () => {
+    const h = makeHighlights({
+      singleSeasonPitchingRate: { eraPlus: [{ playerId: 10, seasonNum: 6 }] },
+    })
+    expect(rateHighlightTooltip(10, 6, 'eraPlus', 'ERA+', h, 'pitching', 'season')).toBe(
+      'All-time single-season record in ERA+ (Season 6)',
+    )
+  })
+
+  it('opsPlus does not appear in careerBattingRSRate (not tracked at career level)', () => {
+    const h = makeHighlights({ careerBattingRSRate: { ops: [7] } })
+    expect(isRateCareerRecordRS(7, 'opsPlus', h, 'batting')).toBe(false)
+  })
+})

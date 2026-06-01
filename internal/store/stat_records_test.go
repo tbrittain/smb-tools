@@ -407,3 +407,84 @@ func TestGetFranchiseSeasonLength_NoSeasons(t *testing.T) {
 		t.Errorf("want 0 when no seasons, got %d", got)
 	}
 }
+
+func TestGetBattingRateRows_OPSPlusScanned(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 100)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team A", "E", "AL", 50, 50)
+	p1 := seedPlayer(t, db, "g1", "One", "Player")
+	ps1 := seedPlayerSeason(t, db, p1, 1, &h1)
+
+	opsPlus := 145.0
+	_, err := db.ExecContext(ctx, `
+INSERT INTO player_season_batting_stats
+    (player_season_id, is_regular_season, games_played, games_batting,
+     at_bats, runs, hits, doubles, triples, home_runs, rbi,
+     stolen_bases, caught_stealing, walks, strikeouts, hit_by_pitch,
+     sac_hits, sac_flies, errors, passed_balls, plate_appearances, ops_plus)
+VALUES (?,1,100,100,400,0,130,0,0,0,0,0,0,0,0,0,0,0,0,0,430,?)
+`, ps1, opsPlus)
+	if err != nil {
+		t.Fatalf("seed batting with ops_plus: %v", err)
+	}
+
+	rows, err := newStatRecordStore(db).GetBattingRateRows(ctx, true)
+	if err != nil {
+		t.Fatalf("GetBattingRateRows: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1 row, got %d", len(rows))
+	}
+	if rows[0].OPSPlus == nil || *rows[0].OPSPlus != opsPlus {
+		t.Errorf("OPSPlus: want %v, got %v", opsPlus, rows[0].OPSPlus)
+	}
+	if rows[0].PlateAppearances != 430 {
+		t.Errorf("PlateAppearances: want 430, got %d", rows[0].PlateAppearances)
+	}
+}
+
+func TestGetPitchingRateRows_ERAAndFIPMinusScanned(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 100)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team A", "E", "AL", 50, 50)
+	p1 := seedPlayer(t, db, "g1", "One", "Pitcher")
+	ps1 := seedPlayerSeason(t, db, p1, 1, &h1)
+
+	eraPlus := 142.0
+	fipMinus := 78.0
+	_, err := db.ExecContext(ctx, `
+INSERT INTO player_season_pitching_stats
+    (player_season_id, is_regular_season, wins, losses, games, games_started,
+     complete_games, shutouts, saves, outs_pitched, hits_allowed, earned_runs,
+     home_runs_allowed, walks, strikeouts, hit_batters, batters_faced,
+     games_finished, runs_allowed, wild_pitches, total_pitches, era_plus, fip_minus)
+VALUES (?,1,15,5,30,30,0,0,0,720,180,60,0,50,200,0,0,0,0,0,0,?,?)
+`, ps1, eraPlus, fipMinus)
+	if err != nil {
+		t.Fatalf("seed pitching with era_plus/fip_minus: %v", err)
+	}
+
+	rows, err := newStatRecordStore(db).GetPitchingRateRows(ctx, true)
+	if err != nil {
+		t.Fatalf("GetPitchingRateRows: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1 row, got %d", len(rows))
+	}
+	r := rows[0]
+	if r.ERAPlus == nil || *r.ERAPlus != eraPlus {
+		t.Errorf("ERAPlus: want %v, got %v", eraPlus, r.ERAPlus)
+	}
+	if r.FIPMinus == nil || *r.FIPMinus != fipMinus {
+		t.Errorf("FIPMinus: want %v, got %v", fipMinus, r.FIPMinus)
+	}
+	if r.OutsPitched != 720 {
+		t.Errorf("OutsPitched: want 720, got %d", r.OutsPitched)
+	}
+}

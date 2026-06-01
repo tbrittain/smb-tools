@@ -36,6 +36,7 @@ export const BATTING_RATE_STATS = [
   'kPct',
   'bbPct',
   'abPerHr',
+  'opsPlus',
   'smbWar',
 ] as const
 
@@ -51,6 +52,8 @@ export const PITCHING_RATE_STATS = [
   'winPct',
   'pPerIp',
   'fip',
+  'eraPlus',
+  'fipMinus',
   'smbWar',
 ] as const
 

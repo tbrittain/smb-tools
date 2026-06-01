@@ -500,7 +500,9 @@ function pRateSeasonTip(r: { seasonNum: number }, statKey: string, label: string
         </template>
       </Column>
       <Column header="OPS+" sortable sort-field="_b.opsPlus" style="min-width: 68px" class="col-rate">
-        <template #body="{ data: r }">{{ formatAdjustedStat(r._b?.opsPlus) }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="formatAdjustedStat(r._b?.opsPlus)" :class-map="bRateSeasonClass(r, 'opsPlus')" :tooltip="bRateSeasonTip(r, 'opsPlus', 'OPS+')" />
+        </template>
       </Column>
       <Column header="smbWAR" sortable sort-field="_b.smbWar" style="min-width: 80px" class="col-rate">
         <template #body="{ data: r }">
@@ -738,7 +740,9 @@ function pRateSeasonTip(r: { seasonNum: number }, statKey: string, label: string
         </template>
       </Column>
       <Column header="ERA+" sortable sort-field="_p.eraPlus" style="min-width: 68px" class="col-rate">
-        <template #body="{ data: r }">{{ formatAdjustedStat(r._p?.eraPlus) }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="formatAdjustedStat(r._p?.eraPlus)" :class-map="pRateSeasonClass(r, 'eraPlus')" :tooltip="pRateSeasonTip(r, 'eraPlus', 'ERA+')" />
+        </template>
       </Column>
       <Column header="FIP" sortable sort-field="_p.fip" style="min-width: 65px" class="col-rate">
         <template #body="{ data: r }">
@@ -746,7 +750,9 @@ function pRateSeasonTip(r: { seasonNum: number }, statKey: string, label: string
         </template>
       </Column>
       <Column header="FIP-" sortable sort-field="_p.fipMinus" style="min-width: 65px" class="col-rate">
-        <template #body="{ data: r }">{{ formatAdjustedStat(r._p?.fipMinus) }}</template>
+        <template #body="{ data: r }">
+          <StatHighlightCell :value="formatAdjustedStat(r._p?.fipMinus)" :class-map="pRateSeasonClass(r, 'fipMinus')" :tooltip="pRateSeasonTip(r, 'fipMinus', 'FIP-')" />
+        </template>
       </Column>
       <Column header="smbWAR" sortable sort-field="_p.smbWar" style="min-width: 80px" class="col-rate">
         <template #body="{ data: r }">

@@ -338,3 +338,155 @@ func TestComputePitchingCareerRateRecords_NoQualifiedPlayers(t *testing.T) {
 		t.Errorf("expect nil when no qualified players, got %v", records)
 	}
 }
+
+// ── Direction-aware counting stat tests ───────────────────────────────────────
+
+func TestComputeBattingLeagueLeaders_StrikeoutsLowerIsBetter(t *testing.T) {
+	// Batter with fewer strikeouts is the "leader".
+	rows := []store.BattingCountRow{
+		{PlayerID: 1, SeasonNum: 1, Strikeouts: 50, AtBats: 500},
+		{PlayerID: 2, SeasonNum: 1, Strikeouts: 100, AtBats: 520},
+	}
+	leaders := computeBattingLeagueLeaders(rows)
+	got := leaders[1]["strikeouts"]
+	if len(got) != 1 || got[0] != 1 {
+		t.Errorf("K leader (lower): want [1] (50 K), got %v", got)
+	}
+}
+
+func TestComputePitchingLeagueLeaders_HitsAllowedLowerIsBetter(t *testing.T) {
+	rows := []store.PitchingCountRow{
+		{PlayerID: 10, SeasonNum: 1, HitsAllowed: 160, OutsPitched: 720},
+		{PlayerID: 11, SeasonNum: 1, HitsAllowed: 210, OutsPitched: 700},
+	}
+	leaders := computePitchingLeagueLeaders(rows)
+	got := leaders[1]["hitsAllowed"]
+	if len(got) != 1 || got[0] != 10 {
+		t.Errorf("H leader (lower): want [10] (160 H), got %v", got)
+	}
+}
+
+func TestComputePitchingLeagueLeaders_EarnedRunsAndWalksLowerIsBetter(t *testing.T) {
+	rows := []store.PitchingCountRow{
+		{PlayerID: 10, SeasonNum: 1, EarnedRuns: 50, Walks: 40, OutsPitched: 720},
+		{PlayerID: 11, SeasonNum: 1, EarnedRuns: 80, Walks: 70, OutsPitched: 700},
+	}
+	leaders := computePitchingLeagueLeaders(rows)
+	if got := leaders[1]["earnedRuns"]; len(got) != 1 || got[0] != 10 {
+		t.Errorf("ER leader (lower): want [10], got %v", got)
+	}
+	if got := leaders[1]["walks"]; len(got) != 1 || got[0] != 10 {
+		t.Errorf("BB leader (lower): want [10], got %v", got)
+	}
+}
+
+func TestComputeBattingSingleSeasonRecords_StrikeoutsLowerIsBetter(t *testing.T) {
+	rows := []store.BattingCountRow{
+		{PlayerID: 1, SeasonNum: 1, Strikeouts: 60, AtBats: 500},
+		{PlayerID: 2, SeasonNum: 2, Strikeouts: 45, AtBats: 490}, // all-time fewest
+		{PlayerID: 3, SeasonNum: 3, Strikeouts: 70, AtBats: 510},
+	}
+	records := computeBattingSingleSeasonRecords(rows)
+	got := records["strikeouts"]
+	if len(got) != 1 || got[0].PlayerID != 2 || got[0].SeasonNum != 2 {
+		t.Errorf("K record (fewest): want {2, season 2}, got %v", got)
+	}
+}
+
+func TestComputeBattingCareerRecords_StrikeoutsLowerIsBetter_ABQualifier(t *testing.T) {
+	// Player 1: 80 K over career with 500 AB (qualified)
+	// Player 2: 0 K with 0 AB (pitcher who never batted — excluded by qualifier)
+	rows := []store.BattingCountRow{
+		{PlayerID: 1, SeasonNum: 1, AtBats: 500, Strikeouts: 80},
+		{PlayerID: 2, SeasonNum: 1, AtBats: 0, Strikeouts: 0},
+	}
+	records := computeBattingCareerRecords(rows)
+	got := records["strikeouts"]
+	if len(got) != 1 || got[0] != 1 {
+		t.Errorf("career K record (fewest, AB>0 only): want [1], got %v", got)
+	}
+}
+
+func TestComputePitchingCareerRecords_LowerIsBetterStats_OutsQualifier(t *testing.T) {
+	// Player 10: 60 ER, 720 outs (qualified)
+	// Player 11: 0 ER, 0 outs (never pitched — excluded)
+	rows := []store.PitchingCountRow{
+		{PlayerID: 10, SeasonNum: 1, EarnedRuns: 60, Walks: 40, HitsAllowed: 180, OutsPitched: 720},
+		{PlayerID: 11, SeasonNum: 1, EarnedRuns: 0, Walks: 0, HitsAllowed: 0, OutsPitched: 0},
+	}
+	records := computePitchingCareerRecords(rows)
+	if got := records["earnedRuns"]; len(got) != 1 || got[0] != 10 {
+		t.Errorf("career ER record (fewest, IP>0 only): want [10], got %v", got)
+	}
+	if got := records["walks"]; len(got) != 1 || got[0] != 10 {
+		t.Errorf("career BB record (fewest, IP>0 only): want [10], got %v", got)
+	}
+	if got := records["hitsAllowed"]; len(got) != 1 || got[0] != 10 {
+		t.Errorf("career H record (fewest, IP>0 only): want [10], got %v", got)
+	}
+}
+
+// ── OPS+/ERA+/FIP- season rate tests ─────────────────────────────────────────
+
+func TestComputeBattingRateLeagueLeaders_OPSPlusHigherIsBetter(t *testing.T) {
+	rows := []store.BattingRateRow{
+		{PlayerID: 1, SeasonNum: 1, OPSPlus: fp(150), PlateAppearances: 400, NumGames: 100},
+		{PlayerID: 2, SeasonNum: 1, OPSPlus: fp(110), PlateAppearances: 400, NumGames: 100},
+	}
+	leaders := computeBattingRateLeagueLeaders(rows)
+	got := leaders[1]["opsPlus"]
+	if len(got) != 1 || got[0] != 1 {
+		t.Errorf("OPS+ leader: want [1] (150), got %v", got)
+	}
+}
+
+func TestComputePitchingRateLeagueLeaders_ERAPlus_HigherIsBetter(t *testing.T) {
+	rows := []store.PitchingRateRow{
+		{PlayerID: 10, SeasonNum: 1, ERAPlus: fp(180), OutsPitched: 600, NumGames: 100},
+		{PlayerID: 11, SeasonNum: 1, ERAPlus: fp(130), OutsPitched: 600, NumGames: 100},
+	}
+	leaders := computePitchingRateLeagueLeaders(rows)
+	got := leaders[1]["eraPlus"]
+	if len(got) != 1 || got[0] != 10 {
+		t.Errorf("ERA+ leader: want [10] (180), got %v", got)
+	}
+}
+
+func TestComputePitchingRateSingleSeasonRecords_FIPMinus_LowerIsBetter(t *testing.T) {
+	rows := []store.PitchingRateRow{
+		{PlayerID: 10, SeasonNum: 1, FIPMinus: fp(85), OutsPitched: 600, NumGames: 100},
+		{PlayerID: 11, SeasonNum: 2, FIPMinus: fp(70), OutsPitched: 600, NumGames: 100},
+	}
+	records := computePitchingRateSingleSeasonRecords(rows)
+	got := records["fipMinus"]
+	if len(got) != 1 || got[0].PlayerID != 11 {
+		t.Errorf("FIP- record (lower): want player 11 (70), got %v", got)
+	}
+}
+
+func TestComputeBattingRateSingleSeasonRecords_OPSPlusIncluded(t *testing.T) {
+	rows := []store.BattingRateRow{
+		{PlayerID: 1, SeasonNum: 1, OPSPlus: fp(200), PlateAppearances: 400, NumGames: 100},
+		{PlayerID: 2, SeasonNum: 2, OPSPlus: fp(160), PlateAppearances: 400, NumGames: 100},
+	}
+	records := computeBattingRateSingleSeasonRecords(rows)
+	got := records["opsPlus"]
+	if len(got) != 1 || got[0].PlayerID != 1 {
+		t.Errorf("OPS+ record: want player 1 (200), got %v", got)
+	}
+}
+
+func TestComputeBattingCareerRateRecords_OPSPlusNotTracked(t *testing.T) {
+	// OPS+ is excluded from career rate extractors — should not appear in career records.
+	threshold := 100
+	rows := []store.BattingCareerRateRow{
+		{PlayerID: 1, OPS: fp(0.950), CareerPA: 500},
+	}
+	records := computeBattingCareerRateRecords(rows, threshold)
+	if _, ok := records["opsPlus"]; ok {
+		t.Error("opsPlus should not appear in career batting rate records")
+	}
+	if _, ok := records["ops"]; !ok {
+		t.Error("ops should appear in career batting rate records")
+	}
+}

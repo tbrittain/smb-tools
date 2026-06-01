@@ -372,7 +372,9 @@ function rosterPRateTip(playerId: number, statKey: string, label: string): strin
             </template>
           </Column>
           <Column field="batting.opsPlus" header="OPS+" sortable style="min-width: 68px">
-            <template #body="{ data }">{{ formatAdjustedStat(data.batting?.opsPlus) }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="formatAdjustedStat(data.batting?.opsPlus)" :class-map="rosterBRateClass(data.playerId, 'opsPlus')" :tooltip="rosterBRateTip(data.playerId, 'opsPlus', 'OPS+')" />
+            </template>
           </Column>
           <Column field="batting.smbWar" header="smbWAR" sortable style="min-width: 75px">
             <template #body="{ data }">
@@ -455,7 +457,9 @@ function rosterPRateTip(playerId: number, statKey: string, label: string): strin
             </template>
           </Column>
           <Column field="pitching.eraPlus" header="ERA+" sortable style="min-width: 68px">
-            <template #body="{ data }">{{ formatAdjustedStat(data.pitching?.eraPlus) }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="formatAdjustedStat(data.pitching?.eraPlus)" :class-map="rosterPRateClass(data.playerId, 'eraPlus')" :tooltip="rosterPRateTip(data.playerId, 'eraPlus', 'ERA+')" />
+            </template>
           </Column>
           <Column field="pitching.fip" header="FIP" sortable style="min-width: 65px">
             <template #body="{ data }">
@@ -463,7 +467,9 @@ function rosterPRateTip(playerId: number, statKey: string, label: string): strin
             </template>
           </Column>
           <Column field="pitching.fipMinus" header="FIP-" sortable style="min-width: 65px">
-            <template #body="{ data }">{{ formatAdjustedStat(data.pitching?.fipMinus) }}</template>
+            <template #body="{ data }">
+              <StatHighlightCell :value="formatAdjustedStat(data.pitching?.fipMinus)" :class-map="rosterPRateClass(data.playerId, 'fipMinus')" :tooltip="rosterPRateTip(data.playerId, 'fipMinus', 'FIP-')" />
+            </template>
           </Column>
           <Column field="pitching.smbWar" header="smbWAR" sortable style="min-width: 75px">
             <template #body="{ data }">

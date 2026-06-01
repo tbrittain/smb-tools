@@ -202,7 +202,9 @@ function rateCareerTip(r: main.BattingLeaderRowDTO, statKey: string, label: stri
           </template>
         </Column>
         <Column header="OPS+" sort-field="opsPlus" sortable style="min-width: 68px" class="col-rate">
-          <template #body="{ data: r }">{{ formatAdjustedStat(r.opsPlus) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatAdjustedStat(r.opsPlus)" :class-map="isCareer ? {} : rateLeaderClass(r, 'opsPlus')" :tooltip="isCareer ? '' : rateSeasonTip(r, 'opsPlus', 'OPS+')" />
+          </template>
         </Column>
         <Column header="smbWAR" sort-field="smbWar" sortable style="min-width: 80px" class="col-rate">
           <template #body="{ data: r }">

@@ -215,7 +215,9 @@ function rateCareerTip(r: main.PitchingLeaderRowDTO, statKey: string, label: str
           </template>
         </Column>
         <Column header="ERA+" sort-field="eraPlus" sortable style="min-width: 68px" class="col-rate">
-          <template #body="{ data: r }">{{ formatAdjustedStat(r.eraPlus) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatAdjustedStat(r.eraPlus)" :class-map="isCareer ? {} : rateLeaderClass(r, 'eraPlus')" :tooltip="isCareer ? '' : rateSeasonTip(r, 'eraPlus', 'ERA+')" />
+          </template>
         </Column>
         <Column v-if="!isCareer" header="FIP" sort-field="fip" sortable style="min-width: 65px" class="col-rate">
           <template #body="{ data: r }">
@@ -223,7 +225,9 @@ function rateCareerTip(r: main.PitchingLeaderRowDTO, statKey: string, label: str
           </template>
         </Column>
         <Column v-if="!isCareer" header="FIP-" sort-field="fipMinus" sortable style="min-width: 65px" class="col-rate">
-          <template #body="{ data: r }">{{ formatAdjustedStat(r.fipMinus) }}</template>
+          <template #body="{ data: r }">
+            <StatHighlightCell :value="formatAdjustedStat(r.fipMinus)" :class-map="rateLeaderClass(r, 'fipMinus')" :tooltip="rateSeasonTip(r, 'fipMinus', 'FIP-')" />
+          </template>
         </Column>
         <Column header="smbWAR" sort-field="smbWar" sortable style="min-width: 80px" class="col-rate">
           <template #body="{ data: r }">

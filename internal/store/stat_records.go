@@ -135,6 +135,7 @@ type BattingRateRow struct {
 	KPct             *float64
 	BBPct            *float64
 	ABPerHR          *float64
+	OPSPlus          *float64
 	SmbWAR           *float64
 	PlateAppearances int
 	NumGames         int
@@ -155,6 +156,8 @@ type PitchingRateRow struct {
 	WinPct      *float64
 	PPerIP      *float64
 	FIP         *float64
+	ERAPlus     *float64
+	FIPMinus    *float64
 	SmbWAR      *float64
 	OutsPitched int
 	NumGames    int
@@ -203,7 +206,7 @@ func (s *StatRecordQueryStore) GetBattingRateRows(ctx context.Context, isRegular
 	}
 	rows, err := s.db.QueryContext(ctx, `
 SELECT p.id, s.season_num,
-       b.ba, b.obp, b.slg, b.ops, b.iso, b.babip, b.k_pct, b.bb_pct, b.ab_per_hr, b.smb_war,
+       b.ba, b.obp, b.slg, b.ops, b.iso, b.babip, b.k_pct, b.bb_pct, b.ab_per_hr, b.ops_plus, b.smb_war,
        b.plate_appearances, s.num_games
 FROM player_season_batting_stats b
 JOIN player_seasons ps ON ps.id = b.player_season_id
@@ -220,7 +223,7 @@ WHERE b.is_regular_season = ?`, isReg)
 		var r BattingRateRow
 		if err := rows.Scan(
 			&r.PlayerID, &r.SeasonNum,
-			&r.BA, &r.OBP, &r.SLG, &r.OPS, &r.ISO, &r.BABIP, &r.KPct, &r.BBPct, &r.ABPerHR, &r.SmbWAR,
+			&r.BA, &r.OBP, &r.SLG, &r.OPS, &r.ISO, &r.BABIP, &r.KPct, &r.BBPct, &r.ABPerHR, &r.OPSPlus, &r.SmbWAR,
 			&r.PlateAppearances, &r.NumGames,
 		); err != nil {
 			return nil, fmt.Errorf("GetBattingRateRows scan: %w", err)
@@ -240,7 +243,7 @@ func (s *StatRecordQueryStore) GetPitchingRateRows(ctx context.Context, isRegula
 	rows, err := s.db.QueryContext(ctx, `
 SELECT p.id, s.season_num,
        pit.era, pit.whip, pit.k_per_9, pit.bb_per_9, pit.h_per_9, pit.hr_per_9,
-       pit.k_per_bb, pit.k_pct, pit.win_pct, pit.p_per_ip, pit.fip, pit.smb_war,
+       pit.k_per_bb, pit.k_pct, pit.win_pct, pit.p_per_ip, pit.fip, pit.era_plus, pit.fip_minus, pit.smb_war,
        pit.outs_pitched, s.num_games
 FROM player_season_pitching_stats pit
 JOIN player_seasons ps ON ps.id = pit.player_season_id
@@ -258,7 +261,7 @@ WHERE pit.is_regular_season = ?`, isReg)
 		if err := rows.Scan(
 			&r.PlayerID, &r.SeasonNum,
 			&r.ERA, &r.WHIP, &r.K9, &r.BB9, &r.H9, &r.HR9,
-			&r.KPerBB, &r.KPct, &r.WinPct, &r.PPerIP, &r.FIP, &r.SmbWAR,
+			&r.KPerBB, &r.KPct, &r.WinPct, &r.PPerIP, &r.FIP, &r.ERAPlus, &r.FIPMinus, &r.SmbWAR,
 			&r.OutsPitched, &r.NumGames,
 		); err != nil {
 			return nil, fmt.Errorf("GetPitchingRateRows scan: %w", err)
