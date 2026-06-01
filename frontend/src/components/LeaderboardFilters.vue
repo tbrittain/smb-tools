@@ -28,9 +28,8 @@ const local = ref<main.LeaderboardFiltersDTO>({ ...props.modelValue })
 watch(
   () => props.modelValue,
   (v) => {
-    local.value = { ...v }
+    local.value = { ...v, traits: [...(v.traits ?? [])] }
   },
-  { deep: true },
 )
 
 function update(patch: Partial<main.LeaderboardFiltersDTO>) {

@@ -196,18 +196,14 @@ const filterMode = computed<'batting' | 'pitching'>(() =>
 const isCareer = computed(() => activeTab.value === 'batting-career' || activeTab.value === 'pitching-career')
 
 // Reset page to 0 and clear caches when filters or tab change.
-watch(
-  [activeTab, filters],
-  () => {
-    battingCareerFirst.value = 0
-    battingSeasonFirst.value = 0
-    pitchingCareerFirst.value = 0
-    pitchingSeasonFirst.value = 0
-    clearAllCaches()
-    loadCurrentTab()
-  },
-  { deep: true },
-)
+watch([activeTab, filters], () => {
+  battingCareerFirst.value = 0
+  battingSeasonFirst.value = 0
+  pitchingCareerFirst.value = 0
+  pitchingSeasonFirst.value = 0
+  clearAllCaches()
+  loadCurrentTab()
+})
 
 onMounted(async () => {
   set([{ label: 'Leaderboards' }])
