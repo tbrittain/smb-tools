@@ -13,6 +13,11 @@ type Award struct {
 	IsPlayoffAward    bool
 	IsUserAssignable  bool
 	IsBuiltIn         bool
+	// ParentAwardID is set for runner-up awards (MVP-2 → MVP). Nil for primary awards.
+	ParentAwardID *int64
+	// RunnerUpRank is the ordinal rank among siblings with the same parent (1 = best).
+	// Nil for primary awards.
+	RunnerUpRank *int
 }
 
 // PlayerSeasonAwardRow is one player-season entry returned for the awards
@@ -194,6 +199,9 @@ type AwardWinnerRow struct {
 	TeamName       string
 	PrimaryPos     string
 	PitcherRole    string
+	// AwardName is the name of the specific award won (e.g. "MVP-2" for runner-ups).
+	// For primary winners this matches the group name; used for runner-up labels.
+	AwardName string
 	// Batting triple-crown stats (zero for pitching-only awards)
 	BA  float64
 	HR  int
@@ -207,11 +215,12 @@ type AwardWinnerRow struct {
 }
 
 // AwardGroupSummary is one award category with all winners for a season.
-// RunnerUp is nil when the award has multiple winners or no qualifying runner-up.
+// RunnerUps contains winners of child runner-up awards (e.g. MVP-2, MVP-3),
+// ordered by RunnerUpRank ASC. Empty when no runner-ups were assigned.
 type AwardGroupSummary struct {
-	Award    Award
-	Winners  []AwardWinnerRow
-	RunnerUp *AwardWinnerRow
+	Award     Award
+	Winners   []AwardWinnerRow
+	RunnerUps []AwardWinnerRow
 }
 
 // SeasonAwardSummary is the full personal-performance award view for one season.

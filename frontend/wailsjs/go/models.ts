@@ -40,6 +40,7 @@ export namespace main {
 	    teamName: string;
 	    primaryPosition: string;
 	    pitcherRole: string;
+	    awardName: string;
 	    ba: number;
 	    hr: number;
 	    rbi: number;
@@ -61,6 +62,7 @@ export namespace main {
 	        this.teamName = source["teamName"];
 	        this.primaryPosition = source["primaryPosition"];
 	        this.pitcherRole = source["pitcherRole"];
+	        this.awardName = source["awardName"];
 	        this.ba = source["ba"];
 	        this.hr = source["hr"];
 	        this.rbi = source["rbi"];
@@ -74,7 +76,7 @@ export namespace main {
 	    awardId: number;
 	    awardName: string;
 	    winners: AwardWinnerRowDTO[];
-	    runnerUp?: AwardWinnerRowDTO;
+	    runnerUps: AwardWinnerRowDTO[];
 	
 	    static createFrom(source: any = {}) {
 	        return new AwardGroupSummaryDTO(source);
@@ -85,7 +87,7 @@ export namespace main {
 	        this.awardId = source["awardId"];
 	        this.awardName = source["awardName"];
 	        this.winners = this.convertValues(source["winners"], AwardWinnerRowDTO);
-	        this.runnerUp = this.convertValues(source["runnerUp"], AwardWinnerRowDTO);
+	        this.runnerUps = this.convertValues(source["runnerUps"], AwardWinnerRowDTO);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

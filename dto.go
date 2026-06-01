@@ -1072,6 +1072,9 @@ type AwardWinnerRowDTO struct {
 	TeamName       string   `json:"teamName"`
 	PrimaryPos     string   `json:"primaryPosition"`
 	PitcherRole    string   `json:"pitcherRole"`
+	// AwardName is the specific award won (e.g. "MVP-2" for a runner-up slot).
+	// For primary winners it matches AwardGroupSummaryDTO.AwardName.
+	AwardName      string   `json:"awardName"`
 	BA             float64  `json:"ba"`
 	HR             int      `json:"hr"`
 	RBI            int      `json:"rbi"`
@@ -1082,12 +1085,13 @@ type AwardWinnerRowDTO struct {
 }
 
 // AwardGroupSummaryDTO is one award category with all personal-performance winners.
-// RunnerUp is null when the award has multiple winners or no qualifying runner-up.
+// RunnerUps contains winners of child runner-up awards (MVP-2, MVP-3, etc.),
+// ordered by runner_up_rank ASC. Empty array when no runner-ups were assigned.
 type AwardGroupSummaryDTO struct {
 	AwardID   int64               `json:"awardId"`
 	AwardName string              `json:"awardName"`
 	Winners   []AwardWinnerRowDTO `json:"winners"`
-	RunnerUp  *AwardWinnerRowDTO  `json:"runnerUp"`
+	RunnerUps []AwardWinnerRowDTO `json:"runnerUps"`
 }
 
 // SeasonAwardSummaryDTO is the full award view for one season.
@@ -1188,6 +1192,7 @@ func awardWinnerRowToDTO(w models.AwardWinnerRow) AwardWinnerRowDTO {
 		TeamName:       w.TeamName,
 		PrimaryPos:     w.PrimaryPos,
 		PitcherRole:    w.PitcherRole,
+		AwardName:      w.AwardName,
 		BA:             w.BA,
 		HR:             w.HR,
 		RBI:            w.RBI,
@@ -1205,16 +1210,15 @@ func seasonAwardSummaryToDTO(m models.SeasonAwardSummary) SeasonAwardSummaryDTO 
 		for j, w := range g.Winners {
 			winners[j] = awardWinnerRowToDTO(w)
 		}
-		var runnerUp *AwardWinnerRowDTO
-		if g.RunnerUp != nil {
-			r := awardWinnerRowToDTO(*g.RunnerUp)
-			runnerUp = &r
+		runnerUps := make([]AwardWinnerRowDTO, len(g.RunnerUps))
+		for j, r := range g.RunnerUps {
+			runnerUps[j] = awardWinnerRowToDTO(r)
 		}
 		groups[i] = AwardGroupSummaryDTO{
 			AwardID:   g.Award.ID,
 			AwardName: g.Award.Name,
 			Winners:   winners,
-			RunnerUp:  runnerUp,
+			RunnerUps: runnerUps,
 		}
 	}
 	return SeasonAwardSummaryDTO{

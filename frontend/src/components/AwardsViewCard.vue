@@ -51,26 +51,30 @@ function fmtWAR(v: number | null | undefined): string {
         </div>
       </div>
 
-      <div v-if="group.runnerUp" class="runner-up-row">
-        <div class="runner-up-label">Runner-up</div>
+      <div
+        v-for="ru in group.runnerUps"
+        :key="ru.playerSeasonId"
+        class="runner-up-row"
+      >
+        <div class="runner-up-label">Runner-up ({{ ru.awardName }})</div>
         <div class="row-identity">
-          <AppLink :to="`/players/${group.runnerUp.playerId}`" class="player-name">
-            {{ group.runnerUp.firstName }} {{ group.runnerUp.lastName }}
+          <AppLink :to="`/players/${ru.playerId}`" class="player-name">
+            {{ ru.firstName }} {{ ru.lastName }}
           </AppLink>
-          <span class="team-name">{{ group.runnerUp.teamName }}</span>
+          <span class="team-name">{{ ru.teamName }}</span>
         </div>
         <div class="row-stats">
-          <template v-if="group.runnerUp.ba || group.runnerUp.hr || group.runnerUp.rbi">
-            <span class="stat"><span class="stat-label">BA</span> {{ fmtBA(group.runnerUp.ba) }}</span>
-            <span class="stat"><span class="stat-label">HR</span> {{ group.runnerUp.hr }}</span>
-            <span class="stat"><span class="stat-label">RBI</span> {{ group.runnerUp.rbi }}</span>
+          <template v-if="ru.ba || ru.hr || ru.rbi">
+            <span class="stat"><span class="stat-label">BA</span> {{ fmtBA(ru.ba) }}</span>
+            <span class="stat"><span class="stat-label">HR</span> {{ ru.hr }}</span>
+            <span class="stat"><span class="stat-label">RBI</span> {{ ru.rbi }}</span>
           </template>
-          <template v-else-if="group.runnerUp.era || group.runnerUp.wins || group.runnerUp.strikeouts">
-            <span class="stat"><span class="stat-label">ERA</span> {{ fmtERA(group.runnerUp.era) }}</span>
-            <span class="stat"><span class="stat-label">W</span> {{ group.runnerUp.wins }}</span>
-            <span class="stat"><span class="stat-label">K</span> {{ group.runnerUp.strikeouts }}</span>
+          <template v-else-if="ru.era || ru.wins || ru.strikeouts">
+            <span class="stat"><span class="stat-label">ERA</span> {{ fmtERA(ru.era) }}</span>
+            <span class="stat"><span class="stat-label">W</span> {{ ru.wins }}</span>
+            <span class="stat"><span class="stat-label">K</span> {{ ru.strikeouts }}</span>
           </template>
-          <span class="stat"><span class="stat-label">WAR</span> {{ fmtWAR(group.runnerUp.smbWar) }}</span>
+          <span class="stat"><span class="stat-label">WAR</span> {{ fmtWAR(ru.smbWar) }}</span>
         </div>
       </div>
     </div>

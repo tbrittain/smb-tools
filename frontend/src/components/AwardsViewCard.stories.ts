@@ -12,7 +12,13 @@ type Story = StoryObj<typeof AwardsViewCard>
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function makeBatter(id: number, first: string, last: string, smbWar: number | undefined = 3.2): main.AwardWinnerRowDTO {
+function makeBatter(
+  id: number,
+  first: string,
+  last: string,
+  smbWar: number | undefined = 3.2,
+  awardName = '',
+): main.AwardWinnerRowDTO {
   return new main.AwardWinnerRowDTO({
     playerSeasonId: id * 10,
     playerId: id,
@@ -21,6 +27,7 @@ function makeBatter(id: number, first: string, last: string, smbWar: number | un
     teamName: 'Springfield Isotopes',
     primaryPosition: 'CF',
     pitcherRole: '',
+    awardName,
     ba: 0.312,
     hr: 28,
     rbi: 95,
@@ -36,6 +43,7 @@ function makePitcher(
   first: string,
   last: string,
   smbWar: number | undefined = 4.1,
+  awardName = '',
 ): main.AwardWinnerRowDTO {
   return new main.AwardWinnerRowDTO({
     playerSeasonId: id * 10,
@@ -45,6 +53,7 @@ function makePitcher(
     teamName: 'Capital City Goofballs',
     primaryPosition: 'P',
     pitcherRole: 'SP',
+    awardName,
     ba: 0,
     hr: 0,
     rbi: 0,
@@ -63,7 +72,7 @@ export const BattingAwardSingleWinner: Story = {
       awardId: 1,
       awardName: 'MVP',
       winners: [makeBatter(101, 'Mike', 'Troutman')],
-      runnerUp: undefined,
+      runnerUps: [],
     }),
   },
 }
@@ -73,8 +82,8 @@ export const PitchingAwardWithRunnerUp: Story = {
     group: new main.AwardGroupSummaryDTO({
       awardId: 2,
       awardName: 'Cy Young',
-      winners: [makePitcher(201, 'Sandy', 'Koufaux')],
-      runnerUp: makePitcher(202, 'Roger', 'Clemons', 3.0),
+      winners: [makePitcher(201, 'Sandy', 'Koufaux', 4.1, 'Cy Young')],
+      runnerUps: [makePitcher(202, 'Roger', 'Clemons', 3.0, 'Cy Young-2')],
     }),
   },
 }
@@ -91,7 +100,22 @@ export const MultiWinnerAllStar: Story = {
         makePitcher(304, 'Roger', 'Clemons'),
         makePitcher(305, 'Pedro', 'Martinique'),
       ],
-      runnerUp: undefined,
+      runnerUps: [],
+    }),
+  },
+}
+
+export const MultipleRunnerUps: Story = {
+  name: 'Multiple runner-ups (MVP-2 and MVP-3 both assigned)',
+  args: {
+    group: new main.AwardGroupSummaryDTO({
+      awardId: 1,
+      awardName: 'MVP',
+      winners: [makeBatter(401, 'Mike', 'Troutman', 3.2, 'MVP')],
+      runnerUps: [
+        makeBatter(402, 'Bryce', 'Harpington', 2.8, 'MVP-2'),
+        makeBatter(403, 'Mookie', 'Bettsford', 2.1, 'MVP-3'),
+      ],
     }),
   },
 }
@@ -100,10 +124,10 @@ export const NullSmbWAR: Story = {
   name: 'Null smbWAR (pre-Phase-8.5 season)',
   args: {
     group: new main.AwardGroupSummaryDTO({
-      awardId: 4,
+      awardId: 5,
       awardName: 'Silver Slugger',
-      winners: [makeBatter(401, 'Ken', 'Griffey III', undefined)],
-      runnerUp: makeBatter(402, 'Tony', 'Gwynne Jr.', undefined),
+      winners: [makeBatter(501, 'Ken', 'Griffey III', undefined, 'Silver Slugger')],
+      runnerUps: [makeBatter(502, 'Tony', 'Gwynne Jr.', undefined, 'Silver Slugger-2')],
     }),
   },
 }

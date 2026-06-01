@@ -924,7 +924,7 @@ func TestGetSeasonAwardSummary_PitchingStatsOnWinner(t *testing.T) {
 	}
 }
 
-func TestGetSeasonAwardSummary_RunnerUpForSingleWinnerBatting(t *testing.T) {
+func TestGetSeasonAwardSummary_RunnerUpGroupedUnderParent(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
 	s := store.NewAwardStore(db)
@@ -933,25 +933,140 @@ func TestGetSeasonAwardSummary_RunnerUpForSingleWinnerBatting(t *testing.T) {
 	team := seedTeam(t, db, "RUB1")
 	th := seedTeamHistory(t, db, team, season, "RunUp Team", "", "", 20, 20)
 
-	// Winner: higher smbWAR.
 	winner := seedPlayer(t, db, "RU1", "Win", "Player")
 	psWin := seedPlayerSeason(t, db, winner, season, &th)
 	seedBatting(t, db, psWin, true, 125, 45, 20, 80)
-	_, err := db.ExecContext(ctx,
-		`UPDATE player_season_batting_stats SET smb_war = 5.0 WHERE player_season_id = ?`, psWin)
-	if err != nil {
-		t.Fatalf("seed winner war: %v", err)
-	}
 
-	// Runner-up: lower smbWAR, does NOT win the award.
 	ruPlayer := seedPlayer(t, db, "RU2", "Run", "Up")
 	psRU := seedPlayerSeason(t, db, ruPlayer, season, &th)
 	seedBatting(t, db, psRU, true, 125, 38, 15, 60)
-	_, err = db.ExecContext(ctx,
-		`UPDATE player_season_batting_stats SET smb_war = 3.0 WHERE player_season_id = ?`, psRU)
-	if err != nil {
-		t.Fatalf("seed runner-up war: %v", err)
+
+	all, _ := s.ListAllAwards(ctx)
+	var mvpID, mvp2ID int64
+	for _, a := range all {
+		switch a.Name {
+		case "MVP":
+			mvpID = a.ID
+		case "MVP-2":
+			mvp2ID = a.ID
+		}
 	}
+	if mvpID == 0 || mvp2ID == 0 {
+		t.Fatal("required awards not found in seed data")
+	}
+
+	if err := s.SetPlayerSeasonAwards(ctx, psWin, []int64{mvpID}); err != nil {
+		t.Fatalf("set MVP: %v", err)
+	}
+	if err := s.SetPlayerSeasonAwards(ctx, psRU, []int64{mvp2ID}); err != nil {
+		t.Fatalf("set MVP-2: %v", err)
+	}
+
+	summary, err := s.GetSeasonAwardSummary(ctx, season)
+	if err != nil {
+		t.Fatalf("GetSeasonAwardSummary: %v", err)
+	}
+	// MVP and MVP-2 must collapse into one group, not two.
+	if len(summary.Groups) != 1 {
+		t.Fatalf("expected 1 group (MVP-2 grouped under MVP), got %d", len(summary.Groups))
+	}
+	g := summary.Groups[0]
+	if g.Award.Name != "MVP" {
+		t.Errorf("expected group award name MVP, got %q", g.Award.Name)
+	}
+	if len(g.Winners) != 1 {
+		t.Fatalf("expected 1 winner, got %d", len(g.Winners))
+	}
+	if g.Winners[0].PlayerID != winner {
+		t.Errorf("expected winner player %d, got %d", winner, g.Winners[0].PlayerID)
+	}
+	if len(g.RunnerUps) != 1 {
+		t.Fatalf("expected 1 runner-up, got %d", len(g.RunnerUps))
+	}
+	if g.RunnerUps[0].PlayerID != ruPlayer {
+		t.Errorf("expected runner-up player %d, got %d", ruPlayer, g.RunnerUps[0].PlayerID)
+	}
+}
+
+func TestGetSeasonAwardSummary_MultipleRunnerUpsInRankOrder(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+	s := store.NewAwardStore(db)
+
+	season := seedSeason(t, db, 1, 1, 40)
+	team := seedTeam(t, db, "RUM1")
+	th := seedTeamHistory(t, db, team, season, "Multi RU Team", "", "", 20, 20)
+
+	winner := seedPlayer(t, db, "MRU1", "Win", "Player")
+	psWin := seedPlayerSeason(t, db, winner, season, &th)
+	seedBatting(t, db, psWin, true, 125, 45, 20, 80)
+
+	ru1 := seedPlayer(t, db, "MRU2", "Second", "Place")
+	psRU1 := seedPlayerSeason(t, db, ru1, season, &th)
+	seedBatting(t, db, psRU1, true, 125, 38, 15, 60)
+
+	ru2 := seedPlayer(t, db, "MRU3", "Third", "Place")
+	psRU2 := seedPlayerSeason(t, db, ru2, season, &th)
+	seedBatting(t, db, psRU2, true, 125, 30, 10, 50)
+
+	all, _ := s.ListAllAwards(ctx)
+	var mvpID, mvp2ID, mvp3ID int64
+	for _, a := range all {
+		switch a.Name {
+		case "MVP":
+			mvpID = a.ID
+		case "MVP-2":
+			mvp2ID = a.ID
+		case "MVP-3":
+			mvp3ID = a.ID
+		}
+	}
+	if mvpID == 0 || mvp2ID == 0 || mvp3ID == 0 {
+		t.Fatal("required awards not found in seed data")
+	}
+
+	if err := s.SetPlayerSeasonAwards(ctx, psWin, []int64{mvpID}); err != nil {
+		t.Fatalf("set MVP: %v", err)
+	}
+	if err := s.SetPlayerSeasonAwards(ctx, psRU1, []int64{mvp2ID}); err != nil {
+		t.Fatalf("set MVP-2: %v", err)
+	}
+	if err := s.SetPlayerSeasonAwards(ctx, psRU2, []int64{mvp3ID}); err != nil {
+		t.Fatalf("set MVP-3: %v", err)
+	}
+
+	summary, err := s.GetSeasonAwardSummary(ctx, season)
+	if err != nil {
+		t.Fatalf("GetSeasonAwardSummary: %v", err)
+	}
+	if len(summary.Groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(summary.Groups))
+	}
+	g := summary.Groups[0]
+	if len(g.RunnerUps) != 2 {
+		t.Fatalf("expected 2 runner-ups, got %d", len(g.RunnerUps))
+	}
+	// RunnerUps must be in rank order: MVP-2 (rank 1) before MVP-3 (rank 2).
+	if g.RunnerUps[0].PlayerID != ru1 {
+		t.Errorf("expected RunnerUps[0] player %d (rank-1), got %d", ru1, g.RunnerUps[0].PlayerID)
+	}
+	if g.RunnerUps[1].PlayerID != ru2 {
+		t.Errorf("expected RunnerUps[1] player %d (rank-2), got %d", ru2, g.RunnerUps[1].PlayerID)
+	}
+}
+
+func TestGetSeasonAwardSummary_NoRunnerUpsWhenNoneAssigned(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+	s := store.NewAwardStore(db)
+
+	season := seedSeason(t, db, 1, 1, 40)
+	team := seedTeam(t, db, "NRU1")
+	th := seedTeamHistory(t, db, team, season, "NoRU Team", "", "", 20, 20)
+
+	p := seedPlayer(t, db, "NRU", "Solo", "Winner")
+	ps := seedPlayerSeason(t, db, p, season, &th)
+	seedBatting(t, db, ps, true, 125, 40, 15, 60)
 
 	all, _ := s.ListAllAwards(ctx)
 	var mvpID int64
@@ -961,8 +1076,8 @@ func TestGetSeasonAwardSummary_RunnerUpForSingleWinnerBatting(t *testing.T) {
 			break
 		}
 	}
-	if err := s.SetPlayerSeasonAwards(ctx, psWin, []int64{mvpID}); err != nil {
-		t.Fatalf("set award: %v", err)
+	if err := s.SetPlayerSeasonAwards(ctx, ps, []int64{mvpID}); err != nil {
+		t.Fatalf("set MVP: %v", err)
 	}
 
 	summary, err := s.GetSeasonAwardSummary(ctx, season)
@@ -972,30 +1087,23 @@ func TestGetSeasonAwardSummary_RunnerUpForSingleWinnerBatting(t *testing.T) {
 	if len(summary.Groups) == 0 {
 		t.Fatal("expected at least one group")
 	}
-	g := summary.Groups[0]
-	if len(g.Winners) != 1 {
-		t.Fatalf("expected 1 winner, got %d", len(g.Winners))
-	}
-	if g.RunnerUp == nil {
-		t.Fatal("expected non-nil RunnerUp for single-winner batting award")
-	}
-	if g.RunnerUp.PlayerID != ruPlayer {
-		t.Errorf("expected runner-up player %d, got %d", ruPlayer, g.RunnerUp.PlayerID)
+	if len(summary.Groups[0].RunnerUps) != 0 {
+		t.Errorf("expected empty RunnerUps when no runner-up award assigned, got %d", len(summary.Groups[0].RunnerUps))
 	}
 }
 
-func TestGetSeasonAwardSummary_RunnerUpNilForMultiWinner(t *testing.T) {
+func TestGetSeasonAwardSummary_MultiWinnerAwardHasNoRunnerUps(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
 	s := store.NewAwardStore(db)
 
 	season := seedSeason(t, db, 1, 1, 40)
-	team := seedTeam(t, db, "RUM1")
+	team := seedTeam(t, db, "MWR1")
 	th := seedTeamHistory(t, db, team, season, "Multi Team", "", "", 20, 20)
 
-	p1 := seedPlayer(t, db, "RM1", "Multi", "One")
+	p1 := seedPlayer(t, db, "MW1", "Multi", "One")
 	ps1 := seedPlayerSeason(t, db, p1, season, &th)
-	p2 := seedPlayer(t, db, "RM2", "Multi", "Two")
+	p2 := seedPlayer(t, db, "MW2", "Multi", "Two")
 	ps2 := seedPlayerSeason(t, db, p2, season, &th)
 
 	all, _ := s.ListAllAwards(ctx)
@@ -1020,8 +1128,8 @@ func TestGetSeasonAwardSummary_RunnerUpNilForMultiWinner(t *testing.T) {
 	if len(summary.Groups) == 0 {
 		t.Fatal("expected at least one group")
 	}
-	if summary.Groups[0].RunnerUp != nil {
-		t.Error("expected nil RunnerUp for multi-winner award")
+	if len(summary.Groups[0].RunnerUps) != 0 {
+		t.Errorf("expected empty RunnerUps for All-Star (no child awards), got %d", len(summary.Groups[0].RunnerUps))
 	}
 }
 
