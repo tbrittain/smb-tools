@@ -243,6 +243,11 @@ func battingSeasonBest(rows []store.BattingCountRow) map[string][]int64 {
 		hasBest := false
 		var best int
 		for _, r := range rows {
+			// Lower-is-better counting stats require the same PA threshold as rate stats
+			// to prevent unqualified players (e.g. pitchers with 1 AB) from winning.
+			if !higherIsBetter && float64(r.PlateAppearances) < float64(r.NumGames)*3.1 {
+				continue
+			}
 			v := fn(r)
 			if !hasBest || isBetterCount(v, best, higherIsBetter) {
 				best = v
@@ -256,6 +261,9 @@ func battingSeasonBest(rows []store.BattingCountRow) map[string][]int64 {
 			continue
 		}
 		for _, r := range rows {
+			if !higherIsBetter && float64(r.PlateAppearances) < float64(r.NumGames)*3.1 {
+				continue
+			}
 			if fn(r) == best {
 				leaders[key] = append(leaders[key], r.PlayerID)
 			}
@@ -271,6 +279,9 @@ func computeBattingSingleSeasonRecords(rows []store.BattingCountRow) map[string]
 		hasBest := false
 		var best int
 		for _, r := range rows {
+			if !higherIsBetter && float64(r.PlateAppearances) < float64(r.NumGames)*3.1 {
+				continue
+			}
 			v := fn(r)
 			if !hasBest || isBetterCount(v, best, higherIsBetter) {
 				best = v
@@ -284,6 +295,9 @@ func computeBattingSingleSeasonRecords(rows []store.BattingCountRow) map[string]
 			continue
 		}
 		for _, r := range rows {
+			if !higherIsBetter && float64(r.PlateAppearances) < float64(r.NumGames)*3.1 {
+				continue
+			}
 			if fn(r) == best {
 				out[key] = append(out[key], PlayerSeasonRef{PlayerID: r.PlayerID, SeasonNum: r.SeasonNum})
 			}
@@ -328,6 +342,11 @@ func pitchingSeasonBest(rows []store.PitchingCountRow) map[string][]int64 {
 		hasBest := false
 		var best int
 		for _, r := range rows {
+			// Lower-is-better counting stats (H, ER, BB allowed) require IP qualification
+			// to prevent non-starting pitchers from winning on trivially small samples.
+			if !higherIsBetter && r.OutsPitched < r.NumGames*3 {
+				continue
+			}
 			v := fn(r)
 			if !hasBest || isBetterCount(v, best, higherIsBetter) {
 				best = v
@@ -341,6 +360,9 @@ func pitchingSeasonBest(rows []store.PitchingCountRow) map[string][]int64 {
 			continue
 		}
 		for _, r := range rows {
+			if !higherIsBetter && r.OutsPitched < r.NumGames*3 {
+				continue
+			}
 			if fn(r) == best {
 				leaders[key] = append(leaders[key], r.PlayerID)
 			}
@@ -356,6 +378,9 @@ func computePitchingSingleSeasonRecords(rows []store.PitchingCountRow) map[strin
 		hasBest := false
 		var best int
 		for _, r := range rows {
+			if !higherIsBetter && r.OutsPitched < r.NumGames*3 {
+				continue
+			}
 			v := fn(r)
 			if !hasBest || isBetterCount(v, best, higherIsBetter) {
 				best = v
@@ -369,6 +394,9 @@ func computePitchingSingleSeasonRecords(rows []store.PitchingCountRow) map[strin
 			continue
 		}
 		for _, r := range rows {
+			if !higherIsBetter && r.OutsPitched < r.NumGames*3 {
+				continue
+			}
 			if fn(r) == best {
 				out[key] = append(out[key], PlayerSeasonRef{PlayerID: r.PlayerID, SeasonNum: r.SeasonNum})
 			}

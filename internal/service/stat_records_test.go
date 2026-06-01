@@ -342,10 +342,10 @@ func TestComputePitchingCareerRateRecords_NoQualifiedPlayers(t *testing.T) {
 // ── Direction-aware counting stat tests ───────────────────────────────────────
 
 func TestComputeBattingLeagueLeaders_StrikeoutsLowerIsBetter(t *testing.T) {
-	// Batter with fewer strikeouts is the "leader".
+	// Batter with fewer strikeouts is the "leader" — both must be qualified.
 	rows := []store.BattingCountRow{
-		{PlayerID: 1, SeasonNum: 1, Strikeouts: 50, AtBats: 500},
-		{PlayerID: 2, SeasonNum: 1, Strikeouts: 100, AtBats: 520},
+		{PlayerID: 1, SeasonNum: 1, Strikeouts: 50, PlateAppearances: 520, NumGames: 100},
+		{PlayerID: 2, SeasonNum: 1, Strikeouts: 100, PlateAppearances: 540, NumGames: 100},
 	}
 	leaders := computeBattingLeagueLeaders(rows)
 	got := leaders[1]["strikeouts"]
@@ -354,10 +354,24 @@ func TestComputeBattingLeagueLeaders_StrikeoutsLowerIsBetter(t *testing.T) {
 	}
 }
 
+func TestComputeBattingLeagueLeaders_StrikeoutsUnqualifiedExcluded(t *testing.T) {
+	// Player 1 has 0 K but only 1 PA — unqualified pitcher pinch-hitting once.
+	// Player 2 has 30 K with 400 PA (qualified) and should win.
+	rows := []store.BattingCountRow{
+		{PlayerID: 1, SeasonNum: 1, Strikeouts: 0, PlateAppearances: 1, NumGames: 100},
+		{PlayerID: 2, SeasonNum: 1, Strikeouts: 30, PlateAppearances: 400, NumGames: 100},
+	}
+	leaders := computeBattingLeagueLeaders(rows)
+	got := leaders[1]["strikeouts"]
+	if len(got) != 1 || got[0] != 2 {
+		t.Errorf("K leader (lower, PA-gated): want [2] (30 K, qualified), got %v", got)
+	}
+}
+
 func TestComputePitchingLeagueLeaders_HitsAllowedLowerIsBetter(t *testing.T) {
 	rows := []store.PitchingCountRow{
-		{PlayerID: 10, SeasonNum: 1, HitsAllowed: 160, OutsPitched: 720},
-		{PlayerID: 11, SeasonNum: 1, HitsAllowed: 210, OutsPitched: 700},
+		{PlayerID: 10, SeasonNum: 1, HitsAllowed: 160, OutsPitched: 720, NumGames: 100},
+		{PlayerID: 11, SeasonNum: 1, HitsAllowed: 210, OutsPitched: 700, NumGames: 100},
 	}
 	leaders := computePitchingLeagueLeaders(rows)
 	got := leaders[1]["hitsAllowed"]
@@ -368,8 +382,8 @@ func TestComputePitchingLeagueLeaders_HitsAllowedLowerIsBetter(t *testing.T) {
 
 func TestComputePitchingLeagueLeaders_EarnedRunsAndWalksLowerIsBetter(t *testing.T) {
 	rows := []store.PitchingCountRow{
-		{PlayerID: 10, SeasonNum: 1, EarnedRuns: 50, Walks: 40, OutsPitched: 720},
-		{PlayerID: 11, SeasonNum: 1, EarnedRuns: 80, Walks: 70, OutsPitched: 700},
+		{PlayerID: 10, SeasonNum: 1, EarnedRuns: 50, Walks: 40, OutsPitched: 720, NumGames: 100},
+		{PlayerID: 11, SeasonNum: 1, EarnedRuns: 80, Walks: 70, OutsPitched: 700, NumGames: 100},
 	}
 	leaders := computePitchingLeagueLeaders(rows)
 	if got := leaders[1]["earnedRuns"]; len(got) != 1 || got[0] != 10 {
@@ -380,11 +394,25 @@ func TestComputePitchingLeagueLeaders_EarnedRunsAndWalksLowerIsBetter(t *testing
 	}
 }
 
+func TestComputePitchingLeagueLeaders_HitsAllowedUnqualifiedExcluded(t *testing.T) {
+	// Player 10: 0 H allowed in 2 outs (0.2 IP) — not qualified.
+	// Player 11: 180 H in 720 outs (qualified) — should win.
+	rows := []store.PitchingCountRow{
+		{PlayerID: 10, SeasonNum: 1, HitsAllowed: 0, OutsPitched: 2, NumGames: 100},
+		{PlayerID: 11, SeasonNum: 1, HitsAllowed: 180, OutsPitched: 720, NumGames: 100},
+	}
+	leaders := computePitchingLeagueLeaders(rows)
+	got := leaders[1]["hitsAllowed"]
+	if len(got) != 1 || got[0] != 11 {
+		t.Errorf("H leader (lower, IP-gated): want [11], got %v", got)
+	}
+}
+
 func TestComputeBattingSingleSeasonRecords_StrikeoutsLowerIsBetter(t *testing.T) {
 	rows := []store.BattingCountRow{
-		{PlayerID: 1, SeasonNum: 1, Strikeouts: 60, AtBats: 500},
-		{PlayerID: 2, SeasonNum: 2, Strikeouts: 45, AtBats: 490}, // all-time fewest
-		{PlayerID: 3, SeasonNum: 3, Strikeouts: 70, AtBats: 510},
+		{PlayerID: 1, SeasonNum: 1, Strikeouts: 60, PlateAppearances: 520, NumGames: 100},
+		{PlayerID: 2, SeasonNum: 2, Strikeouts: 45, PlateAppearances: 490, NumGames: 100}, // all-time fewest
+		{PlayerID: 3, SeasonNum: 3, Strikeouts: 70, PlateAppearances: 510, NumGames: 100},
 	}
 	records := computeBattingSingleSeasonRecords(rows)
 	got := records["strikeouts"]

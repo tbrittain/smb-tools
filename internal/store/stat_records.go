@@ -17,22 +17,28 @@ func NewStatRecordQueryStore(db DBTX) *StatRecordQueryStore {
 }
 
 // BattingCountRow holds one player-season's batting counting stats.
+// PlateAppearances and NumGames are included so lower-is-better stats (e.g. K)
+// can be gated to qualified batters (PA ≥ numGames×3.1) before finding the minimum.
 type BattingCountRow struct {
-	PlayerID    int64
-	SeasonNum   int
-	GamesPlayed int
-	AtBats      int
-	Hits        int
-	Doubles     int
-	Triples     int
-	HomeRuns    int
-	RBI         int
-	StolenBases int
-	Walks       int
-	Strikeouts  int
+	PlayerID         int64
+	SeasonNum        int
+	GamesPlayed      int
+	AtBats           int
+	Hits             int
+	Doubles          int
+	Triples          int
+	HomeRuns         int
+	RBI              int
+	StolenBases      int
+	Walks            int
+	Strikeouts       int
+	PlateAppearances int
+	NumGames         int
 }
 
 // PitchingCountRow holds one player-season's pitching counting stats.
+// NumGames is included so lower-is-better stats (H, ER, BB allowed) can be gated
+// to qualified pitchers (outs ≥ numGames×3) before finding the minimum.
 type PitchingCountRow struct {
 	PlayerID     int64
 	SeasonNum    int
@@ -46,6 +52,7 @@ type PitchingCountRow struct {
 	Walks        int
 	HitsAllowed  int
 	EarnedRuns   int
+	NumGames     int
 }
 
 // GetBattingCountRows returns one row per player-season with batting counting stats.
@@ -58,7 +65,8 @@ func (s *StatRecordQueryStore) GetBattingCountRows(ctx context.Context, isRegula
 	rows, err := s.db.QueryContext(ctx, `
 SELECT p.id, s.season_num,
        b.games_played, b.at_bats, b.hits, b.doubles, b.triples,
-       b.home_runs, b.rbi, b.stolen_bases, b.walks, b.strikeouts
+       b.home_runs, b.rbi, b.stolen_bases, b.walks, b.strikeouts,
+       b.plate_appearances, s.num_games
 FROM player_season_batting_stats b
 JOIN player_seasons ps ON ps.id = b.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
@@ -76,6 +84,7 @@ WHERE b.is_regular_season = ?`, isReg)
 			&r.PlayerID, &r.SeasonNum,
 			&r.GamesPlayed, &r.AtBats, &r.Hits, &r.Doubles, &r.Triples,
 			&r.HomeRuns, &r.RBI, &r.StolenBases, &r.Walks, &r.Strikeouts,
+			&r.PlateAppearances, &r.NumGames,
 		); err != nil {
 			return nil, fmt.Errorf("GetBattingCountRows scan: %w", err)
 		}
@@ -94,7 +103,8 @@ func (s *StatRecordQueryStore) GetPitchingCountRows(ctx context.Context, isRegul
 	rows, err := s.db.QueryContext(ctx, `
 SELECT p.id, s.season_num,
        pit.games, pit.games_started, pit.wins, pit.losses, pit.saves,
-       pit.outs_pitched, pit.strikeouts, pit.walks, pit.hits_allowed, pit.earned_runs
+       pit.outs_pitched, pit.strikeouts, pit.walks, pit.hits_allowed, pit.earned_runs,
+       s.num_games
 FROM player_season_pitching_stats pit
 JOIN player_seasons ps ON ps.id = pit.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
@@ -112,6 +122,7 @@ WHERE pit.is_regular_season = ?`, isReg)
 			&r.PlayerID, &r.SeasonNum,
 			&r.Games, &r.GamesStarted, &r.Wins, &r.Losses, &r.Saves,
 			&r.OutsPitched, &r.Strikeouts, &r.Walks, &r.HitsAllowed, &r.EarnedRuns,
+			&r.NumGames,
 		); err != nil {
 			return nil, fmt.Errorf("GetPitchingCountRows scan: %w", err)
 		}
