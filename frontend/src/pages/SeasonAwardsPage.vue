@@ -292,7 +292,12 @@ onMounted(loadSeasons)
         message="No awards delegated yet for this season."
       />
       <div v-else class="award-cards-grid">
-        <AwardsViewCard v-for="g in awardSummary.groups" :key="g.awardId" :group="g" />
+        <AwardsViewCard
+          v-for="g in awardSummary.groups"
+          :key="g.awardId"
+          :group="g"
+          :class="{ 'award-card--wide': g.winners.length > 8 }"
+        />
       </div>
     </template>
 
@@ -907,6 +912,10 @@ onMounted(loadSeasons)
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1.5rem;
+}
+
+.award-cards-grid .award-card--wide {
+  grid-column: 1 / -1;
 }
 
 .award-section {

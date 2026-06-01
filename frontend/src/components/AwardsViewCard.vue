@@ -1,10 +1,24 @@
 <script lang="ts" setup>
+import { computed } from 'vue'
 import type { main } from '../../wailsjs/go/models'
 import AppLink from './AppLink.vue'
 
-defineProps<{
+const props = defineProps<{
   group: main.AwardGroupSummaryDTO
 }>()
+
+const isLargeGroup = computed(() => props.group.winners.length > 8)
+
+const winnersByTeam = computed(() => {
+  const map = new Map<string, main.AwardWinnerRowDTO[]>()
+  for (const w of props.group.winners) {
+    const key = w.teamName || 'Free Agent'
+    const arr = map.get(key) ?? []
+    arr.push(w)
+    map.set(key, arr)
+  }
+  return [...map.entries()].map(([team, players]) => ({ team, players })).sort((a, b) => a.team.localeCompare(b.team))
+})
 
 function fmtBA(v: number): string {
   return v ? v.toFixed(3).replace(/^0\./, '.') : '—'
@@ -27,7 +41,26 @@ function positionLabel(row: { pitcherRole: string; primaryPosition: string }): s
   <div class="award-card">
     <div class="card-header">{{ group.awardName }}</div>
 
-    <div class="card-body">
+    <!-- Large-group layout (e.g. All-Star): 3-column grid grouped by team -->
+    <div v-if="isLargeGroup" class="card-body card-body--large">
+      <div v-for="teamGroup in winnersByTeam" :key="teamGroup.team" class="team-group">
+        <div class="team-group-header">{{ teamGroup.team }}</div>
+        <div class="team-group-players">
+          <AppLink
+            v-for="w in teamGroup.players"
+            :key="w.playerSeasonId"
+            :to="`/players/${w.playerId}`"
+            class="large-player-row"
+          >
+            <span class="position-chip">{{ positionLabel(w) }}</span>
+            <span class="large-player-name">{{ w.firstName }} {{ w.lastName }}</span>
+          </AppLink>
+        </div>
+      </div>
+    </div>
+
+    <!-- Standard layout -->
+    <div v-else class="card-body">
       <div
         v-for="(w, idx) in group.winners"
         :key="w.playerSeasonId"
@@ -70,15 +103,15 @@ function positionLabel(row: { pitcherRole: string; primaryPosition: string }): s
           <span class="team-name">{{ ru.teamName }}</span>
         </div>
         <div class="row-stats">
-          <template v-if="ru.ba || ru.hr || ru.rbi">
-            <span class="stat"><span class="stat-label">BA</span> {{ fmtBA(ru.ba) }}</span>
-            <span class="stat"><span class="stat-label">HR</span> {{ ru.hr }}</span>
-            <span class="stat"><span class="stat-label">RBI</span> {{ ru.rbi }}</span>
-          </template>
-          <template v-else-if="ru.era || ru.wins || ru.strikeouts">
+          <template v-if="ru.pitcherRole">
             <span class="stat"><span class="stat-label">ERA</span> {{ fmtERA(ru.era) }}</span>
             <span class="stat"><span class="stat-label">W</span> {{ ru.wins }}</span>
             <span class="stat"><span class="stat-label">K</span> {{ ru.strikeouts }}</span>
+          </template>
+          <template v-else>
+            <span class="stat"><span class="stat-label">BA</span> {{ fmtBA(ru.ba) }}</span>
+            <span class="stat"><span class="stat-label">HR</span> {{ ru.hr }}</span>
+            <span class="stat"><span class="stat-label">RBI</span> {{ ru.rbi }}</span>
           </template>
           <span class="stat"><span class="stat-label">WAR</span> {{ fmtWAR(ru.smbWar) }}</span>
         </div>
@@ -86,6 +119,7 @@ function positionLabel(row: { pitcherRole: string; primaryPosition: string }): s
     </div>
   </div>
 </template>
+
 
 <style scoped>
 .award-card {
@@ -183,5 +217,46 @@ function positionLabel(row: { pitcherRole: string; primaryPosition: string }): s
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-secondary);
+}
+
+/* ── Large-group layout (All-Star etc.) ─────────────────────────────────── */
+
+.card-body--large {
+  padding: 0.75rem 0.875rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.team-group-header {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.3rem;
+}
+
+.team-group-players {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.large-player-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.large-player-row:hover .large-player-name {
+  text-decoration: underline;
+}
+
+.large-player-name {
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 </style>
