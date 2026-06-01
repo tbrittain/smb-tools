@@ -1238,3 +1238,114 @@ func TestGetPitchingCareerLeaders_SortByERAAsc(t *testing.T) {
 		t.Errorf("want low ERA player first (asc sort), got playerID %d", rows[0].PlayerID)
 	}
 }
+
+func TestGetBattingSeasonLeaders_MultiTeamPlayer(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	t2 := seedTeam(t, db, "tg2")
+	h1 := seedTeamHistory(t, db, t1, 1, "Eagles", "E", "AL", 20, 20)
+	h2 := seedTeamHistory(t, db, t2, 1, "Falcons", "W", "AL", 22, 18)
+
+	// Traded player: started on Falcons (sort_order=1), finished on Eagles (sort_order=0).
+	pTraded := seedPlayer(t, db, "gT", "Traded", "Player")
+	// seedPlayerSeason inserts sort_order=0 for h1 (Eagles, the final team).
+	psTraded := seedPlayerSeason(t, db, pTraded, 1, &h1)
+	// Insert the prior team (Falcons) as sort_order=1.
+	_, err := db.ExecContext(context.Background(),
+		`INSERT INTO player_season_teams (player_season_id, team_history_id, sort_order) VALUES (?, ?, 1)`,
+		psTraded, h2)
+	if err != nil {
+		t.Fatalf("inserting prior team: %v", err)
+	}
+	seedBatting(t, db, psTraded, true, 400, 120, 20, 80)
+
+	// Single-team player for comparison.
+	pSingle := seedPlayer(t, db, "gS", "Single", "Player")
+	psSingle := seedPlayerSeason(t, db, pSingle, 1, &h2)
+	seedBatting(t, db, psSingle, true, 350, 100, 10, 50)
+
+	rows, _, err := newLB(db).GetBattingSeasonLeaders(ctx, noFilters())
+	if err != nil {
+		t.Fatalf("GetBattingSeasonLeaders: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("want 2 rows, got %d", len(rows))
+	}
+
+	// Find the traded player row and verify both teams are present.
+	var tradedRow *models.BattingSeasonLeaderRow
+	for i := range rows {
+		if rows[i].PlayerID == pTraded {
+			tradedRow = &rows[i]
+		}
+	}
+	if tradedRow == nil {
+		t.Fatal("traded player row not found")
+	}
+	if len(tradedRow.Teams) != 2 {
+		t.Fatalf("traded player: want 2 teams, got %d", len(tradedRow.Teams))
+	}
+	// sort_order=0 (Eagles) comes first in the ordered result.
+	if tradedRow.Teams[0].TeamName != "Eagles" {
+		t.Errorf("teams[0]: want Eagles (final team), got %q", tradedRow.Teams[0].TeamName)
+	}
+	if tradedRow.Teams[1].TeamName != "Falcons" {
+		t.Errorf("teams[1]: want Falcons (prior team), got %q", tradedRow.Teams[1].TeamName)
+	}
+
+	// Single-team player should have exactly one team.
+	var singleRow *models.BattingSeasonLeaderRow
+	for i := range rows {
+		if rows[i].PlayerID == pSingle {
+			singleRow = &rows[i]
+		}
+	}
+	if singleRow == nil {
+		t.Fatal("single-team player row not found")
+	}
+	if len(singleRow.Teams) != 1 {
+		t.Fatalf("single-team player: want 1 team, got %d", len(singleRow.Teams))
+	}
+}
+
+func TestGetPitchingSeasonLeaders_MultiTeamPlayer(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	t2 := seedTeam(t, db, "tg2")
+	h1 := seedTeamHistory(t, db, t1, 1, "Eagles", "E", "AL", 20, 20)
+	h2 := seedTeamHistory(t, db, t2, 1, "Falcons", "W", "AL", 22, 18)
+
+	// Traded pitcher: started on Falcons (sort_order=1), finished on Eagles (sort_order=0).
+	pTraded := seedPlayer(t, db, "gP", "Traded", "Pitcher")
+	psTraded := seedPlayerSeason(t, db, pTraded, 1, &h1)
+	_, err := db.ExecContext(context.Background(),
+		`INSERT INTO player_season_teams (player_season_id, team_history_id, sort_order) VALUES (?, ?, 1)`,
+		psTraded, h2)
+	if err != nil {
+		t.Fatalf("inserting prior team: %v", err)
+	}
+	seedPitching(t, db, psTraded, true, 12, 6, 180, 40, 150)
+
+	rows, _, err := newLB(db).GetPitchingSeasonLeaders(ctx, noFilters())
+	if err != nil {
+		t.Fatalf("GetPitchingSeasonLeaders: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1 row, got %d", len(rows))
+	}
+	if len(rows[0].Teams) != 2 {
+		t.Fatalf("traded pitcher: want 2 teams, got %d", len(rows[0].Teams))
+	}
+	if rows[0].Teams[0].TeamName != "Eagles" {
+		t.Errorf("teams[0]: want Eagles (final team), got %q", rows[0].Teams[0].TeamName)
+	}
+	if rows[0].Teams[1].TeamName != "Falcons" {
+		t.Errorf("teams[1]: want Falcons (prior team), got %q", rows[0].Teams[1].TeamName)
+	}
+}

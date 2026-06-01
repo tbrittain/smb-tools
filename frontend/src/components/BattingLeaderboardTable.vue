@@ -87,7 +87,17 @@ function careerTip(r: main.BattingLeaderRowDTO, statKey: string, label: string):
 
         <!-- Season identity columns -->
         <Column v-if="!isCareer" field="seasonNum" header="Season" sortable style="min-width: 72px" />
-        <Column v-if="!isCareer" field="teamName" header="Team" sortable style="min-width: 120px" />
+        <Column v-if="!isCareer" header="Team" sort-field="teamName" sortable style="min-width: 120px">
+          <template #body="{ data: r }">
+            <span v-if="r.teams && r.teams.length > 0" class="team-cell">
+              <template v-for="(t, i) in r.teams" :key="t.teamHistoryId">
+                <span v-if="i" class="team-separator"> · </span>
+                <AppLink :to="`/teams/${t.teamId}/seasons/${t.teamHistoryId}`">{{ t.teamName }}</AppLink>
+              </template>
+            </span>
+            <span v-else class="fa-label">FA</span>
+          </template>
+        </Column>
         <Column v-if="!isCareer" field="age" header="Age" sortable style="min-width: 55px" />
         <Column v-if="!isCareer" field="primaryPosition" header="Pos" sortable style="min-width: 55px" />
         <Column v-if="!isCareer" field="batHand" header="Hand" sortable style="min-width: 60px" />
@@ -181,4 +191,18 @@ function careerTip(r: main.BattingLeaderRowDTO, statKey: string, label: string):
   font-variant-numeric: tabular-nums;
 }
 
+.team-cell {
+  display: flex;
+  align-items: center;
+}
+
+.team-separator {
+  color: var(--color-text-secondary);
+  padding: 0 3px;
+}
+
+.fa-label {
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
 </style>

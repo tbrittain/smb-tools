@@ -674,14 +674,14 @@ type StatRecordHolderDTO struct {
 // The DTO is flat so PrimeVue DataTable sort-field can reference top-level keys.
 // Career rows have SeasonsPlayed > 0; season rows have SeasonNum > 0.
 type BattingLeaderRowDTO struct {
-	PlayerID        int64  `json:"playerId"`
-	FirstName       string `json:"firstName"`
-	LastName        string `json:"lastName"`
-	IsHallOfFamer   bool   `json:"isHallOfFamer"`
-	SeasonsPlayed   int    `json:"seasonsPlayed"`
-	SeasonNum       int    `json:"seasonNum"`
-	TeamName        string `json:"teamName"`
-	Age             int    `json:"age"`
+	PlayerID        int64        `json:"playerId"`
+	FirstName       string       `json:"firstName"`
+	LastName        string       `json:"lastName"`
+	IsHallOfFamer   bool         `json:"isHallOfFamer"`
+	SeasonsPlayed   int          `json:"seasonsPlayed"`
+	SeasonNum       int          `json:"seasonNum"`
+	Teams           []TeamRefDTO `json:"teams"`
+	Age             int          `json:"age"`
 	PrimaryPosition string   `json:"primaryPosition"`
 	BatHand         string   `json:"batHand"`
 	ChemistryType   string   `json:"chemistryType"`
@@ -723,14 +723,14 @@ type BattingLeaderRowDTO struct {
 // PitchingLeaderRowDTO is one row in a pitching leaderboard (career or season).
 // Career rows have SeasonsPlayed > 0; season rows have SeasonNum > 0.
 type PitchingLeaderRowDTO struct {
-	PlayerID      int64  `json:"playerId"`
-	FirstName     string `json:"firstName"`
-	LastName      string `json:"lastName"`
-	IsHallOfFamer bool   `json:"isHallOfFamer"`
-	SeasonsPlayed int    `json:"seasonsPlayed"`
-	SeasonNum     int    `json:"seasonNum"`
-	TeamName      string `json:"teamName"`
-	Age           int    `json:"age"`
+	PlayerID      int64        `json:"playerId"`
+	FirstName     string       `json:"firstName"`
+	LastName      string       `json:"lastName"`
+	IsHallOfFamer bool         `json:"isHallOfFamer"`
+	SeasonsPlayed int          `json:"seasonsPlayed"`
+	SeasonNum     int          `json:"seasonNum"`
+	Teams         []TeamRefDTO `json:"teams"`
+	Age           int          `json:"age"`
 	PitcherRole   string   `json:"pitcherRole"`
 	ThrowHand     string   `json:"throwHand"`
 	ChemistryType string   `json:"chemistryType"`
@@ -814,10 +814,14 @@ func battingCareerLeaderToDTO(r models.BattingCareerLeaderRow) BattingLeaderRowD
 
 func battingSeasonLeaderToDTO(r models.BattingSeasonLeaderRow) BattingLeaderRowDTO {
 	b := r.CareerBattingStats
+	teams := make([]TeamRefDTO, len(r.Teams))
+	for i, t := range r.Teams {
+		teams[i] = TeamRefDTO{TeamID: t.TeamID, TeamHistoryID: t.TeamHistoryID, TeamName: t.TeamName, SortOrder: t.SortOrder}
+	}
 	return BattingLeaderRowDTO{
 		PlayerID: r.PlayerID, FirstName: r.FirstName, LastName: r.LastName,
 		IsHallOfFamer: r.IsHallOfFamer,
-		SeasonNum: r.SeasonNum, TeamName: r.TeamName, Age: r.Age,
+		SeasonNum: r.SeasonNum, Teams: teams, Age: r.Age,
 		PrimaryPosition: r.PrimaryPosition, BatHand: r.BatHand, ChemistryType: r.ChemistryType,
 		Traits: r.Traits,
 		GamesPlayed: b.GamesPlayed, GamesBatting: b.GamesBatting,
@@ -853,10 +857,14 @@ func pitchingCareerLeaderToDTO(r models.PitchingCareerLeaderRow) PitchingLeaderR
 
 func pitchingSeasonLeaderToDTO(r models.PitchingSeasonLeaderRow) PitchingLeaderRowDTO {
 	p := r.CareerPitchingStats
+	teams := make([]TeamRefDTO, len(r.Teams))
+	for i, t := range r.Teams {
+		teams[i] = TeamRefDTO{TeamID: t.TeamID, TeamHistoryID: t.TeamHistoryID, TeamName: t.TeamName, SortOrder: t.SortOrder}
+	}
 	return PitchingLeaderRowDTO{
 		PlayerID: r.PlayerID, FirstName: r.FirstName, LastName: r.LastName,
 		IsHallOfFamer: r.IsHallOfFamer,
-		SeasonNum: r.SeasonNum, TeamName: r.TeamName, Age: r.Age,
+		SeasonNum: r.SeasonNum, Teams: teams, Age: r.Age,
 		PitcherRole: r.PitcherRole, ThrowHand: r.ThrowHand, ChemistryType: r.ChemistryType,
 		Traits: r.Traits,
 		Wins: p.Wins, Losses: p.Losses, Games: p.Games, GamesStarted: p.GamesStarted,
