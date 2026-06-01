@@ -72,7 +72,7 @@ function onTraitsChange(selected: string[]) {
       </div>
     </div>
 
-    <label v-if="!isCareer" class="filter-item">
+    <label class="filter-item">
       <input
         type="checkbox"
         :checked="local.qualifiedOnly"

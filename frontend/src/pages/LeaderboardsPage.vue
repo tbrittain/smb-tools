@@ -29,7 +29,6 @@ const highlightsStore = useStatHighlightsStore()
 const activeTab = ref<LeaderboardTab>('batting-career')
 
 function defaultFilters(): main.LeaderboardFiltersDTO {
-  const isSeason = activeTab.value.endsWith('season')
   return new main.LeaderboardFiltersDTO({
     gameType: activeTab.value.endsWith('career') ? 'combined' : '',
     onlyHallOfFamers: false,
@@ -40,7 +39,7 @@ function defaultFilters(): main.LeaderboardFiltersDTO {
     seasonStart: 0,
     seasonEnd: 0,
     traits: [],
-    qualifiedOnly: isSeason,
+    qualifiedOnly: true,
     sortField: '',
     sortDesc: true,
     offset: 0,
@@ -353,8 +352,7 @@ function setTab(tab: LeaderboardTab) {
       position: '',
       // "combined" only applies to career tabs; reset to regular when switching to season
       gameType: isSeason && filters.value.gameType === 'combined' ? '' : filters.value.gameType,
-      // qualified filter only meaningful on season tabs; default on when switching to season
-      qualifiedOnly: isSeason,
+      qualifiedOnly: true,
     })
   }
 }

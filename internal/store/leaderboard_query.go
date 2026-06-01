@@ -139,6 +139,14 @@ LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
 
 	// The CTE aggregates counting stats and computes rate fields inline so that
 	// the outer SELECT can ORDER BY any column (including rates) without a subquery.
+	qualHaving := ""
+	if f.QualifiedOnly {
+		qualHaving = `
+  AND CAST(SUM(b.plate_appearances) AS REAL) >= (
+      SELECT CAST(COALESCE(num_games, 162) AS REAL) * 3000.0 / 162.0
+      FROM seasons ORDER BY season_num LIMIT 1
+  )`
+	}
 	cte := fmt.Sprintf(`
 WITH career AS (
     SELECT
@@ -198,8 +206,8 @@ WITH career AS (
     JOIN players p         ON p.id  = ps.player_id%s
     %s
     GROUP BY p.id
-    HAVING COALESCE(SUM(b.at_bats), 0) > 0
-)`, opsPlusExpr, lssJoin, whereClause)
+    HAVING COALESCE(SUM(b.at_bats), 0) > 0%s
+)`, opsPlusExpr, lssJoin, whereClause, qualHaving)
 
 	var total int
 	if err := s.db.QueryRowContext(ctx, cte+"\nSELECT COUNT(*) FROM career", args...).Scan(&total); err != nil {
@@ -589,6 +597,15 @@ LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
     END`
 	}
 
+	qualHaving := ""
+	if f.QualifiedOnly {
+		qualHaving = `
+  AND SUM(pit.outs_pitched) >= (
+      SELECT CAST(COALESCE(num_games, 162) AS REAL) * 3000.0 / 162.0
+      FROM seasons ORDER BY season_num LIMIT 1
+  )`
+	}
+
 	cte := fmt.Sprintf(`
 WITH career AS (
     SELECT
@@ -638,8 +655,8 @@ WITH career AS (
     JOIN players p         ON p.id  = ps.player_id%s
     %s
     GROUP BY p.id
-    HAVING COALESCE(SUM(pit.outs_pitched), 0) > 0
-)`, eraPlusExpr, lssJoin, whereClause)
+    HAVING COALESCE(SUM(pit.outs_pitched), 0) > 0%s
+)`, eraPlusExpr, lssJoin, whereClause, qualHaving)
 
 	var total int
 	if err := s.db.QueryRowContext(ctx, cte+"\nSELECT COUNT(*) FROM career", args...).Scan(&total); err != nil {

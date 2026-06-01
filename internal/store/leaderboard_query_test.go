@@ -976,6 +976,94 @@ func TestGetPitchingSeasonLeaders_QualifiedOnly(t *testing.T) {
 	_ = rows
 }
 
+// TestGetBattingCareerLeaders_QualifiedOnly verifies that QualifiedOnly=true
+// filters career batters whose total plate_appearances fall below the franchise
+// threshold (num_games * 3000 / 162 rounded down) and that QualifiedOnly=false
+// returns all rows.
+func TestGetBattingCareerLeaders_QualifiedOnly(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	// 40-game season. Career PA threshold = int(3000 * 40 / 162) = 740.
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tgCBQ")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team CQ", "E", "AL", 25, 15)
+
+	pQ := seedPlayer(t, db, "gCBQ", "Qual", "Career")   // 800 career PA → qualifies (≥740)
+	pU := seedPlayer(t, db, "gCBU", "Unqual", "Career") // 400 career PA → does not qualify
+
+	psQ := seedPlayerSeason(t, db, pQ, 1, &h1)
+	psU := seedPlayerSeason(t, db, pU, 1, &h1)
+	seedBattingFull(t, db, psQ, true, 40, 800, 750, 200, 15, 80)
+	seedBattingFull(t, db, psU, true, 40, 400, 380, 100, 5, 40)
+
+	lb := newLB(db)
+
+	rows, total, err := lb.GetBattingCareerLeaders(ctx, models.LeaderboardFilters{QualifiedOnly: true})
+	if err != nil {
+		t.Fatalf("QualifiedOnly=true: %v", err)
+	}
+	if total != 1 {
+		t.Errorf("QualifiedOnly=true: want total=1, got %d", total)
+	}
+	if len(rows) != 1 || rows[0].PlayerID != pQ {
+		t.Errorf("QualifiedOnly=true: want playerID %d, got %v", pQ, rows)
+	}
+
+	rows, total, err = lb.GetBattingCareerLeaders(ctx, models.LeaderboardFilters{QualifiedOnly: false})
+	if err != nil {
+		t.Fatalf("QualifiedOnly=false: %v", err)
+	}
+	if total != 2 {
+		t.Errorf("QualifiedOnly=false: want total=2, got %d", total)
+	}
+	_ = rows
+}
+
+// TestGetPitchingCareerLeaders_QualifiedOnly verifies that QualifiedOnly=true
+// filters career pitchers whose total outs_pitched fall below the franchise
+// threshold (num_games * 3000 / 162 rounded down) and that QualifiedOnly=false
+// returns all rows.
+func TestGetPitchingCareerLeaders_QualifiedOnly(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	// 40-game season. Career outs threshold = int(3000 * 40 / 162) = 740.
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tgCPQ")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team CPQ", "W", "NL", 22, 18)
+
+	pQ := seedPlayer(t, db, "gCPQ", "Qual", "Pitcher")   // 800 outs → qualifies (≥740)
+	pU := seedPlayer(t, db, "gCPU", "Unqual", "Pitcher") // 300 outs → does not qualify
+
+	psQ := seedPlayerSeasonFull(t, db, pQ, 1, &h1, "P", "SP", "R", "R", "")
+	psU := seedPlayerSeasonFull(t, db, pU, 1, &h1, "P", "RP", "R", "R", "")
+	seedPitching(t, db, psQ, true, 14, 6, 800, 60, 240)
+	seedPitching(t, db, psU, true, 4, 3, 300, 40, 80)
+
+	lb := newLB(db)
+
+	rows, total, err := lb.GetPitchingCareerLeaders(ctx, models.LeaderboardFilters{QualifiedOnly: true})
+	if err != nil {
+		t.Fatalf("QualifiedOnly=true: %v", err)
+	}
+	if total != 1 {
+		t.Errorf("QualifiedOnly=true: want total=1, got %d", total)
+	}
+	if len(rows) != 1 || rows[0].PlayerID != pQ {
+		t.Errorf("QualifiedOnly=true: want playerID %d, got %v", pQ, rows)
+	}
+
+	rows, total, err = lb.GetPitchingCareerLeaders(ctx, models.LeaderboardFilters{QualifiedOnly: false})
+	if err != nil {
+		t.Fatalf("QualifiedOnly=false: %v", err)
+	}
+	if total != 2 {
+		t.Errorf("QualifiedOnly=false: want total=2, got %d", total)
+	}
+	_ = rows
+}
+
 // ── Career pagination and sort tests ─────────────────────────────────────────
 
 func TestGetBattingCareerLeaders_Pagination(t *testing.T) {
