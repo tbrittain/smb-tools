@@ -20,7 +20,7 @@ export function DetectLegacyDB():Promise<string>;
 
 export function GetActiveFranchise():Promise<main.FranchiseDTO>;
 
-export function GetBattingCareerLeaders(arg1:main.LeaderboardFiltersDTO):Promise<Array<main.BattingLeaderRowDTO>>;
+export function GetBattingCareerLeaders(arg1:main.LeaderboardFiltersDTO):Promise<main.BattingLeaderPageDTO>;
 
 export function GetBattingSeasonLeaders(arg1:main.LeaderboardFiltersDTO):Promise<main.BattingLeaderPageDTO>;
 
@@ -32,7 +32,7 @@ export function GetHoFCandidates(arg1:number,arg2:number,arg3:number):Promise<ma
 
 export function GetHoFInducted(arg1:number,arg2:number,arg3:number):Promise<main.HoFPageDTO>;
 
-export function GetPitchingCareerLeaders(arg1:main.LeaderboardFiltersDTO):Promise<Array<main.PitchingLeaderRowDTO>>;
+export function GetPitchingCareerLeaders(arg1:main.LeaderboardFiltersDTO):Promise<main.PitchingLeaderPageDTO>;
 
 export function GetPitchingSeasonLeaders(arg1:main.LeaderboardFiltersDTO):Promise<main.PitchingLeaderPageDTO>;
 

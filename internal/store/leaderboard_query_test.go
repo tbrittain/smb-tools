@@ -3,6 +3,7 @@ package store_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"smb-tools/internal/models"
@@ -64,7 +65,7 @@ func TestGetBattingCareerLeaders_BasicAggregation(t *testing.T) {
 	pA := seedPlayer(t, db, "gA", "Alice", "Alpha")
 	pB := seedPlayer(t, db, "gB", "Bob", "Beta")
 
-	// pA: two seasons, 20+10 HR
+	// pA: two seasons, 20+10 HR; AB=400+500=900, H=120+130=250
 	psA1 := seedPlayerSeason(t, db, pA, 1, &h1)
 	psA2 := seedPlayerSeason(t, db, pA, 2, &h2)
 	seedBatting(t, db, psA1, true, 400, 120, 20, 80)
@@ -74,15 +75,18 @@ func TestGetBattingCareerLeaders_BasicAggregation(t *testing.T) {
 	psB1 := seedPlayerSeason(t, db, pB, 1, &h1)
 	seedBatting(t, db, psB1, true, 300, 90, 15, 50)
 
-	rows, err := newLB(db).GetBattingCareerLeaders(ctx, noFilters())
+	rows, total, err := newLB(db).GetBattingCareerLeaders(ctx, noFilters())
 	if err != nil {
 		t.Fatalf("GetBattingCareerLeaders: %v", err)
+	}
+	if total != 2 {
+		t.Fatalf("want total=2, got %d", total)
 	}
 	if len(rows) != 2 {
 		t.Fatalf("want 2 rows, got %d", len(rows))
 	}
 
-	// Results ordered by last_name: Alpha before Beta
+	// Default sort is smbWAR DESC; both NULL → tiebreak by last_name: Alpha before Beta.
 	rA := rows[0]
 	if rA.PlayerID != pA {
 		t.Errorf("first row: want playerID %d, got %d", pA, rA.PlayerID)
@@ -96,9 +100,12 @@ func TestGetBattingCareerLeaders_BasicAggregation(t *testing.T) {
 	if rA.AtBats != 900 {
 		t.Errorf("Alice AB: want 900, got %d", rA.AtBats)
 	}
-	// Rate fields are nil — caller computes them
-	if rA.BA != nil {
-		t.Error("BA should be nil before ComputeBattingRates")
+	// CTE computes BA inline: 250H / 900AB ≈ 0.2778
+	wantBA := float64(250) / float64(900)
+	if rA.BA == nil {
+		t.Error("BA should be computed by CTE, got nil")
+	} else if got := *rA.BA; got != wantBA {
+		t.Errorf("Alice BA: want %f, got %f", wantBA, got)
 	}
 
 	rB := rows[1]
@@ -128,7 +135,7 @@ func TestGetBattingCareerLeaders_HoFFilter(t *testing.T) {
 	seedBatting(t, db, ps1, true, 400, 120, 20, 80)
 	seedBatting(t, db, ps2, true, 300, 90, 10, 50)
 
-	rows, err := newLB(db).GetBattingCareerLeaders(ctx, models.LeaderboardFilters{OnlyHallOfFamers: true})
+	rows, _, err := newLB(db).GetBattingCareerLeaders(ctx, models.LeaderboardFilters{OnlyHallOfFamers: true})
 	if err != nil {
 		t.Fatalf("GetBattingCareerLeaders: %v", err)
 	}
@@ -156,7 +163,7 @@ func TestGetBattingCareerLeaders_PositionFilter(t *testing.T) {
 	seedBatting(t, db, psSS, true, 400, 120, 10, 50)
 	seedBatting(t, db, ps1B, true, 350, 100, 20, 80)
 
-	rows, err := newLB(db).GetBattingCareerLeaders(ctx, models.LeaderboardFilters{Position: "SS"})
+	rows, _, err := newLB(db).GetBattingCareerLeaders(ctx, models.LeaderboardFilters{Position: "SS"})
 	if err != nil {
 		t.Fatalf("GetBattingCareerLeaders: %v", err)
 	}
@@ -189,7 +196,7 @@ func TestGetBattingCareerLeaders_SeasonRange(t *testing.T) {
 	seedBatting(t, db, ps3, true, 400, 120, 20, 60) // season 3: 20 HR
 
 	// Filter to seasons 2–3 only: expect 35 HR
-	rows, err := newLB(db).GetBattingCareerLeaders(ctx, models.LeaderboardFilters{SeasonStart: 2, SeasonEnd: 3})
+	rows, _, err := newLB(db).GetBattingCareerLeaders(ctx, models.LeaderboardFilters{SeasonStart: 2, SeasonEnd: 3})
 	if err != nil {
 		t.Fatalf("GetBattingCareerLeaders: %v", err)
 	}
@@ -217,7 +224,7 @@ func TestGetBattingCareerLeaders_PlayoffToggle(t *testing.T) {
 	seedBatting(t, db, ps1, false, 50, 15, 3, 10)    // playoffs
 
 	// Regular season: 10 HR
-	regRows, err := newLB(db).GetBattingCareerLeaders(ctx, noFilters())
+	regRows, _, err := newLB(db).GetBattingCareerLeaders(ctx, noFilters())
 	if err != nil {
 		t.Fatalf("regular: %v", err)
 	}
@@ -226,7 +233,7 @@ func TestGetBattingCareerLeaders_PlayoffToggle(t *testing.T) {
 	}
 
 	// Playoffs: 3 HR
-	playoffRows, err := newLB(db).GetBattingCareerLeaders(ctx, models.LeaderboardFilters{GameType: "playoffs"})
+	playoffRows, _, err := newLB(db).GetBattingCareerLeaders(ctx, models.LeaderboardFilters{GameType: "playoffs"})
 	if err != nil {
 		t.Fatalf("playoffs: %v", err)
 	}
@@ -254,7 +261,7 @@ func TestGetBattingCareerLeaders_CombinedGameType(t *testing.T) {
 	// Season 2: 15 regular HR only
 	seedBatting(t, db, ps2, true, 420, 110, 15, 60)
 
-	rows, err := newLB(db).GetBattingCareerLeaders(ctx, models.LeaderboardFilters{GameType: "combined"})
+	rows, _, err := newLB(db).GetBattingCareerLeaders(ctx, models.LeaderboardFilters{GameType: "combined"})
 	if err != nil {
 		t.Fatalf("combined: %v", err)
 	}
@@ -294,7 +301,7 @@ func TestGetBattingCareerLeaders_ExcludesZeroAB(t *testing.T) {
 	psBat2 := seedPlayerSeason(t, db, pBat, 1, &h1)
 	seedBatting(t, db, psBat2, true, 400, 100, 10, 40)
 
-	rows, err := newLB(db).GetBattingCareerLeaders(ctx, noFilters())
+	rows, _, err := newLB(db).GetBattingCareerLeaders(ctx, noFilters())
 	if err != nil {
 		t.Fatalf("GetBattingCareerLeaders: %v", err)
 	}
@@ -423,9 +430,12 @@ func TestGetPitchingCareerLeaders_BasicAggregation(t *testing.T) {
 	seedPitching(t, db, psA1, true, 10, 5, 270, 30, 100)
 	seedPitching(t, db, psA2, true, 12, 6, 300, 35, 120)
 
-	rows, err := newLB(db).GetPitchingCareerLeaders(ctx, noFilters())
+	rows, total, err := newLB(db).GetPitchingCareerLeaders(ctx, noFilters())
 	if err != nil {
 		t.Fatalf("GetPitchingCareerLeaders: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("want total=1, got %d", total)
 	}
 	if len(rows) != 1 {
 		t.Fatalf("want 1 row, got %d", len(rows))
@@ -443,8 +453,12 @@ func TestGetPitchingCareerLeaders_BasicAggregation(t *testing.T) {
 	if r.Strikeouts != 220 {
 		t.Errorf("Strikeouts: want 220, got %d", r.Strikeouts)
 	}
-	if r.ERA != nil {
-		t.Error("ERA should be nil before ComputePitchingRates")
+	// CTE computes ERA inline: (30+35)*27/570 = 65*27/570 ≈ 3.079
+	wantERA := float64(65) * 27.0 / float64(570)
+	if r.ERA == nil {
+		t.Error("ERA should be computed by CTE, got nil")
+	} else if got := *r.ERA; got != wantERA {
+		t.Errorf("ERA: want %f, got %f", wantERA, got)
 	}
 }
 
@@ -464,7 +478,7 @@ func TestGetPitchingCareerLeaders_PitcherRoleFilter(t *testing.T) {
 	seedPitching(t, db, psSP, true, 12, 8, 540, 60, 180)
 	seedPitching(t, db, psRP, true, 5, 3, 120, 15, 60)
 
-	rows, err := newLB(db).GetPitchingCareerLeaders(ctx, models.LeaderboardFilters{Position: "SP"})
+	rows, _, err := newLB(db).GetPitchingCareerLeaders(ctx, models.LeaderboardFilters{Position: "SP"})
 	if err != nil {
 		t.Fatalf("GetPitchingCareerLeaders: %v", err)
 	}
@@ -492,7 +506,7 @@ func TestGetPitchingCareerLeaders_ThrowHandFilter(t *testing.T) {
 	seedPitching(t, db, psL, true, 10, 8, 360, 40, 130)
 	seedPitching(t, db, psR, true, 12, 6, 400, 45, 150)
 
-	rows, err := newLB(db).GetPitchingCareerLeaders(ctx, models.LeaderboardFilters{ThrowHand: "L"})
+	rows, _, err := newLB(db).GetPitchingCareerLeaders(ctx, models.LeaderboardFilters{ThrowHand: "L"})
 	if err != nil {
 		t.Fatalf("GetPitchingCareerLeaders: %v", err)
 	}
@@ -523,7 +537,7 @@ func TestGetPitchingCareerLeaders_CombinedGameType(t *testing.T) {
 	// Season 2: 12W regular only
 	seedPitching(t, db, ps2, true, 12, 6, 300, 35, 120)
 
-	rows, err := newLB(db).GetPitchingCareerLeaders(ctx, models.LeaderboardFilters{GameType: "combined"})
+	rows, _, err := newLB(db).GetPitchingCareerLeaders(ctx, models.LeaderboardFilters{GameType: "combined"})
 	if err != nil {
 		t.Fatalf("combined: %v", err)
 	}
@@ -776,25 +790,49 @@ func TestGetPitchingSeasonLeaders_TraitsPopulatedOnRow(t *testing.T) {
 
 // ── QualifiedOnly filter ──────────────────────────────────────────────────────
 
+// seedBattingFull seeds a batting stat row with explicitly separate games_played
+// and plate_appearances values. seedBatting (in season_query_test.go) sets both
+// equal to ab, which is fine for most tests but incorrect for qualification tests
+// where games_played must reflect team games and pa must reflect actual PA.
+func seedBattingFull(t *testing.T, db *sql.DB, playerSeasonID int64, isReg bool, gamesPlayed, pa, ab, hits, hr, rbi int) {
+	t.Helper()
+	isRegInt := 0
+	if isReg {
+		isRegInt = 1
+	}
+	_, err := db.ExecContext(context.Background(), `
+INSERT INTO player_season_batting_stats
+    (player_season_id, is_regular_season, games_played, games_batting,
+     at_bats, plate_appearances, runs, hits, doubles, triples, home_runs, rbi,
+     stolen_bases, caught_stealing, walks, strikeouts, hit_by_pitch,
+     sac_hits, sac_flies, errors, passed_balls)
+VALUES (?,?,?,?,?,?,0,?,0,0,?,?,0,0,0,0,0,0,0,0,0)
+`, playerSeasonID, isRegInt, gamesPlayed, gamesPlayed, ab, pa, hits, hr, rbi)
+	if err != nil {
+		t.Fatalf("seedBattingFull: %v", err)
+	}
+}
+
 // TestGetBattingSeasonLeaders_QualifiedOnly verifies that QualifiedOnly=true
-// filters to batters with plate_appearances >= num_games * 3.1 and that
-// QualifiedOnly=false returns both qualified and unqualified rows.
+// filters batters using the actual max games_played in the season (not the
+// scheduled num_games), and that QualifiedOnly=false returns all rows.
 func TestGetBattingSeasonLeaders_QualifiedOnly(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
 
-	// 100-game season: qualification threshold = 100 * 3.1 = 310 PA.
+	// 100-game season. Threshold = MAX(games_played) * 3.1.
+	// Both players played all 100 games → MAX = 100 → threshold = 310 PA.
 	seedSeason(t, db, 1, 1, 100)
 	t1 := seedTeam(t, db, "tgQ")
 	h1 := seedTeamHistory(t, db, t1, 1, "Team Q", "E", "AL", 50, 50)
 
-	pQ := seedPlayer(t, db, "gQQ", "Qual", "Batter")    // 350 AB → 350 PA (qualifies)
-	pU := seedPlayer(t, db, "gUU", "Unqual", "Batter")  // 200 AB → 200 PA (does not qualify)
+	pQ := seedPlayer(t, db, "gQQ", "Qual", "Batter")   // 350 PA, 100 games → qualifies
+	pU := seedPlayer(t, db, "gUU", "Unqual", "Batter") // 200 PA, 100 games → does not qualify
 
 	psQ := seedPlayerSeason(t, db, pQ, 1, &h1)
 	psU := seedPlayerSeason(t, db, pU, 1, &h1)
-	seedBatting(t, db, psQ, true, 350, 105, 20, 80) // .300 BA
-	seedBatting(t, db, psU, true, 200, 60, 5, 25)   // .300 BA, below threshold
+	seedBattingFull(t, db, psQ, true, 100, 350, 350, 105, 20, 80)
+	seedBattingFull(t, db, psU, true, 100, 200, 200, 60, 5, 25)
 
 	lb := newLB(db)
 
@@ -821,20 +859,92 @@ func TestGetBattingSeasonLeaders_QualifiedOnly(t *testing.T) {
 	_ = rows
 }
 
+// TestGetBattingSeasonLeaders_QualifiedOnly_PartialImport verifies that a
+// mid-season import (fewer actual games than the scheduled num_games) uses the
+// real game count as the qualification denominator.
+func TestGetBattingSeasonLeaders_QualifiedOnly_PartialImport(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	// Scheduled for 100 games, but only 60 were played before the import.
+	// Threshold = MAX(games_played) * 3.1 = 60 * 3.1 = 186 PA.
+	seedSeason(t, db, 1, 1, 100)
+	t1 := seedTeam(t, db, "tgP")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team P", "E", "AL", 30, 30)
+
+	pQ := seedPlayer(t, db, "gQP2", "Partial", "Qual")    // 200 PA, 60 games → qualifies (≥186)
+	pU := seedPlayer(t, db, "gUP2", "Partial", "Unqual")  // 100 PA, 60 games → below threshold
+	psQ := seedPlayerSeason(t, db, pQ, 1, &h1)
+	psU := seedPlayerSeason(t, db, pU, 1, &h1)
+	seedBattingFull(t, db, psQ, true, 60, 200, 200, 60, 5, 30)
+	seedBattingFull(t, db, psU, true, 60, 100, 100, 30, 2, 15)
+
+	rows, total, err := newLB(db).GetBattingSeasonLeaders(ctx, models.LeaderboardFilters{QualifiedOnly: true})
+	if err != nil {
+		t.Fatalf("partial import QualifiedOnly: %v", err)
+	}
+	if total != 1 {
+		t.Errorf("partial import total: want 1, got %d", total)
+	}
+	if len(rows) != 1 || rows[0].PlayerID != pQ {
+		t.Errorf("partial import: want playerID %d, got %v", pQ, rows)
+	}
+}
+
+// TestGetBattingSeasonLeaders_QualifiedOnly_Playoffs verifies that playoff
+// qualification uses the actual playoff games played (not the regular-season
+// schedule length), so the threshold is reachable in a short series.
+func TestGetBattingSeasonLeaders_QualifiedOnly_Playoffs(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	// 5-game playoff series. Threshold = MAX(games_played) * 3.1 = 5 * 3.1 = 15.5 PA.
+	seedSeason(t, db, 1, 1, 100) // regular-season schedule irrelevant for playoff threshold
+	t1 := seedTeam(t, db, "tgPO")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team PO", "E", "AL", 60, 40)
+
+	pQ := seedPlayer(t, db, "gQPO", "Playoff", "Qual")   // 20 PA over 5 games → qualifies (≥15.5)
+	pU := seedPlayer(t, db, "gUPO", "Playoff", "Unqual") // 8 PA → does not qualify
+	psQ := seedPlayerSeason(t, db, pQ, 1, &h1)
+	psU := seedPlayerSeason(t, db, pU, 1, &h1)
+	// is_regular_season=false for playoff stats
+	seedBattingFull(t, db, psQ, false, 5, 20, 18, 6, 1, 4)
+	seedBattingFull(t, db, psU, false, 5, 8, 7, 2, 0, 1)
+
+	rows, total, err := newLB(db).GetBattingSeasonLeaders(ctx,
+		models.LeaderboardFilters{GameType: "playoffs", QualifiedOnly: true})
+	if err != nil {
+		t.Fatalf("playoff QualifiedOnly: %v", err)
+	}
+	if total != 1 {
+		t.Errorf("playoff total: want 1, got %d", total)
+	}
+	if len(rows) != 1 || rows[0].PlayerID != pQ {
+		t.Errorf("playoff: want playerID %d, got %v", pQ, rows)
+	}
+}
+
 // TestGetPitchingSeasonLeaders_QualifiedOnly verifies that QualifiedOnly=true
-// filters to pitchers with outs_pitched >= num_games * 3 and that
-// QualifiedOnly=false returns both qualified and unqualified rows.
+// filters pitchers using the actual max batting games_played in the season as
+// the team-games reference, and that QualifiedOnly=false returns all rows.
 func TestGetPitchingSeasonLeaders_QualifiedOnly(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
 
-	// 100-game season: qualification threshold = 100 * 3 = 300 outs (100 IP).
+	// 100-game season. Threshold = MAX(batting games_played) * 3 outs = 300 outs.
 	seedSeason(t, db, 1, 1, 100)
 	t1 := seedTeam(t, db, "tgR")
 	h1 := seedTeamHistory(t, db, t1, 1, "Team R", "W", "NL", 50, 50)
 
-	pQ := seedPlayer(t, db, "gQP", "Qual", "Pitcher")   // 350 outs (qualifies)
-	pU := seedPlayer(t, db, "gUP", "Unqual", "Pitcher") // 100 outs (does not qualify)
+	// Seed a position player to establish the games-played denominator.
+	// The pitching qualification uses MAX(batting games_played) as the game-count
+	// reference, since it accurately tracks team games regardless of pitcher usage.
+	anchor := seedPlayer(t, db, "gAnc", "Anchor", "Batter")
+	psAnchor := seedPlayerSeason(t, db, anchor, 1, &h1)
+	seedBattingFull(t, db, psAnchor, true, 100, 350, 350, 100, 10, 50)
+
+	pQ := seedPlayer(t, db, "gQP", "Qual", "Pitcher")   // 350 outs → qualifies (≥300)
+	pU := seedPlayer(t, db, "gUP", "Unqual", "Pitcher") // 100 outs → does not qualify
 
 	psQ := seedPlayerSeasonFull(t, db, pQ, 1, &h1, "P", "SP", "R", "R", "")
 	psU := seedPlayerSeasonFull(t, db, pU, 1, &h1, "P", "RP", "R", "R", "")
@@ -864,4 +974,267 @@ func TestGetPitchingSeasonLeaders_QualifiedOnly(t *testing.T) {
 		t.Errorf("QualifiedOnly=false: want total=2, got %d", total)
 	}
 	_ = rows
+}
+
+// ── Career pagination and sort tests ─────────────────────────────────────────
+
+func TestGetBattingCareerLeaders_Pagination(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+
+	// Seed 60 players so we need 2 pages at pageSize=50.
+	for i := range 60 {
+		guid := fmt.Sprintf("g%03d", i)
+		first := fmt.Sprintf("P%03d", i)
+		pid := seedPlayer(t, db, guid, first, "Batter")
+		ps := seedPlayerSeason(t, db, pid, 1, &h1)
+		seedBatting(t, db, ps, true, 400, 100+i, i+1, 50)
+	}
+
+	lb := newLB(db)
+
+	// Page 1: 50 rows; total = 60.
+	page1, total, err := lb.GetBattingCareerLeaders(ctx, models.LeaderboardFilters{PageSize: 50, Offset: 0})
+	if err != nil {
+		t.Fatalf("page 1: %v", err)
+	}
+	if total != 60 {
+		t.Errorf("total: want 60, got %d", total)
+	}
+	if len(page1) != 50 {
+		t.Errorf("page 1 len: want 50, got %d", len(page1))
+	}
+
+	// Page 2: 10 remaining rows.
+	page2, _, err := lb.GetBattingCareerLeaders(ctx, models.LeaderboardFilters{PageSize: 50, Offset: 50})
+	if err != nil {
+		t.Fatalf("page 2: %v", err)
+	}
+	if len(page2) != 10 {
+		t.Errorf("page 2 len: want 10, got %d", len(page2))
+	}
+
+	// No player should appear in both pages.
+	p1IDs := make(map[int64]bool, len(page1))
+	for _, r := range page1 {
+		p1IDs[r.PlayerID] = true
+	}
+	for _, r := range page2 {
+		if p1IDs[r.PlayerID] {
+			t.Errorf("player %d appears in both pages", r.PlayerID)
+		}
+	}
+}
+
+func TestGetBattingCareerLeaders_SortByHomeRunsDesc(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+
+	pHigh := seedPlayer(t, db, "gH", "High", "Homer")
+	pLow := seedPlayer(t, db, "gL", "Low", "Homer")
+	psH := seedPlayerSeason(t, db, pHigh, 1, &h1)
+	psL := seedPlayerSeason(t, db, pLow, 1, &h1)
+	seedBatting(t, db, psH, true, 400, 100, 40, 100) // 40 HR
+	seedBatting(t, db, psL, true, 400, 100, 10, 30)  // 10 HR
+
+	rows, _, err := newLB(db).GetBattingCareerLeaders(ctx,
+		models.LeaderboardFilters{SortField: "homeRuns", SortDesc: true})
+	if err != nil {
+		t.Fatalf("sort by homeRuns: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("want 2 rows, got %d", len(rows))
+	}
+	if rows[0].PlayerID != pHigh {
+		t.Errorf("want high HR player first, got playerID %d", rows[0].PlayerID)
+	}
+	if rows[0].HomeRuns != 40 {
+		t.Errorf("first row HR: want 40, got %d", rows[0].HomeRuns)
+	}
+}
+
+func TestGetBattingCareerLeaders_SortByBADesc(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+
+	// pHigh: 120/300 = .400; pLow: 80/400 = .200
+	pHigh := seedPlayer(t, db, "gH", "High", "Average")
+	pLow := seedPlayer(t, db, "gL", "Low", "Average")
+	psH := seedPlayerSeason(t, db, pHigh, 1, &h1)
+	psL := seedPlayerSeason(t, db, pLow, 1, &h1)
+	seedBatting(t, db, psH, true, 300, 120, 10, 50)
+	seedBatting(t, db, psL, true, 400, 80, 5, 20)
+
+	rows, _, err := newLB(db).GetBattingCareerLeaders(ctx,
+		models.LeaderboardFilters{SortField: "ba", SortDesc: true})
+	if err != nil {
+		t.Fatalf("sort by ba: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("want 2 rows, got %d", len(rows))
+	}
+	if rows[0].PlayerID != pHigh {
+		t.Errorf("want high BA player first, got playerID %d", rows[0].PlayerID)
+	}
+}
+
+func TestGetBattingCareerLeaders_FilterPlusPagination(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+
+	// 3 HoF players, 2 non-HoF.
+	for i := range 3 {
+		pid := seedPlayer(t, db, fmt.Sprintf("gH%d", i), fmt.Sprintf("HoF%d", i), "Player")
+		_, _ = db.ExecContext(ctx, `UPDATE players SET is_hall_of_famer = 1 WHERE id = ?`, pid)
+		ps := seedPlayerSeason(t, db, pid, 1, &h1)
+		seedBatting(t, db, ps, true, 400, 120, 20, 80)
+	}
+	for i := range 2 {
+		pid := seedPlayer(t, db, fmt.Sprintf("gN%d", i), fmt.Sprintf("Norm%d", i), "Player")
+		ps := seedPlayerSeason(t, db, pid, 1, &h1)
+		seedBatting(t, db, ps, true, 300, 80, 5, 30)
+	}
+
+	rows, total, err := newLB(db).GetBattingCareerLeaders(ctx,
+		models.LeaderboardFilters{OnlyHallOfFamers: true, PageSize: 50, Offset: 0})
+	if err != nil {
+		t.Fatalf("HoF filter + page: %v", err)
+	}
+	if total != 3 {
+		t.Errorf("HoF filter total: want 3, got %d", total)
+	}
+	if len(rows) != 3 {
+		t.Errorf("HoF filter rows: want 3, got %d", len(rows))
+	}
+}
+
+func TestGetBattingCareerLeaders_EmptyResult(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+	pid := seedPlayer(t, db, "gP", "Some", "Player")
+	ps := seedPlayerSeason(t, db, pid, 1, &h1)
+	seedBatting(t, db, ps, true, 400, 120, 20, 80)
+
+	// HoF filter on non-HoF franchise → empty
+	rows, total, err := newLB(db).GetBattingCareerLeaders(ctx,
+		models.LeaderboardFilters{OnlyHallOfFamers: true})
+	if err != nil {
+		t.Fatalf("empty result: %v", err)
+	}
+	if total != 0 {
+		t.Errorf("empty total: want 0, got %d", total)
+	}
+	if len(rows) != 0 {
+		t.Errorf("empty rows: want 0, got %d", len(rows))
+	}
+}
+
+func TestGetPitchingCareerLeaders_Pagination(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+
+	for i := range 60 {
+		guid := fmt.Sprintf("p%03d", i)
+		first := fmt.Sprintf("P%03d", i)
+		pid := seedPlayer(t, db, guid, first, "Pitcher")
+		ps := seedPlayerSeason(t, db, pid, 1, &h1)
+		seedPitching(t, db, ps, true, i+1, 0, 90+i, 10, 50)
+	}
+
+	_, total, err := newLB(db).GetPitchingCareerLeaders(ctx, models.LeaderboardFilters{PageSize: 50, Offset: 0})
+	if err != nil {
+		t.Fatalf("page 1: %v", err)
+	}
+	if total != 60 {
+		t.Errorf("total: want 60, got %d", total)
+	}
+
+	page2, _, err := newLB(db).GetPitchingCareerLeaders(ctx, models.LeaderboardFilters{PageSize: 50, Offset: 50})
+	if err != nil {
+		t.Fatalf("page 2: %v", err)
+	}
+	if len(page2) != 10 {
+		t.Errorf("page 2 len: want 10, got %d", len(page2))
+	}
+}
+
+func TestGetPitchingCareerLeaders_SortByWinsDesc(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+
+	pHigh := seedPlayer(t, db, "gH", "Ace", "Winner")
+	pLow := seedPlayer(t, db, "gL", "Rook", "Pitcher")
+	psH := seedPlayerSeason(t, db, pHigh, 1, &h1)
+	psL := seedPlayerSeason(t, db, pLow, 1, &h1)
+	seedPitching(t, db, psH, true, 20, 5, 270, 30, 100) // 20W
+	seedPitching(t, db, psL, true, 5, 10, 180, 40, 80)  // 5W
+
+	rows, _, err := newLB(db).GetPitchingCareerLeaders(ctx,
+		models.LeaderboardFilters{SortField: "wins", SortDesc: true})
+	if err != nil {
+		t.Fatalf("sort by wins: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("want 2 rows, got %d", len(rows))
+	}
+	if rows[0].PlayerID != pHigh {
+		t.Errorf("want high W player first, got playerID %d", rows[0].PlayerID)
+	}
+}
+
+func TestGetPitchingCareerLeaders_SortByERAAsc(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tg1")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
+
+	// pLow: 10 ER / 270 OP = ERA 1.00; pHigh: 50 ER / 270 OP = ERA 5.00
+	pLow := seedPlayer(t, db, "gL", "Good", "ERA")
+	pHigh := seedPlayer(t, db, "gH", "Bad", "ERA")
+	psL := seedPlayerSeason(t, db, pLow, 1, &h1)
+	psH := seedPlayerSeason(t, db, pHigh, 1, &h1)
+	seedPitching(t, db, psL, true, 15, 5, 270, 10, 100)
+	seedPitching(t, db, psH, true, 8, 12, 270, 50, 80)
+
+	rows, _, err := newLB(db).GetPitchingCareerLeaders(ctx,
+		models.LeaderboardFilters{SortField: "era", SortDesc: false})
+	if err != nil {
+		t.Fatalf("sort by era asc: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("want 2 rows, got %d", len(rows))
+	}
+	if rows[0].PlayerID != pLow {
+		t.Errorf("want low ERA player first (asc sort), got playerID %d", rows[0].PlayerID)
+	}
 }
