@@ -72,7 +72,8 @@ function positionLabel(row: { pitcherRole: string; primaryPosition: string }): s
           <AppLink :to="`/players/${w.playerId}`" class="player-name">
             {{ w.firstName }} {{ w.lastName }}
           </AppLink>
-          <span class="team-name">{{ w.teamName }}</span>
+          <span v-if="w.teamName" class="team-name">{{ w.teamName }}</span>
+          <span v-else class="team-name team-name--fa">FA</span>
         </div>
         <div class="row-stats">
           <template v-if="w.pitcherRole">
@@ -100,7 +101,8 @@ function positionLabel(row: { pitcherRole: string; primaryPosition: string }): s
           <AppLink :to="`/players/${ru.playerId}`" class="player-name">
             {{ ru.firstName }} {{ ru.lastName }}
           </AppLink>
-          <span class="team-name">{{ ru.teamName }}</span>
+          <span v-if="ru.teamName" class="team-name">{{ ru.teamName }}</span>
+          <span v-else class="team-name team-name--fa">FA</span>
         </div>
         <div class="row-stats">
           <template v-if="ru.pitcherRole">
@@ -180,6 +182,10 @@ function positionLabel(row: { pitcherRole: string; primaryPosition: string }): s
 .team-name {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
+}
+
+.team-name--fa {
+  font-style: italic;
 }
 
 .row-stats {
