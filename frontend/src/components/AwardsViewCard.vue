@@ -42,15 +42,15 @@ function positionLabel(row: { pitcherRole: string; primaryPosition: string }): s
           <span class="team-name">{{ w.teamName }}</span>
         </div>
         <div class="row-stats">
-          <template v-if="w.ba || w.hr || w.rbi">
-            <span class="stat"><span class="stat-label">BA</span> {{ fmtBA(w.ba) }}</span>
-            <span class="stat"><span class="stat-label">HR</span> {{ w.hr }}</span>
-            <span class="stat"><span class="stat-label">RBI</span> {{ w.rbi }}</span>
-          </template>
-          <template v-else-if="w.era || w.wins || w.strikeouts">
+          <template v-if="w.pitcherRole">
             <span class="stat"><span class="stat-label">ERA</span> {{ fmtERA(w.era) }}</span>
             <span class="stat"><span class="stat-label">W</span> {{ w.wins }}</span>
             <span class="stat"><span class="stat-label">K</span> {{ w.strikeouts }}</span>
+          </template>
+          <template v-else>
+            <span class="stat"><span class="stat-label">BA</span> {{ fmtBA(w.ba) }}</span>
+            <span class="stat"><span class="stat-label">HR</span> {{ w.hr }}</span>
+            <span class="stat"><span class="stat-label">RBI</span> {{ w.rbi }}</span>
           </template>
           <span class="stat"><span class="stat-label">WAR</span> {{ fmtWAR(w.smbWar) }}</span>
         </div>
