@@ -407,36 +407,32 @@ func (s *LeaderboardQueryStore) GetBattingSeasonLeaders(
 		whereParts = append(whereParts, "EXISTS (SELECT 1 FROM json_each(ps.traits_json) WHERE value = ?)")
 		filterArgs = append(filterArgs, trait)
 	}
-	if f.QualifiedOnly {
-		// Use the actual max games_played in this season+game-type rather than the
-		// scheduled s.num_games.  This handles partial imports (mid-season sync gives
-		// 60, not 100) and playoff series (a 5-game series gives 5, not 100).
-		// Taking MAX across all batters in the same season approximates team games played
-		// because position players typically appear in every game.
-		//
-		// Future improvement: derive the game count from team_season_schedules /
-		// team_playoff_schedules instead (COUNT of rows with non-NULL scores, grouped
-		// by team).  That would be immune to edge cases where injuries cause the max
-		// individual games_played to fall short of actual team games played.  The
-		// per-team playoff variant is the more important case because different teams
-		// play different numbers of games depending on how far they advance.
-		whereParts = append(whereParts, `CAST(b.plate_appearances AS REAL) >= (
-        SELECT COALESCE(MAX(b2.games_played), 1)
-        FROM player_season_batting_stats b2
-        JOIN player_seasons ps2 ON ps2.id = b2.player_season_id
-        WHERE ps2.season_id = ps.season_id
-          AND b2.is_regular_season = b.is_regular_season
-    ) * 3.1`)
-	}
-
-	joins := `
+	// baseJoins is extended before the WHERE clause so that the qual_gp subquery
+	// (when QualifiedOnly is true) can be a plain JOIN rather than a correlated
+	// subquery — the correlated form re-ran MAX(games_played) once per row.
+	baseJoins := `
 FROM player_season_batting_stats b
 JOIN player_seasons ps ON ps.id = b.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
 JOIN players p         ON p.id  = ps.player_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
-LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
-WHERE ` + strings.Join(whereParts, "\n  AND ")
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`
+
+	if f.QualifiedOnly {
+		// Pre-aggregate max games_played per (season, game-type) once.
+		// Joining instead of a correlated subquery keeps this O(n) not O(n²).
+		// See the note in docs/store for the future schedule-based improvement.
+		baseJoins += `
+JOIN (
+    SELECT ps2.season_id, b2.is_regular_season, COALESCE(MAX(b2.games_played), 1) AS max_gp
+    FROM player_season_batting_stats b2
+    JOIN player_seasons ps2 ON ps2.id = b2.player_season_id
+    GROUP BY ps2.season_id, b2.is_regular_season
+) qual_gp ON qual_gp.season_id = ps.season_id AND qual_gp.is_regular_season = b.is_regular_season`
+		whereParts = append(whereParts, "CAST(b.plate_appearances AS REAL) >= qual_gp.max_gp * 3.1")
+	}
+
+	joins := baseJoins + "\nWHERE " + strings.Join(whereParts, "\n  AND ")
 
 	var total int
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*)`+joins, filterArgs...).Scan(&total); err != nil {
@@ -741,30 +737,29 @@ func (s *LeaderboardQueryStore) GetPitchingSeasonLeaders(
 		whereParts = append(whereParts, "EXISTS (SELECT 1 FROM json_each(ps.traits_json) WHERE value = ?)")
 		filterArgs = append(filterArgs, trait)
 	}
-	if f.QualifiedOnly {
-		// Use the actual max games_played from batting stats for this season+game-type
-		// as the game-count reference.  Batting games_played reflects team games better
-		// than pitcher appearances (a closer appears in 40 games on a 100-game schedule).
-		// Handles partial imports and playoff series the same way as the batting filter.
-		// See the batting QualifiedOnly block above for a note on a future schedule-based
-		// improvement that would be more robust to injury-related absences.
-		whereParts = append(whereParts, `pit.outs_pitched >= (
-        SELECT COALESCE(MAX(b2.games_played), 1)
-        FROM player_season_batting_stats b2
-        JOIN player_seasons ps2 ON ps2.id = b2.player_season_id
-        WHERE ps2.season_id = ps.season_id
-          AND b2.is_regular_season = pit.is_regular_season
-    ) * 3`)
-	}
-
-	joins := `
+	baseJoins := `
 FROM player_season_pitching_stats pit
 JOIN player_seasons ps ON ps.id = pit.player_season_id
 JOIN seasons s         ON s.id  = ps.season_id
 JOIN players p         ON p.id  = ps.player_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
-LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
-WHERE ` + strings.Join(whereParts, "\n  AND ")
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`
+
+	if f.QualifiedOnly {
+		// Pre-aggregate max batting games_played per (season, game-type) once.
+		// Batting games_played reflects team games better than pitcher appearances.
+		// Joining avoids the O(n²) correlated subquery.
+		baseJoins += `
+JOIN (
+    SELECT ps2.season_id, b2.is_regular_season, COALESCE(MAX(b2.games_played), 1) AS max_gp
+    FROM player_season_batting_stats b2
+    JOIN player_seasons ps2 ON ps2.id = b2.player_season_id
+    GROUP BY ps2.season_id, b2.is_regular_season
+) qual_gp ON qual_gp.season_id = ps.season_id AND qual_gp.is_regular_season = pit.is_regular_season`
+		whereParts = append(whereParts, "pit.outs_pitched >= qual_gp.max_gp * 3")
+	}
+
+	joins := baseJoins + "\nWHERE " + strings.Join(whereParts, "\n  AND ")
 
 	var total int
 	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*)`+joins, filterArgs...).Scan(&total); err != nil {
