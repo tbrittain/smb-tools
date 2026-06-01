@@ -110,8 +110,8 @@ func TestComputeBattingCareerRecords_SumsAcrossSeasons(t *testing.T) {
 		{PlayerID: 2, SeasonNum: 1, HomeRuns: 45},
 		{PlayerID: 2, SeasonNum: 2, HomeRuns: 20},
 	}
-	// Player 1 career: 78 HR; Player 2 career: 65 HR
-	records := computeBattingCareerRecords(rows)
+	// Player 1 career: 78 HR; Player 2 career: 65 HR. Threshold 0 = no PA gate.
+	records := computeBattingCareerRecords(rows, 0)
 	hrRecords := records["homeRuns"]
 	if len(hrRecords) != 1 || hrRecords[0] != 1 {
 		t.Errorf("career HR record: want [1] (78 HR), got %v", hrRecords)
@@ -125,8 +125,8 @@ func TestComputeBattingCareerRecords_CareerTie(t *testing.T) {
 		{PlayerID: 2, SeasonNum: 1, HomeRuns: 50},
 		{PlayerID: 2, SeasonNum: 2, HomeRuns: 25},
 	}
-	// Both players: 75 HR career
-	records := computeBattingCareerRecords(rows)
+	// Both players: 75 HR career. Threshold 0 = no PA gate.
+	records := computeBattingCareerRecords(rows, 0)
 	hrRecords := records["homeRuns"]
 	slices.Sort(hrRecords)
 	if len(hrRecords) != 2 || hrRecords[0] != 1 || hrRecords[1] != 2 {
@@ -157,8 +157,8 @@ func TestComputePitchingCareerRecords_SumsOutsPitched(t *testing.T) {
 		{PlayerID: 11, SeasonNum: 1, OutsPitched: 800},
 		{PlayerID: 11, SeasonNum: 2, OutsPitched: 600},
 	}
-	// P10: 1410; P11: 1400
-	records := computePitchingCareerRecords(rows)
+	// P10: 1410; P11: 1400. Threshold 0 = no IP gate.
+	records := computePitchingCareerRecords(rows, 0)
 	if got := records["outsPitched"]; len(got) != 1 || got[0] != 10 {
 		t.Errorf("career IP record: want [10], got %v", got)
 	}
@@ -421,36 +421,43 @@ func TestComputeBattingSingleSeasonRecords_StrikeoutsLowerIsBetter(t *testing.T)
 	}
 }
 
-func TestComputeBattingCareerRecords_StrikeoutsLowerIsBetter_ABQualifier(t *testing.T) {
-	// Player 1: 80 K over career with 500 AB (qualified)
-	// Player 2: 0 K with 0 AB (pitcher who never batted — excluded by qualifier)
+func TestComputeBattingCareerRecords_StrikeoutsLowerIsBetter_PAThreshold(t *testing.T) {
+	// 40-game season → career PA threshold ≈ 740.
+	seasonLen := 40
+	threshold := int(3000 * float64(seasonLen) / 162)
+	// Player 1: 80 K, career PA 800 (above threshold) — should win.
+	// Player 2: 5 K, career PA 20 (below threshold) — excluded.
 	rows := []store.BattingCountRow{
-		{PlayerID: 1, SeasonNum: 1, AtBats: 500, Strikeouts: 80},
-		{PlayerID: 2, SeasonNum: 1, AtBats: 0, Strikeouts: 0},
+		{PlayerID: 1, SeasonNum: 1, AtBats: 750, Strikeouts: 80, PlateAppearances: 800},
+		{PlayerID: 2, SeasonNum: 1, AtBats: 18, Strikeouts: 5, PlateAppearances: 20},
 	}
-	records := computeBattingCareerRecords(rows)
+	records := computeBattingCareerRecords(rows, threshold)
 	got := records["strikeouts"]
 	if len(got) != 1 || got[0] != 1 {
-		t.Errorf("career K record (fewest, AB>0 only): want [1], got %v", got)
+		t.Errorf("career K record (fewest, PA-gated): want [1], got %v", got)
 	}
 }
 
-func TestComputePitchingCareerRecords_LowerIsBetterStats_OutsQualifier(t *testing.T) {
-	// Player 10: 60 ER, 720 outs (qualified)
-	// Player 11: 0 ER, 0 outs (never pitched — excluded)
+func TestComputePitchingCareerRecords_LowerIsBetterStats_OutsThreshold(t *testing.T) {
+	// 40-game season → career outs threshold ≈ 740.
+	seasonLen := 40
+	threshold := int(3000 * float64(seasonLen) / 162)
+	// Player 10: qualified (720 + 300 = 1020 outs).
+	// Player 11: 0 outs — not qualified.
 	rows := []store.PitchingCountRow{
 		{PlayerID: 10, SeasonNum: 1, EarnedRuns: 60, Walks: 40, HitsAllowed: 180, OutsPitched: 720},
+		{PlayerID: 10, SeasonNum: 2, EarnedRuns: 30, Walks: 20, HitsAllowed: 90, OutsPitched: 300},
 		{PlayerID: 11, SeasonNum: 1, EarnedRuns: 0, Walks: 0, HitsAllowed: 0, OutsPitched: 0},
 	}
-	records := computePitchingCareerRecords(rows)
+	records := computePitchingCareerRecords(rows, threshold)
 	if got := records["earnedRuns"]; len(got) != 1 || got[0] != 10 {
-		t.Errorf("career ER record (fewest, IP>0 only): want [10], got %v", got)
+		t.Errorf("career ER record (fewest, IP-gated): want [10], got %v", got)
 	}
 	if got := records["walks"]; len(got) != 1 || got[0] != 10 {
-		t.Errorf("career BB record (fewest, IP>0 only): want [10], got %v", got)
+		t.Errorf("career BB record (fewest, IP-gated): want [10], got %v", got)
 	}
 	if got := records["hitsAllowed"]; len(got) != 1 || got[0] != 10 {
-		t.Errorf("career H record (fewest, IP>0 only): want [10], got %v", got)
+		t.Errorf("career H record (fewest, IP-gated): want [10], got %v", got)
 	}
 }
 

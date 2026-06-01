@@ -128,10 +128,10 @@ func (s *StatRecordsService) Get(ctx context.Context) (*statHighlightsCache, err
 		LeagueLeadersPitching: computePitchingLeagueLeaders(rsPitching),
 		SingleSeasonBatting:   computeBattingSingleSeasonRecords(rsBatting),
 		SingleSeasonPitching:  computePitchingSingleSeasonRecords(rsPitching),
-		CareerBattingRS:       computeBattingCareerRecords(rsBatting),
-		CareerBattingPO:       computeBattingCareerRecords(poBatting),
-		CareerPitchingRS:      computePitchingCareerRecords(rsPitching),
-		CareerPitchingPO:      computePitchingCareerRecords(poPitching),
+		CareerBattingRS:       computeBattingCareerRecords(rsBatting, careerBattingPAThreshold),
+		CareerBattingPO:       computeBattingCareerRecords(poBatting, careerBattingPAThreshold),
+		CareerPitchingRS:      computePitchingCareerRecords(rsPitching, careerPitchingOutsThreshold),
+		CareerPitchingPO:      computePitchingCareerRecords(poPitching, careerPitchingOutsThreshold),
 
 		LeagueLeadersBattingRate:  computeBattingRateLeagueLeaders(rsBattingRate),
 		LeagueLeadersPitchingRate: computePitchingRateLeagueLeaders(rsPitchingRate),
@@ -306,8 +306,9 @@ func computeBattingSingleSeasonRecords(rows []store.BattingCountRow) map[string]
 	return out
 }
 
-func computeBattingCareerRecords(rows []store.BattingCountRow) map[string][]int64 {
+func computeBattingCareerRecords(rows []store.BattingCountRow, paThreshold int) map[string][]int64 {
 	totals := make(map[int64]map[string]int)
+	paByPlayer := make(map[int64]int)
 	for _, r := range rows {
 		if totals[r.PlayerID] == nil {
 			totals[r.PlayerID] = make(map[string]int, len(battingStatExtractors))
@@ -315,9 +316,11 @@ func computeBattingCareerRecords(rows []store.BattingCountRow) map[string][]int6
 		for key, fn := range battingStatExtractors {
 			totals[r.PlayerID][key] += fn(r)
 		}
+		paByPlayer[r.PlayerID] += r.PlateAppearances
 	}
-	// For lower-is-better stats, exclude players with 0 career AB (never batted).
-	qualifies := func(_ int64, t map[string]int) bool { return t["atBats"] > 0 }
+	// For lower-is-better stats, require career PA >= threshold so that players with
+	// only a handful of career appearances cannot hold the record for fewest strikeouts.
+	qualifies := func(pid int64, _ map[string]int) bool { return paByPlayer[pid] >= paThreshold }
 	return careerRecordsFromTotals(totals, battingCountHigherIsBetter, qualifies)
 }
 
@@ -405,7 +408,7 @@ func computePitchingSingleSeasonRecords(rows []store.PitchingCountRow) map[strin
 	return out
 }
 
-func computePitchingCareerRecords(rows []store.PitchingCountRow) map[string][]int64 {
+func computePitchingCareerRecords(rows []store.PitchingCountRow, outsThreshold int) map[string][]int64 {
 	totals := make(map[int64]map[string]int)
 	for _, r := range rows {
 		if totals[r.PlayerID] == nil {
@@ -415,8 +418,9 @@ func computePitchingCareerRecords(rows []store.PitchingCountRow) map[string][]in
 			totals[r.PlayerID][key] += fn(r)
 		}
 	}
-	// For lower-is-better stats, exclude players with 0 career outs pitched (never pitched).
-	qualifies := func(_ int64, t map[string]int) bool { return t["outsPitched"] > 0 }
+	// For lower-is-better stats, require career IP >= threshold. outsPitched is already
+	// summed in totals so it's available via the qualifies closure.
+	qualifies := func(_ int64, t map[string]int) bool { return t["outsPitched"] >= outsThreshold }
 	return careerRecordsFromTotals(totals, pitchingCountHigherIsBetter, qualifies)
 }
 
