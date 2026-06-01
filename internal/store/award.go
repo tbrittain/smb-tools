@@ -287,7 +287,7 @@ SELECT
     COALESCE(pit.era,        0.0) AS era,
     COALESCE(pit.wins,       0)   AS wins,
     COALESCE(pit.strikeouts, 0)   AS strikeouts,
-    COALESCE(b.smb_war, pit.smb_war) AS smb_war
+    CASE WHEN ps.pitcher_role != '' THEN pit.smb_war ELSE b.smb_war END AS smb_war
 FROM player_season_awards psa
 JOIN awards a          ON a.id  = psa.award_id
 LEFT JOIN awards parent ON parent.id = a.parent_award_id

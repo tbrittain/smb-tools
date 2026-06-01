@@ -881,6 +881,9 @@ func TestGetSeasonAwardSummary_PitchingStatsOnWinner(t *testing.T) {
 
 	p := seedPlayer(t, db, "PS1", "Ace", "Pitcher")
 	ps := seedPlayerSeason(t, db, p, season, &th)
+	if _, err := db.ExecContext(ctx, `UPDATE player_seasons SET pitcher_role = 'SP' WHERE id = ?`, ps); err != nil {
+		t.Fatalf("set pitcher_role: %v", err)
+	}
 	seedPitching(t, db, ps, true, 18, 5, 120, 10, 160)
 	_, err := db.ExecContext(ctx,
 		`UPDATE player_season_pitching_stats SET era = 2.25, smb_war = 5.1 WHERE player_season_id = ?`, ps)

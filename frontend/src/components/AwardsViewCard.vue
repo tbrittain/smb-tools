@@ -86,7 +86,7 @@ function positionLabel(row: { pitcherRole: string; primaryPosition: string }): s
             <span class="stat"><span class="stat-label">HR</span> {{ w.hr }}</span>
             <span class="stat"><span class="stat-label">RBI</span> {{ w.rbi }}</span>
           </template>
-          <span class="stat"><span class="stat-label">WAR</span> {{ fmtWAR(w.smbWar) }}</span>
+          <span class="stat"><span class="stat-label">smbWAR</span> {{ fmtWAR(w.smbWar) }}</span>
         </div>
       </div>
 
@@ -115,7 +115,7 @@ function positionLabel(row: { pitcherRole: string; primaryPosition: string }): s
             <span class="stat"><span class="stat-label">HR</span> {{ ru.hr }}</span>
             <span class="stat"><span class="stat-label">RBI</span> {{ ru.rbi }}</span>
           </template>
-          <span class="stat"><span class="stat-label">WAR</span> {{ fmtWAR(ru.smbWar) }}</span>
+          <span class="stat"><span class="stat-label">smbWAR</span> {{ fmtWAR(ru.smbWar) }}</span>
         </div>
       </div>
     </div>
