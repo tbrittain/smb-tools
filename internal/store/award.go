@@ -201,6 +201,197 @@ ORDER BY s.season_num ASC, a.importance ASC
 	return out, rows.Err()
 }
 
+// GetSeasonAwardSummary returns personal-performance awards (batting, pitching,
+// fielding) delegated for the given season, grouped by award type. Championship
+// and team awards are excluded by the is_batting/pitching/fielding_award filter.
+// For single-winner groups the runner-up (highest-smbWAR non-winner) is also
+// populated. Groups are ordered by awards.importance ASC, awards.name ASC.
+func (s *AwardStore) GetSeasonAwardSummary(ctx context.Context, seasonID int64) (models.SeasonAwardSummary, error) {
+	var out models.SeasonAwardSummary
+	out.SeasonID = seasonID
+
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT season_num FROM seasons WHERE id = ?`, seasonID,
+	).Scan(&out.SeasonNum); err != nil {
+		return out, fmt.Errorf("loading season num for award summary: %w", err)
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+SELECT
+    a.id, a.name, a.original_name, a.importance, a.omit_from_groupings,
+    a.is_batting_award, a.is_pitching_award, a.is_fielding_award,
+    a.is_playoff_award, a.is_user_assignable, a.is_built_in,
+    ps.id   AS player_season_id,
+    p.id    AS player_id,
+    p.first_name,
+    p.last_name,
+    COALESCE(tsh.team_name, '') AS team_name,
+    ps.primary_position,
+    ps.pitcher_role,
+    COALESCE(b.ba,         0.0) AS ba,
+    COALESCE(b.home_runs,  0)   AS home_runs,
+    COALESCE(b.rbi,        0)   AS rbi,
+    COALESCE(pit.era,      0.0) AS era,
+    COALESCE(pit.wins,     0)   AS wins,
+    COALESCE(pit.strikeouts, 0) AS strikeouts,
+    COALESCE(b.smb_war, pit.smb_war) AS smb_war
+FROM player_season_awards psa
+JOIN awards a          ON a.id  = psa.award_id
+JOIN player_seasons ps ON ps.id = psa.player_season_id
+JOIN players p         ON p.id  = ps.player_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
+LEFT JOIN player_season_batting_stats  b   ON b.player_season_id   = ps.id AND b.is_regular_season   = 1
+LEFT JOIN player_season_pitching_stats pit ON pit.player_season_id = ps.id AND pit.is_regular_season = 1
+WHERE ps.season_id = ?
+  AND (a.is_batting_award = 1 OR a.is_pitching_award = 1 OR a.is_fielding_award = 1)
+ORDER BY a.importance ASC, a.name ASC
+`, seasonID)
+	if err != nil {
+		return out, fmt.Errorf("querying award summary for season %d: %w", seasonID, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	// Preserve order while grouping by award ID.
+	type groupEntry struct {
+		idx int
+		grp *models.AwardGroupSummary
+	}
+	byAwardID := map[int64]*groupEntry{}
+	var groups []models.AwardGroupSummary
+
+	for rows.Next() {
+		var a models.Award
+		var omit, bat, pitch, field, playoff, userAssign, builtIn int
+		var w models.AwardWinnerRow
+		var smbWAR sql.NullFloat64
+
+		if err := rows.Scan(
+			&a.ID, &a.Name, &a.OriginalName, &a.Importance, &omit,
+			&bat, &pitch, &field, &playoff, &userAssign, &builtIn,
+			&w.PlayerSeasonID, &w.PlayerID, &w.FirstName, &w.LastName,
+			&w.TeamName, &w.PrimaryPos, &w.PitcherRole,
+			&w.BA, &w.HR, &w.RBI,
+			&w.ERA, &w.Wins, &w.Strikeouts,
+			&smbWAR,
+		); err != nil {
+			return out, fmt.Errorf("scanning award summary row: %w", err)
+		}
+		a.OmitFromGroupings = omit == 1
+		a.IsBattingAward = bat == 1
+		a.IsPitchingAward = pitch == 1
+		a.IsFieldingAward = field == 1
+		a.IsPlayoffAward = playoff == 1
+		a.IsUserAssignable = userAssign == 1
+		a.IsBuiltIn = builtIn == 1
+		if smbWAR.Valid {
+			v := smbWAR.Float64
+			w.SmbWAR = &v
+		}
+
+		if e, ok := byAwardID[a.ID]; ok {
+			e.grp.Winners = append(e.grp.Winners, w)
+		} else {
+			groups = append(groups, models.AwardGroupSummary{Award: a, Winners: []models.AwardWinnerRow{w}})
+			byAwardID[a.ID] = &groupEntry{idx: len(groups) - 1, grp: &groups[len(groups)-1]}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return out, err
+	}
+
+	// Populate runner-up for single-winner batting or pitching groups.
+	for i := range groups {
+		g := &groups[i]
+		if len(g.Winners) != 1 {
+			continue
+		}
+		winnerPSID := g.Winners[0].PlayerSeasonID
+		if g.Award.IsBattingAward {
+			g.RunnerUp, err = s.queryRunnerUp(ctx, seasonID, winnerPSID, true)
+			if err != nil {
+				return out, fmt.Errorf("runner-up for batting award %d: %w", g.Award.ID, err)
+			}
+		} else if g.Award.IsPitchingAward {
+			g.RunnerUp, err = s.queryRunnerUp(ctx, seasonID, winnerPSID, false)
+			if err != nil {
+				return out, fmt.Errorf("runner-up for pitching award %d: %w", g.Award.ID, err)
+			}
+		}
+	}
+
+	if groups == nil {
+		groups = []models.AwardGroupSummary{}
+	}
+	out.Groups = groups
+	return out, nil
+}
+
+// queryRunnerUp returns the highest-smbWAR player-season in the given season
+// (regular season, batting or pitching) that is not the winner. Returns nil
+// when no qualifying runner-up exists.
+func (s *AwardStore) queryRunnerUp(ctx context.Context, seasonID, winnerPSID int64, isBatting bool) (*models.AwardWinnerRow, error) {
+	var q string
+	if isBatting {
+		q = `
+SELECT
+    ps.id, p.id, p.first_name, p.last_name,
+    COALESCE(tsh.team_name, '') AS team_name,
+    ps.primary_position, ps.pitcher_role,
+    COALESCE(b.ba, 0.0), COALESCE(b.home_runs, 0), COALESCE(b.rbi, 0),
+    0.0 AS era, 0 AS wins, 0 AS strikeouts,
+    b.smb_war
+FROM player_seasons ps
+JOIN players p ON p.id = ps.player_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
+JOIN player_season_batting_stats b ON b.player_season_id = ps.id AND b.is_regular_season = 1
+WHERE ps.season_id = ?
+  AND ps.id != ?
+ORDER BY COALESCE(b.smb_war, -9999.0) DESC
+LIMIT 1`
+	} else {
+		q = `
+SELECT
+    ps.id, p.id, p.first_name, p.last_name,
+    COALESCE(tsh.team_name, '') AS team_name,
+    ps.primary_position, ps.pitcher_role,
+    0.0 AS ba, 0 AS home_runs, 0 AS rbi,
+    COALESCE(pit.era, 0.0), COALESCE(pit.wins, 0), COALESCE(pit.strikeouts, 0),
+    pit.smb_war
+FROM player_seasons ps
+JOIN players p ON p.id = ps.player_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
+JOIN player_season_pitching_stats pit ON pit.player_season_id = ps.id AND pit.is_regular_season = 1
+WHERE ps.season_id = ?
+  AND ps.id != ?
+ORDER BY COALESCE(pit.smb_war, -9999.0) DESC
+LIMIT 1`
+	}
+
+	var w models.AwardWinnerRow
+	var smbWAR sql.NullFloat64
+	err := s.db.QueryRowContext(ctx, q, seasonID, winnerPSID).Scan(
+		&w.PlayerSeasonID, &w.PlayerID, &w.FirstName, &w.LastName,
+		&w.TeamName, &w.PrimaryPos, &w.PitcherRole,
+		&w.BA, &w.HR, &w.RBI,
+		&w.ERA, &w.Wins, &w.Strikeouts,
+		&smbWAR,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("querying runner-up: %w", err)
+	}
+	if smbWAR.Valid {
+		v := smbWAR.Float64
+		w.SmbWAR = &v
+	}
+	return &w, nil
+}
+
 // SetPlayerSeasonAwards replaces the user-assignable awards for one
 // player-season. Auto-computed awards (is_user_assignable=0) are untouched.
 func (s *AwardStore) SetPlayerSeasonAwards(ctx context.Context, playerSeasonID int64, awardIDs []int64) error {

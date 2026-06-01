@@ -181,3 +181,45 @@ type HoFPage struct {
 	Items []HoFCandidate
 	Total int
 }
+
+// ── Award view mode ───────────────────────────────────────────────────────────
+
+// AwardWinnerRow is one player who won a specific award, with key season stats
+// for the view mode card display.
+type AwardWinnerRow struct {
+	PlayerSeasonID int64
+	PlayerID       int64
+	FirstName      string
+	LastName       string
+	TeamName       string
+	PrimaryPos     string
+	PitcherRole    string
+	// Batting triple-crown stats (zero for pitching-only awards)
+	BA  float64
+	HR  int
+	RBI int
+	// Pitching triple-crown stats (zero for batting-only awards)
+	ERA        float64
+	Wins       int
+	Strikeouts int
+	// Nil for seasons imported before context stats were added (Phase 8.5)
+	SmbWAR *float64
+}
+
+// AwardGroupSummary is one award category with all winners for a season.
+// RunnerUp is nil when the award has multiple winners or no qualifying runner-up.
+type AwardGroupSummary struct {
+	Award    Award
+	Winners  []AwardWinnerRow
+	RunnerUp *AwardWinnerRow
+}
+
+// SeasonAwardSummary is the full personal-performance award view for one season.
+// Groups are ordered by award importance ASC, name ASC.
+// Championship/team awards are excluded — only batting, pitching, and fielding
+// awards are included.
+type SeasonAwardSummary struct {
+	SeasonID  int64
+	SeasonNum int
+	Groups    []AwardGroupSummary
+}

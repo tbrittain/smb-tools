@@ -980,9 +980,10 @@ type BattingCandidateDTO struct {
 	BA             float64 `json:"ba"`
 	OBP            float64 `json:"obp"`
 	SLG            float64 `json:"slg"`
-	OPS                 float64 `json:"ops"`
-	IsChampionTeam      bool    `json:"isChampionTeam"`
-	AwardIDs            []int64 `json:"awardIds"`
+	OPS             float64  `json:"ops"`
+	SmbWar          *float64 `json:"smbWar"`
+	IsChampionTeam  bool     `json:"isChampionTeam"`
+	AwardIDs        []int64  `json:"awardIds"`
 }
 
 // PitchingCandidateDTO is one player row in an award delegation pitching section.
@@ -1011,9 +1012,10 @@ type PitchingCandidateDTO struct {
 	BB9             float64 `json:"bb9"`
 	H9              float64 `json:"h9"`
 	HR9             float64 `json:"hr9"`
-	KPerBB              float64 `json:"kPerBb"`
-	IsChampionTeam      bool    `json:"isChampionTeam"`
-	AwardIDs            []int64 `json:"awardIds"`
+	KPerBB         float64  `json:"kPerBb"`
+	SmbWar         *float64 `json:"smbWar"`
+	IsChampionTeam bool     `json:"isChampionTeam"`
+	AwardIDs       []int64  `json:"awardIds"`
 }
 
 // TeamAwardCandidatesDTO groups the top batters and pitchers for one team.
@@ -1059,6 +1061,42 @@ type PlayerAwardEntryDTO struct {
 	AwardIDs       []int64 `json:"awardIds"`
 }
 
+// ── Award view mode DTOs ──────────────────────────────────────────────────────
+
+// AwardWinnerRowDTO is one player who won an award, with key season stats.
+type AwardWinnerRowDTO struct {
+	PlayerSeasonID int64    `json:"playerSeasonId"`
+	PlayerID       int64    `json:"playerId"`
+	FirstName      string   `json:"firstName"`
+	LastName       string   `json:"lastName"`
+	TeamName       string   `json:"teamName"`
+	PrimaryPos     string   `json:"primaryPosition"`
+	PitcherRole    string   `json:"pitcherRole"`
+	BA             float64  `json:"ba"`
+	HR             int      `json:"hr"`
+	RBI            int      `json:"rbi"`
+	ERA            float64  `json:"era"`
+	Wins           int      `json:"wins"`
+	Strikeouts     int      `json:"strikeouts"`
+	SmbWar         *float64 `json:"smbWar"` // null for pre-Phase-8.5 seasons
+}
+
+// AwardGroupSummaryDTO is one award category with all personal-performance winners.
+// RunnerUp is null when the award has multiple winners or no qualifying runner-up.
+type AwardGroupSummaryDTO struct {
+	AwardID   int64               `json:"awardId"`
+	AwardName string              `json:"awardName"`
+	Winners   []AwardWinnerRowDTO `json:"winners"`
+	RunnerUp  *AwardWinnerRowDTO  `json:"runnerUp"`
+}
+
+// SeasonAwardSummaryDTO is the full award view for one season.
+type SeasonAwardSummaryDTO struct {
+	SeasonID  int64                  `json:"seasonId"`
+	SeasonNum int                    `json:"seasonNum"`
+	Groups    []AwardGroupSummaryDTO `json:"groups"`
+}
+
 func battingCandidateToDTO(c models.BattingCandidate) BattingCandidateDTO {
 	ids := c.AwardIDs
 	if ids == nil {
@@ -1072,8 +1110,9 @@ func battingCandidateToDTO(c models.BattingCandidate) BattingCandidateDTO {
 		Walks: c.Walks, Runs: c.Runs, StolenBases: c.StolenBases,
 		Strikeouts: c.Strikeouts, Doubles: c.Doubles, Triples: c.Triples,
 		BA: c.BA, OBP: c.OBP, SLG: c.SLG, OPS: c.OPS,
+		SmbWar:         c.SmbWAR,
 		IsChampionTeam: c.IsChampionTeam,
-		AwardIDs:            ids,
+		AwardIDs:       ids,
 	}
 }
 
@@ -1091,8 +1130,9 @@ func pitchingCandidateToDTO(c models.PitchingCandidate) PitchingCandidateDTO {
 		Walks: c.Walks, Strikeouts: c.Strikeouts,
 		HomeRunsAllowed: c.HomeRunsAllowed, CompleteGames: c.CompleteGames, Shutouts: c.Shutouts,
 		ERA: c.ERA, WHIP: c.WHIP, K9: c.K9, BB9: c.BB9, H9: c.H9, HR9: c.HR9, KPerBB: c.KPerBB,
+		SmbWar:         c.SmbWAR,
 		IsChampionTeam: c.IsChampionTeam,
-		AwardIDs:            ids,
+		AwardIDs:       ids,
 	}
 }
 
@@ -1136,6 +1176,51 @@ func seasonAwardCandidatesToDTO(m models.SeasonAwardCandidates) SeasonAwardCandi
 		ChampionBatters:  mapB(m.ChampionBatters),
 		ChampionPitchers: mapP(m.ChampionPitchers),
 		AutoSuggested:    m.AutoSuggested,
+	}
+}
+
+func awardWinnerRowToDTO(w models.AwardWinnerRow) AwardWinnerRowDTO {
+	return AwardWinnerRowDTO{
+		PlayerSeasonID: w.PlayerSeasonID,
+		PlayerID:       w.PlayerID,
+		FirstName:      w.FirstName,
+		LastName:       w.LastName,
+		TeamName:       w.TeamName,
+		PrimaryPos:     w.PrimaryPos,
+		PitcherRole:    w.PitcherRole,
+		BA:             w.BA,
+		HR:             w.HR,
+		RBI:            w.RBI,
+		ERA:            w.ERA,
+		Wins:           w.Wins,
+		Strikeouts:     w.Strikeouts,
+		SmbWar:         w.SmbWAR,
+	}
+}
+
+func seasonAwardSummaryToDTO(m models.SeasonAwardSummary) SeasonAwardSummaryDTO {
+	groups := make([]AwardGroupSummaryDTO, len(m.Groups))
+	for i, g := range m.Groups {
+		winners := make([]AwardWinnerRowDTO, len(g.Winners))
+		for j, w := range g.Winners {
+			winners[j] = awardWinnerRowToDTO(w)
+		}
+		var runnerUp *AwardWinnerRowDTO
+		if g.RunnerUp != nil {
+			r := awardWinnerRowToDTO(*g.RunnerUp)
+			runnerUp = &r
+		}
+		groups[i] = AwardGroupSummaryDTO{
+			AwardID:   g.Award.ID,
+			AwardName: g.Award.Name,
+			Winners:   winners,
+			RunnerUp:  runnerUp,
+		}
+	}
+	return SeasonAwardSummaryDTO{
+		SeasonID:  m.SeasonID,
+		SeasonNum: m.SeasonNum,
+		Groups:    groups,
 	}
 }
 

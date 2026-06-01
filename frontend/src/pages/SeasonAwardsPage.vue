@@ -4,15 +4,18 @@ import DataTable from 'primevue/datatable'
 import MultiSelect from 'primevue/multiselect'
 import { useToast } from 'primevue/usetoast'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   ComputeSeasonStatLeaderAwards,
   GetSeasonAwardCandidates,
+  GetSeasonAwardSummary,
   GetSeasonList,
   ListAllAwards,
   SubmitSeasonAwards,
 } from '../../wailsjs/go/main/App'
 import { main } from '../../wailsjs/go/models'
 import AppLink from '../components/AppLink.vue'
+import AwardsViewCard from '../components/AwardsViewCard.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import SeasonSelector from '../components/SeasonSelector.vue'
@@ -20,6 +23,7 @@ import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 
 const props = defineProps<{
   initialSeasonId?: number
+  initialView?: boolean
 }>()
 
 // ── Local types ───────────────────────────────────────────────────────────────
@@ -46,12 +50,44 @@ const allAwards = ref<main.AwardDTO[]>([])
 // when a specific playerSeasonId's awards change, preventing cross-player contamination.
 const pending = reactive<Record<number, number[]>>({})
 
+const route = useRoute()
+const router = useRouter()
 const toast = useToast()
 
 const loadingSeasons = ref(false)
 const loadingCandidates = ref(false)
 const submitting = ref(false)
 const error = ref<string | null>(null)
+
+// ── View mode ─────────────────────────────────────────────────────────────────
+
+const viewMode = ref(props.initialView ?? false)
+const awardSummary = ref<main.SeasonAwardSummaryDTO | null>(null)
+const loadingView = ref(false)
+
+async function loadAwardSummary(id: number) {
+  loadingView.value = true
+  error.value = null
+  try {
+    awardSummary.value = await GetSeasonAwardSummary(id)
+  } catch (e) {
+    error.value = String(e)
+  } finally {
+    loadingView.value = false
+  }
+}
+
+function enterViewMode() {
+  viewMode.value = true
+  router.push({ query: { ...route.query, view: '1' } })
+}
+
+function exitViewMode() {
+  viewMode.value = false
+  const q = { ...route.query }
+  delete q.view
+  router.push({ query: q })
+}
 
 const regularAwards = computed(() => allAwards.value.filter((a) => !a.isPlayoffAward && a.isUserAssignable))
 const playoffAwards = computed(() => allAwards.value.filter((a) => a.isPlayoffAward && a.isUserAssignable))
@@ -194,8 +230,19 @@ function formatRate(v: number, digits: number): string {
   return v.toFixed(digits).replace(/^0\./, '.')
 }
 
+function formatSmbWar(v: number | null | undefined): string {
+  return v != null ? v.toFixed(1) : '—'
+}
+
 watch(selectedSeasonId, (id) => {
-  if (id != null) loadCandidates(id)
+  if (id != null) {
+    loadCandidates(id)
+    if (viewMode.value) loadAwardSummary(id)
+  }
+})
+
+watch(viewMode, (on) => {
+  if (on && selectedSeasonId.value != null) loadAwardSummary(selectedSeasonId.value)
 })
 
 const { set } = useBreadcrumbs()
@@ -212,7 +259,11 @@ onMounted(loadSeasons)
         <SeasonSelector v-model="selectedSeasonId" :seasons="seasons" />
       </div>
       <div class="header-actions">
+        <button class="btn btn-ghost" @click="viewMode ? exitViewMode() : enterViewMode()">
+          {{ viewMode ? 'Edit Awards' : 'View Awards' }}
+        </button>
         <button
+          v-if="!viewMode"
           class="btn btn-primary"
           :disabled="submitting || selectedSeasonId == null"
           @click="submitAwards"
@@ -231,9 +282,22 @@ onMounted(loadSeasons)
 
     <LoadingSpinner v-if="loadingSeasons || loadingCandidates" />
 
-    <EmptyState v-else-if="!candidates" message="No seasons synced yet." />
+    <EmptyState v-else-if="!candidates && !viewMode" message="No seasons synced yet." />
 
-    <div v-else class="sections">
+    <!-- ── View mode ──────────────────────────────────────────────────────── -->
+    <template v-if="viewMode">
+      <LoadingSpinner v-if="loadingView" />
+      <EmptyState
+        v-else-if="!awardSummary || !awardSummary.groups.length"
+        message="No awards delegated yet for this season."
+      />
+      <div v-else class="award-cards-grid">
+        <AwardsViewCard v-for="g in awardSummary.groups" :key="g.awardId" :group="g" />
+      </div>
+    </template>
+
+    <!-- ── Delegation mode ────────────────────────────────────────────────── -->
+    <div v-else-if="candidates" class="sections">
 
       <!-- ── Top Batting Overall ──────────────────────────────────────────── -->
       <section class="award-section">
@@ -247,7 +311,7 @@ onMounted(loadSeasons)
                 <th class="col-pos">Pos</th>
                 <th>AB</th><th>H</th><th>HR</th><th>RBI</th>
                 <th>BB</th><th>R</th><th>SB</th>
-                <th>BA</th><th>OBP</th><th>SLG</th><th>OPS</th>
+                <th>BA</th><th>OBP</th><th>SLG</th><th>OPS</th><th>WAR</th>
                 <th class="col-awards">Awards</th>
               </tr>
             </thead>
@@ -255,7 +319,7 @@ onMounted(loadSeasons)
               <tr v-for="r in candidates.topBatters" :key="r.playerSeasonId">
                 <td class="col-player">
                   <AppLink :to="`/players/${r.playerId}`" class="player-link">
-                    {{ r.lastName }}, {{ r.firstName }}
+                    {{ r.firstName }} {{ r.lastName }}
                   </AppLink>
                 </td>
                 <td class="col-team">{{ r.teamName }}</td>
@@ -271,6 +335,7 @@ onMounted(loadSeasons)
                 <td>{{ formatRate(r.obp, 3) }}</td>
                 <td>{{ formatRate(r.slg, 3) }}</td>
                 <td class="stat-highlight">{{ formatRate(r.ops, 3) }}</td>
+                <td>{{ formatSmbWar(r.smbWar) }}</td>
                 <td class="col-awards">
                   <MultiSelect
                     :model-value="getRegularAwardIds(r.playerSeasonId)"
@@ -285,7 +350,7 @@ onMounted(loadSeasons)
                 </td>
               </tr>
               <tr v-if="!candidates.topBatters?.length">
-                <td colspan="15" class="empty-row">No batting data for this season.</td>
+                <td colspan="16" class="empty-row">No batting data for this season.</td>
               </tr>
             </tbody>
           </table>
@@ -304,7 +369,7 @@ onMounted(loadSeasons)
                 <th class="col-pos">Role</th>
                 <th>W</th><th>L</th><th>SV</th><th>IP</th>
                 <th>K</th><th>BB</th><th>ERA</th>
-                <th>WHIP</th><th>K/9</th><th>H/9</th>
+                <th>WHIP</th><th>K/9</th><th>H/9</th><th>WAR</th>
                 <th class="col-awards">Awards</th>
               </tr>
             </thead>
@@ -312,7 +377,7 @@ onMounted(loadSeasons)
               <tr v-for="r in candidates.topPitchers" :key="r.playerSeasonId">
                 <td class="col-player">
                   <AppLink :to="`/players/${r.playerId}`" class="player-link">
-                    {{ r.lastName }}, {{ r.firstName }}
+                    {{ r.firstName }} {{ r.lastName }}
                   </AppLink>
                 </td>
                 <td class="col-team">{{ r.teamName }}</td>
@@ -327,6 +392,7 @@ onMounted(loadSeasons)
                 <td>{{ formatRate(r.whip, 2) }}</td>
                 <td>{{ formatRate(r.k9, 2) }}</td>
                 <td>{{ formatRate(r.h9, 2) }}</td>
+                <td>{{ formatSmbWar(r.smbWar) }}</td>
                 <td class="col-awards">
                   <MultiSelect
                     :model-value="getRegularAwardIds(r.playerSeasonId)"
@@ -341,7 +407,7 @@ onMounted(loadSeasons)
                 </td>
               </tr>
               <tr v-if="!candidates.topPitchers?.length">
-                <td colspan="14" class="empty-row">No pitching data for this season.</td>
+                <td colspan="15" class="empty-row">No pitching data for this season.</td>
               </tr>
             </tbody>
           </table>
@@ -360,7 +426,7 @@ onMounted(loadSeasons)
                 <th class="col-pos">Pos</th>
                 <th>AB</th><th>H</th><th>HR</th><th>RBI</th>
                 <th>BB</th><th>R</th><th>SB</th>
-                <th>BA</th><th>OBP</th><th>SLG</th><th>OPS</th>
+                <th>BA</th><th>OBP</th><th>SLG</th><th>OPS</th><th>WAR</th>
                 <th class="col-awards">Awards</th>
               </tr>
             </thead>
@@ -368,7 +434,7 @@ onMounted(loadSeasons)
               <tr v-for="r in candidates.topRookieBatters" :key="r.playerSeasonId">
                 <td class="col-player">
                   <AppLink :to="`/players/${r.playerId}`" class="player-link">
-                    {{ r.lastName }}, {{ r.firstName }}
+                    {{ r.firstName }} {{ r.lastName }}
                   </AppLink>
                 </td>
                 <td class="col-team">{{ r.teamName }}</td>
@@ -380,6 +446,7 @@ onMounted(loadSeasons)
                 <td>{{ formatRate(r.obp, 3) }}</td>
                 <td>{{ formatRate(r.slg, 3) }}</td>
                 <td class="stat-highlight">{{ formatRate(r.ops, 3) }}</td>
+                <td>{{ formatSmbWar(r.smbWar) }}</td>
                 <td class="col-awards">
                   <MultiSelect
                     :model-value="getRegularAwardIds(r.playerSeasonId)"
@@ -410,7 +477,7 @@ onMounted(loadSeasons)
                 <th class="col-pos">Role</th>
                 <th>W</th><th>L</th><th>SV</th><th>IP</th>
                 <th>K</th><th>BB</th><th>ERA</th>
-                <th>WHIP</th><th>K/9</th><th>H/9</th>
+                <th>WHIP</th><th>K/9</th><th>H/9</th><th>WAR</th>
                 <th class="col-awards">Awards</th>
               </tr>
             </thead>
@@ -418,7 +485,7 @@ onMounted(loadSeasons)
               <tr v-for="r in candidates.topRookiePitchers" :key="r.playerSeasonId">
                 <td class="col-player">
                   <AppLink :to="`/players/${r.playerId}`" class="player-link">
-                    {{ r.lastName }}, {{ r.firstName }}
+                    {{ r.firstName }} {{ r.lastName }}
                   </AppLink>
                 </td>
                 <td class="col-team">{{ r.teamName }}</td>
@@ -430,6 +497,7 @@ onMounted(loadSeasons)
                 <td>{{ formatRate(r.whip, 2) }}</td>
                 <td>{{ formatRate(r.k9, 2) }}</td>
                 <td>{{ formatRate(r.h9, 2) }}</td>
+                <td>{{ formatSmbWar(r.smbWar) }}</td>
                 <td class="col-awards">
                   <MultiSelect
                     :model-value="getRegularAwardIds(r.playerSeasonId)"
@@ -464,7 +532,7 @@ onMounted(loadSeasons)
                       <th class="col-player">Batter</th>
                       <th class="col-pos">Pos</th>
                       <th>AB</th><th>H</th><th>HR</th><th>RBI</th>
-                      <th>BA</th><th>OPS</th>
+                      <th>BA</th><th>OPS</th><th>WAR</th>
                       <th class="col-awards">Awards</th>
                     </tr>
                   </thead>
@@ -472,7 +540,7 @@ onMounted(loadSeasons)
                     <tr v-for="r in team.batters" :key="r.playerSeasonId">
                       <td class="col-player">
                         <AppLink :to="`/players/${r.playerId}`" class="player-link">
-                          {{ r.lastName }}, {{ r.firstName }}
+                          {{ r.firstName }} {{ r.lastName }}
                         </AppLink>
                       </td>
                       <td class="col-pos">{{ r.primaryPosition }}</td>
@@ -482,6 +550,7 @@ onMounted(loadSeasons)
                       <td>{{ r.rbi }}</td>
                       <td>{{ formatRate(r.ba, 3) }}</td>
                       <td class="stat-highlight">{{ formatRate(r.ops, 3) }}</td>
+                      <td>{{ formatSmbWar(r.smbWar) }}</td>
                       <td class="col-awards">
                         <MultiSelect
                           :model-value="getRegularAwardIds(r.playerSeasonId)"
@@ -507,7 +576,7 @@ onMounted(loadSeasons)
                       <th class="col-player">Pitcher</th>
                       <th class="col-pos">Role</th>
                       <th>W</th><th>L</th><th>SV</th><th>IP</th>
-                      <th>K</th><th>ERA</th>
+                      <th>K</th><th>ERA</th><th>WAR</th>
                       <th class="col-awards">Awards</th>
                     </tr>
                   </thead>
@@ -515,7 +584,7 @@ onMounted(loadSeasons)
                     <tr v-for="r in team.pitchers" :key="r.playerSeasonId">
                       <td class="col-player">
                         <AppLink :to="`/players/${r.playerId}`" class="player-link">
-                          {{ r.lastName }}, {{ r.firstName }}
+                          {{ r.firstName }} {{ r.lastName }}
                         </AppLink>
                       </td>
                       <td class="col-pos">{{ r.pitcherRole }}</td>
@@ -525,6 +594,7 @@ onMounted(loadSeasons)
                       <td>{{ formatIP(r.outsPitched) }}</td>
                       <td>{{ r.strikeouts }}</td>
                       <td class="stat-highlight">{{ formatRate(r.era, 2) }}</td>
+                      <td>{{ formatSmbWar(r.smbWar) }}</td>
                       <td class="col-awards">
                         <MultiSelect
                           :model-value="getRegularAwardIds(r.playerSeasonId)"
@@ -559,7 +629,7 @@ onMounted(loadSeasons)
                     <th class="col-player">Player</th>
                     <th class="col-team">Team</th>
                     <th>AB</th><th>H</th><th>HR</th><th>RBI</th>
-                    <th>BA</th><th>OPS</th>
+                    <th>BA</th><th>OPS</th><th>WAR</th>
                     <th class="col-awards">Awards</th>
                   </tr>
                 </thead>
@@ -567,7 +637,7 @@ onMounted(loadSeasons)
                   <tr v-for="r in pos.batters" :key="r.playerSeasonId">
                     <td class="col-player">
                       <AppLink :to="`/players/${r.playerId}`" class="player-link">
-                        {{ r.lastName }}, {{ r.firstName }}
+                        {{ r.firstName }} {{ r.lastName }}
                       </AppLink>
                     </td>
                     <td class="col-team">{{ r.teamName }}</td>
@@ -577,6 +647,7 @@ onMounted(loadSeasons)
                     <td>{{ r.rbi }}</td>
                     <td>{{ formatRate(r.ba, 3) }}</td>
                     <td class="stat-highlight">{{ formatRate(r.ops, 3) }}</td>
+                    <td>{{ formatSmbWar(r.smbWar) }}</td>
                     <td class="col-awards">
                       <MultiSelect
                         :model-value="getRegularAwardIds(r.playerSeasonId)"
@@ -620,7 +691,7 @@ onMounted(loadSeasons)
             <template #body="{ data }">
               <span v-if="data.isChampionTeam" aria-hidden="true">🏆 </span>
               <AppLink :to="`/players/${data.playerId}`" class="player-link">
-                {{ data.lastName }}, {{ data.firstName }}
+                {{ data.firstName }} {{ data.lastName }}
               </AppLink>
             </template>
           </Column>
@@ -644,6 +715,9 @@ onMounted(loadSeasons)
           </Column>
           <Column header="OPS">
             <template #body="{ data }"><strong>{{ formatRate(data.ops, 3) }}</strong></template>
+          </Column>
+          <Column header="WAR">
+            <template #body="{ data }">{{ formatSmbWar(data.smbWar) }}</template>
           </Column>
           <Column header="Playoff Award" style="min-width: 180px">
             <template #body="{ data }">
@@ -672,7 +746,7 @@ onMounted(loadSeasons)
             <template #body="{ data }">
               <span v-if="data.isChampionTeam" aria-hidden="true">🏆 </span>
               <AppLink :to="`/players/${data.playerId}`" class="player-link">
-                {{ data.lastName }}, {{ data.firstName }}
+                {{ data.firstName }} {{ data.lastName }}
               </AppLink>
             </template>
           </Column>
@@ -691,6 +765,9 @@ onMounted(loadSeasons)
           </Column>
           <Column header="WHIP">
             <template #body="{ data }">{{ formatRate(data.whip, 2) }}</template>
+          </Column>
+          <Column header="WAR">
+            <template #body="{ data }">{{ formatSmbWar(data.smbWar) }}</template>
           </Column>
           <Column header="Playoff Award" style="min-width: 180px">
             <template #body="{ data }">
@@ -715,8 +792,8 @@ onMounted(loadSeasons)
 
     </div>
 
-    <!-- Sticky submit bar at bottom -->
-    <div class="submit-bar">
+    <!-- Sticky submit bar — delegation mode only -->
+    <div v-if="!viewMode" class="submit-bar">
       <span v-if="candidates?.autoSuggested" class="suggest-note">
         Auto-suggested awards loaded — review and submit.
       </span>
@@ -824,6 +901,12 @@ onMounted(loadSeasons)
   display: flex;
   flex-direction: column;
   gap: 2rem;
+}
+
+.award-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
 }
 
 .award-section {

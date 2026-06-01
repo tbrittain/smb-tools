@@ -46,6 +46,8 @@ export function GetSaveFileCandidates():Promise<Array<main.SaveFileCandidateDTO>
 
 export function GetSeasonAwardCandidates(arg1:number):Promise<main.SeasonAwardCandidatesDTO>;
 
+export function GetSeasonAwardSummary(arg1:number):Promise<main.SeasonAwardSummaryDTO>;
+
 export function GetSeasonChampionTeamHistoryID(arg1:number):Promise<any>;
 
 export function GetSeasonList():Promise<Array<main.SeasonSummaryDTO>>;

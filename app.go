@@ -1407,6 +1407,20 @@ func (a *App) ComputeSeasonStatLeaderAwards(seasonID int64) error {
 	return a.awardStore.ComputeAndAssignStatLeaderAwards(a.ctx, seasonID)
 }
 
+// GetSeasonAwardSummary returns personal-performance awards delegated for the
+// given season, grouped by award type, for display in read-only view mode.
+// Championship and team awards are excluded.
+func (a *App) GetSeasonAwardSummary(seasonID int64) (SeasonAwardSummaryDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return SeasonAwardSummaryDTO{}, err
+	}
+	summary, err := a.awardStore.GetSeasonAwardSummary(a.ctx, seasonID)
+	if err != nil {
+		return SeasonAwardSummaryDTO{}, err
+	}
+	return seasonAwardSummaryToDTO(summary), nil
+}
+
 // GetSeasonChampionTeamHistoryID returns the team_season_history_id of the
 // playoff champion for the season, or nil if not yet determinable.
 func (a *App) GetSeasonChampionTeamHistoryID(seasonID int64) (*int64, error) {
