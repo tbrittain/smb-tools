@@ -1093,23 +1093,21 @@ func (a *App) ListAllTeamSeasons() ([]TeamSeasonListDTO, error) {
 
 // ---- Leaderboard query bindings --------------------------------------------
 
-// GetBattingCareerLeaders returns career batting totals for all players matching
-// the given filters. Rate stats are computed before returning. The full result
-// set is returned; sorting and pagination are handled client-side.
-func (a *App) GetBattingCareerLeaders(filters LeaderboardFiltersDTO) ([]BattingLeaderRowDTO, error) {
+// GetBattingCareerLeaders returns a paginated page of career batting totals for
+// players matching the given filters. Rate stats are computed inline by the store.
+func (a *App) GetBattingCareerLeaders(filters LeaderboardFiltersDTO) (BattingLeaderPageDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
-		return nil, err
+		return BattingLeaderPageDTO{}, err
 	}
-	rows, err := a.leaderboardQueryStore.GetBattingCareerLeaders(a.ctx, leaderboardFiltersToDomain(filters))
+	rows, total, err := a.leaderboardQueryStore.GetBattingCareerLeaders(a.ctx, leaderboardFiltersToDomain(filters))
 	if err != nil {
-		return nil, err
+		return BattingLeaderPageDTO{}, err
 	}
 	out := make([]BattingLeaderRowDTO, len(rows))
 	for i := range rows {
-		service.ComputeBattingRates(&rows[i].CareerBattingStats)
 		out[i] = battingCareerLeaderToDTO(rows[i])
 	}
-	return out, nil
+	return BattingLeaderPageDTO{Rows: out, Total: total}, nil
 }
 
 // GetBattingSeasonLeaders returns a paginated page of per-season batting stats
@@ -1129,22 +1127,21 @@ func (a *App) GetBattingSeasonLeaders(filters LeaderboardFiltersDTO) (BattingLea
 	return BattingLeaderPageDTO{Rows: out, Total: total}, nil
 }
 
-// GetPitchingCareerLeaders returns career pitching totals for all players matching
-// the given filters. Rate stats are computed before returning.
-func (a *App) GetPitchingCareerLeaders(filters LeaderboardFiltersDTO) ([]PitchingLeaderRowDTO, error) {
+// GetPitchingCareerLeaders returns a paginated page of career pitching totals for
+// players matching the given filters. Rate stats are computed inline by the store.
+func (a *App) GetPitchingCareerLeaders(filters LeaderboardFiltersDTO) (PitchingLeaderPageDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
-		return nil, err
+		return PitchingLeaderPageDTO{}, err
 	}
-	rows, err := a.leaderboardQueryStore.GetPitchingCareerLeaders(a.ctx, leaderboardFiltersToDomain(filters))
+	rows, total, err := a.leaderboardQueryStore.GetPitchingCareerLeaders(a.ctx, leaderboardFiltersToDomain(filters))
 	if err != nil {
-		return nil, err
+		return PitchingLeaderPageDTO{}, err
 	}
 	out := make([]PitchingLeaderRowDTO, len(rows))
 	for i := range rows {
-		service.ComputePitchingRates(&rows[i].CareerPitchingStats)
 		out[i] = pitchingCareerLeaderToDTO(rows[i])
 	}
-	return out, nil
+	return PitchingLeaderPageDTO{Rows: out, Total: total}, nil
 }
 
 // GetPitchingSeasonLeaders returns a paginated page of per-season pitching stats

@@ -614,7 +614,7 @@ func playoffGameToDTO(g models.PlayoffGameRow) PlayoffGameDTO {
 
 // LeaderboardFiltersDTO carries filter parameters from the frontend.
 // Zero values (empty string, false, 0) mean "no filter applied".
-// SortField/SortDesc/Offset/PageSize are used only by season leader queries.
+// SortField/SortDesc/Offset/PageSize are used by both career and season leader queries.
 // Traits filters season leaderboards by AND logic (max 2); SMB4 only.
 // GameType controls which stats are included: "regular" (default/empty), "playoffs", or "combined".
 // QualifiedOnly filters season leaderboards to players meeting the MLB qualification threshold
@@ -636,13 +636,13 @@ type LeaderboardFiltersDTO struct {
 	PageSize         int      `json:"pageSize"`
 }
 
-// BattingLeaderPageDTO is the server-side pagination envelope for batting season leaders.
+// BattingLeaderPageDTO is the server-side pagination envelope for batting leaderboards.
 type BattingLeaderPageDTO struct {
 	Rows  []BattingLeaderRowDTO `json:"rows"`
 	Total int                   `json:"total"`
 }
 
-// PitchingLeaderPageDTO is the server-side pagination envelope for pitching season leaders.
+// PitchingLeaderPageDTO is the server-side pagination envelope for pitching leaderboards.
 type PitchingLeaderPageDTO struct {
 	Rows  []PitchingLeaderRowDTO `json:"rows"`
 	Total int                    `json:"total"`

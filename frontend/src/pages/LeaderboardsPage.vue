@@ -18,6 +18,11 @@ import { useStatHighlightsStore } from '../stores/statHighlights'
 
 type LeaderboardTab = 'batting-career' | 'batting-season' | 'pitching-career' | 'pitching-season'
 
+interface PageCache<T> {
+  rows: T[]
+  total: number
+}
+
 const { set } = useBreadcrumbs()
 const highlightsStore = useStatHighlightsStore()
 
@@ -47,33 +52,158 @@ const filters = ref<main.LeaderboardFiltersDTO>(defaultFilters())
 const seasons = ref<main.SeasonSummaryDTO[]>([])
 
 const battingCareerRows = ref<main.BattingLeaderRowDTO[]>([])
+const battingCareerTotal = ref(0)
 const battingSeasonRows = ref<main.BattingLeaderRowDTO[]>([])
 const battingSeasonTotal = ref(0)
 const pitchingCareerRows = ref<main.PitchingLeaderRowDTO[]>([])
+const pitchingCareerTotal = ref(0)
 const pitchingSeasonRows = ref<main.PitchingLeaderRowDTO[]>([])
 const pitchingSeasonTotal = ref(0)
 
-// Separate sort/page state for each season leaderboard so switching tabs
-// preserves the user's position.
+const battingCareerSort = ref({ field: '', desc: true })
+const battingCareerFirst = ref(0)
 const battingSeasonSort = ref({ field: '', desc: true })
 const battingSeasonFirst = ref(0)
+const pitchingCareerSort = ref({ field: '', desc: true })
+const pitchingCareerFirst = ref(0)
 const pitchingSeasonSort = ref({ field: '', desc: true })
 const pitchingSeasonFirst = ref(0)
+
+// ── Prefetch caches ───────────────────────────────────────────────────────────
+// Each cache is a Map keyed by a canonical representation of filter+sort+offset.
+// Cleared on filter/sort changes; generation counter prevents stale writes.
+
+let battingCareerCache = new Map<string, PageCache<main.BattingLeaderRowDTO>>()
+let battingCareerGen = 0
+let battingSeasonCache = new Map<string, PageCache<main.BattingLeaderRowDTO>>()
+let battingSeasonGen = 0
+let pitchingCareerCache = new Map<string, PageCache<main.PitchingLeaderRowDTO>>()
+let pitchingCareerGen = 0
+let pitchingSeasonCache = new Map<string, PageCache<main.PitchingLeaderRowDTO>>()
+let pitchingSeasonGen = 0
+
+function clearAllCaches() {
+  battingCareerCache = new Map()
+  battingCareerGen++
+  battingSeasonCache = new Map()
+  battingSeasonGen++
+  pitchingCareerCache = new Map()
+  pitchingCareerGen++
+  pitchingSeasonCache = new Map()
+  pitchingSeasonGen++
+}
+
+function cacheKey(f: main.LeaderboardFiltersDTO, sortField: string, sortDesc: boolean, offset: number): string {
+  return JSON.stringify({ ...f, sortField, sortDesc, offset })
+}
+
+async function prefetchBattingCareer(offset: number, gen: number): Promise<void> {
+  if (offset < 0) return
+  const key = cacheKey(filters.value, battingCareerSort.value.field, battingCareerSort.value.desc, offset)
+  if (battingCareerCache.has(key)) return
+  try {
+    const page = await GetBattingCareerLeaders(
+      new main.LeaderboardFiltersDTO({
+        ...filters.value,
+        sortField: battingCareerSort.value.field,
+        sortDesc: battingCareerSort.value.desc,
+        offset,
+        pageSize: 50,
+      }),
+    )
+    if (battingCareerGen === gen) {
+      battingCareerCache.set(key, { rows: page.rows ?? [], total: page.total ?? 0 })
+    }
+  } catch {
+    /* prefetch failures are silent */
+  }
+}
+
+async function prefetchBattingSeason(offset: number, gen: number): Promise<void> {
+  if (offset < 0) return
+  const key = cacheKey(filters.value, battingSeasonSort.value.field, battingSeasonSort.value.desc, offset)
+  if (battingSeasonCache.has(key)) return
+  try {
+    const page = await GetBattingSeasonLeaders(
+      new main.LeaderboardFiltersDTO({
+        ...filters.value,
+        sortField: battingSeasonSort.value.field,
+        sortDesc: battingSeasonSort.value.desc,
+        offset,
+        pageSize: 50,
+      }),
+    )
+    if (battingSeasonGen === gen) {
+      battingSeasonCache.set(key, { rows: page.rows ?? [], total: page.total ?? 0 })
+    }
+  } catch {
+    /* prefetch failures are silent */
+  }
+}
+
+async function prefetchPitchingCareer(offset: number, gen: number): Promise<void> {
+  if (offset < 0) return
+  const key = cacheKey(filters.value, pitchingCareerSort.value.field, pitchingCareerSort.value.desc, offset)
+  if (pitchingCareerCache.has(key)) return
+  try {
+    const page = await GetPitchingCareerLeaders(
+      new main.LeaderboardFiltersDTO({
+        ...filters.value,
+        sortField: pitchingCareerSort.value.field,
+        sortDesc: pitchingCareerSort.value.desc,
+        offset,
+        pageSize: 50,
+      }),
+    )
+    if (pitchingCareerGen === gen) {
+      pitchingCareerCache.set(key, { rows: page.rows ?? [], total: page.total ?? 0 })
+    }
+  } catch {
+    /* prefetch failures are silent */
+  }
+}
+
+async function prefetchPitchingSeason(offset: number, gen: number): Promise<void> {
+  if (offset < 0) return
+  const key = cacheKey(filters.value, pitchingSeasonSort.value.field, pitchingSeasonSort.value.desc, offset)
+  if (pitchingSeasonCache.has(key)) return
+  try {
+    const page = await GetPitchingSeasonLeaders(
+      new main.LeaderboardFiltersDTO({
+        ...filters.value,
+        sortField: pitchingSeasonSort.value.field,
+        sortDesc: pitchingSeasonSort.value.desc,
+        offset,
+        pageSize: 50,
+      }),
+    )
+    if (pitchingSeasonGen === gen) {
+      pitchingSeasonCache.set(key, { rows: page.rows ?? [], total: page.total ?? 0 })
+    }
+  } catch {
+    /* prefetch failures are silent */
+  }
+}
+
+// ── Loading state ─────────────────────────────────────────────────────────────
 
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-const isCareer = computed(() => activeTab.value === 'batting-career' || activeTab.value === 'pitching-career')
 const filterMode = computed<'batting' | 'pitching'>(() =>
   activeTab.value.startsWith('batting') ? 'batting' : 'pitching',
 )
+const isCareer = computed(() => activeTab.value === 'batting-career' || activeTab.value === 'pitching-career')
 
-// Reset page to 0 when filters or tab change; keep sort.
+// Reset page to 0 and clear caches when filters or tab change.
 watch(
   [activeTab, filters],
   () => {
+    battingCareerFirst.value = 0
     battingSeasonFirst.value = 0
+    pitchingCareerFirst.value = 0
     pitchingSeasonFirst.value = 0
+    clearAllCaches()
     loadCurrentTab()
   },
   { deep: true },
@@ -94,42 +224,117 @@ async function loadCurrentTab() {
   loading.value = true
   error.value = null
   try {
-    const f = filters.value
     switch (activeTab.value) {
-      case 'batting-career':
-        battingCareerRows.value = await GetBattingCareerLeaders(f)
-        break
-      case 'batting-season': {
-        const s = battingSeasonSort.value
-        const page = await GetBattingSeasonLeaders(
-          new main.LeaderboardFiltersDTO({
-            ...f,
-            sortField: s.field,
-            sortDesc: s.desc,
-            offset: battingSeasonFirst.value,
-            pageSize: 50,
-          }),
-        )
-        battingSeasonRows.value = page.rows ?? []
-        battingSeasonTotal.value = page.total ?? 0
+      case 'batting-career': {
+        const gen = battingCareerGen
+        const offset = battingCareerFirst.value
+        const key = cacheKey(filters.value, battingCareerSort.value.field, battingCareerSort.value.desc, offset)
+        const cached = battingCareerCache.get(key)
+        if (cached) {
+          battingCareerRows.value = cached.rows
+          battingCareerTotal.value = cached.total
+        } else {
+          const page = await GetBattingCareerLeaders(
+            new main.LeaderboardFiltersDTO({
+              ...filters.value,
+              sortField: battingCareerSort.value.field,
+              sortDesc: battingCareerSort.value.desc,
+              offset,
+              pageSize: 50,
+            }),
+          )
+          battingCareerRows.value = page.rows ?? []
+          battingCareerTotal.value = page.total ?? 0
+          if (battingCareerGen === gen) {
+            battingCareerCache.set(key, { rows: page.rows ?? [], total: page.total ?? 0 })
+          }
+        }
+        void prefetchBattingCareer(offset + 50, battingCareerGen)
+        if (offset > 0) void prefetchBattingCareer(offset - 50, battingCareerGen)
         break
       }
-      case 'pitching-career':
-        pitchingCareerRows.value = await GetPitchingCareerLeaders(f)
+      case 'batting-season': {
+        const gen = battingSeasonGen
+        const offset = battingSeasonFirst.value
+        const key = cacheKey(filters.value, battingSeasonSort.value.field, battingSeasonSort.value.desc, offset)
+        const cached = battingSeasonCache.get(key)
+        if (cached) {
+          battingSeasonRows.value = cached.rows
+          battingSeasonTotal.value = cached.total
+        } else {
+          const page = await GetBattingSeasonLeaders(
+            new main.LeaderboardFiltersDTO({
+              ...filters.value,
+              sortField: battingSeasonSort.value.field,
+              sortDesc: battingSeasonSort.value.desc,
+              offset,
+              pageSize: 50,
+            }),
+          )
+          battingSeasonRows.value = page.rows ?? []
+          battingSeasonTotal.value = page.total ?? 0
+          if (battingSeasonGen === gen) {
+            battingSeasonCache.set(key, { rows: page.rows ?? [], total: page.total ?? 0 })
+          }
+        }
+        void prefetchBattingSeason(offset + 50, battingSeasonGen)
+        if (offset > 0) void prefetchBattingSeason(offset - 50, battingSeasonGen)
         break
+      }
+      case 'pitching-career': {
+        const gen = pitchingCareerGen
+        const offset = pitchingCareerFirst.value
+        const key = cacheKey(filters.value, pitchingCareerSort.value.field, pitchingCareerSort.value.desc, offset)
+        const cached = pitchingCareerCache.get(key)
+        if (cached) {
+          pitchingCareerRows.value = cached.rows
+          pitchingCareerTotal.value = cached.total
+        } else {
+          const page = await GetPitchingCareerLeaders(
+            new main.LeaderboardFiltersDTO({
+              ...filters.value,
+              sortField: pitchingCareerSort.value.field,
+              sortDesc: pitchingCareerSort.value.desc,
+              offset,
+              pageSize: 50,
+            }),
+          )
+          pitchingCareerRows.value = page.rows ?? []
+          pitchingCareerTotal.value = page.total ?? 0
+          if (pitchingCareerGen === gen) {
+            pitchingCareerCache.set(key, { rows: page.rows ?? [], total: page.total ?? 0 })
+          }
+        }
+        void prefetchPitchingCareer(offset + 50, pitchingCareerGen)
+        if (offset > 0) void prefetchPitchingCareer(offset - 50, pitchingCareerGen)
+        break
+      }
       case 'pitching-season': {
-        const s = pitchingSeasonSort.value
-        const page = await GetPitchingSeasonLeaders(
-          new main.LeaderboardFiltersDTO({
-            ...f,
-            sortField: s.field,
-            sortDesc: s.desc,
-            offset: pitchingSeasonFirst.value,
-            pageSize: 50,
-          }),
-        )
-        pitchingSeasonRows.value = page.rows ?? []
-        pitchingSeasonTotal.value = page.total ?? 0
+        const gen = pitchingSeasonGen
+        const offset = pitchingSeasonFirst.value
+        const key = cacheKey(filters.value, pitchingSeasonSort.value.field, pitchingSeasonSort.value.desc, offset)
+        const cached = pitchingSeasonCache.get(key)
+        if (cached) {
+          pitchingSeasonRows.value = cached.rows
+          pitchingSeasonTotal.value = cached.total
+        } else {
+          const page = await GetPitchingSeasonLeaders(
+            new main.LeaderboardFiltersDTO({
+              ...filters.value,
+              sortField: pitchingSeasonSort.value.field,
+              sortDesc: pitchingSeasonSort.value.desc,
+              offset,
+              pageSize: 50,
+            }),
+          )
+          pitchingSeasonRows.value = page.rows ?? []
+          pitchingSeasonTotal.value = page.total ?? 0
+          if (pitchingSeasonGen === gen) {
+            pitchingSeasonCache.set(key, { rows: page.rows ?? [], total: page.total ?? 0 })
+          }
+        }
+        void prefetchPitchingSeason(offset + 50, pitchingSeasonGen)
+        if (offset > 0) void prefetchPitchingSeason(offset - 50, pitchingSeasonGen)
         break
       }
     }
@@ -158,10 +363,26 @@ function setTab(tab: LeaderboardTab) {
   }
 }
 
+function onBattingCareerSort(event: DataTableSortEvent) {
+  const field = typeof event.sortField === 'string' ? event.sortField : ''
+  battingCareerSort.value = { field, desc: (event.sortOrder ?? -1) === -1 }
+  battingCareerFirst.value = 0
+  battingCareerCache = new Map()
+  battingCareerGen++
+  loadCurrentTab()
+}
+
+function onBattingCareerPage(event: DataTablePageEvent) {
+  battingCareerFirst.value = event.first
+  loadCurrentTab()
+}
+
 function onBattingSeasonSort(event: DataTableSortEvent) {
   const field = typeof event.sortField === 'string' ? event.sortField : ''
   battingSeasonSort.value = { field, desc: (event.sortOrder ?? -1) === -1 }
   battingSeasonFirst.value = 0
+  battingSeasonCache = new Map()
+  battingSeasonGen++
   loadCurrentTab()
 }
 
@@ -170,10 +391,26 @@ function onBattingSeasonPage(event: DataTablePageEvent) {
   loadCurrentTab()
 }
 
+function onPitchingCareerSort(event: DataTableSortEvent) {
+  const field = typeof event.sortField === 'string' ? event.sortField : ''
+  pitchingCareerSort.value = { field, desc: (event.sortOrder ?? -1) === -1 }
+  pitchingCareerFirst.value = 0
+  pitchingCareerCache = new Map()
+  pitchingCareerGen++
+  loadCurrentTab()
+}
+
+function onPitchingCareerPage(event: DataTablePageEvent) {
+  pitchingCareerFirst.value = event.first
+  loadCurrentTab()
+}
+
 function onPitchingSeasonSort(event: DataTableSortEvent) {
   const field = typeof event.sortField === 'string' ? event.sortField : ''
   pitchingSeasonSort.value = { field, desc: (event.sortOrder ?? -1) === -1 }
   pitchingSeasonFirst.value = 0
+  pitchingSeasonCache = new Map()
+  pitchingSeasonGen++
   loadCurrentTab()
 }
 
@@ -222,6 +459,12 @@ function onPitchingSeasonPage(event: DataTablePageEvent) {
         :rows="battingCareerRows"
         :is-career="true"
         :highlights="highlightsStore.highlights"
+        :total-records="battingCareerTotal"
+        :first="battingCareerFirst"
+        :sort-field="battingCareerSort.field || 'smbWar'"
+        :sort-order="battingCareerSort.desc ? -1 : 1"
+        @sort="onBattingCareerSort"
+        @page="onBattingCareerPage"
       />
       <BattingLeaderboardTable
         v-else-if="activeTab === 'batting-season'"
@@ -240,6 +483,12 @@ function onPitchingSeasonPage(event: DataTablePageEvent) {
         :rows="pitchingCareerRows"
         :is-career="true"
         :highlights="highlightsStore.highlights"
+        :total-records="pitchingCareerTotal"
+        :first="pitchingCareerFirst"
+        :sort-field="pitchingCareerSort.field || 'smbWar'"
+        :sort-order="pitchingCareerSort.desc ? -1 : 1"
+        @sort="onPitchingCareerSort"
+        @page="onPitchingCareerPage"
       />
       <PitchingLeaderboardTable
         v-else

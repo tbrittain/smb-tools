@@ -79,12 +79,12 @@ func buildLeaderboardConditions(f models.LeaderboardFilters, positionCol, season
 	return w
 }
 
-// GetBattingCareerLeaders returns one row per player with career batting totals
-// summed across all seasons matching the filters. Rate fields are left nil —
-// the caller must call service.ComputeBattingRates on each row.
+// GetBattingCareerLeaders returns a paginated page of career batting totals
+// aggregated across all seasons matching the filters. Rate stats are computed
+// inline via a CTE. Returns the page rows and total matching player count.
 func (s *LeaderboardQueryStore) GetBattingCareerLeaders(
 	ctx context.Context, f models.LeaderboardFilters,
-) ([]models.BattingCareerLeaderRow, error) {
+) ([]models.BattingCareerLeaderRow, int, error) {
 	isRegArg, isCombined := gameTypeClause(f.GameType)
 
 	var args []any
@@ -137,43 +137,102 @@ LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
     END`
 	}
 
-	q := fmt.Sprintf(`
-SELECT
-    p.id, p.first_name, p.last_name, p.is_hall_of_famer,
-    COUNT(DISTINCT ps.season_id)           AS seasons_played,
-    COALESCE(SUM(b.games_played),    0),
-    COALESCE(SUM(b.games_batting),   0),
-    COALESCE(SUM(b.at_bats),         0),
-    COALESCE(SUM(b.runs),            0),
-    COALESCE(SUM(b.hits),            0),
-    COALESCE(SUM(b.doubles),         0),
-    COALESCE(SUM(b.triples),         0),
-    COALESCE(SUM(b.home_runs),       0),
-    COALESCE(SUM(b.rbi),             0),
-    COALESCE(SUM(b.stolen_bases),    0),
-    COALESCE(SUM(b.caught_stealing), 0),
-    COALESCE(SUM(b.walks),           0),
-    COALESCE(SUM(b.strikeouts),      0),
-    COALESCE(SUM(b.hit_by_pitch),    0),
-    COALESCE(SUM(b.sac_hits),        0),
-    COALESCE(SUM(b.sac_flies),       0),
-    COALESCE(SUM(b.errors),          0),
-    COALESCE(SUM(b.passed_balls),    0),
-    SUM(b.smb_war),
-    %s AS career_ops_plus
-FROM player_season_batting_stats b
-JOIN player_seasons ps ON ps.id = b.player_season_id
-JOIN seasons s         ON s.id  = ps.season_id
-JOIN players p         ON p.id  = ps.player_id%s
-%s
-GROUP BY p.id
-HAVING COALESCE(SUM(b.at_bats), 0) > 0
-ORDER BY COALESCE(SUM(b.smb_war), -9999.0) DESC, p.last_name, p.first_name`,
-		opsPlusExpr, lssJoin, whereClause)
+	// The CTE aggregates counting stats and computes rate fields inline so that
+	// the outer SELECT can ORDER BY any column (including rates) without a subquery.
+	cte := fmt.Sprintf(`
+WITH career AS (
+    SELECT
+        p.id            AS player_id,
+        p.first_name,
+        p.last_name,
+        p.is_hall_of_famer,
+        COUNT(DISTINCT ps.season_id)           AS seasons_played,
+        COALESCE(SUM(b.games_played),    0)    AS games_played,
+        COALESCE(SUM(b.games_batting),   0)    AS games_batting,
+        COALESCE(SUM(b.at_bats),         0)    AS at_bats,
+        COALESCE(SUM(b.runs),            0)    AS runs,
+        COALESCE(SUM(b.hits),            0)    AS hits,
+        COALESCE(SUM(b.doubles),         0)    AS doubles,
+        COALESCE(SUM(b.triples),         0)    AS triples,
+        COALESCE(SUM(b.home_runs),       0)    AS home_runs,
+        COALESCE(SUM(b.rbi),             0)    AS rbi,
+        COALESCE(SUM(b.stolen_bases),    0)    AS stolen_bases,
+        COALESCE(SUM(b.caught_stealing), 0)    AS caught_stealing,
+        COALESCE(SUM(b.walks),           0)    AS walks,
+        COALESCE(SUM(b.strikeouts),      0)    AS strikeouts,
+        COALESCE(SUM(b.hit_by_pitch),    0)    AS hit_by_pitch,
+        COALESCE(SUM(b.sac_hits),        0)    AS sac_hits,
+        COALESCE(SUM(b.sac_flies),       0)    AS sac_flies,
+        COALESCE(SUM(b.errors),          0)    AS errors,
+        COALESCE(SUM(b.passed_balls),    0)    AS passed_balls,
+        SUM(b.smb_war)                         AS smb_war,
+        %s                                     AS ops_plus,
+        CAST(SUM(b.hits) AS REAL)
+            / NULLIF(SUM(b.at_bats), 0)        AS ba,
+        CAST(SUM(b.hits + b.walks + b.hit_by_pitch) AS REAL)
+            / NULLIF(SUM(b.at_bats + b.walks + b.hit_by_pitch + b.sac_flies), 0) AS obp,
+        CAST(SUM(b.hits - b.doubles - b.triples - b.home_runs
+                  + b.doubles * 2 + b.triples * 3 + b.home_runs * 4) AS REAL)
+            / NULLIF(SUM(b.at_bats), 0)        AS slg,
+        CAST(SUM(b.hits + b.walks + b.hit_by_pitch) AS REAL)
+            / NULLIF(SUM(b.at_bats + b.walks + b.hit_by_pitch + b.sac_flies), 0)
+          + CAST(SUM(b.hits - b.doubles - b.triples - b.home_runs
+                      + b.doubles * 2 + b.triples * 3 + b.home_runs * 4) AS REAL)
+            / NULLIF(SUM(b.at_bats), 0)        AS ops,
+        CAST(SUM(b.hits - b.doubles - b.triples - b.home_runs
+                  + b.doubles * 2 + b.triples * 3 + b.home_runs * 4) AS REAL)
+            / NULLIF(SUM(b.at_bats), 0)
+          - CAST(SUM(b.hits) AS REAL)
+            / NULLIF(SUM(b.at_bats), 0)        AS iso,
+        CAST(SUM(b.hits - b.home_runs) AS REAL)
+            / NULLIF(SUM(b.at_bats - b.strikeouts - b.home_runs + b.sac_flies), 0) AS babip,
+        CAST(SUM(b.strikeouts) AS REAL)
+            / NULLIF(SUM(b.at_bats + b.walks + b.hit_by_pitch + b.sac_hits + b.sac_flies), 0) AS k_pct,
+        CAST(SUM(b.walks) AS REAL)
+            / NULLIF(SUM(b.at_bats + b.walks + b.hit_by_pitch + b.sac_hits + b.sac_flies), 0) AS bb_pct,
+        CAST(SUM(b.at_bats) AS REAL)
+            / NULLIF(SUM(b.home_runs), 0)      AS ab_per_hr
+    FROM player_season_batting_stats b
+    JOIN player_seasons ps ON ps.id = b.player_season_id
+    JOIN seasons s         ON s.id  = ps.season_id
+    JOIN players p         ON p.id  = ps.player_id%s
+    %s
+    GROUP BY p.id
+    HAVING COALESCE(SUM(b.at_bats), 0) > 0
+)`, opsPlusExpr, lssJoin, whereClause)
 
-	rows, err := s.db.QueryContext(ctx, q, args...)
+	var total int
+	if err := s.db.QueryRowContext(ctx, cte+"\nSELECT COUNT(*) FROM career", args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("GetBattingCareerLeaders count: %w", err)
+	}
+
+	pageSize := f.PageSize
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+	offset := f.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	orderBy := buildOrderBy(f.SortField, f.SortDesc, battingCareerSortCols, battingCareerNullable,
+		"COALESCE(smb_war, -9999.0) DESC")
+
+	dataQuery := cte + fmt.Sprintf(`
+SELECT
+    player_id, first_name, last_name, is_hall_of_famer, seasons_played,
+    games_played, games_batting, at_bats, runs, hits, doubles, triples,
+    home_runs, rbi, stolen_bases, caught_stealing, walks, strikeouts,
+    hit_by_pitch, sac_hits, sac_flies, errors, passed_balls,
+    smb_war, ops_plus, ba, obp, slg, ops, iso, babip, k_pct, bb_pct, ab_per_hr
+FROM career
+ORDER BY %s, last_name, first_name
+LIMIT ? OFFSET ?`, orderBy)
+
+	dataArgs := append(args, pageSize, offset)
+	rows, err := s.db.QueryContext(ctx, dataQuery, dataArgs...)
 	if err != nil {
-		return nil, fmt.Errorf("GetBattingCareerLeaders: %w", err)
+		return nil, 0, fmt.Errorf("GetBattingCareerLeaders: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -181,6 +240,8 @@ ORDER BY COALESCE(SUM(b.smb_war), -9999.0) DESC, p.last_name, p.first_name`,
 	for rows.Next() {
 		var r models.BattingCareerLeaderRow
 		var hof int
+		var bSmbWAR, bOPSPlus sql.NullFloat64
+		var bBA, bOBP, bSLG, bOPS, bISO, bBABIP, bKPct, bBBPct, bABPerHR sql.NullFloat64
 		if err := rows.Scan(
 			&r.PlayerID, &r.FirstName, &r.LastName, &hof,
 			&r.SeasonsPlayed,
@@ -188,14 +249,26 @@ ORDER BY COALESCE(SUM(b.smb_war), -9999.0) DESC, p.last_name, p.first_name`,
 			&r.AtBats, &r.Runs, &r.Hits, &r.Doubles, &r.Triples, &r.HomeRuns, &r.RBI,
 			&r.StolenBases, &r.CaughtStealing, &r.Walks, &r.Strikeouts,
 			&r.HitByPitch, &r.SacHits, &r.SacFlies, &r.Errors, &r.PassedBalls,
-			&r.SmbWAR, &r.OPSPlus,
+			&bSmbWAR, &bOPSPlus,
+			&bBA, &bOBP, &bSLG, &bOPS, &bISO, &bBABIP, &bKPct, &bBBPct, &bABPerHR,
 		); err != nil {
-			return nil, fmt.Errorf("GetBattingCareerLeaders scan: %w", err)
+			return nil, 0, fmt.Errorf("GetBattingCareerLeaders scan: %w", err)
 		}
 		r.IsHallOfFamer = hof == 1
+		if bSmbWAR.Valid  { r.SmbWAR  = &bSmbWAR.Float64 }
+		if bOPSPlus.Valid { r.OPSPlus = &bOPSPlus.Float64 }
+		if bBA.Valid      { r.BA      = &bBA.Float64 }
+		if bOBP.Valid     { r.OBP     = &bOBP.Float64 }
+		if bSLG.Valid     { r.SLG     = &bSLG.Float64 }
+		if bOPS.Valid     { r.OPS     = &bOPS.Float64 }
+		if bISO.Valid     { r.ISO     = &bISO.Float64 }
+		if bBABIP.Valid   { r.BABIP   = &bBABIP.Float64 }
+		if bKPct.Valid    { r.KPct    = &bKPct.Float64 }
+		if bBBPct.Valid   { r.BBPct   = &bBBPct.Float64 }
+		if bABPerHR.Valid { r.ABPerHR = &bABPerHR.Float64 }
 		out = append(out, r)
 	}
-	return out, rows.Err()
+	return out, total, rows.Err()
 }
 
 // battingSeasonSortCols maps frontend camelCase field names to safe SQL expressions
@@ -244,9 +317,52 @@ var pitchingSeasonNullable = map[string]bool{
 	"fipMinus": true, "smbWar": true,
 }
 
-// buildSeasonOrderBy returns a safe ORDER BY expression for the given filter.
-// Nullable rate columns use COALESCE to push NULLs to the bottom regardless of direction.
-func buildSeasonOrderBy(fieldKey string, desc bool, colMap map[string]string, nullMap map[string]bool, fallback string) string {
+// battingCareerSortCols maps frontend camelCase field names to CTE alias names
+// for ORDER BY injection in GetBattingCareerLeaders.
+var battingCareerSortCols = map[string]string{
+	"lastName": "last_name", "seasonsPlayed": "seasons_played",
+	"gamesPlayed": "games_played", "atBats": "at_bats", "runs": "runs",
+	"hits": "hits", "doubles": "doubles", "triples": "triples",
+	"homeRuns": "home_runs", "rbi": "rbi",
+	"stolenBases": "stolen_bases", "caughtStealing": "caught_stealing",
+	"walks": "walks", "strikeouts": "strikeouts",
+	"ba": "ba", "obp": "obp", "slg": "slg", "ops": "ops", "iso": "iso",
+	"babip": "babip", "kPct": "k_pct", "bbPct": "bb_pct", "abPerHr": "ab_per_hr",
+	"opsPlus": "ops_plus", "smbWar": "smb_war",
+}
+
+// battingCareerNullable is the subset of battingCareerSortCols whose values can be NULL.
+var battingCareerNullable = map[string]bool{
+	"ba": true, "obp": true, "slg": true, "ops": true, "iso": true,
+	"babip": true, "kPct": true, "bbPct": true, "abPerHr": true,
+	"opsPlus": true, "smbWar": true,
+}
+
+// pitchingCareerSortCols maps frontend camelCase field names to CTE alias names
+// for ORDER BY injection in GetPitchingCareerLeaders.
+var pitchingCareerSortCols = map[string]string{
+	"lastName": "last_name", "seasonsPlayed": "seasons_played",
+	"wins": "wins", "losses": "losses", "games": "games",
+	"gamesStarted": "games_started", "completeGames": "complete_games",
+	"shutouts": "shutouts", "saves": "saves", "outsPitched": "outs_pitched",
+	"hitsAllowed": "hits_allowed", "earnedRuns": "earned_runs",
+	"homeRunsAllowed": "home_runs_allowed", "walks": "walks",
+	"strikeouts": "strikeouts", "hitBatters": "hit_batters",
+	"battersFaced": "batters_faced", "gamesFinished": "games_finished",
+	"era": "era", "whip": "whip", "k9": "k9", "bb9": "bb9",
+	"kPerBb": "k_per_bb", "kPct": "k_pct", "winPct": "win_pct",
+	"eraPlus": "era_plus", "smbWar": "smb_war",
+}
+
+// pitchingCareerNullable is the subset of pitchingCareerSortCols whose values can be NULL.
+var pitchingCareerNullable = map[string]bool{
+	"era": true, "whip": true, "k9": true, "bb9": true,
+	"kPerBb": true, "kPct": true, "winPct": true, "eraPlus": true, "smbWar": true,
+}
+
+// buildOrderBy returns a safe ORDER BY expression for the given sort field.
+// Nullable columns use COALESCE to push NULLs to the bottom regardless of direction.
+func buildOrderBy(fieldKey string, desc bool, colMap map[string]string, nullMap map[string]bool, fallback string) string {
 	col, ok := colMap[fieldKey]
 	if !ok {
 		return fallback
@@ -292,8 +408,25 @@ func (s *LeaderboardQueryStore) GetBattingSeasonLeaders(
 		filterArgs = append(filterArgs, trait)
 	}
 	if f.QualifiedOnly {
-		// MLB standard: ≥3.1 PA per scheduled game.
-		whereParts = append(whereParts, "CAST(b.plate_appearances AS REAL) >= CAST(s.num_games AS REAL) * 3.1")
+		// Use the actual max games_played in this season+game-type rather than the
+		// scheduled s.num_games.  This handles partial imports (mid-season sync gives
+		// 60, not 100) and playoff series (a 5-game series gives 5, not 100).
+		// Taking MAX across all batters in the same season approximates team games played
+		// because position players typically appear in every game.
+		//
+		// Future improvement: derive the game count from team_season_schedules /
+		// team_playoff_schedules instead (COUNT of rows with non-NULL scores, grouped
+		// by team).  That would be immune to edge cases where injuries cause the max
+		// individual games_played to fall short of actual team games played.  The
+		// per-team playoff variant is the more important case because different teams
+		// play different numbers of games depending on how far they advance.
+		whereParts = append(whereParts, `CAST(b.plate_appearances AS REAL) >= (
+        SELECT COALESCE(MAX(b2.games_played), 1)
+        FROM player_season_batting_stats b2
+        JOIN player_seasons ps2 ON ps2.id = b2.player_season_id
+        WHERE ps2.season_id = ps.season_id
+          AND b2.is_regular_season = b.is_regular_season
+    ) * 3.1`)
 	}
 
 	joins := `
@@ -319,7 +452,7 @@ WHERE ` + strings.Join(whereParts, "\n  AND ")
 		offset = 0
 	}
 
-	orderBy := buildSeasonOrderBy(f.SortField, f.SortDesc, battingSeasonSortCols, battingSeasonNullable,
+	orderBy := buildOrderBy(f.SortField, f.SortDesc, battingSeasonSortCols, battingSeasonNullable,
 		"COALESCE(b.smb_war, -9999.0) DESC")
 
 	q := `SELECT
@@ -391,11 +524,12 @@ LIMIT ? OFFSET ?`
 	return out, total, rows.Err()
 }
 
-// GetPitchingCareerLeaders returns one row per player with career pitching totals
-// summed across all seasons matching the filters. Rate fields are left nil.
+// GetPitchingCareerLeaders returns a paginated page of career pitching totals
+// aggregated across all seasons matching the filters. Rate stats are computed
+// inline via a CTE. Returns the page rows and total matching player count.
 func (s *LeaderboardQueryStore) GetPitchingCareerLeaders(
 	ctx context.Context, f models.LeaderboardFilters,
-) ([]models.PitchingCareerLeaderRow, error) {
+) ([]models.PitchingCareerLeaderRow, int, error) {
 	isRegArg, isCombined := gameTypeClause(f.GameType)
 
 	var args []any
@@ -437,44 +571,91 @@ LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
     END`
 	}
 
-	q := fmt.Sprintf(`
-SELECT
-    p.id, p.first_name, p.last_name, p.is_hall_of_famer,
-    COUNT(DISTINCT ps.season_id)                   AS seasons_played,
-    COALESCE(SUM(pit.wins),             0),
-    COALESCE(SUM(pit.losses),           0),
-    COALESCE(SUM(pit.games),            0),
-    COALESCE(SUM(pit.games_started),    0),
-    COALESCE(SUM(pit.complete_games),   0),
-    COALESCE(SUM(pit.shutouts),         0),
-    COALESCE(SUM(pit.saves),            0),
-    COALESCE(SUM(pit.outs_pitched),     0),
-    COALESCE(SUM(pit.hits_allowed),     0),
-    COALESCE(SUM(pit.earned_runs),      0),
-    COALESCE(SUM(pit.home_runs_allowed),0),
-    COALESCE(SUM(pit.walks),            0),
-    COALESCE(SUM(pit.strikeouts),       0),
-    COALESCE(SUM(pit.hit_batters),      0),
-    COALESCE(SUM(pit.batters_faced),    0),
-    COALESCE(SUM(pit.games_finished),   0),
-    COALESCE(SUM(pit.runs_allowed),     0),
-    COALESCE(SUM(pit.wild_pitches),     0),
-    COALESCE(SUM(pit.total_pitches),    0),
-    SUM(pit.smb_war),
-    %s AS career_era_plus
-FROM player_season_pitching_stats pit
-JOIN player_seasons ps ON ps.id = pit.player_season_id
-JOIN seasons s         ON s.id  = ps.season_id
-JOIN players p         ON p.id  = ps.player_id%s
-%s
-GROUP BY p.id
-HAVING COALESCE(SUM(pit.outs_pitched), 0) > 0
-ORDER BY COALESCE(SUM(pit.smb_war), -9999.0) DESC, p.last_name, p.first_name`,
-		eraPlusExpr, lssJoin, whereClause)
+	cte := fmt.Sprintf(`
+WITH career AS (
+    SELECT
+        p.id            AS player_id,
+        p.first_name,
+        p.last_name,
+        p.is_hall_of_famer,
+        COUNT(DISTINCT ps.season_id)                AS seasons_played,
+        COALESCE(SUM(pit.wins),             0)      AS wins,
+        COALESCE(SUM(pit.losses),           0)      AS losses,
+        COALESCE(SUM(pit.games),            0)      AS games,
+        COALESCE(SUM(pit.games_started),    0)      AS games_started,
+        COALESCE(SUM(pit.complete_games),   0)      AS complete_games,
+        COALESCE(SUM(pit.shutouts),         0)      AS shutouts,
+        COALESCE(SUM(pit.saves),            0)      AS saves,
+        COALESCE(SUM(pit.outs_pitched),     0)      AS outs_pitched,
+        COALESCE(SUM(pit.hits_allowed),     0)      AS hits_allowed,
+        COALESCE(SUM(pit.earned_runs),      0)      AS earned_runs,
+        COALESCE(SUM(pit.home_runs_allowed),0)      AS home_runs_allowed,
+        COALESCE(SUM(pit.walks),            0)      AS walks,
+        COALESCE(SUM(pit.strikeouts),       0)      AS strikeouts,
+        COALESCE(SUM(pit.hit_batters),      0)      AS hit_batters,
+        COALESCE(SUM(pit.batters_faced),    0)      AS batters_faced,
+        COALESCE(SUM(pit.games_finished),   0)      AS games_finished,
+        COALESCE(SUM(pit.runs_allowed),     0)      AS runs_allowed,
+        COALESCE(SUM(pit.wild_pitches),     0)      AS wild_pitches,
+        COALESCE(SUM(pit.total_pitches),    0)      AS total_pitches,
+        SUM(pit.smb_war)                            AS smb_war,
+        %s                                          AS era_plus,
+        CAST(SUM(pit.earned_runs) AS REAL) * 27.0
+            / NULLIF(SUM(pit.outs_pitched), 0)      AS era,
+        CAST(SUM(pit.walks + pit.hits_allowed) AS REAL) * 3.0
+            / NULLIF(SUM(pit.outs_pitched), 0)      AS whip,
+        CAST(SUM(pit.strikeouts) AS REAL) * 27.0
+            / NULLIF(SUM(pit.outs_pitched), 0)      AS k9,
+        CAST(SUM(pit.walks) AS REAL) * 27.0
+            / NULLIF(SUM(pit.outs_pitched), 0)      AS bb9,
+        CAST(SUM(pit.strikeouts) AS REAL)
+            / NULLIF(SUM(pit.walks), 0)             AS k_per_bb,
+        CAST(SUM(pit.strikeouts) AS REAL)
+            / NULLIF(SUM(pit.batters_faced), 0)     AS k_pct,
+        CAST(SUM(pit.wins) AS REAL)
+            / NULLIF(SUM(pit.wins + pit.losses), 0) AS win_pct
+    FROM player_season_pitching_stats pit
+    JOIN player_seasons ps ON ps.id = pit.player_season_id
+    JOIN seasons s         ON s.id  = ps.season_id
+    JOIN players p         ON p.id  = ps.player_id%s
+    %s
+    GROUP BY p.id
+    HAVING COALESCE(SUM(pit.outs_pitched), 0) > 0
+)`, eraPlusExpr, lssJoin, whereClause)
 
-	rows, err := s.db.QueryContext(ctx, q, args...)
+	var total int
+	if err := s.db.QueryRowContext(ctx, cte+"\nSELECT COUNT(*) FROM career", args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("GetPitchingCareerLeaders count: %w", err)
+	}
+
+	pageSize := f.PageSize
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+	offset := f.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	orderBy := buildOrderBy(f.SortField, f.SortDesc, pitchingCareerSortCols, pitchingCareerNullable,
+		"COALESCE(smb_war, -9999.0) DESC")
+
+	dataQuery := cte + fmt.Sprintf(`
+SELECT
+    player_id, first_name, last_name, is_hall_of_famer, seasons_played,
+    wins, losses, games, games_started, complete_games, shutouts, saves,
+    outs_pitched, hits_allowed, earned_runs, home_runs_allowed,
+    walks, strikeouts, hit_batters, batters_faced, games_finished,
+    runs_allowed, wild_pitches, total_pitches,
+    smb_war, era_plus, era, whip, k9, bb9, k_per_bb, k_pct, win_pct
+FROM career
+ORDER BY %s, last_name, first_name
+LIMIT ? OFFSET ?`, orderBy)
+
+	dataArgs := append(args, pageSize, offset)
+	rows, err := s.db.QueryContext(ctx, dataQuery, dataArgs...)
 	if err != nil {
-		return nil, fmt.Errorf("GetPitchingCareerLeaders: %w", err)
+		return nil, 0, fmt.Errorf("GetPitchingCareerLeaders: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
 
@@ -482,6 +663,8 @@ ORDER BY COALESCE(SUM(pit.smb_war), -9999.0) DESC, p.last_name, p.first_name`,
 	for rows.Next() {
 		var r models.PitchingCareerLeaderRow
 		var hof int
+		var bSmbWAR, bERAPlus sql.NullFloat64
+		var bERA, bWHIP, bK9, bBB9, bKPerBB, bKPct, bWinPct sql.NullFloat64
 		if err := rows.Scan(
 			&r.PlayerID, &r.FirstName, &r.LastName, &hof,
 			&r.SeasonsPlayed,
@@ -490,14 +673,24 @@ ORDER BY COALESCE(SUM(pit.smb_war), -9999.0) DESC, p.last_name, p.first_name`,
 			&r.HitsAllowed, &r.EarnedRuns, &r.HomeRunsAllowed, &r.Walks,
 			&r.Strikeouts, &r.HitBatters, &r.BattersFaced, &r.GamesFinished,
 			&r.RunsAllowed, &r.WildPitches, &r.TotalPitches,
-			&r.SmbWAR, &r.ERAPlus,
+			&bSmbWAR, &bERAPlus,
+			&bERA, &bWHIP, &bK9, &bBB9, &bKPerBB, &bKPct, &bWinPct,
 		); err != nil {
-			return nil, fmt.Errorf("GetPitchingCareerLeaders scan: %w", err)
+			return nil, 0, fmt.Errorf("GetPitchingCareerLeaders scan: %w", err)
 		}
 		r.IsHallOfFamer = hof == 1
+		if bSmbWAR.Valid  { r.SmbWAR  = &bSmbWAR.Float64 }
+		if bERAPlus.Valid { r.ERAPlus  = &bERAPlus.Float64 }
+		if bERA.Valid     { r.ERA      = &bERA.Float64 }
+		if bWHIP.Valid    { r.WHIP     = &bWHIP.Float64 }
+		if bK9.Valid      { r.K9       = &bK9.Float64 }
+		if bBB9.Valid     { r.BB9      = &bBB9.Float64 }
+		if bKPerBB.Valid  { r.KPerBB   = &bKPerBB.Float64 }
+		if bKPct.Valid    { r.KPct     = &bKPct.Float64 }
+		if bWinPct.Valid  { r.WinPct   = &bWinPct.Float64 }
 		out = append(out, r)
 	}
-	return out, rows.Err()
+	return out, total, rows.Err()
 }
 
 // GetPitchingSeasonLeaders returns one row per player-season with pitching stats
@@ -527,8 +720,19 @@ func (s *LeaderboardQueryStore) GetPitchingSeasonLeaders(
 		filterArgs = append(filterArgs, trait)
 	}
 	if f.QualifiedOnly {
-		// MLB standard: ≥1.0 IP per scheduled game (3 outs per game).
-		whereParts = append(whereParts, "pit.outs_pitched >= s.num_games * 3")
+		// Use the actual max games_played from batting stats for this season+game-type
+		// as the game-count reference.  Batting games_played reflects team games better
+		// than pitcher appearances (a closer appears in 40 games on a 100-game schedule).
+		// Handles partial imports and playoff series the same way as the batting filter.
+		// See the batting QualifiedOnly block above for a note on a future schedule-based
+		// improvement that would be more robust to injury-related absences.
+		whereParts = append(whereParts, `pit.outs_pitched >= (
+        SELECT COALESCE(MAX(b2.games_played), 1)
+        FROM player_season_batting_stats b2
+        JOIN player_seasons ps2 ON ps2.id = b2.player_season_id
+        WHERE ps2.season_id = ps.season_id
+          AND b2.is_regular_season = pit.is_regular_season
+    ) * 3`)
 	}
 
 	joins := `
@@ -554,7 +758,7 @@ WHERE ` + strings.Join(whereParts, "\n  AND ")
 		offset = 0
 	}
 
-	orderBy := buildSeasonOrderBy(f.SortField, f.SortDesc, pitchingSeasonSortCols, pitchingSeasonNullable,
+	orderBy := buildOrderBy(f.SortField, f.SortDesc, pitchingSeasonSortCols, pitchingSeasonNullable,
 		"COALESCE(pit.smb_war, -9999.0) DESC")
 
 	q := `SELECT

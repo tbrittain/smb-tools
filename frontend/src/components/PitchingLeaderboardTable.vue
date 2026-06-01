@@ -29,7 +29,6 @@ const props = defineProps<{
   rows: main.PitchingLeaderRowDTO[]
   isCareer: boolean
   highlights?: main.StatHighlightsDTO | null
-  // Server-side pagination props — only used when isCareer is false.
   totalRecords?: number
   first?: number
   sortField?: string
@@ -65,24 +64,22 @@ function careerTip(r: main.PitchingLeaderRowDTO, statKey: string, label: string)
 
 <template>
   <div class="table-wrap">
-    <EmptyState v-if="rows.length === 0 && !isCareer && totalRecords === 0" message="No results — try adjusting the filters" />
-    <EmptyState v-else-if="rows.length === 0 && isCareer" message="No results — try adjusting the filters" />
+    <EmptyState v-if="rows.length === 0 && (totalRecords ?? 0) === 0" message="No results — try adjusting the filters" />
     <template v-else>
       <DataTable
         :value="rows"
-        :lazy="!isCareer"
-        :total-records="isCareer ? undefined : totalRecords"
-        :first="isCareer ? undefined : first"
-        :sort-field="isCareer ? 'smbWar' : sortField"
-        :sort-order="isCareer ? -1 : sortOrder"
+        lazy
+        :total-records="totalRecords ?? 0"
+        :first="first ?? 0"
+        :sort-field="sortField ?? 'smbWar'"
+        :sort-order="sortOrder ?? -1"
         size="small"
-        :removable-sort="isCareer"
         scrollable
         scroll-height="flex"
-        :paginator="isCareer ? rows.length > 50 : true"
+        paginator
         :rows="50"
-        @sort="!isCareer && emit('sort', $event)"
-        @page="!isCareer && emit('page', $event)"
+        @sort="emit('sort', $event)"
+        @page="emit('page', $event)"
       >
         <Column header="Player" sort-field="lastName" sortable style="min-width: 160px">
           <template #body="{ data: r }">

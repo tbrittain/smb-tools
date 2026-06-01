@@ -20,7 +20,6 @@ type LeaderboardFilters struct {
 	// qualification threshold: batters ≥ 3.1 PA/scheduled game, pitchers ≥ 1.0 IP/game.
 	// Has no effect on career leaderboard queries.
 	QualifiedOnly bool
-	// Server-side pagination/sort — used by season leader queries only.
 	// SortField is the frontend camelCase field name (e.g. "ba", "homeRuns", "smbWar").
 	// Empty SortField defaults to smbWAR DESC. Offset/PageSize default to 0/50.
 	SortField string
