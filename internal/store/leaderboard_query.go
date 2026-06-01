@@ -413,6 +413,13 @@ func (s *LeaderboardQueryStore) GetBattingSeasonLeaders(
 		// 60, not 100) and playoff series (a 5-game series gives 5, not 100).
 		// Taking MAX across all batters in the same season approximates team games played
 		// because position players typically appear in every game.
+		//
+		// Future improvement: derive the game count from team_season_schedules /
+		// team_playoff_schedules instead (COUNT of rows with non-NULL scores, grouped
+		// by team).  That would be immune to edge cases where injuries cause the max
+		// individual games_played to fall short of actual team games played.  The
+		// per-team playoff variant is the more important case because different teams
+		// play different numbers of games depending on how far they advance.
 		whereParts = append(whereParts, `CAST(b.plate_appearances AS REAL) >= (
         SELECT COALESCE(MAX(b2.games_played), 1)
         FROM player_season_batting_stats b2
@@ -717,6 +724,8 @@ func (s *LeaderboardQueryStore) GetPitchingSeasonLeaders(
 		// as the game-count reference.  Batting games_played reflects team games better
 		// than pitcher appearances (a closer appears in 40 games on a 100-game schedule).
 		// Handles partial imports and playoff series the same way as the batting filter.
+		// See the batting QualifiedOnly block above for a note on a future schedule-based
+		// improvement that would be more robust to injury-related absences.
 		whereParts = append(whereParts, `pit.outs_pitched >= (
         SELECT COALESCE(MAX(b2.games_played), 1)
         FROM player_season_batting_stats b2

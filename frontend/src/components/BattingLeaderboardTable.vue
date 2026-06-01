@@ -21,7 +21,6 @@ const props = defineProps<{
   rows: main.BattingLeaderRowDTO[]
   isCareer: boolean
   highlights?: main.StatHighlightsDTO | null
-  // Server-side pagination props — always provided by LeaderboardsPage.
   totalRecords?: number
   first?: number
   sortField?: string
