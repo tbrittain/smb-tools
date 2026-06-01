@@ -17,6 +17,10 @@ function fmtERA(v: number): string {
 function fmtWAR(v: number | null | undefined): string {
   return v != null ? v.toFixed(1) : '—'
 }
+
+function positionLabel(row: { pitcherRole: string; primaryPosition: string }): string {
+  return row.pitcherRole || row.primaryPosition
+}
 </script>
 
 <template>
@@ -31,6 +35,7 @@ function fmtWAR(v: number | null | undefined): string {
         :class="{ 'winner-row--first': idx === 0 }"
       >
         <div class="row-identity">
+          <span class="position-chip">{{ positionLabel(w) }}</span>
           <AppLink :to="`/players/${w.playerId}`" class="player-name">
             {{ w.firstName }} {{ w.lastName }}
           </AppLink>
@@ -58,6 +63,7 @@ function fmtWAR(v: number | null | undefined): string {
       >
         <div class="runner-up-label">Runner-up ({{ ru.awardName }})</div>
         <div class="row-identity">
+          <span class="position-chip">{{ positionLabel(ru) }}</span>
           <AppLink :to="`/players/${ru.playerId}`" class="player-name">
             {{ ru.firstName }} {{ ru.lastName }}
           </AppLink>
@@ -117,6 +123,19 @@ function fmtWAR(v: number | null | undefined): string {
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
+}
+
+.position-chip {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
 }
 
 .player-name {
