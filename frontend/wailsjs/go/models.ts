@@ -88,6 +88,24 @@ export namespace main {
 	        this.awardIds = source["awardIds"];
 	    }
 	}
+	export class TeamRefDTO {
+	    teamId: number;
+	    teamHistoryId: number;
+	    teamName: string;
+	    sortOrder: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TeamRefDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.teamId = source["teamId"];
+	        this.teamHistoryId = source["teamHistoryId"];
+	        this.teamName = source["teamName"];
+	        this.sortOrder = source["sortOrder"];
+	    }
+	}
 	export class BattingLeaderRowDTO {
 	    playerId: number;
 	    firstName: string;
@@ -95,7 +113,7 @@ export namespace main {
 	    isHallOfFamer: boolean;
 	    seasonsPlayed: number;
 	    seasonNum: number;
-	    teamName: string;
+	    teams: TeamRefDTO[];
 	    age: number;
 	    primaryPosition: string;
 	    batHand: string;
@@ -143,7 +161,7 @@ export namespace main {
 	        this.isHallOfFamer = source["isHallOfFamer"];
 	        this.seasonsPlayed = source["seasonsPlayed"];
 	        this.seasonNum = source["seasonNum"];
-	        this.teamName = source["teamName"];
+	        this.teams = this.convertValues(source["teams"], TeamRefDTO);
 	        this.age = source["age"];
 	        this.primaryPosition = source["primaryPosition"];
 	        this.batHand = source["batHand"];
@@ -179,6 +197,24 @@ export namespace main {
 	        this.opsPlus = source["opsPlus"];
 	        this.smbWar = source["smbWar"];
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class BattingLeaderPageDTO {
 	    rows: BattingLeaderRowDTO[];
@@ -756,7 +792,7 @@ export namespace main {
 	    isHallOfFamer: boolean;
 	    seasonsPlayed: number;
 	    seasonNum: number;
-	    teamName: string;
+	    teams: TeamRefDTO[];
 	    age: number;
 	    pitcherRole: string;
 	    throwHand: string;
@@ -808,7 +844,7 @@ export namespace main {
 	        this.isHallOfFamer = source["isHallOfFamer"];
 	        this.seasonsPlayed = source["seasonsPlayed"];
 	        this.seasonNum = source["seasonNum"];
-	        this.teamName = source["teamName"];
+	        this.teams = this.convertValues(source["teams"], TeamRefDTO);
 	        this.age = source["age"];
 	        this.pitcherRole = source["pitcherRole"];
 	        this.throwHand = source["throwHand"];
@@ -848,6 +884,24 @@ export namespace main {
 	        this.fipMinus = source["fipMinus"];
 	        this.smbWar = source["smbWar"];
 	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class PitchingLeaderPageDTO {
 	    rows: PitchingLeaderRowDTO[];
@@ -958,24 +1012,6 @@ export namespace main {
 	        this.seasonsPlayed = source["seasonsPlayed"];
 	        this.firstSeason = source["firstSeason"];
 	        this.lastSeason = source["lastSeason"];
-	    }
-	}
-	export class TeamRefDTO {
-	    teamId: number;
-	    teamHistoryId: number;
-	    teamName: string;
-	    sortOrder: number;
-	
-	    static createFrom(source: any = {}) {
-	        return new TeamRefDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.teamId = source["teamId"];
-	        this.teamHistoryId = source["teamHistoryId"];
-	        this.teamName = source["teamName"];
-	        this.sortOrder = source["sortOrder"];
 	    }
 	}
 	export class PlayerSeasonLogDTO {

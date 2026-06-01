@@ -42,12 +42,13 @@ type BattingCareerLeaderRow struct {
 
 // BattingSeasonLeaderRow is one player-season batting stat row for the leaderboard.
 type BattingSeasonLeaderRow struct {
+	PlayerSeasonID  int64
 	PlayerID        int64
 	FirstName       string
 	LastName        string
 	IsHallOfFamer   bool
 	SeasonNum       int
-	TeamName        string
+	Teams           []PlayerTeamRef
 	Age             int
 	PrimaryPosition string
 	BatHand         string
@@ -70,16 +71,17 @@ type PitchingCareerLeaderRow struct {
 
 // PitchingSeasonLeaderRow is one player-season pitching stat row for the leaderboard.
 type PitchingSeasonLeaderRow struct {
-	PlayerID      int64
-	FirstName     string
-	LastName      string
-	IsHallOfFamer bool
-	SeasonNum     int
-	TeamName      string
-	Age           int
-	PitcherRole   string
-	ThrowHand     string
-	ChemistryType string
-	Traits        []string
+	PlayerSeasonID int64
+	PlayerID       int64
+	FirstName      string
+	LastName       string
+	IsHallOfFamer  bool
+	SeasonNum      int
+	Teams          []PlayerTeamRef
+	Age            int
+	PitcherRole    string
+	ThrowHand      string
+	ChemistryType  string
+	Traits         []string
 	CareerPitchingStats
 }

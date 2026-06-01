@@ -458,7 +458,7 @@ WHERE ` + strings.Join(whereParts, "\n  AND ")
 	q := `SELECT
     p.id, p.first_name, p.last_name, p.is_hall_of_famer,
     s.season_num,
-    COALESCE(tsh.team_name, ''),
+    ps.id,
     ps.age,
     ps.primary_position,
     ps.bat_hand,
@@ -489,7 +489,7 @@ LIMIT ? OFFSET ?`
 		var bOPSPlus, bSmbWAR sql.NullFloat64
 		if err := rows.Scan(
 			&r.PlayerID, &r.FirstName, &r.LastName, &hof,
-			&r.SeasonNum, &r.TeamName, &r.Age,
+			&r.SeasonNum, &r.PlayerSeasonID, &r.Age,
 			&r.PrimaryPosition, &r.BatHand, &r.ChemistryType,
 			&traitsJSON,
 			&r.GamesPlayed, &r.GamesBatting,
@@ -521,7 +521,29 @@ LIMIT ? OFFSET ?`
 		if bSmbWAR.Valid  { r.SmbWAR  = &bSmbWAR.Float64 }
 		out = append(out, r)
 	}
-	return out, total, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	if len(out) > 0 {
+		psIDs := make([]int64, len(out))
+		for i, r := range out {
+			psIDs[i] = r.PlayerSeasonID
+		}
+		teamsMap, err := s.loadSeasonTeams(ctx, psIDs)
+		if err != nil {
+			return nil, 0, err
+		}
+		for i := range out {
+			if t, ok := teamsMap[out[i].PlayerSeasonID]; ok {
+				out[i].Teams = t
+			} else {
+				out[i].Teams = []models.PlayerTeamRef{}
+			}
+		}
+	}
+
+	return out, total, nil
 }
 
 // GetPitchingCareerLeaders returns a paginated page of career pitching totals
@@ -764,7 +786,7 @@ WHERE ` + strings.Join(whereParts, "\n  AND ")
 	q := `SELECT
     p.id, p.first_name, p.last_name, p.is_hall_of_famer,
     s.season_num,
-    COALESCE(tsh.team_name, ''),
+    ps.id,
     ps.age,
     ps.pitcher_role,
     ps.throw_hand,
@@ -797,7 +819,7 @@ LIMIT ? OFFSET ?`
 		var pERAPlus, pFIP, pFIPMinus, pSmbWAR sql.NullFloat64
 		if err := rows.Scan(
 			&r.PlayerID, &r.FirstName, &r.LastName, &hof,
-			&r.SeasonNum, &r.TeamName, &r.Age,
+			&r.SeasonNum, &r.PlayerSeasonID, &r.Age,
 			&r.PitcherRole, &r.ThrowHand, &r.ChemistryType,
 			&traitsJSON,
 			&r.Wins, &r.Losses, &r.Games, &r.GamesStarted,
@@ -833,5 +855,61 @@ LIMIT ? OFFSET ?`
 		if pSmbWAR.Valid   { r.SmbWAR   = &pSmbWAR.Float64 }
 		out = append(out, r)
 	}
-	return out, total, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	if len(out) > 0 {
+		psIDs := make([]int64, len(out))
+		for i, r := range out {
+			psIDs[i] = r.PlayerSeasonID
+		}
+		teamsMap, err := s.loadSeasonTeams(ctx, psIDs)
+		if err != nil {
+			return nil, 0, err
+		}
+		for i := range out {
+			if t, ok := teamsMap[out[i].PlayerSeasonID]; ok {
+				out[i].Teams = t
+			} else {
+				out[i].Teams = []models.PlayerTeamRef{}
+			}
+		}
+	}
+
+	return out, total, nil
+}
+
+// loadSeasonTeams fetches all team associations for the given player_season IDs,
+// returning a map from player_season_id to ordered team slice.
+func (s *LeaderboardQueryStore) loadSeasonTeams(ctx context.Context, psIDs []int64) (map[int64][]models.PlayerTeamRef, error) {
+	placeholders := strings.Repeat("?,", len(psIDs))
+	placeholders = placeholders[:len(placeholders)-1]
+	args := make([]any, len(psIDs))
+	for i, id := range psIDs {
+		args[i] = id
+	}
+	//nolint:gosec // placeholder count is controlled internally, not from user input
+	rows, err := s.db.QueryContext(ctx, fmt.Sprintf(`
+		SELECT pst.player_season_id, tsh.team_id, tsh.id, tsh.team_name, pst.sort_order
+		FROM player_season_teams pst
+		JOIN team_season_history tsh ON tsh.id = pst.team_history_id
+		WHERE pst.player_season_id IN (%s)
+		ORDER BY pst.player_season_id, pst.sort_order
+	`, placeholders), args...)
+	if err != nil {
+		return nil, fmt.Errorf("loading season teams: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	result := map[int64][]models.PlayerTeamRef{}
+	for rows.Next() {
+		var psID int64
+		var ref models.PlayerTeamRef
+		if err := rows.Scan(&psID, &ref.TeamID, &ref.TeamHistoryID, &ref.TeamName, &ref.SortOrder); err != nil {
+			return nil, fmt.Errorf("scanning season team: %w", err)
+		}
+		result[psID] = append(result[psID], ref)
+	}
+	return result, rows.Err()
 }
