@@ -62,6 +62,27 @@ Each of these scatters link styling and makes global link changes require huntin
 
 ---
 
+## Icons
+
+smb-tools uses **PrimeIcons** (`primeicons` package). The CSS is imported globally in `src/main.ts` — no per-component import is needed.
+
+Icons are referenced by CSS class name (`pi pi-{name}`) and are most commonly passed to PrimeVue Button's `icon` prop:
+
+```vue
+<Button icon="pi pi-trash" severity="danger" outlined size="small" />
+<Button label="Manage Logos" icon="pi pi-image" severity="secondary" outlined size="small" />
+```
+
+They can also be used as standalone elements:
+
+```vue
+<i class="pi pi-check" />
+```
+
+Browse the full icon set at [primevue.org/icons](https://primevue.org/icons). Note that PrimeIcons ships as a webfont — all icons are bundled regardless of which ones are used, so there is no benefit to limiting icon usage for bundle-size reasons.
+
+---
+
 ## Page Layout
 
 There are two layout modes. Every page must use exactly one of them — choosing the wrong one causes either cramped grids or awkwardly wide text.
@@ -262,6 +283,53 @@ useConfirm().require({ message: '<form content here>' })
 
 <!-- Bad: no width constraint -->
 <Dialog v-model:visible="visible" modal header="Upload Logo">
+```
+
+---
+
+## Toast Notifications
+
+Use PrimeVue's toast service for non-blocking feedback after user actions — saves, deletes, uploads, and other operations where the user needs confirmation that something happened.
+
+The `<Toast />` component is mounted once in `App.vue` and listens globally. Components only need the composable:
+
+```vue
+<script setup lang="ts">
+import { useToast } from 'primevue/usetoast'
+
+const toast = useToast()
+
+async function save() {
+  await doSave()
+  toast.add({ severity: 'success', summary: 'Changes saved', life: 3000 })
+}
+</script>
+```
+
+**Severity levels in use:**
+
+| Severity | When to use |
+|----------|-------------|
+| `'success'` | Confirming a completed action (save, delete, upload, assign) |
+| `'error'` | Surfacing a failure that inline error text can't reach (e.g., background operation) |
+
+**Rules:**
+- Always set `life` (milliseconds). `3000` for routine confirmations; `4000–5000` for deletions or less reversible actions.
+- Keep `summary` short — one clause, no period. It is the only required message field; omit `detail` unless extra context is genuinely needed.
+- Do not show a success toast and an inline error message simultaneously for the same operation — pick one channel.
+- Do not show a toast for read operations or navigation.
+
+### What NOT to do
+
+```vue
+<!-- Bad: mounting a second <Toast> inside a component — duplicates the global one -->
+<Toast />
+
+<!-- Bad: no life — toast stays on screen forever -->
+toast.add({ severity: 'success', summary: 'Saved' })
+
+<!-- Bad: verbose summary -->
+toast.add({ severity: 'success', summary: 'The logo was successfully uploaded and assigned to the team.' })
 ```
 
 ---

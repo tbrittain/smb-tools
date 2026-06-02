@@ -8,6 +8,8 @@ import TabList from 'primevue/tablist'
 import TabPanel from 'primevue/tabpanel'
 import TabPanels from 'primevue/tabpanels'
 import Tabs from 'primevue/tabs'
+import { useConfirm } from 'primevue/useconfirm'
+import { useToast } from 'primevue/usetoast'
 import { computed, ref, watch } from 'vue'
 import {
   AssignExistingTeamLogo,
@@ -26,6 +28,9 @@ const props = defineProps<{
 }>()
 
 const visible = defineModel<boolean>('visible', { required: true })
+
+const confirm = useConfirm()
+const toast = useToast()
 
 const logos = ref<main.TeamLogoDTO[]>([])
 const loadingLogos = ref(false)
@@ -119,6 +124,7 @@ async function upload() {
     pendingFilePath.value = ''
     pendingFileName.value = ''
     await loadLogos()
+    toast.add({ severity: 'success', summary: 'Logo uploaded and assigned', life: 3000 })
   } catch (e) {
     uploadError.value = String(e)
   } finally {
@@ -135,6 +141,7 @@ async function assignExisting() {
     await AssignExistingTeamLogo(selectedLogoId.value, start, end)
     selectedLogoId.value = null
     await loadLogos()
+    toast.add({ severity: 'success', summary: 'Logo assigned', life: 3000 })
   } catch (e) {
     assignError.value = String(e)
   } finally {
@@ -142,13 +149,25 @@ async function assignExisting() {
   }
 }
 
-async function deleteAssignment(assignmentId: string) {
-  try {
-    await DeleteTeamLogoAssignment(assignmentId)
-    await loadLogos()
-  } catch (e) {
-    uploadError.value = String(e)
-  }
+function deleteAssignment(assignmentId: string) {
+  confirm.require({
+    message:
+      'Remove this logo assignment? If it is the only assignment for this logo, the image file will also be deleted.',
+    header: 'Remove logo assignment',
+    icon: 'pi pi-trash',
+    acceptLabel: 'Remove',
+    rejectLabel: 'Cancel',
+    acceptProps: { severity: 'danger' },
+    accept: async () => {
+      try {
+        await DeleteTeamLogoAssignment(assignmentId)
+        await loadLogos()
+        toast.add({ severity: 'success', summary: 'Logo assignment removed', life: 3000 })
+      } catch (e) {
+        uploadError.value = String(e)
+      }
+    },
+  })
 }
 
 function rangeLabel(a: main.TeamLogoAssignmentDTO): string {
