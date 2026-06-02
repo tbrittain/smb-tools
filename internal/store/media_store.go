@@ -319,6 +319,68 @@ func (s *MediaStore) GetTeamSeasonsForPicker(ctx context.Context, db DBTX, teamI
 	return out, rows.Err()
 }
 
+// TeamMediaRow associates a media item with the specific team-season it was filed under,
+// used when building the grouped team gallery.
+type TeamMediaRow struct {
+	MediaWithAssocs
+	GroupTeamHistoryID int64
+	GroupSeasonNum     int
+	GroupTeamName      string
+}
+
+// GetAllMediaForTeam returns all media associated with any season of the given team,
+// ordered by season desc then upload time desc. If a media item is linked to multiple
+// seasons of the same team, it appears once per season in the result.
+func (s *MediaStore) GetAllMediaForTeam(ctx context.Context, db DBTX, teamID int64) ([]TeamMediaRow, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT m.id, m.file_path, m.media_type, m.name, m.description, m.uploaded_at,
+		       tsh.id, s.season_num, tsh.team_name
+		FROM media m
+		JOIN media_team_seasons mts ON mts.media_id = m.id
+		JOIN team_season_history tsh ON tsh.id = mts.team_history_id
+		JOIN seasons s ON s.id = tsh.season_id
+		WHERE tsh.team_id = ?
+		ORDER BY s.season_num DESC, m.uploaded_at DESC
+	`, teamID)
+	if err != nil {
+		return nil, fmt.Errorf("querying all media for team %d: %w", teamID, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []TeamMediaRow
+	for rows.Next() {
+		var m models.Media
+		var uploadedAt string
+		var r TeamMediaRow
+		if err := rows.Scan(
+			&m.ID, &m.FilePath, (*string)(&m.MediaType), &m.Name, &m.Description, &uploadedAt,
+			&r.GroupTeamHistoryID, &r.GroupSeasonNum, &r.GroupTeamName,
+		); err != nil {
+			return nil, fmt.Errorf("scanning team media row: %w", err)
+		}
+		m.UploadedAt, _ = time.Parse("2006-01-02T15:04:05Z", uploadedAt)
+		r.MediaWithAssocs = MediaWithAssocs{Media: m}
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating team media rows: %w", err)
+	}
+
+	for i := range out {
+		tsAssocs, err := s.getTeamSeasonAssocs(ctx, db, out[i].Media.ID)
+		if err != nil {
+			return nil, err
+		}
+		out[i].TeamSeasons = tsAssocs
+		pAssocs, err := s.getPlayerAssocs(ctx, db, out[i].Media.ID)
+		if err != nil {
+			return nil, err
+		}
+		out[i].Players = pAssocs
+	}
+	return out, nil
+}
+
 func (s *MediaStore) scanMediaRows(rows *sql.Rows) ([]MediaWithAssocs, error) {
 	var items []MediaWithAssocs
 	for rows.Next() {

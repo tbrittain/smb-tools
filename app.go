@@ -1904,6 +1904,34 @@ func (a *App) GetTeamSeasonsForMediaPicker(teamID int64) ([]TeamSeasonPickerResu
 	return out, nil
 }
 
+// GetAllMediaForTeam returns all media for all seasons of a team, grouped by season (most recent first).
+func (a *App) GetAllMediaForTeam(teamID int64) ([]TeamSeasonMediaGroupDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	rows, err := a.mediaStore.GetAllMediaForTeam(a.ctx, a.companionDB, teamID)
+	if err != nil {
+		return nil, err
+	}
+
+	var groups []TeamSeasonMediaGroupDTO
+	groupIdx := map[int64]int{} // teamHistoryID → index in groups slice
+	for _, row := range rows {
+		idx, ok := groupIdx[row.GroupTeamHistoryID]
+		if !ok {
+			groups = append(groups, TeamSeasonMediaGroupDTO{
+				SeasonNum:     row.GroupSeasonNum,
+				TeamHistoryID: row.GroupTeamHistoryID,
+				TeamName:      row.GroupTeamName,
+			})
+			idx = len(groups) - 1
+			groupIdx[row.GroupTeamHistoryID] = idx
+		}
+		groups[idx].Items = append(groups[idx].Items, mediaItemToDTO(row.MediaWithAssocs))
+	}
+	return groups, nil
+}
+
 func (a *App) toGalleryPageDTO(items []store.MediaWithAssocs, total, page, pageSize int) MediaGalleryPageDTO {
 	dtos := make([]MediaItemDTO, len(items))
 	for i, item := range items {

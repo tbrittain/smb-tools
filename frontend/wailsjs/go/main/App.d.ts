@@ -30,6 +30,8 @@ export function DetectLegacyDB():Promise<string>;
 
 export function GetActiveFranchise():Promise<main.FranchiseDTO>;
 
+export function GetAllMediaForTeam(arg1:number):Promise<Array<main.TeamSeasonMediaGroupDTO>>;
+
 export function GetBattingCareerLeaders(arg1:main.LeaderboardFiltersDTO):Promise<main.BattingLeaderPageDTO>;
 
 export function GetBattingSeasonLeaders(arg1:main.LeaderboardFiltersDTO):Promise<main.BattingLeaderPageDTO>;

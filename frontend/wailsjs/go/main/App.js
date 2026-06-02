@@ -58,6 +58,10 @@ export function GetActiveFranchise() {
   return window['go']['main']['App']['GetActiveFranchise']();
 }
 
+export function GetAllMediaForTeam(arg1) {
+  return window['go']['main']['App']['GetAllMediaForTeam'](arg1);
+}
+
 export function GetBattingCareerLeaders(arg1) {
   return window['go']['main']['App']['GetBattingCareerLeaders'](arg1);
 }

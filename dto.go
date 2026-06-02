@@ -53,6 +53,14 @@ type TeamSeasonPickerResultDTO struct {
 	SeasonNum     int   `json:"seasonNum"`
 }
 
+// TeamSeasonMediaGroupDTO groups media items for one team-season within the team gallery.
+type TeamSeasonMediaGroupDTO struct {
+	SeasonNum     int            `json:"seasonNum"`
+	TeamHistoryID int64          `json:"teamHistoryId"`
+	TeamName      string         `json:"teamName"`
+	Items         []MediaItemDTO `json:"items"`
+}
+
 // UploadMediaRequest holds all parameters for a single media upload.
 type UploadMediaRequest struct {
 	Name           string  `json:"name"`
