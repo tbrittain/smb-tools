@@ -18,6 +18,10 @@ export function BrowseLogoFile() {
   return window['go']['main']['App']['BrowseLogoFile']();
 }
 
+export function BrowseMediaFile() {
+  return window['go']['main']['App']['BrowseMediaFile']();
+}
+
 export function BrowseSaveFile() {
   return window['go']['main']['App']['BrowseSaveFile']();
 }
@@ -36,6 +40,10 @@ export function CreateFranchise(arg1, arg2, arg3, arg4) {
 
 export function DeleteFranchise(arg1) {
   return window['go']['main']['App']['DeleteFranchise'](arg1);
+}
+
+export function DeleteMediaEverywhere(arg1) {
+  return window['go']['main']['App']['DeleteMediaEverywhere'](arg1);
 }
 
 export function DeleteTeamLogoAssignment(arg1) {
@@ -76,6 +84,14 @@ export function GetHoFInducted(arg1, arg2, arg3) {
 
 export function GetLogoURLForSeason(arg1, arg2) {
   return window['go']['main']['App']['GetLogoURLForSeason'](arg1, arg2);
+}
+
+export function GetMediaForPlayer(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetMediaForPlayer'](arg1, arg2, arg3);
+}
+
+export function GetMediaForTeamSeason(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetMediaForTeamSeason'](arg1, arg2, arg3);
 }
 
 export function GetPitchingCareerLeaders(arg1) {
@@ -146,6 +162,10 @@ export function GetTeamSeasonDetail(arg1) {
   return window['go']['main']['App']['GetTeamSeasonDetail'](arg1);
 }
 
+export function GetTeamSeasonsForMediaPicker(arg1) {
+  return window['go']['main']['App']['GetTeamSeasonsForMediaPicker'](arg1);
+}
+
 export function GetTeamTopPlayers(arg1) {
   return window['go']['main']['App']['GetTeamTopPlayers'](arg1);
 }
@@ -202,6 +222,10 @@ export function ReimportSeasonFromSnapshot(arg1, arg2) {
   return window['go']['main']['App']['ReimportSeasonFromSnapshot'](arg1, arg2);
 }
 
+export function RemoveMediaAssociation(arg1, arg2, arg3) {
+  return window['go']['main']['App']['RemoveMediaAssociation'](arg1, arg2, arg3);
+}
+
 export function RenameFranchise(arg1, arg2) {
   return window['go']['main']['App']['RenameFranchise'](arg1, arg2);
 }
@@ -216,6 +240,10 @@ export function SearchPlayers(arg1) {
 
 export function SearchTeams(arg1) {
   return window['go']['main']['App']['SearchTeams'](arg1);
+}
+
+export function SearchTeamsForMediaPicker(arg1) {
+  return window['go']['main']['App']['SearchTeamsForMediaPicker'](arg1);
 }
 
 export function SelectFranchise(arg1) {
@@ -244,4 +272,8 @@ export function SyncSeason() {
 
 export function UploadAndAssignTeamLogo(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['UploadAndAssignTeamLogo'](arg1, arg2, arg3, arg4);
+}
+
+export function UploadMedia(arg1) {
+  return window['go']['main']['App']['UploadMedia'](arg1);
 }

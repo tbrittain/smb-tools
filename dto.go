@@ -4,6 +4,64 @@ import (
 	"smb-tools/internal/models"
 )
 
+// ── Media ─────────────────────────────────────────────────────────────────────
+
+// MediaTeamSeasonAssocDTO identifies the team-season linked to a media item.
+type MediaTeamSeasonAssocDTO struct {
+	TeamHistoryID int64  `json:"teamHistoryId"`
+	TeamName      string `json:"teamName"`
+	SeasonNum     int    `json:"seasonNum"`
+}
+
+// MediaPlayerAssocDTO identifies the player linked to a media item.
+type MediaPlayerAssocDTO struct {
+	PlayerID  int64  `json:"playerId"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+}
+
+// MediaItemDTO is the frontend representation of one media item with all associations.
+type MediaItemDTO struct {
+	ID                  string                    `json:"id"`
+	Name                string                    `json:"name"`
+	Description         string                    `json:"description"`
+	MediaType           string                    `json:"mediaType"` // "image" | "video"
+	URL                 string                    `json:"url"`
+	UploadedAt          string                    `json:"uploadedAt"` // ISO 8601
+	TotalAssociationCount int                     `json:"totalAssociationCount"`
+	TeamSeasonAssocs    []MediaTeamSeasonAssocDTO `json:"teamSeasonAssocs"`
+	PlayerAssocs        []MediaPlayerAssocDTO     `json:"playerAssocs"`
+}
+
+// MediaGalleryPageDTO is a paginated slice of media items.
+type MediaGalleryPageDTO struct {
+	Items      []MediaItemDTO `json:"items"`
+	TotalCount int            `json:"totalCount"`
+	Page       int            `json:"page"`
+	PageSize   int            `json:"pageSize"`
+}
+
+// TeamPickerResultDTO is a lightweight team record for the media association picker.
+type TeamPickerResultDTO struct {
+	TeamID   int64  `json:"teamId"`
+	TeamName string `json:"teamName"`
+}
+
+// TeamSeasonPickerResultDTO is a lightweight team-season record for the media association picker.
+type TeamSeasonPickerResultDTO struct {
+	TeamHistoryID int64 `json:"teamHistoryId"`
+	SeasonNum     int   `json:"seasonNum"`
+}
+
+// UploadMediaRequest holds all parameters for a single media upload.
+type UploadMediaRequest struct {
+	Name           string  `json:"name"`
+	Description    string  `json:"description"`
+	FilePath       string  `json:"filePath"`
+	TeamHistoryIDs []int64 `json:"teamHistoryIds"`
+	PlayerIDs      []int64 `json:"playerIds"`
+}
+
 // ── Snapshots ─────────────────────────────────────────────────────────────────
 
 // SnapshotDTO represents one captured save game snapshot for the active franchise.

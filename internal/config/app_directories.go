@@ -61,6 +61,11 @@ func (d *AppDirs) TeamLogosDir(franchiseID string, teamID int) string {
 	return filepath.Join(d.AssetsDir(franchiseID), "logos", strconv.Itoa(teamID))
 }
 
+// MediaDir returns the path to the media storage directory for a franchise.
+func (d *AppDirs) MediaDir(franchiseID string) string {
+	return filepath.Join(d.AssetsDir(franchiseID), "media")
+}
+
 // EnsureFranchiseDirs creates the per-franchise directory structure.
 func (d *AppDirs) EnsureFranchiseDirs(franchiseID string) error {
 	for _, dir := range []string{d.SnapshotsDir(franchiseID), d.AssetsDir(franchiseID)} {

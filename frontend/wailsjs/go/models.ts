@@ -776,6 +776,123 @@ export namespace main {
 	        this.isSmb3 = source["isSmb3"];
 	    }
 	}
+	export class MediaPlayerAssocDTO {
+	    playerId: number;
+	    firstName: string;
+	    lastName: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new MediaPlayerAssocDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.playerId = source["playerId"];
+	        this.firstName = source["firstName"];
+	        this.lastName = source["lastName"];
+	    }
+	}
+	export class MediaTeamSeasonAssocDTO {
+	    teamHistoryId: number;
+	    teamName: string;
+	    seasonNum: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new MediaTeamSeasonAssocDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.teamHistoryId = source["teamHistoryId"];
+	        this.teamName = source["teamName"];
+	        this.seasonNum = source["seasonNum"];
+	    }
+	}
+	export class MediaItemDTO {
+	    id: string;
+	    name: string;
+	    description: string;
+	    mediaType: string;
+	    url: string;
+	    uploadedAt: string;
+	    totalAssociationCount: number;
+	    teamSeasonAssocs: MediaTeamSeasonAssocDTO[];
+	    playerAssocs: MediaPlayerAssocDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new MediaItemDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.mediaType = source["mediaType"];
+	        this.url = source["url"];
+	        this.uploadedAt = source["uploadedAt"];
+	        this.totalAssociationCount = source["totalAssociationCount"];
+	        this.teamSeasonAssocs = this.convertValues(source["teamSeasonAssocs"], MediaTeamSeasonAssocDTO);
+	        this.playerAssocs = this.convertValues(source["playerAssocs"], MediaPlayerAssocDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class MediaGalleryPageDTO {
+	    items: MediaItemDTO[];
+	    totalCount: number;
+	    page: number;
+	    pageSize: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new MediaGalleryPageDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.items = this.convertValues(source["items"], MediaItemDTO);
+	        this.totalCount = source["totalCount"];
+	        this.page = source["page"];
+	        this.pageSize = source["pageSize"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
+	
 	export class MigrateLegacyResult {
 	    franchiseId: string;
 	    franchiseName: string;
@@ -1982,6 +2099,20 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class TeamPickerResultDTO {
+	    teamId: number;
+	    teamName: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TeamPickerResultDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.teamId = source["teamId"];
+	        this.teamName = source["teamName"];
+	    }
+	}
 	
 	export class TeamSearchResultDTO {
 	    teamId: number;
@@ -2081,6 +2212,20 @@ export namespace main {
 	        this.isChampion = source["isChampion"];
 	    }
 	}
+	export class TeamSeasonPickerResultDTO {
+	    teamHistoryId: number;
+	    seasonNum: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TeamSeasonPickerResultDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.teamHistoryId = source["teamHistoryId"];
+	        this.seasonNum = source["seasonNum"];
+	    }
+	}
 	
 	export class TeamStandingDTO {
 	    historyId: number;
@@ -2150,6 +2295,26 @@ export namespace main {
 	        this.avgOpsPlus = source["avgOpsPlus"];
 	        this.avgEraPlus = source["avgEraPlus"];
 	        this.awards = source["awards"];
+	    }
+	}
+	export class UploadMediaRequest {
+	    name: string;
+	    description: string;
+	    filePath: string;
+	    teamHistoryIds: number[];
+	    playerIds: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new UploadMediaRequest(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.filePath = source["filePath"];
+	        this.teamHistoryIds = source["teamHistoryIds"];
+	        this.playerIds = source["playerIds"];
 	    }
 	}
 

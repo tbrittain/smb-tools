@@ -6,6 +6,7 @@ import AttributesTable from '../components/AttributesTable.vue'
 import CareerStatSummary from '../components/CareerStatSummary.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import MediaGallery from '../components/MediaGallery.vue'
 import PlayerAttributesTable from '../components/PlayerAttributesTable.vue'
 import PlayerBioCard from '../components/PlayerBioCard.vue'
 import PlayerStatTable from '../components/PlayerStatTable.vue'
@@ -156,6 +157,15 @@ watch(
           v-else
           :rows="seasonLog"
           :is-pitcher="isPitcher"
+        />
+      </section>
+
+      <!-- Media gallery -->
+      <section class="season-log-section">
+        <MediaGallery
+          entity-type="player"
+          :entity-id="props.playerId"
+          :entity-label="career ? `${career.firstName} ${career.lastName}` : `Player #${props.playerId}`"
         />
       </section>
     </template>
