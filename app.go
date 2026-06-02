@@ -1776,68 +1776,69 @@ func logoAssignmentToDTO(a models.TeamLogoAssignment) TeamLogoAssignmentDTO {
 	}
 }
 
-// ── Logo asset handler ────────────────────────────────────────────────────────
+// ── Logo asset middleware ─────────────────────────────────────────────────────
 
-// logoAssetHandler serves logo images from the active franchise's assets directory.
-// It handles requests at "/_logos/{teamId}/{filename}".
-type logoAssetHandler struct {
-	app *App
-}
+// logoAssetMiddleware returns a Wails AssetServer middleware that intercepts
+// /_logos/{teamId}/{filename} requests and serves them directly from the active
+// franchise's assets directory. Using Middleware (not Handler) ensures logo
+// requests are handled before the Vite dev-proxy in wails dev mode.
+func (a *App) logoAssetMiddleware() func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !strings.HasPrefix(r.URL.Path, "/_logos/") {
+				next.ServeHTTP(w, r)
+				return
+			}
 
-func (h *logoAssetHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if h.app.dirs == nil || h.app.activeFranchise == nil {
-		http.NotFound(w, r)
-		return
+			if a.dirs == nil || a.activeFranchise == nil {
+				http.NotFound(w, r)
+				return
+			}
+
+			// Strip "/_logos/" prefix and split into exactly [teamId, filename].
+			trimmed := strings.TrimPrefix(r.URL.Path, "/_logos/")
+			parts := strings.SplitN(trimmed, "/", 2)
+			if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+				http.NotFound(w, r)
+				return
+			}
+			teamIDStr, filename := parts[0], parts[1]
+
+			// Reject any path traversal attempts.
+			if strings.Contains(filename, "/") || strings.Contains(filename, "\\") ||
+				strings.Contains(filename, "..") || strings.Contains(teamIDStr, "..") {
+				http.NotFound(w, r)
+				return
+			}
+
+			franchiseDir := a.dirs.FranchiseDir(a.activeFranchise.ID)
+			fullPath := filepath.Join(franchiseDir, "assets", "logos", teamIDStr, filename)
+
+			// Verify the resolved path stays within the franchise directory.
+			if !strings.HasPrefix(fullPath, filepath.Clean(franchiseDir)+string(filepath.Separator)) {
+				http.NotFound(w, r)
+				return
+			}
+
+			ext := strings.ToLower(filepath.Ext(filename))
+			switch ext {
+			case ".png":
+				w.Header().Set("Content-Type", "image/png")
+			case ".jpg", ".jpeg":
+				w.Header().Set("Content-Type", "image/jpeg")
+			default:
+				http.NotFound(w, r)
+				return
+			}
+
+			data, err := os.ReadFile(fullPath)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			_, _ = w.Write(data)
+		})
 	}
-
-	// Strip "/_logos/" prefix and split into exactly [teamId, filename].
-	trimmed := strings.TrimPrefix(r.URL.Path, "/_logos/")
-	parts := strings.SplitN(trimmed, "/", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		http.NotFound(w, r)
-		return
-	}
-	teamIDStr, filename := parts[0], parts[1]
-
-	// Reject any path traversal attempts.
-	if strings.Contains(filename, "/") || strings.Contains(filename, "\\") ||
-		strings.Contains(filename, "..") || strings.Contains(teamIDStr, "..") {
-		http.NotFound(w, r)
-		return
-	}
-
-	franchiseDir := h.app.dirs.FranchiseDir(h.app.activeFranchise.ID)
-	fullPath := filepath.Join(franchiseDir, "assets", "logos", teamIDStr, filename)
-
-	// Verify the resolved path is still within the franchise directory.
-	if !strings.HasPrefix(fullPath, filepath.Clean(franchiseDir)+string(filepath.Separator)) {
-		http.NotFound(w, r)
-		return
-	}
-
-	ext := strings.ToLower(filepath.Ext(filename))
-	switch ext {
-	case ".png":
-		w.Header().Set("Content-Type", "image/png")
-	case ".jpg", ".jpeg":
-		w.Header().Set("Content-Type", "image/jpeg")
-	default:
-		http.NotFound(w, r)
-		return
-	}
-
-	data, err := os.ReadFile(fullPath)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	_, _ = w.Write(data)
-}
-
-// logoAssetHandler returns the http.Handler used by the Wails asset server
-// to serve logo images from the active franchise directory.
-func (a *App) logoAssetHandler() http.Handler {
-	return &logoAssetHandler{app: a}
 }
 
 // parseSortedSeasonNums converts a comma-separated season number string

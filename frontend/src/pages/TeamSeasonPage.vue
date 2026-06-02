@@ -250,7 +250,7 @@ function rosterPRateTip(playerId: number, statKey: string, label: string): strin
       <div class="season-content">
         <header class="page-header">
           <div class="header-identity">
-            <TeamLogoDisplay :logoUrl="logoUrl" size="lg" />
+            <TeamLogoDisplay v-if="logoUrl" :logoUrl="logoUrl" size="lg" />
             <h2>
               <AppLink :to="`/teams/${props.teamId}`" class="team-name-link">{{ detail.team.teamName }}</AppLink>
               <span class="season-num-label">Season {{ detail.team.seasonNum }}</span>
@@ -743,6 +743,12 @@ function rosterPRateTip(playerId: number, statKey: string, label: string): strin
   flex-direction: column;
   gap: 2rem;
   max-width: 1000px;
+}
+
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 .header-identity {

@@ -2,7 +2,6 @@
 import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
-import Menu from 'primevue/menu'
 import { computed, onMounted, ref } from 'vue'
 import { GetLogoURLForSeason, GetTeamHistory, GetTeamTopPlayers } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
@@ -24,7 +23,6 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const logoUrl = ref('')
 const showLogoManager = ref(false)
-const headerMenu = ref<{ toggle: (e: Event) => void } | null>(null)
 
 const maxSeason = computed(() => {
   const seasons = history.value?.seasons ?? []
@@ -32,15 +30,6 @@ const maxSeason = computed(() => {
 })
 
 const availableSeasons = computed(() => (history.value?.seasons ?? []).map((s) => s.seasonNum).sort((a, b) => a - b))
-
-const menuItems = computed(() => [
-  {
-    label: 'Manage Logos',
-    command: () => {
-      showLogoManager.value = true
-    },
-  },
-])
 
 async function refreshLogo() {
   if (maxSeason.value > 0) {
@@ -107,23 +96,21 @@ onMounted(async () => {
 
     <template v-else-if="history">
       <!-- Header -->
-      <div class="team-content">
       <header class="page-header">
         <div class="header-top">
           <div class="header-identity">
-            <TeamLogoDisplay :logoUrl="logoUrl" size="lg" />
+            <TeamLogoDisplay v-if="logoUrl" :logoUrl="logoUrl" size="lg" />
             <h2>{{ summary.currentName }}</h2>
           </div>
           <div class="header-actions">
             <Button
-              icon="pi pi-ellipsis-v"
-              text
-              rounded
+              label="Manage Logos"
+              icon="pi pi-image"
+              severity="secondary"
+              outlined
               size="small"
-              aria-label="Team options"
-              @click="headerMenu?.toggle($event)"
+              @click="showLogoManager = true"
             />
-            <Menu ref="headerMenu" :model="menuItems" popup />
           </div>
         </div>
         <div class="header-stats">
@@ -155,7 +142,6 @@ onMounted(async () => {
           </div>
         </div>
       </header>
-      </div>
 
       <!-- Season history table -->
       <section class="section">
@@ -251,15 +237,11 @@ onMounted(async () => {
   gap: 1.75rem;
 }
 
-.team-content {
-  padding: 2rem 2rem 0;
-  max-width: 1000px;
-}
-
 .page-header {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
+  padding: 2rem 2rem 0;
 }
 
 .header-top {
