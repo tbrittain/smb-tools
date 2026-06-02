@@ -64,11 +64,14 @@ const makePitching = (w: number, l: number, outs: number, er: number, k: number)
     winPct: w / (w + l),
   })
 
+const makeTeam = (id: number, name: string, sortOrder: number) =>
+  new main.TeamRefDTO({ teamId: id, teamHistoryId: id * 10, teamName: name, sortOrder })
+
 const makeRow = (i: number) =>
   new main.PlayerSeasonLogDTO({
     seasonNum: i,
     seasonId: i,
-    teamName: i < 3 ? 'Red Sox' : 'Cubs',
+    teams: [makeTeam(i < 3 ? 1 : 2, i < 3 ? 'Red Sox' : 'Cubs', 0)],
     age: 25 + i,
     salary: 3000000 + i * 1000000,
     primaryPosition: 'SS',
@@ -123,4 +126,42 @@ export const PitchingPlayoffs: Story = {
 
 export const Empty: Story = {
   args: { rows: [], mode: 'batting', showPlayoffs: false },
+}
+
+// ── FA display scenarios ───────────────────────────────────────────────────────
+
+const faWholeSeasonRow = new main.PlayerSeasonLogDTO({
+  ...makeRow(1),
+  teams: [],
+})
+
+const faAfterTeamRow = new main.PlayerSeasonLogDTO({
+  ...makeRow(2),
+  // Player played for Wolves then ended season as FA (no sortOrder=0 entry)
+  teams: [makeTeam(5, 'Honey Badgers', 1)],
+})
+
+const fullSeasonTeamRow = new main.PlayerSeasonLogDTO({
+  ...makeRow(3),
+  teams: [makeTeam(6, 'Wolves', 0)],
+})
+
+export const BattingFAWholeSeason: Story = {
+  args: { rows: [faWholeSeasonRow], mode: 'batting', showPlayoffs: false },
+}
+
+export const BattingFAAfterTeam: Story = {
+  args: { rows: [faAfterTeamRow], mode: 'batting', showPlayoffs: false },
+}
+
+export const BattingFullSeasonTeam: Story = {
+  args: { rows: [fullSeasonTeamRow], mode: 'batting', showPlayoffs: false },
+}
+
+export const BattingAllFAVariants: Story = {
+  args: {
+    rows: [faWholeSeasonRow, faAfterTeamRow, fullSeasonTeamRow],
+    mode: 'batting',
+    showPlayoffs: false,
+  },
 }
