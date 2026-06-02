@@ -214,6 +214,58 @@ The negative trait set is defined inside `TraitList.vue` and covers both SMB4 na
 
 ---
 
+## Modals
+
+### Use PrimeVue `Dialog` for forms and multi-step flows
+
+There are two modal patterns:
+
+- **`useConfirm()` + `<ConfirmDialog>`** — for simple, one-click destructive confirmations ("Are you sure you want to delete this franchise?"). The global confirm service drives it; no custom template needed.
+- **`<Dialog>`** — for anything with a form, tab structure, or interactive content. `TeamLogoManager` is the canonical example.
+
+```vue
+<script setup lang="ts">
+import Button from 'primevue/button'
+import Dialog from 'primevue/dialog'
+
+const visible = defineModel<boolean>('visible', { required: true })
+</script>
+
+<template>
+  <Dialog v-model:visible="visible" modal header="Dialog Title" :style="{ width: '560px' }">
+    <!-- content -->
+    <p>Dialog body goes here.</p>
+
+    <template #footer>
+      <Button label="Cancel" severity="secondary" text @click="visible = false" />
+      <Button label="Confirm" @click="handleConfirm" />
+    </template>
+  </Dialog>
+</template>
+```
+
+**Rules:**
+- Always set `modal` so the backdrop is shown.
+- Set an explicit `width` in `:style` — dialogs without a width stretch unpredictably on wide monitors.
+- Footer pattern: **Cancel on the left** (secondary, text), **primary action on the right**. For destructive primary actions use `severity="danger"`.
+- Do not put loading spinners in the dialog header — show them inside the content area.
+- Do not `$emit('close')` on every interaction — only emit when the user explicitly closes (Cancel or a final success action). Let the parent control visibility via `v-model:visible`.
+
+### What NOT to do
+
+```vue
+<!-- Bad: raw <div> overlay -->
+<div v-if="open" class="overlay">…</div>
+
+<!-- Bad: confirm-service for a form -->
+useConfirm().require({ message: '<form content here>' })
+
+<!-- Bad: no width constraint -->
+<Dialog v-model:visible="visible" modal header="Upload Logo">
+```
+
+---
+
 ## Storybook
 
 Every non-trivial component in `src/components/` must have a `.stories.ts` file. See `AppLink.stories.ts` for the canonical structure: individual named exports per variant, plus an `AllVariants` story that shows them together in a realistic dark-background layout.
