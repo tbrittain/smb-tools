@@ -3,7 +3,7 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { GetTeamHistory, GetTeamSeasonDetail } from '../../wailsjs/go/main/App'
+import { GetLogoURLForSeason, GetTeamHistory, GetTeamSeasonDetail } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppLink from '../components/AppLink.vue'
 import EmptyState from '../components/EmptyState.vue'
@@ -11,6 +11,7 @@ import HofBadge from '../components/HofBadge.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import StatHighlightCell from '../components/StatHighlightCell.vue'
 import StatHighlightLegend from '../components/StatHighlightLegend.vue'
+import TeamLogoDisplay from '../components/TeamLogoDisplay.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 import {
   formatAdjustedStat,
@@ -42,6 +43,7 @@ const detail = ref<main.TeamSeasonDetailDTO | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const teamSeasons = ref<main.TeamSeasonSummaryDTO[]>([])
+const logoUrl = ref('')
 
 const sortedSeasons = computed(() => [...teamSeasons.value].sort((a, b) => a.seasonNum - b.seasonNum))
 
@@ -130,6 +132,11 @@ async function fetchDetail(historyId: number) {
   try {
     detail.value = await GetTeamSeasonDetail(historyId)
     set([{ label: `${detail.value.team.teamName} Season ${detail.value.team.seasonNum}` }])
+    try {
+      logoUrl.value = await GetLogoURLForSeason(props.teamId, detail.value.team.seasonNum)
+    } catch {
+      logoUrl.value = ''
+    }
   } catch (e) {
     error.value = String(e)
   } finally {
@@ -242,11 +249,14 @@ function rosterPRateTip(playerId: number, statKey: string, label: string): strin
       <!-- Header (constrained width) -->
       <div class="season-content">
         <header class="page-header">
-          <h2>
-            <AppLink :to="`/teams/${props.teamId}`" class="team-name-link">{{ detail.team.teamName }}</AppLink>
-            <span class="season-num-label">Season {{ detail.team.seasonNum }}</span>
-            <span v-if="detail.team.isChampion" class="champ-badge">🏆 Champion</span>
-          </h2>
+          <div class="header-identity">
+            <TeamLogoDisplay v-if="logoUrl" :logoUrl="logoUrl" size="lg" />
+            <h2>
+              <AppLink :to="`/teams/${props.teamId}`" class="team-name-link">{{ detail.team.teamName }}</AppLink>
+              <span class="season-num-label">Season {{ detail.team.seasonNum }}</span>
+              <span v-if="detail.team.isChampion" class="champ-badge">🏆 Champion</span>
+            </h2>
+          </div>
           <div class="header-stats">
             <div class="hstat">
               <span class="hstat-label">Record</span>
@@ -733,6 +743,18 @@ function rosterPRateTip(playerId: number, statKey: string, label: string): strin
   flex-direction: column;
   gap: 2rem;
   max-width: 1000px;
+}
+
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.header-identity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .grid-section {

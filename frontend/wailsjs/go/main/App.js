@@ -6,8 +6,16 @@ export function AddFranchiseSource(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['AddFranchiseSource'](arg1, arg2, arg3, arg4);
 }
 
+export function AssignExistingTeamLogo(arg1, arg2, arg3) {
+  return window['go']['main']['App']['AssignExistingTeamLogo'](arg1, arg2, arg3);
+}
+
 export function BrowseLegacyDB() {
   return window['go']['main']['App']['BrowseLegacyDB']();
+}
+
+export function BrowseLogoFile() {
+  return window['go']['main']['App']['BrowseLogoFile']();
 }
 
 export function BrowseSaveFile() {
@@ -28,6 +36,10 @@ export function CreateFranchise(arg1, arg2, arg3, arg4) {
 
 export function DeleteFranchise(arg1) {
   return window['go']['main']['App']['DeleteFranchise'](arg1);
+}
+
+export function DeleteTeamLogoAssignment(arg1) {
+  return window['go']['main']['App']['DeleteTeamLogoAssignment'](arg1);
 }
 
 export function DetectLegacyDB() {
@@ -60,6 +72,10 @@ export function GetHoFCandidates(arg1, arg2, arg3) {
 
 export function GetHoFInducted(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetHoFInducted'](arg1, arg2, arg3);
+}
+
+export function GetLogoURLForSeason(arg1, arg2) {
+  return window['go']['main']['App']['GetLogoURLForSeason'](arg1, arg2);
 }
 
 export function GetPitchingCareerLeaders(arg1) {
@@ -120,6 +136,10 @@ export function GetStatHighlights() {
 
 export function GetTeamHistory(arg1) {
   return window['go']['main']['App']['GetTeamHistory'](arg1);
+}
+
+export function GetTeamLogos(arg1) {
+  return window['go']['main']['App']['GetTeamLogos'](arg1);
 }
 
 export function GetTeamSeasonDetail(arg1) {
@@ -220,4 +240,8 @@ export function SubmitSeasonAwards(arg1) {
 
 export function SyncSeason() {
   return window['go']['main']['App']['SyncSeason']();
+}
+
+export function UploadAndAssignTeamLogo(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['UploadAndAssignTeamLogo'](arg1, arg2, arg3, arg4);
 }

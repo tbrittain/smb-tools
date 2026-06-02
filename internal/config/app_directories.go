@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 )
 
 // AppDirs holds all resolved application data directory paths.
@@ -50,10 +51,22 @@ func (d *AppDirs) SnapshotsDir(franchiseID string) string {
 	return filepath.Join(d.FranchiseDir(franchiseID), "snapshots")
 }
 
+// AssetsDir returns the path to the given franchise's assets directory.
+func (d *AppDirs) AssetsDir(franchiseID string) string {
+	return filepath.Join(d.FranchiseDir(franchiseID), "assets")
+}
+
+// TeamLogosDir returns the path to the logo storage directory for a specific team.
+func (d *AppDirs) TeamLogosDir(franchiseID string, teamID int) string {
+	return filepath.Join(d.AssetsDir(franchiseID), "logos", strconv.Itoa(teamID))
+}
+
 // EnsureFranchiseDirs creates the per-franchise directory structure.
 func (d *AppDirs) EnsureFranchiseDirs(franchiseID string) error {
-	if err := os.MkdirAll(d.SnapshotsDir(franchiseID), 0o700); err != nil {
-		return fmt.Errorf("creating franchise directories for %q: %w", franchiseID, err)
+	for _, dir := range []string{d.SnapshotsDir(franchiseID), d.AssetsDir(franchiseID)} {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return fmt.Errorf("creating franchise directories for %q: %w", franchiseID, err)
+		}
 	}
 	return nil
 }

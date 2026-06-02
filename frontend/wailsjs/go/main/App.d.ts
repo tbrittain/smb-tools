@@ -4,7 +4,11 @@ import {main} from '../models';
 
 export function AddFranchiseSource(arg1:string,arg2:string,arg3:string,arg4:number):Promise<void>;
 
+export function AssignExistingTeamLogo(arg1:string,arg2:any,arg3:any):Promise<main.TeamLogoAssignmentDTO>;
+
 export function BrowseLegacyDB():Promise<string>;
+
+export function BrowseLogoFile():Promise<string>;
 
 export function BrowseSaveFile():Promise<string>;
 
@@ -15,6 +19,8 @@ export function CreateCustomAward(arg1:main.AwardDTO):Promise<main.AwardDTO>;
 export function CreateFranchise(arg1:string,arg2:string,arg3:string,arg4:string):Promise<main.FranchiseDTO>;
 
 export function DeleteFranchise(arg1:string):Promise<void>;
+
+export function DeleteTeamLogoAssignment(arg1:string):Promise<void>;
 
 export function DetectLegacyDB():Promise<string>;
 
@@ -31,6 +37,8 @@ export function GetHistoricalTeams(arg1:number,arg2:number):Promise<Array<main.H
 export function GetHoFCandidates(arg1:number,arg2:number,arg3:number):Promise<main.HoFPageDTO>;
 
 export function GetHoFInducted(arg1:number,arg2:number,arg3:number):Promise<main.HoFPageDTO>;
+
+export function GetLogoURLForSeason(arg1:number,arg2:number):Promise<string>;
 
 export function GetPitchingCareerLeaders(arg1:main.LeaderboardFiltersDTO):Promise<main.PitchingLeaderPageDTO>;
 
@@ -61,6 +69,8 @@ export function GetStandings(arg1:number):Promise<Array<main.TeamStandingDTO>>;
 export function GetStatHighlights():Promise<main.StatHighlightsDTO>;
 
 export function GetTeamHistory(arg1:number):Promise<main.TeamHistoryDTO>;
+
+export function GetTeamLogos(arg1:number):Promise<Array<main.TeamLogoDTO>>;
 
 export function GetTeamSeasonDetail(arg1:number):Promise<main.TeamSeasonDetailDTO>;
 
@@ -111,3 +121,5 @@ export function SetPlayerSeasonAwards(arg1:main.SetPlayerAwardsRequestDTO):Promi
 export function SubmitSeasonAwards(arg1:main.SubmitSeasonAwardsDTO):Promise<void>;
 
 export function SyncSeason():Promise<main.SyncSeasonResult>;
+
+export function UploadAndAssignTeamLogo(arg1:number,arg2:string,arg3:any,arg4:any):Promise<main.TeamLogoDTO>;

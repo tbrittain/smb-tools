@@ -1924,6 +1924,64 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class TeamLogoAssignmentDTO {
+	    id: string;
+	    logoId: string;
+	    startSeason?: number;
+	    endSeason?: number;
+	    assignedAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TeamLogoAssignmentDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.logoId = source["logoId"];
+	        this.startSeason = source["startSeason"];
+	        this.endSeason = source["endSeason"];
+	        this.assignedAt = source["assignedAt"];
+	    }
+	}
+	export class TeamLogoDTO {
+	    id: string;
+	    teamId: number;
+	    logoUrl: string;
+	    uploadedAt: string;
+	    assignments: TeamLogoAssignmentDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new TeamLogoDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.teamId = source["teamId"];
+	        this.logoUrl = source["logoUrl"];
+	        this.uploadedAt = source["uploadedAt"];
+	        this.assignments = this.convertValues(source["assignments"], TeamLogoAssignmentDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	
 	export class TeamSearchResultDTO {
 	    teamId: number;

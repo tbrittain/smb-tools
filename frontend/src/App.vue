@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import ConfirmDialog from 'primevue/confirmdialog'
 import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
 import { onMounted, ref, watch } from 'vue'
@@ -73,6 +74,7 @@ function goToCrumb(historyPosition: number) {
 
 <template>
   <div id="app-root">
+    <ConfirmDialog />
     <Toast position="bottom-center" />
     <!-- Loading state -->
     <div v-if="franchiseStore.loading" class="fullscreen-center">

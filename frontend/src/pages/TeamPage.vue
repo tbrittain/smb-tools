@@ -1,12 +1,15 @@
 <script lang="ts" setup>
+import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import { computed, onMounted, ref } from 'vue'
-import { GetTeamHistory, GetTeamTopPlayers } from '../../wailsjs/go/main/App'
+import { GetLogoURLForSeason, GetTeamHistory, GetTeamTopPlayers } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppLink from '../components/AppLink.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import TeamLogoDisplay from '../components/TeamLogoDisplay.vue'
+import TeamLogoManager from '../components/TeamLogoManager.vue'
 import TeamTopPlayersTable from '../components/TeamTopPlayersTable.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 
@@ -18,6 +21,25 @@ const history = ref<main.TeamHistoryDTO | null>(null)
 const topPlayers = ref<main.TeamTopPlayerDTO[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
+const logoUrl = ref('')
+const showLogoManager = ref(false)
+
+const maxSeason = computed(() => {
+  const seasons = history.value?.seasons ?? []
+  return seasons.length > 0 ? Math.max(...seasons.map((s) => s.seasonNum)) : 0
+})
+
+const availableSeasons = computed(() => (history.value?.seasons ?? []).map((s) => s.seasonNum).sort((a, b) => a - b))
+
+async function refreshLogo() {
+  if (maxSeason.value > 0) {
+    try {
+      logoUrl.value = await GetLogoURLForSeason(props.teamId, maxSeason.value)
+    } catch {
+      logoUrl.value = ''
+    }
+  }
+}
 
 // Aggregate stats across all seasons
 const summary = computed(() => {
@@ -58,6 +80,7 @@ onMounted(async () => {
     history.value = hist
     topPlayers.value = players ?? []
     set([{ label: summary.value.currentName }])
+    await refreshLogo()
   } catch (e) {
     error.value = String(e)
   } finally {
@@ -73,9 +96,23 @@ onMounted(async () => {
 
     <template v-else-if="history">
       <!-- Header -->
-      <div class="team-content">
       <header class="page-header">
-        <h2>{{ summary.currentName }}</h2>
+        <div class="header-top">
+          <div class="header-identity">
+            <TeamLogoDisplay v-if="logoUrl" :logoUrl="logoUrl" size="lg" />
+            <h2>{{ summary.currentName }}</h2>
+          </div>
+          <div class="header-actions">
+            <Button
+              label="Manage Logos"
+              icon="pi pi-image"
+              severity="secondary"
+              outlined
+              size="small"
+              @click="showLogoManager = true"
+            />
+          </div>
+        </div>
         <div class="header-stats">
           <div class="hstat">
             <span class="hstat-label">Seasons</span>
@@ -105,7 +142,6 @@ onMounted(async () => {
           </div>
         </div>
       </header>
-      </div>
 
       <!-- Season history table -->
       <section class="section">
@@ -182,6 +218,15 @@ onMounted(async () => {
 
     <EmptyState v-else message="Team not found" />
   </div>
+
+  <TeamLogoManager
+    v-if="history"
+    v-model:visible="showLogoManager"
+    :teamId="teamId"
+    :latestSeason="maxSeason"
+    :availableSeasons="availableSeasons"
+    @hide="refreshLogo"
+  />
 </template>
 
 <style scoped>
@@ -192,15 +237,28 @@ onMounted(async () => {
   gap: 1.75rem;
 }
 
-.team-content {
-  padding: 2rem 2rem 0;
-  max-width: 1000px;
-}
-
 .page-header {
   display: flex;
   flex-direction: column;
+  gap: 1.5rem;
+  padding: 2rem 2rem 0;
+}
+
+.header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 1rem;
+}
+
+.header-identity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.header-actions {
+  flex-shrink: 0;
 }
 
 h2 {

@@ -427,6 +427,26 @@ type TeamSeasonDetailDTO struct {
 	PlayoffSeriesLength *int                 `json:"playoffSeriesLength"`
 }
 
+// ── Logos ─────────────────────────────────────────────────────────────────────
+
+// TeamLogoAssignmentDTO represents one season-range assignment for a logo.
+type TeamLogoAssignmentDTO struct {
+	ID          string `json:"id"`
+	LogoID      string `json:"logoId"`
+	StartSeason *int   `json:"startSeason"`
+	EndSeason   *int   `json:"endSeason"`
+	AssignedAt  string `json:"assignedAt"` // ISO-8601
+}
+
+// TeamLogoDTO represents an uploaded team logo with all of its assignments.
+type TeamLogoDTO struct {
+	ID          string                  `json:"id"`
+	TeamID      int                     `json:"teamId"`
+	LogoURL     string                  `json:"logoUrl"` // "/_logos/{teamId}/{filename}"
+	UploadedAt  string                  `json:"uploadedAt"`
+	Assignments []TeamLogoAssignmentDTO `json:"assignments"`
+}
+
 // ── Mapping helpers ───────────────────────────────────────────────────────────
 
 func battingToDTO(b *models.CareerBattingStats) *CareerBattingStatsDTO {

@@ -24,7 +24,8 @@ func main() {
 		Height:           1080,
 		WindowStartState: options.Maximised,
 		AssetServer: &assetserver.Options{
-			Assets: assets,
+			Assets:     assets,
+			Middleware: app.logoAssetMiddleware(),
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:        app.startup,
