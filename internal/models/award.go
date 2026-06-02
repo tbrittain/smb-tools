@@ -13,6 +13,11 @@ type Award struct {
 	IsPlayoffAward    bool
 	IsUserAssignable  bool
 	IsBuiltIn         bool
+	// ParentAwardID is set for runner-up awards (MVP-2 → MVP). Nil for primary awards.
+	ParentAwardID *int64
+	// RunnerUpRank is the ordinal rank among siblings with the same parent (1 = best).
+	// Nil for primary awards.
+	RunnerUpRank *int
 }
 
 // PlayerSeasonAwardRow is one player-season entry returned for the awards
@@ -180,4 +185,50 @@ type HoFCandidate struct {
 type HoFPage struct {
 	Items []HoFCandidate
 	Total int
+}
+
+// ── Award view mode ───────────────────────────────────────────────────────────
+
+// AwardWinnerRow is one player who won a specific award, with key season stats
+// for the view mode card display.
+type AwardWinnerRow struct {
+	PlayerSeasonID int64
+	PlayerID       int64
+	FirstName      string
+	LastName       string
+	TeamName       string
+	PrimaryPos     string
+	PitcherRole    string
+	// AwardName is the name of the specific award won (e.g. "MVP-2" for runner-ups).
+	// For primary winners this matches the group name; used for runner-up labels.
+	AwardName string
+	// Batting triple-crown stats (zero for pitching-only awards)
+	BA  float64
+	HR  int
+	RBI int
+	// Pitching triple-crown stats (zero for batting-only awards)
+	ERA        float64
+	Wins       int
+	Strikeouts int
+	// Nil for seasons imported before context stats were added (Phase 8.5)
+	SmbWAR *float64
+}
+
+// AwardGroupSummary is one award category with all winners for a season.
+// RunnerUps contains winners of child runner-up awards (e.g. MVP-2, MVP-3),
+// ordered by RunnerUpRank ASC. Empty when no runner-ups were assigned.
+type AwardGroupSummary struct {
+	Award     Award
+	Winners   []AwardWinnerRow
+	RunnerUps []AwardWinnerRow
+}
+
+// SeasonAwardSummary is the full personal-performance award view for one season.
+// Groups are ordered by award importance ASC, name ASC.
+// Championship/team awards are excluded — only batting, pitching, and fielding
+// awards are included.
+type SeasonAwardSummary struct {
+	SeasonID  int64
+	SeasonNum int
+	Groups    []AwardGroupSummary
 }

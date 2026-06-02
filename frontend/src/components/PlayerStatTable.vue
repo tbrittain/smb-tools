@@ -428,14 +428,18 @@ function pRateSeasonTip(r: { seasonNum: number }, statKey: string, label: string
       </Column>
       <Column v-if="hasAwards" header="Awards" style="min-width: 200px">
         <template #body="{ data: r }">
-          <span v-if="awardsBySeason?.[String(r.seasonNum)]?.length" class="award-cell">
+          <AppLink
+            v-if="awardsBySeason?.[String(r.seasonNum)]?.length"
+            :to="`/awards?seasonId=${r.seasonId}&view=1`"
+            class="award-cell"
+          >
             <AwardBadge
               v-for="award in awardsBySeason![String(r.seasonNum)]"
               :key="award.id"
               :award="award"
               size="sm"
             />
-          </span>
+          </AppLink>
           <span v-else class="no-traits">—</span>
         </template>
       </Column>
@@ -663,14 +667,18 @@ function pRateSeasonTip(r: { seasonNum: number }, statKey: string, label: string
       </Column>
       <Column v-if="hasAwards" header="Awards" style="min-width: 200px">
         <template #body="{ data: r }">
-          <span v-if="awardsBySeason?.[String(r.seasonNum)]?.length" class="award-cell">
+          <AppLink
+            v-if="awardsBySeason?.[String(r.seasonNum)]?.length"
+            :to="`/awards?seasonId=${r.seasonId}&view=1`"
+            class="award-cell"
+          >
             <AwardBadge
               v-for="award in awardsBySeason![String(r.seasonNum)]"
               :key="award.id"
               :award="award"
               size="sm"
             />
-          </span>
+          </AppLink>
           <span v-else class="no-traits">—</span>
         </template>
       </Column>
@@ -826,6 +834,11 @@ function pRateSeasonTip(r: { seasonNum: number }, statKey: string, label: string
   color: var(--color-text-primary);
   background: var(--color-surface-2, var(--p-datatable-footer-background));
   border-top: 2px solid var(--color-border);
+}
+
+a.award-cell {
+  color: inherit;
+  text-decoration: none;
 }
 
 </style>

@@ -90,6 +90,10 @@ export function GetSeasonAwardCandidates(arg1) {
   return window['go']['main']['App']['GetSeasonAwardCandidates'](arg1);
 }
 
+export function GetSeasonAwardSummary(arg1) {
+  return window['go']['main']['App']['GetSeasonAwardSummary'](arg1);
+}
+
 export function GetSeasonChampionTeamHistoryID(arg1) {
   return window['go']['main']['App']['GetSeasonChampionTeamHistoryID'](arg1);
 }

@@ -41,6 +41,7 @@ const router = createRouter({
       component: () => import('./pages/SeasonAwardsPage.vue'),
       props: (route) => ({
         initialSeasonId: route.query.seasonId ? Number(route.query.seasonId) : undefined,
+        initialView: route.query.view === '1',
       }),
     },
     {

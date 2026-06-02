@@ -32,6 +32,83 @@ export namespace main {
 	        this.isBuiltIn = source["isBuiltIn"];
 	    }
 	}
+	export class AwardWinnerRowDTO {
+	    playerSeasonId: number;
+	    playerId: number;
+	    firstName: string;
+	    lastName: string;
+	    teamName: string;
+	    primaryPosition: string;
+	    pitcherRole: string;
+	    awardName: string;
+	    ba: number;
+	    hr: number;
+	    rbi: number;
+	    era: number;
+	    wins: number;
+	    strikeouts: number;
+	    smbWar?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new AwardWinnerRowDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.playerSeasonId = source["playerSeasonId"];
+	        this.playerId = source["playerId"];
+	        this.firstName = source["firstName"];
+	        this.lastName = source["lastName"];
+	        this.teamName = source["teamName"];
+	        this.primaryPosition = source["primaryPosition"];
+	        this.pitcherRole = source["pitcherRole"];
+	        this.awardName = source["awardName"];
+	        this.ba = source["ba"];
+	        this.hr = source["hr"];
+	        this.rbi = source["rbi"];
+	        this.era = source["era"];
+	        this.wins = source["wins"];
+	        this.strikeouts = source["strikeouts"];
+	        this.smbWar = source["smbWar"];
+	    }
+	}
+	export class AwardGroupSummaryDTO {
+	    awardId: number;
+	    awardName: string;
+	    winners: AwardWinnerRowDTO[];
+	    runnerUps: AwardWinnerRowDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new AwardGroupSummaryDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.awardId = source["awardId"];
+	        this.awardName = source["awardName"];
+	        this.winners = this.convertValues(source["winners"], AwardWinnerRowDTO);
+	        this.runnerUps = this.convertValues(source["runnerUps"], AwardWinnerRowDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class BattingCandidateDTO {
 	    playerSeasonId: number;
 	    playerId: number;
@@ -54,6 +131,7 @@ export namespace main {
 	    obp: number;
 	    slg: number;
 	    ops: number;
+	    smbWar?: number;
 	    isChampionTeam: boolean;
 	    awardIds: number[];
 	
@@ -84,6 +162,7 @@ export namespace main {
 	        this.obp = source["obp"];
 	        this.slg = source["slg"];
 	        this.ops = source["ops"];
+	        this.smbWar = source["smbWar"];
 	        this.isChampionTeam = source["isChampionTeam"];
 	        this.awardIds = source["awardIds"];
 	    }
@@ -747,6 +826,7 @@ export namespace main {
 	    h9: number;
 	    hr9: number;
 	    kPerBb: number;
+	    smbWar?: number;
 	    isChampionTeam: boolean;
 	    awardIds: number[];
 	
@@ -781,6 +861,7 @@ export namespace main {
 	        this.h9 = source["h9"];
 	        this.hr9 = source["hr9"];
 	        this.kPerBb = source["kPerBb"];
+	        this.smbWar = source["smbWar"];
 	        this.isChampionTeam = source["isChampionTeam"];
 	        this.awardIds = source["awardIds"];
 	    }
@@ -1398,6 +1479,40 @@ export namespace main {
 	        this.championBatters = this.convertValues(source["championBatters"], BattingCandidateDTO);
 	        this.championPitchers = this.convertValues(source["championPitchers"], PitchingCandidateDTO);
 	        this.autoSuggested = source["autoSuggested"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class SeasonAwardSummaryDTO {
+	    seasonId: number;
+	    seasonNum: number;
+	    groups: AwardGroupSummaryDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new SeasonAwardSummaryDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.seasonId = source["seasonId"];
+	        this.seasonNum = source["seasonNum"];
+	        this.groups = this.convertValues(source["groups"], AwardGroupSummaryDTO);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
