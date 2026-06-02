@@ -6,6 +6,7 @@ import AttributesTable from '../components/AttributesTable.vue'
 import CareerStatSummary from '../components/CareerStatSummary.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import PlayerAttributesTable from '../components/PlayerAttributesTable.vue'
 import PlayerBioCard from '../components/PlayerBioCard.vue'
 import PlayerStatTable from '../components/PlayerStatTable.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
@@ -26,8 +27,10 @@ const error = ref<string | null>(null)
 const hasPitching = computed(() => seasonLog.value.some((r) => r.pitching != null || r.playoffPitching != null))
 const hasBatting = computed(() => seasonLog.value.some((r) => r.batting != null || r.playoffBatting != null))
 
-const statMode = ref<'batting' | 'pitching'>('batting')
+const statMode = ref<'batting' | 'pitching' | 'attributes'>('batting')
 const showPlayoffs = ref(false)
+
+const careerEarnings = computed(() => seasonLog.value.reduce((sum, r) => sum + r.salary, 0))
 
 // Most recent season for bio detail
 const mostRecentSeason = computed(() =>
@@ -80,7 +83,7 @@ watch(
     <template v-else-if="career">
       <div class="player-content">
         <!-- Bio header -->
-        <PlayerBioCard :player="career" :current-season="mostRecentSeason" :awards-by-season="awardsBySeason" />
+        <PlayerBioCard :player="career" :current-season="mostRecentSeason" :awards-by-season="awardsBySeason" :career-earnings="careerEarnings" />
 
         <!-- Career stat summary row -->
         <CareerStatSummary :batting="career.batting" :pitching="career.pitching" />
@@ -126,7 +129,14 @@ watch(
             >
               Pitching
             </button>
-            <label class="playoff-toggle">
+            <button
+              class="tab-btn"
+              :class="{ active: statMode === 'attributes' }"
+              @click="statMode = 'attributes'"
+            >
+              Attributes
+            </button>
+            <label v-if="statMode !== 'attributes'" class="playoff-toggle">
               <input v-model="showPlayoffs" type="checkbox" />
               Playoffs
             </label>
@@ -134,12 +144,18 @@ watch(
         </div>
 
         <PlayerStatTable
+          v-if="statMode !== 'attributes'"
           :rows="seasonLog"
           :mode="statMode"
           :show-playoffs="showPlayoffs"
           :awards-by-season="awardsBySeason"
           :player-id="props.playerId"
           :highlights="highlightsStore.highlights"
+        />
+        <PlayerAttributesTable
+          v-else
+          :rows="seasonLog"
+          :is-pitcher="isPitcher"
         />
       </section>
     </template>

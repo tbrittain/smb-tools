@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
 import type { main } from '../../wailsjs/go/models'
+import { formatSalary } from '../composables/useStatFormatters'
 import AwardBadge from './AwardBadge.vue'
 
 interface AwardGroup {
@@ -12,6 +13,7 @@ const props = defineProps<{
   player: main.PlayerCareerDTO
   currentSeason?: main.PlayerSeasonLogDTO
   awardsBySeason?: Record<string, main.AwardDTO[]>
+  careerEarnings?: number
 }>()
 
 const careerAwardGroups = computed((): AwardGroup[] => {
@@ -74,6 +76,10 @@ const careerAwardGroups = computed((): AwardGroup[] => {
         <span class="bio-label">Last Team</span>
         <span class="bio-val">{{ currentSeason.teams[0].teamName }}</span>
       </div>
+    </div>
+    <div v-if="careerEarnings != null && careerEarnings > 0" class="bio-item bio-item-earnings">
+      <span class="bio-label">Career Earnings</span>
+      <span class="bio-val">{{ formatSalary(careerEarnings) }}</span>
     </div>
   </div>
 </template>

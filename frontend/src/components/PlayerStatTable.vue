@@ -58,6 +58,17 @@ function teamSortKey(r: main.PlayerSeasonLogDTO): string {
   return r.teams[0]?.teamName ?? 'FA'
 }
 
+function hasFinalTeam(teams: main.TeamRefDTO[]): boolean {
+  return teams.some((t) => t.sortOrder === 0)
+}
+
+// TODO: The current data model only records where a player ended a season
+// (sortOrder=0 = final team; no sortOrder=0 entry = ended as FA). There is no
+// way to distinguish a player who was FA all season from one who signed
+// mid-season, nor to detect a player who started the season as FA before
+// signing — both produce the same teams[] shape. Fixing this would require
+// storing FA transitions in the save game import pipeline.
+
 // ── Summary row types ─────────────────────────────────────────────────────────
 
 interface BattingSummary {
@@ -406,13 +417,16 @@ function pRateSeasonTip(r: { seasonNum: number }, statKey: string, label: string
       <Column field="seasonNum" header="Season" sortable style="min-width: 80px" />
       <Column header="Team" sortable :sort-field="teamSortKey" style="min-width: 130px">
         <template #body="{ data: r }">
-          <span v-if="r.teams.length > 0" class="team-cell">
+          <span class="team-cell">
             <template v-for="(t, i) in r.teams" :key="t.teamHistoryId">
               <span v-if="i" class="team-separator"> · </span>
               <AppLink :to="`/teams/${t.teamId}/seasons/${t.teamHistoryId}`">{{ t.teamName }}</AppLink>
             </template>
+            <template v-if="!hasFinalTeam(r.teams)">
+              <span v-if="r.teams.length > 0" class="team-separator"> · </span>
+              <span class="fa-label">FA</span>
+            </template>
           </span>
-          <span v-else class="fa-label">FA</span>
         </template>
       </Column>
       <Column field="age" header="Age" sortable style="min-width: 55px" />
@@ -647,13 +661,16 @@ function pRateSeasonTip(r: { seasonNum: number }, statKey: string, label: string
       <Column field="seasonNum" header="Season" sortable style="min-width: 80px" />
       <Column header="Team" sortable :sort-field="teamSortKey" style="min-width: 130px">
         <template #body="{ data: r }">
-          <span v-if="r.teams.length > 0" class="team-cell">
+          <span class="team-cell">
             <template v-for="(t, i) in r.teams" :key="t.teamHistoryId">
               <span v-if="i" class="team-separator"> · </span>
               <AppLink :to="`/teams/${t.teamId}/seasons/${t.teamHistoryId}`">{{ t.teamName }}</AppLink>
             </template>
+            <template v-if="!hasFinalTeam(r.teams)">
+              <span v-if="r.teams.length > 0" class="team-separator"> · </span>
+              <span class="fa-label">FA</span>
+            </template>
           </span>
-          <span v-else class="fa-label">FA</span>
         </template>
       </Column>
       <Column field="age" header="Age" sortable style="min-width: 55px" />

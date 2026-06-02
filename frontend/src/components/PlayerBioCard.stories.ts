@@ -70,3 +70,19 @@ export const Pitcher: Story = {
 export const NoBioDetail: Story = {
   args: { player: basePlayer },
 }
+
+export const WithCareerEarnings: Story = {
+  args: {
+    player: new main.PlayerCareerDTO({ ...basePlayer, isHallOfFamer: true }),
+    currentSeason: baseSeason,
+    careerEarnings: 127500000,
+  },
+}
+
+export const ZeroCareerEarnings: Story = {
+  args: {
+    player: basePlayer,
+    currentSeason: baseSeason,
+    careerEarnings: 0,
+  },
+}
