@@ -31,7 +31,7 @@ Each layer has its own CLAUDE.md with full coding standards, testing requirement
 - Go 1.26
 - Wails v2.12.0 (NOT v3 — still alpha as of May 2026)
 - `modernc.org/sqlite` — pure Go SQLite driver, no CGO
-- `golang-migrate` — SQL-file-based schema migrations
+- Custom SQL migration runner (`internal/db/migrate.go`) — embed.FS-based, `.up.sql` files only
 
 **Frontend**
 - Vue 3.5 with `<script setup>` Composition API throughout

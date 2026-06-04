@@ -51,6 +51,25 @@ return fmt.Errorf("doing X: %w", err)
 - Service methods receive store structs via constructor — no hidden dependencies
 - `app.go` bindings are thin enough that testing the service layer IS effectively testing the binding
 
+## Database Migrations
+
+Migrations live in `internal/db/migrations/` split across two sets:
+
+- `companion/` — schema for the per-franchise companion DB (the bulk of the app's schema)
+- `registry/` — schema for the franchise registry DB (franchise list and metadata only)
+
+**Naming convention**: `{version}_{name}.up.sql` where version is a zero-padded 4-digit integer — e.g., `0012_add_salary_column.up.sql`. The migration runner (`internal/db/migrate.go`) parses the integer prefix to determine order.
+
+**Migrations are immutable once deployed.** Applied versions are recorded in a `schema_migrations` table and skipped on subsequent runs. Editing an existing migration file has no effect for users who have already run it — they will never see the change. Always add a new numbered file; never edit an existing one.
+
+**No down migrations.** The runner only processes `.up.sql` files. There is no rollback mechanism. Design migrations to be additive where possible (new columns with defaults, new tables, new indexes). Destructive changes cannot be undone automatically — think carefully before dropping or renaming anything.
+
+**Each migration runs in a single transaction.** If any statement fails, the entire migration rolls back and the app errors at startup. Keep each file focused on one logical change.
+
+**The runner is custom, not golang-migrate.** It lives in `internal/db/migrate.go` and reads from an `embed.FS`. Do not assume golang-migrate behavior — there is no `force`, no `dirty` state, and no CLI tooling.
+
+**Test DB applies all migrations.** `testutil.NewTestDB` runs every migration before each test. Add the migration file before writing tests that depend on the new schema, or the test DB will be missing the columns/tables your test expects.
+
 ## What Not to Do
 
 - No CQRS / MediatR-style patterns — not idiomatic Go
