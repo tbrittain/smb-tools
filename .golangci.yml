@@ -10,6 +10,14 @@ linters:
     - govet
     - staticcheck
     - ineffassign
+    - gocognit
   settings:
     errcheck:
       check-type-assertions: true
+    gocognit:
+      min-complexity: 20
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - gocognit

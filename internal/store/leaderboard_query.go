@@ -263,17 +263,17 @@ LIMIT ? OFFSET ?`, orderBy)
 			return nil, 0, fmt.Errorf("GetBattingCareerLeaders scan: %w", err)
 		}
 		r.IsHallOfFamer = hof == 1
-		if bSmbWAR.Valid  { r.SmbWAR  = &bSmbWAR.Float64 }
-		if bOPSPlus.Valid { r.OPSPlus = &bOPSPlus.Float64 }
-		if bBA.Valid      { r.BA      = &bBA.Float64 }
-		if bOBP.Valid     { r.OBP     = &bOBP.Float64 }
-		if bSLG.Valid     { r.SLG     = &bSLG.Float64 }
-		if bOPS.Valid     { r.OPS     = &bOPS.Float64 }
-		if bISO.Valid     { r.ISO     = &bISO.Float64 }
-		if bBABIP.Valid   { r.BABIP   = &bBABIP.Float64 }
-		if bKPct.Valid    { r.KPct    = &bKPct.Float64 }
-		if bBBPct.Valid   { r.BBPct   = &bBBPct.Float64 }
-		if bABPerHR.Valid { r.ABPerHR = &bABPerHR.Float64 }
+		r.SmbWAR  = nullFloat(bSmbWAR)
+		r.OPSPlus = nullFloat(bOPSPlus)
+		r.BA      = nullFloat(bBA)
+		r.OBP     = nullFloat(bOBP)
+		r.SLG     = nullFloat(bSLG)
+		r.OPS     = nullFloat(bOPS)
+		r.ISO     = nullFloat(bISO)
+		r.BABIP   = nullFloat(bBABIP)
+		r.KPct    = nullFloat(bKPct)
+		r.BBPct   = nullFloat(bBBPct)
+		r.ABPerHR = nullFloat(bABPerHR)
 		out = append(out, r)
 	}
 	return out, total, rows.Err()
@@ -512,41 +512,25 @@ LIMIT ? OFFSET ?`
 		if r.Traits == nil {
 			r.Traits = []string{}
 		}
-		if bBA.Valid      { r.BA      = &bBA.Float64 }
-		if bOBP.Valid     { r.OBP     = &bOBP.Float64 }
-		if bSLG.Valid     { r.SLG     = &bSLG.Float64 }
-		if bOPS.Valid     { r.OPS     = &bOPS.Float64 }
-		if bISO.Valid     { r.ISO     = &bISO.Float64 }
-		if bBABIP.Valid   { r.BABIP   = &bBABIP.Float64 }
-		if bKPct.Valid    { r.KPct    = &bKPct.Float64 }
-		if bBBPct.Valid   { r.BBPct   = &bBBPct.Float64 }
-		if bABPerHR.Valid { r.ABPerHR = &bABPerHR.Float64 }
-		if bOPSPlus.Valid { r.OPSPlus = &bOPSPlus.Float64 }
-		if bSmbWAR.Valid  { r.SmbWAR  = &bSmbWAR.Float64 }
+		r.BA      = nullFloat(bBA)
+		r.OBP     = nullFloat(bOBP)
+		r.SLG     = nullFloat(bSLG)
+		r.OPS     = nullFloat(bOPS)
+		r.ISO     = nullFloat(bISO)
+		r.BABIP   = nullFloat(bBABIP)
+		r.KPct    = nullFloat(bKPct)
+		r.BBPct   = nullFloat(bBBPct)
+		r.ABPerHR = nullFloat(bABPerHR)
+		r.OPSPlus = nullFloat(bOPSPlus)
+		r.SmbWAR  = nullFloat(bSmbWAR)
 		out = append(out, r)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, 0, err
 	}
-
-	if len(out) > 0 {
-		psIDs := make([]int64, len(out))
-		for i, r := range out {
-			psIDs[i] = r.PlayerSeasonID
-		}
-		teamsMap, err := s.loadSeasonTeams(ctx, psIDs)
-		if err != nil {
-			return nil, 0, err
-		}
-		for i := range out {
-			if t, ok := teamsMap[out[i].PlayerSeasonID]; ok {
-				out[i].Teams = t
-			} else {
-				out[i].Teams = []models.PlayerTeamRef{}
-			}
-		}
+	if err := s.enrichBattingSeasonWithTeams(ctx, out); err != nil {
+		return nil, 0, err
 	}
-
 	return out, total, nil
 }
 
@@ -714,15 +698,15 @@ LIMIT ? OFFSET ?`, orderBy)
 			return nil, 0, fmt.Errorf("GetPitchingCareerLeaders scan: %w", err)
 		}
 		r.IsHallOfFamer = hof == 1
-		if bSmbWAR.Valid  { r.SmbWAR  = &bSmbWAR.Float64 }
-		if bERAPlus.Valid { r.ERAPlus  = &bERAPlus.Float64 }
-		if bERA.Valid     { r.ERA      = &bERA.Float64 }
-		if bWHIP.Valid    { r.WHIP     = &bWHIP.Float64 }
-		if bK9.Valid      { r.K9       = &bK9.Float64 }
-		if bBB9.Valid     { r.BB9      = &bBB9.Float64 }
-		if bKPerBB.Valid  { r.KPerBB   = &bKPerBB.Float64 }
-		if bKPct.Valid    { r.KPct     = &bKPct.Float64 }
-		if bWinPct.Valid  { r.WinPct   = &bWinPct.Float64 }
+		r.SmbWAR  = nullFloat(bSmbWAR)
+		r.ERAPlus = nullFloat(bERAPlus)
+		r.ERA     = nullFloat(bERA)
+		r.WHIP    = nullFloat(bWHIP)
+		r.K9      = nullFloat(bK9)
+		r.BB9     = nullFloat(bBB9)
+		r.KPerBB  = nullFloat(bKPerBB)
+		r.KPct    = nullFloat(bKPct)
+		r.WinPct  = nullFloat(bWinPct)
 		out = append(out, r)
 	}
 	return out, total, rows.Err()
@@ -851,45 +835,84 @@ LIMIT ? OFFSET ?`
 		if r.Traits == nil {
 			r.Traits = []string{}
 		}
-		if pERA.Valid    { r.ERA    = &pERA.Float64 }
-		if pWHIP.Valid   { r.WHIP   = &pWHIP.Float64 }
-		if pK9.Valid     { r.K9     = &pK9.Float64 }
-		if pBB9.Valid    { r.BB9    = &pBB9.Float64 }
-		if pH9.Valid     { r.H9     = &pH9.Float64 }
-		if pHR9.Valid    { r.HR9    = &pHR9.Float64 }
-		if pKPerBB.Valid { r.KPerBB = &pKPerBB.Float64 }
-		if pKPct.Valid   { r.KPct   = &pKPct.Float64 }
-		if pWinPct.Valid { r.WinPct = &pWinPct.Float64 }
-		if pPPerIP.Valid { r.PPerIP = &pPPerIP.Float64 }
-		if pERAPlus.Valid  { r.ERAPlus  = &pERAPlus.Float64 }
-		if pFIP.Valid      { r.FIP      = &pFIP.Float64 }
-		if pFIPMinus.Valid { r.FIPMinus = &pFIPMinus.Float64 }
-		if pSmbWAR.Valid   { r.SmbWAR   = &pSmbWAR.Float64 }
+		r.ERA     = nullFloat(pERA)
+		r.WHIP    = nullFloat(pWHIP)
+		r.K9      = nullFloat(pK9)
+		r.BB9     = nullFloat(pBB9)
+		r.H9      = nullFloat(pH9)
+		r.HR9     = nullFloat(pHR9)
+		r.KPerBB  = nullFloat(pKPerBB)
+		r.KPct    = nullFloat(pKPct)
+		r.WinPct  = nullFloat(pWinPct)
+		r.PPerIP  = nullFloat(pPPerIP)
+		r.ERAPlus  = nullFloat(pERAPlus)
+		r.FIP      = nullFloat(pFIP)
+		r.FIPMinus = nullFloat(pFIPMinus)
+		r.SmbWAR   = nullFloat(pSmbWAR)
 		out = append(out, r)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, 0, err
 	}
+	if err := s.enrichPitchingSeasonWithTeams(ctx, out); err != nil {
+		return nil, 0, err
+	}
+	return out, total, nil
+}
 
-	if len(out) > 0 {
-		psIDs := make([]int64, len(out))
-		for i, r := range out {
-			psIDs[i] = r.PlayerSeasonID
-		}
-		teamsMap, err := s.loadSeasonTeams(ctx, psIDs)
-		if err != nil {
-			return nil, 0, err
-		}
-		for i := range out {
-			if t, ok := teamsMap[out[i].PlayerSeasonID]; ok {
-				out[i].Teams = t
-			} else {
-				out[i].Teams = []models.PlayerTeamRef{}
-			}
+// nullFloat converts a sql.NullFloat64 to a *float64 pointer, returning nil when invalid.
+func nullFloat(n sql.NullFloat64) *float64 {
+	if n.Valid {
+		return &n.Float64
+	}
+	return nil
+}
+
+// enrichBattingSeasonWithTeams loads team associations for the given rows and sets each
+// row's Teams field. Rows for player-seasons with no team entry receive an empty slice.
+func (s *LeaderboardQueryStore) enrichBattingSeasonWithTeams(ctx context.Context, out []models.BattingSeasonLeaderRow) error {
+	if len(out) == 0 {
+		return nil
+	}
+	psIDs := make([]int64, len(out))
+	for i, r := range out {
+		psIDs[i] = r.PlayerSeasonID
+	}
+	teamsMap, err := s.loadSeasonTeams(ctx, psIDs)
+	if err != nil {
+		return err
+	}
+	for i := range out {
+		if t, ok := teamsMap[out[i].PlayerSeasonID]; ok {
+			out[i].Teams = t
+		} else {
+			out[i].Teams = []models.PlayerTeamRef{}
 		}
 	}
+	return nil
+}
 
-	return out, total, nil
+// enrichPitchingSeasonWithTeams is the pitching equivalent of enrichBattingSeasonWithTeams.
+func (s *LeaderboardQueryStore) enrichPitchingSeasonWithTeams(ctx context.Context, out []models.PitchingSeasonLeaderRow) error {
+	if len(out) == 0 {
+		return nil
+	}
+	psIDs := make([]int64, len(out))
+	for i, r := range out {
+		psIDs[i] = r.PlayerSeasonID
+	}
+	teamsMap, err := s.loadSeasonTeams(ctx, psIDs)
+	if err != nil {
+		return err
+	}
+	for i := range out {
+		if t, ok := teamsMap[out[i].PlayerSeasonID]; ok {
+			out[i].Teams = t
+		} else {
+			out[i].Teams = []models.PlayerTeamRef{}
+		}
+	}
+	return nil
 }
 
 // loadSeasonTeams fetches all team associations for the given player_season IDs,

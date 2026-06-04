@@ -458,7 +458,22 @@ WHERE award_id IN (SELECT id FROM awards WHERE is_user_assignable = 0)
 		return fmt.Errorf("loading num_games for season %d: %w", seasonID, err)
 	}
 
-	// Batting leaders.
+	if err := assignBattingStatLeaders(ctx, tx, seasonID, numGames, awardIDs); err != nil {
+		return err
+	}
+	if err := assignPitchingStatLeaders(ctx, tx, seasonID, numGames, awardIDs); err != nil {
+		return err
+	}
+	if err := s.assignChampionshipAwards(ctx, tx, seasonID, awardIDs); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// assignBattingStatLeaders inserts batting title awards (BA, HR, RBI) for the season.
+// If the BA leader also leads HR and RBI they receive only the Triple Crown award;
+// the other co-leaders in HR/RBI still receive their individual titles.
+func assignBattingStatLeaders(ctx context.Context, tx *sql.Tx, seasonID int64, numGames int, awardIDs map[string]int64) error {
 	baLeader, err := queryQualifiedLeader(ctx, tx, seasonID, numGames, false)
 	if err != nil {
 		return err
@@ -472,48 +487,38 @@ WHERE award_id IN (SELECT id FROM awards WHERE is_user_assignable = 0)
 		return err
 	}
 
-	tcBatting := int64(0)
+	tcWinner := int64(0)
 	if baLeader != 0 && slices.Contains(hrLeaders, baLeader) && slices.Contains(rbiLeaders, baLeader) {
-		tcBatting = baLeader
+		tcWinner = baLeader
 	}
 
-	if tcBatting != 0 {
-		if err := insertAward(ctx, tx, tcBatting, awardIDs["Triple Crown (Batting)"]); err != nil {
+	if tcWinner != 0 {
+		if err := insertAward(ctx, tx, tcWinner, awardIDs["Triple Crown (Batting)"]); err != nil {
 			return err
 		}
-		for _, id := range hrLeaders {
-			if id != tcBatting {
-				if err := insertAward(ctx, tx, id, awardIDs["Home Run Title"]); err != nil {
-					return err
-				}
-			}
+		if err := insertAwardsExcluding(ctx, tx, hrLeaders, tcWinner, awardIDs["Home Run Title"]); err != nil {
+			return err
 		}
-		for _, id := range rbiLeaders {
-			if id != tcBatting {
-				if err := insertAward(ctx, tx, id, awardIDs["RBI Title"]); err != nil {
-					return err
-				}
-			}
+		if err := insertAwardsExcluding(ctx, tx, rbiLeaders, tcWinner, awardIDs["RBI Title"]); err != nil {
+			return err
 		}
-	} else {
-		if baLeader != 0 {
-			if err := insertAward(ctx, tx, baLeader, awardIDs["Batting Title"]); err != nil {
-				return err
-			}
-		}
-		for _, id := range hrLeaders {
-			if err := insertAward(ctx, tx, id, awardIDs["Home Run Title"]); err != nil {
-				return err
-			}
-		}
-		for _, id := range rbiLeaders {
-			if err := insertAward(ctx, tx, id, awardIDs["RBI Title"]); err != nil {
-				return err
-			}
+		return nil
+	}
+	if baLeader != 0 {
+		if err := insertAward(ctx, tx, baLeader, awardIDs["Batting Title"]); err != nil {
+			return err
 		}
 	}
+	if err := insertAwardsForAll(ctx, tx, hrLeaders, awardIDs["Home Run Title"]); err != nil {
+		return err
+	}
+	return insertAwardsForAll(ctx, tx, rbiLeaders, awardIDs["RBI Title"])
+}
 
-	// Pitching leaders.
+// assignPitchingStatLeaders inserts pitching title awards (ERA, W, K) for the season.
+// If the ERA leader also leads W and K they receive only the Triple Crown award;
+// the other co-leaders in W/K still receive their individual titles.
+func assignPitchingStatLeaders(ctx context.Context, tx *sql.Tx, seasonID int64, numGames int, awardIDs map[string]int64) error {
 	eraLeader, err := queryQualifiedLeader(ctx, tx, seasonID, numGames, true)
 	if err != nil {
 		return err
@@ -527,51 +532,56 @@ WHERE award_id IN (SELECT id FROM awards WHERE is_user_assignable = 0)
 		return err
 	}
 
-	tcPitching := int64(0)
+	tcWinner := int64(0)
 	if eraLeader != 0 && slices.Contains(wLeaders, eraLeader) && slices.Contains(kLeaders, eraLeader) {
-		tcPitching = eraLeader
+		tcWinner = eraLeader
 	}
 
-	if tcPitching != 0 {
-		if err := insertAward(ctx, tx, tcPitching, awardIDs["Triple Crown (Pitching)"]); err != nil {
+	if tcWinner != 0 {
+		if err := insertAward(ctx, tx, tcWinner, awardIDs["Triple Crown (Pitching)"]); err != nil {
 			return err
 		}
-		for _, id := range wLeaders {
-			if id != tcPitching {
-				if err := insertAward(ctx, tx, id, awardIDs["Wins Title"]); err != nil {
-					return err
-				}
-			}
+		if err := insertAwardsExcluding(ctx, tx, wLeaders, tcWinner, awardIDs["Wins Title"]); err != nil {
+			return err
 		}
-		for _, id := range kLeaders {
-			if id != tcPitching {
-				if err := insertAward(ctx, tx, id, awardIDs["Strikeouts Title"]); err != nil {
-					return err
-				}
-			}
+		if err := insertAwardsExcluding(ctx, tx, kLeaders, tcWinner, awardIDs["Strikeouts Title"]); err != nil {
+			return err
 		}
-	} else {
-		if eraLeader != 0 {
-			if err := insertAward(ctx, tx, eraLeader, awardIDs["ERA Title"]); err != nil {
-				return err
-			}
-		}
-		for _, id := range wLeaders {
-			if err := insertAward(ctx, tx, id, awardIDs["Wins Title"]); err != nil {
-				return err
-			}
-		}
-		for _, id := range kLeaders {
-			if err := insertAward(ctx, tx, id, awardIDs["Strikeouts Title"]); err != nil {
-				return err
-			}
+		return nil
+	}
+	if eraLeader != 0 {
+		if err := insertAward(ctx, tx, eraLeader, awardIDs["ERA Title"]); err != nil {
+			return err
 		}
 	}
-
-	if err := s.assignChampionshipAwards(ctx, tx, seasonID, awardIDs); err != nil {
+	if err := insertAwardsForAll(ctx, tx, wLeaders, awardIDs["Wins Title"]); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return insertAwardsForAll(ctx, tx, kLeaders, awardIDs["Strikeouts Title"])
+}
+
+// insertAwardsForAll inserts awardID for every player season in the slice.
+func insertAwardsForAll(ctx context.Context, tx *sql.Tx, playerSeasonIDs []int64, awardID int64) error {
+	for _, id := range playerSeasonIDs {
+		if err := insertAward(ctx, tx, id, awardID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// insertAwardsExcluding inserts awardID for every player season except the excluded one
+// (used to give co-leaders their titles when someone else won the Triple Crown).
+func insertAwardsExcluding(ctx context.Context, tx *sql.Tx, playerSeasonIDs []int64, exclude int64, awardID int64) error {
+	for _, id := range playerSeasonIDs {
+		if id == exclude {
+			continue
+		}
+		if err := insertAward(ctx, tx, id, awardID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // AssignChampionshipAwards assigns League Champion and Conference Champion awards
