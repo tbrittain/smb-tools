@@ -1619,7 +1619,7 @@ func (a *App) MigrateLegacyFranchise(
 	}
 
 	// Open the companion DB.
-	companionDB, err := internaldb.OpenCompanion(a.ctx, newFranchise.DBPath)
+	companionDB, err := internaldb.OpenCompanion(a.ctx, a.dirs.CompanionDBPath(newFranchise.ID))
 	if err != nil {
 		cleanupFranchise()
 		return MigrateLegacyResult{}, fmt.Errorf("opening companion DB: %w", err)

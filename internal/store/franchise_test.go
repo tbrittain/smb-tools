@@ -15,7 +15,6 @@ func franchiseFixture(id string) models.Franchise {
 		ID:          id,
 		Name:        "Fixture Franchise " + id,
 		GameVersion: models.GameVersionSMB4,
-		DBPath:      "/data/" + id + "/companion.db",
 	}
 }
 
@@ -28,7 +27,6 @@ func TestFranchiseStore_CreateAndList(t *testing.T) {
 		ID:          "test-id-1",
 		Name:        "My Franchise",
 		GameVersion: models.GameVersionSMB4,
-		DBPath:      "/data/franchises/test-id-1/companion.db",
 	}
 	if err := s.Create(ctx, f); err != nil {
 		t.Fatalf("Create: %v", err)
@@ -54,7 +52,7 @@ func TestFranchiseStore_GetByID(t *testing.T) {
 	s := store.NewFranchiseStore(db)
 	ctx := context.Background()
 
-	_ = s.Create(ctx, models.Franchise{ID: "abc", Name: "Test", GameVersion: models.GameVersionSMB3, DBPath: "/x"})
+	_ = s.Create(ctx, models.Franchise{ID: "abc", Name: "Test", GameVersion: models.GameVersionSMB3})
 
 	got, err := s.GetByID(ctx, "abc")
 	if err != nil {
@@ -75,7 +73,7 @@ func TestFranchiseStore_Rename(t *testing.T) {
 	s := store.NewFranchiseStore(db)
 	ctx := context.Background()
 
-	_ = s.Create(ctx, models.Franchise{ID: "r1", Name: "Original", GameVersion: models.GameVersionSMB4, DBPath: "/x"})
+	_ = s.Create(ctx, models.Franchise{ID: "r1", Name: "Original", GameVersion: models.GameVersionSMB4})
 
 	if err := s.Rename(ctx, "r1", "Renamed"); err != nil {
 		t.Fatalf("Rename: %v", err)
@@ -91,7 +89,7 @@ func TestFranchiseStore_Delete(t *testing.T) {
 	s := store.NewFranchiseStore(db)
 	ctx := context.Background()
 
-	_ = s.Create(ctx, models.Franchise{ID: "del1", Name: "ToDelete", GameVersion: models.GameVersionSMB4, DBPath: "/x"})
+	_ = s.Create(ctx, models.Franchise{ID: "del1", Name: "ToDelete", GameVersion: models.GameVersionSMB4})
 	if err := s.Delete(ctx, "del1"); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}

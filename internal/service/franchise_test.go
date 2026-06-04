@@ -68,6 +68,29 @@ func TestFranchiseService_CreateFranchise_InvalidVersion(t *testing.T) {
 	}
 }
 
+func TestFranchiseService_OpenFranchise(t *testing.T) {
+	svc, _ := newTestFranchiseService(t)
+	ctx := context.Background()
+
+	f, err := svc.CreateFranchise(ctx, "Test", models.GameVersionSMB4, "", "")
+	if err != nil {
+		t.Fatalf("CreateFranchise: %v", err)
+	}
+
+	db, got, err := svc.OpenFranchise(ctx, f.ID)
+	if err != nil {
+		t.Fatalf("OpenFranchise: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+
+	if got.ID != f.ID {
+		t.Errorf("ID: got %q, want %q", got.ID, f.ID)
+	}
+	if err := db.PingContext(ctx); err != nil {
+		t.Errorf("DB not usable after open: %v", err)
+	}
+}
+
 func TestFranchiseService_DeleteFranchise(t *testing.T) {
 	svc, fs := newTestFranchiseService(t)
 	ctx := context.Background()
