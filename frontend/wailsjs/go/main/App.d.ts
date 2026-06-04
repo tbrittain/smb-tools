@@ -10,6 +10,8 @@ export function BrowseLegacyDB():Promise<string>;
 
 export function BrowseLogoFile():Promise<string>;
 
+export function BrowseMediaFile():Promise<string>;
+
 export function BrowseSaveFile():Promise<string>;
 
 export function ComputeSeasonStatLeaderAwards(arg1:number):Promise<void>;
@@ -20,11 +22,15 @@ export function CreateFranchise(arg1:string,arg2:string,arg3:string,arg4:string)
 
 export function DeleteFranchise(arg1:string):Promise<void>;
 
+export function DeleteMediaEverywhere(arg1:string):Promise<void>;
+
 export function DeleteTeamLogoAssignment(arg1:string):Promise<void>;
 
 export function DetectLegacyDB():Promise<string>;
 
 export function GetActiveFranchise():Promise<main.FranchiseDTO>;
+
+export function GetAllMediaForTeam(arg1:number):Promise<Array<main.TeamSeasonMediaGroupDTO>>;
 
 export function GetBattingCareerLeaders(arg1:main.LeaderboardFiltersDTO):Promise<main.BattingLeaderPageDTO>;
 
@@ -39,6 +45,10 @@ export function GetHoFCandidates(arg1:number,arg2:number,arg3:number):Promise<ma
 export function GetHoFInducted(arg1:number,arg2:number,arg3:number):Promise<main.HoFPageDTO>;
 
 export function GetLogoURLForSeason(arg1:number,arg2:number):Promise<string>;
+
+export function GetMediaForPlayer(arg1:number,arg2:number,arg3:number):Promise<main.MediaGalleryPageDTO>;
+
+export function GetMediaForTeamSeason(arg1:number,arg2:number,arg3:number):Promise<main.MediaGalleryPageDTO>;
 
 export function GetPitchingCareerLeaders(arg1:main.LeaderboardFiltersDTO):Promise<main.PitchingLeaderPageDTO>;
 
@@ -74,6 +84,8 @@ export function GetTeamLogos(arg1:number):Promise<Array<main.TeamLogoDTO>>;
 
 export function GetTeamSeasonDetail(arg1:number):Promise<main.TeamSeasonDetailDTO>;
 
+export function GetTeamSeasonsForMediaPicker(arg1:number):Promise<Array<main.TeamSeasonPickerResultDTO>>;
+
 export function GetTeamTopPlayers(arg1:number):Promise<Array<main.TeamTopPlayerDTO>>;
 
 export function GetVersion():Promise<string>;
@@ -102,6 +114,8 @@ export function ProbeLeagues(arg1:string):Promise<Array<main.SaveFileCandidateDT
 
 export function ReimportSeasonFromSnapshot(arg1:number,arg2:number):Promise<main.ReimportSeasonResult>;
 
+export function RemoveMediaAssociation(arg1:string,arg2:string,arg3:number):Promise<void>;
+
 export function RenameFranchise(arg1:string,arg2:string):Promise<void>;
 
 export function ReplaceActiveFranchiseSource(arg1:string,arg2:string,arg3:string):Promise<void>;
@@ -109,6 +123,8 @@ export function ReplaceActiveFranchiseSource(arg1:string,arg2:string,arg3:string
 export function SearchPlayers(arg1:string):Promise<Array<main.PlayerSearchResultDTO>>;
 
 export function SearchTeams(arg1:string):Promise<Array<main.TeamSearchResultDTO>>;
+
+export function SearchTeamsForMediaPicker(arg1:string):Promise<Array<main.TeamPickerResultDTO>>;
 
 export function SelectFranchise(arg1:string):Promise<main.FranchiseDTO>;
 
@@ -123,3 +139,5 @@ export function SubmitSeasonAwards(arg1:main.SubmitSeasonAwardsDTO):Promise<void
 export function SyncSeason():Promise<main.SyncSeasonResult>;
 
 export function UploadAndAssignTeamLogo(arg1:number,arg2:string,arg3:any,arg4:any):Promise<main.TeamLogoDTO>;
+
+export function UploadMedia(arg1:main.UploadMediaRequest):Promise<main.MediaItemDTO>;

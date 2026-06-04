@@ -10,6 +10,7 @@ import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import TeamLogoDisplay from '../components/TeamLogoDisplay.vue'
 import TeamLogoManager from '../components/TeamLogoManager.vue'
+import TeamMediaGallery from '../components/TeamMediaGallery.vue'
 import TeamTopPlayersTable from '../components/TeamTopPlayersTable.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 
@@ -213,6 +214,11 @@ onMounted(async () => {
         <h3>Top Players</h3>
         <EmptyState v-if="topPlayers.length === 0" message="No player data yet — import a season to see top players" />
         <TeamTopPlayersTable v-else :players="topPlayers" />
+      </section>
+
+      <!-- Media gallery — all seasons, grouped by season -->
+      <section class="section">
+        <TeamMediaGallery :team-id="teamId" />
       </section>
     </template>
 
