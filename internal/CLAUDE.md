@@ -40,7 +40,11 @@ return fmt.Errorf("doing X: %w", err)
 
 - **Unit tests** for all pure functions: every stat calculation in `service/stats.go`, all data transformation logic, every business rule. Use table-driven tests.
 - **Integration tests** for all store methods: use an in-memory SQLite DB via `testutil.NewTestDB(t)`. Each test gets its own DB with migrations applied.
-- **`testutil` package** (`internal/testutil/`) provides: `NewTestDB`, `NewTestRegistryDB`, seed helpers (`SeedPlayers`, `SeedTeams`, etc.), and a test `SaveGameReader` backed by a fixture SQLite file.
+- **`testutil` package** (`internal/testutil/`) provides three helpers:
+  - `NewTestDB(t)` — in-memory companion DB with all migrations applied
+  - `NewTestRegistryDB(t)` — in-memory registry DB with all migrations applied
+  - `NewTestSaveGameDB(t)` — in-memory save game DB seeded with the real SMB4 schema and synthetic fixture data (1 league, 2 seasons, 2 teams, 2 players, batting/pitching stats, schedule)
+  - `NewLegacyCompanionDB(t)` — in-memory SmbExplorerCompanion DB (old EF Core schema) seeded with two complete franchises; used by legacy migration tests
 - Tests must pass with `go test ./...` on Linux (CI). `modernc.org/sqlite` being pure Go is what makes this possible.
 - **No mocking the database.** Use real in-memory SQLite. Mocked DB tests don't catch real query bugs.
 - **Non-trivial bug fixes require tests.** If a fix corrects business logic (not a typo or rename), a test that would have caught the bug must accompany it. "Non-trivial" means: nullable data, domain encoding/decoding, multi-step data flow (import pipeline, migration), conditional branching on domain values, or anything where a wrong assumption caused the original bug.
@@ -66,7 +70,7 @@ Migrations live in `internal/db/migrations/` split across two sets:
 
 **Each migration runs in a single transaction.** If any statement fails, the entire migration rolls back and the app errors at startup. Keep each file focused on one logical change.
 
-**The runner is custom, not golang-migrate.** It lives in `internal/db/migrate.go` and reads from an `embed.FS`. Do not assume golang-migrate behavior — there is no `force`, no `dirty` state, and no CLI tooling.
+The runner lives in `internal/db/migrate.go` and reads from an `embed.FS`. There is no CLI tooling, no `force`, and no `dirty` state — if a migration fails, the app errors at startup.
 
 **Test DB applies all migrations.** `testutil.NewTestDB` runs every migration before each test. Add the migration file before writing tests that depend on the new schema, or the test DB will be missing the columns/tables your test expects.
 

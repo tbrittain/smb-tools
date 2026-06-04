@@ -31,7 +31,7 @@ Each layer has its own CLAUDE.md with full coding standards, testing requirement
 - Go 1.26
 - Wails v2.12.0 (NOT v3 — still alpha as of May 2026)
 - `modernc.org/sqlite` — pure Go SQLite driver, no CGO
-- Custom SQL migration runner (`internal/db/migrate.go`) — embed.FS-based, `.up.sql` files only
+- Custom SQL migration runner (`internal/db/migrate.go`) — `embed.FS`-based, `.up.sql` files only
 
 **Frontend**
 - Vue 3.5 with `<script setup>` Composition API throughout
@@ -149,12 +149,5 @@ The translation functions (`saveGamePosition`, `saveGamePitcherRole`, `saveGameH
 The SMB save game is a **ZLib-compressed SQLite 3 database**. Decompressed, it is a standard SQLite file with ~67 tables and 22 views. The schema is documented in `docs/domain/save-game-schema.md`. The game does not support mods and uses a custom proprietary C++ engine (not Unity/Unreal) — see `docs/game-integration/investigation.md`.
 
 Player attributes are on a **1–99 scale**: Power, Contact, Speed, Fielding, Arm (hitters); Velocity, Junk, Accuracy (pitchers).
-
-**On persisting derived stats**: not all derived stats are equal.
-
-- **Simple rate stats** (BA = H/AB, OBP, SLG, OPS, WHIP, K/9, etc.) are deterministic functions of a single row's own columns. Prefer SQLite [generated columns](https://www.sqlite.org/gencol.html) for these — they are always in sync with their inputs and cannot diverge. Do not store them as independent columns.
-- **Context-dependent stats** (wOBA, FIP, ERA+, OPS+, smbWAR) require league-wide context (linear weights, league constants, park factors) that is only available at sync time. These must be computed and persisted during the import pipeline, stored alongside the raw counts that produced them.
-
-The failure mode to avoid (as seen in the original companion app) is storing a derived stat as an independent column that can silently diverge from its inputs due to a bug or re-import. Generated columns for simple rates, careful compute-then-store for complex rates.
 
 Each franchise gets its own **isolated SQLite companion database**. There is no multitenant shared DB. Switching franchises = closing one `*sql.DB` and opening another.
