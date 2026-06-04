@@ -1134,6 +1134,68 @@ export namespace main {
 		}
 	}
 	
+	export class PlayerAttributeSeasonDTO {
+	    seasonNum: number;
+	    seasonId: number;
+	    power: number;
+	    contact: number;
+	    speed: number;
+	    fielding: number;
+	    arm: number;
+	    velocity: number;
+	    junk: number;
+	    accuracy: number;
+	    powerPct?: number;
+	    contactPct?: number;
+	    speedPct?: number;
+	    fieldingPct?: number;
+	    armPct?: number;
+	    velocityPct?: number;
+	    junkPct?: number;
+	    accuracyPct?: number;
+	    lgAvgPower: number;
+	    lgAvgContact: number;
+	    lgAvgSpeed: number;
+	    lgAvgFielding: number;
+	    lgAvgArm: number;
+	    lgAvgVelocity: number;
+	    lgAvgJunk: number;
+	    lgAvgAccuracy: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new PlayerAttributeSeasonDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.seasonNum = source["seasonNum"];
+	        this.seasonId = source["seasonId"];
+	        this.power = source["power"];
+	        this.contact = source["contact"];
+	        this.speed = source["speed"];
+	        this.fielding = source["fielding"];
+	        this.arm = source["arm"];
+	        this.velocity = source["velocity"];
+	        this.junk = source["junk"];
+	        this.accuracy = source["accuracy"];
+	        this.powerPct = source["powerPct"];
+	        this.contactPct = source["contactPct"];
+	        this.speedPct = source["speedPct"];
+	        this.fieldingPct = source["fieldingPct"];
+	        this.armPct = source["armPct"];
+	        this.velocityPct = source["velocityPct"];
+	        this.junkPct = source["junkPct"];
+	        this.accuracyPct = source["accuracyPct"];
+	        this.lgAvgPower = source["lgAvgPower"];
+	        this.lgAvgContact = source["lgAvgContact"];
+	        this.lgAvgSpeed = source["lgAvgSpeed"];
+	        this.lgAvgFielding = source["lgAvgFielding"];
+	        this.lgAvgArm = source["lgAvgArm"];
+	        this.lgAvgVelocity = source["lgAvgVelocity"];
+	        this.lgAvgJunk = source["lgAvgJunk"];
+	        this.lgAvgAccuracy = source["lgAvgAccuracy"];
+	    }
+	}
 	export class PlayerAwardEntryDTO {
 	    playerSeasonId: number;
 	    awardIds: number[];

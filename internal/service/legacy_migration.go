@@ -224,6 +224,9 @@ func (svc *LegacyMigrationService) migrateInTx(
 	if err := svc.migrateLegacyGameStats(ctx, playerStore, gameStats, legacyPSIDToNew); err != nil {
 		return result, err
 	}
+	if err := migrateLegacyLeagueAvgAttributes(ctx, tx, legacySeasonIDToNew); err != nil {
+		return result, err
+	}
 	if err := svc.migrateLegacyBattingStats(ctx, playerStore, battingStats, legacyPSIDToNew); err != nil {
 		return result, err
 	}
@@ -814,6 +817,18 @@ func migrateLegacyContextStats(ctx context.Context, tx *sql.Tx, legacySeasonIDTo
 		}
 		if err := ApplyContextStats(ctx, tx, newSeasonID, false); err != nil {
 			return fmt.Errorf("computing context stats for season %d (playoffs): %w", newSeasonID, err)
+		}
+	}
+	return nil
+}
+
+// migrateLegacyLeagueAvgAttributes computes and persists league-average
+// attribute values for every migrated season. Must run after all game stats
+// rows are written (i.e. after migrateLegacyGameStats).
+func migrateLegacyLeagueAvgAttributes(ctx context.Context, tx *sql.Tx, legacySeasonIDToNew map[int]int64) error {
+	for _, newSeasonID := range legacySeasonIDToNew {
+		if err := ApplyLeagueAvgAttributes(ctx, tx, newSeasonID); err != nil {
+			return fmt.Errorf("computing league attribute averages for season %d: %w", newSeasonID, err)
 		}
 	}
 	return nil

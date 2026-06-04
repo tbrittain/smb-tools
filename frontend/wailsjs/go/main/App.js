@@ -106,6 +106,10 @@ export function GetPitchingSeasonLeaders(arg1) {
   return window['go']['main']['App']['GetPitchingSeasonLeaders'](arg1);
 }
 
+export function GetPlayerAttributeHistory(arg1) {
+  return window['go']['main']['App']['GetPlayerAttributeHistory'](arg1);
+}
+
 export function GetPlayerCareer(arg1) {
   return window['go']['main']['App']['GetPlayerCareer'](arg1);
 }

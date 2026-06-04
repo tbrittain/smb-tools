@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"database/sql"
 	"math"
 	"testing"
 
@@ -261,5 +262,182 @@ func TestGetPlayerSeasonLog_MultiSeason(t *testing.T) {
 	}
 	if log[0].SeasonNum != 1 || log[1].SeasonNum != 2 {
 		t.Errorf("expected seasons 1,2 got %d,%d", log[0].SeasonNum, log[1].SeasonNum)
+	}
+}
+
+// seedGameStats inserts a player_season_game_stats row for an existing player_season.
+func seedGameStats(t *testing.T, db *sql.DB, psID int64, power, contact, speed, fielding, arm int) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(), `
+		INSERT INTO player_season_game_stats
+		    (player_season_id, power, contact, speed, fielding, arm, velocity, junk, accuracy)
+		VALUES (?,?,?,?,?,?,0,0,0)
+	`, psID, power, contact, speed, fielding, arm)
+	if err != nil {
+		t.Fatalf("seedGameStats: %v", err)
+	}
+}
+
+// seedLeagueAvg inserts a season_attribute_averages row directly (bypassing the
+// service layer) so query tests can control the expected values precisely.
+func seedLeagueAvg(t *testing.T, db *sql.DB, seasonID int64, avgPower, avgContact float64) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(), `
+		INSERT INTO season_attribute_averages
+		    (season_id, avg_power, avg_contact, avg_speed, avg_fielding, avg_arm,
+		     avg_velocity, avg_junk, avg_accuracy)
+		VALUES (?,?,?,0,0,0,0,0,0)
+	`, seasonID, avgPower, avgContact)
+	if err != nil {
+		t.Fatalf("seedLeagueAvg: %v", err)
+	}
+}
+
+// TestGetPlayerAttributeHistory_PercentileRanks seeds three players in the
+// same season, seeds the league averages, and verifies that the player with
+// the highest Power receives the highest percentile, the lowest receives the
+// lowest, and the middle player falls between them.
+func TestGetPlayerAttributeHistory_PercentileRanks(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	seedLeagueAvg(t, db, s1, 60.0, 65.0)
+
+	// Three players in the same season with distinct Power values.
+	pLow := seedPlayer(t, db, "gLow", "Low", "Power")
+	pMid := seedPlayer(t, db, "gMid", "Mid", "Power")
+	pHigh := seedPlayer(t, db, "gHigh", "High", "Power")
+
+	psLow := seedPlayerSeason(t, db, pLow, s1, nil)
+	psMid := seedPlayerSeason(t, db, pMid, s1, nil)
+	psHigh := seedPlayerSeason(t, db, pHigh, s1, nil)
+
+	seedGameStats(t, db, psLow, 40, 50, 60, 70, 80)
+	seedGameStats(t, db, psMid, 60, 65, 60, 70, 80)
+	seedGameStats(t, db, psHigh, 80, 90, 60, 70, 80)
+
+	pq := store.NewPlayerQueryStore(db)
+
+	checkPct := func(t *testing.T, playerID int64, wantPowerPctMin, wantPowerPctMax float64) {
+		t.Helper()
+		rows, err := pq.GetPlayerAttributeHistory(ctx, playerID)
+		if err != nil {
+			t.Fatalf("GetPlayerAttributeHistory: %v", err)
+		}
+		if len(rows) != 1 {
+			t.Fatalf("expected 1 row, got %d", len(rows))
+		}
+		r := rows[0]
+		if r.PowerPct == nil {
+			t.Fatal("PowerPct is nil, want a value (3 players in season)")
+		}
+		if *r.PowerPct < wantPowerPctMin || *r.PowerPct > wantPowerPctMax {
+			t.Errorf("PowerPct = %.2f, want [%.0f, %.0f]", *r.PowerPct, wantPowerPctMin, wantPowerPctMax)
+		}
+	}
+
+	t.Run("lowest power → lowest percentile", func(t *testing.T) {
+		checkPct(t, pLow, 0, 10) // PERCENT_RANK=0.0 for the minimum
+	})
+	t.Run("middle power → middle percentile", func(t *testing.T) {
+		checkPct(t, pMid, 40, 60) // ≈50th percentile
+	})
+	t.Run("highest power → highest percentile", func(t *testing.T) {
+		checkPct(t, pHigh, 90, 100) // PERCENT_RANK=1.0 for the maximum
+	})
+}
+
+// TestGetPlayerAttributeHistory_LeagueAvgReturned verifies that the league
+// average values seeded in season_attribute_averages are returned correctly.
+func TestGetPlayerAttributeHistory_LeagueAvgReturned(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	seedLeagueAvg(t, db, s1, 65.5, 72.0)
+
+	pid := seedPlayer(t, db, "gA", "A", "B")
+	ps1 := seedPlayerSeason(t, db, pid, s1, nil)
+	seedGameStats(t, db, ps1, 70, 80, 60, 55, 50)
+
+	pq := store.NewPlayerQueryStore(db)
+	rows, err := pq.GetPlayerAttributeHistory(ctx, pid)
+	if err != nil {
+		t.Fatalf("GetPlayerAttributeHistory: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(rows))
+	}
+	r := rows[0]
+
+	const epsilon = 0.001
+	if math.Abs(r.LgAvgPower-65.5) > epsilon {
+		t.Errorf("LgAvgPower = %.4f, want 65.5", r.LgAvgPower)
+	}
+	if math.Abs(r.LgAvgContact-72.0) > epsilon {
+		t.Errorf("LgAvgContact = %.4f, want 72.0", r.LgAvgContact)
+	}
+}
+
+// TestGetPlayerAttributeHistory_MultiSeason verifies rows are returned in
+// season_num order for a player spanning three seasons.
+func TestGetPlayerAttributeHistory_MultiSeason(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	s2 := seedSeason(t, db, 2, 2, 40)
+	s3 := seedSeason(t, db, 3, 3, 40)
+
+	pid := seedPlayer(t, db, "gMulti", "Career", "Player")
+	ps1 := seedPlayerSeason(t, db, pid, s1, nil)
+	ps2 := seedPlayerSeason(t, db, pid, s2, nil)
+	ps3 := seedPlayerSeason(t, db, pid, s3, nil)
+	seedGameStats(t, db, ps1, 60, 60, 60, 60, 60)
+	seedGameStats(t, db, ps2, 70, 70, 70, 70, 70)
+	seedGameStats(t, db, ps3, 80, 80, 80, 80, 80)
+
+	pq := store.NewPlayerQueryStore(db)
+	rows, err := pq.GetPlayerAttributeHistory(ctx, pid)
+	if err != nil {
+		t.Fatalf("GetPlayerAttributeHistory: %v", err)
+	}
+	if len(rows) != 3 {
+		t.Fatalf("expected 3 rows, got %d", len(rows))
+	}
+	for i, want := range []int{1, 2, 3} {
+		if rows[i].SeasonNum != want {
+			t.Errorf("row[%d].SeasonNum = %d, want %d", i, rows[i].SeasonNum, want)
+		}
+	}
+	// Power should increase season over season.
+	if rows[0].Power >= rows[1].Power || rows[1].Power >= rows[2].Power {
+		t.Errorf("expected increasing power: %d, %d, %d", rows[0].Power, rows[1].Power, rows[2].Power)
+	}
+}
+
+// TestGetPlayerAttributeHistory_SinglePlayerNilPercentile verifies that when
+// only one player exists in a season, the percentile fields are nil (PERCENT_RANK
+// is undefined for a single-row partition).
+func TestGetPlayerAttributeHistory_SinglePlayerNilPercentile(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	pid := seedPlayer(t, db, "gSolo", "Solo", "Player")
+	ps1 := seedPlayerSeason(t, db, pid, s1, nil)
+	seedGameStats(t, db, ps1, 75, 65, 55, 45, 35)
+
+	pq := store.NewPlayerQueryStore(db)
+	rows, err := pq.GetPlayerAttributeHistory(ctx, pid)
+	if err != nil {
+		t.Fatalf("GetPlayerAttributeHistory: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(rows))
+	}
+	if rows[0].PowerPct != nil {
+		t.Errorf("PowerPct = %v, want nil for single-player season", rows[0].PowerPct)
 	}
 }

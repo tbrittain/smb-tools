@@ -410,6 +410,143 @@ ORDER BY s.season_num ASC
 	return out, index, rows.Err()
 }
 
+// PlayerAttributeHistoryRow holds one season's attribute snapshot for the
+// trend chart. Percentile fields are nil when the player is the only one in
+// the season (PERCENT_RANK is undefined for a single-row partition).
+type PlayerAttributeHistoryRow struct {
+	SeasonID    int64
+	SeasonNum   int
+	Power       int
+	Contact     int
+	Speed       int
+	Fielding    int
+	Arm         int
+	Velocity    int
+	Junk        int
+	Accuracy    int
+	PowerPct    *float64
+	ContactPct  *float64
+	SpeedPct    *float64
+	FieldingPct *float64
+	ArmPct      *float64
+	VelocityPct *float64
+	JunkPct     *float64
+	AccuracyPct *float64
+	LgAvgPower    float64
+	LgAvgContact  float64
+	LgAvgSpeed    float64
+	LgAvgFielding float64
+	LgAvgArm      float64
+	LgAvgVelocity float64
+	LgAvgJunk     float64
+	LgAvgAccuracy float64
+}
+
+// GetPlayerAttributeHistory returns one row per season for the given player,
+// ordered by season number ascending. Each row includes the player's raw
+// attribute values, their percentile rank within that season (nil if they
+// were the only player), and the pre-computed league averages.
+//
+// Percentile ranks are computed via PERCENT_RANK() window function partitioned
+// by season, so a value of 75 means the player scored higher than 75% of all
+// players in that season for that attribute.
+func (s *PlayerQueryStore) GetPlayerAttributeHistory(ctx context.Context, playerID int64) ([]PlayerAttributeHistoryRow, error) {
+	rows, err := s.db.QueryContext(ctx, `
+WITH ranked AS (
+    SELECT
+        ps.player_id,
+        ps.season_id,
+        s.season_num,
+        COALESCE(psg.power,    0) AS power,
+        COALESCE(psg.contact,  0) AS contact,
+        COALESCE(psg.speed,    0) AS speed,
+        COALESCE(psg.fielding, 0) AS fielding,
+        COALESCE(psg.arm,      0) AS arm,
+        COALESCE(psg.velocity, 0) AS velocity,
+        COALESCE(psg.junk,     0) AS junk,
+        COALESCE(psg.accuracy, 0) AS accuracy,
+        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
+             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.power,    0)) * 100 AS REAL)
+             ELSE NULL END AS power_pct,
+        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
+             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.contact,  0)) * 100 AS REAL)
+             ELSE NULL END AS contact_pct,
+        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
+             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.speed,    0)) * 100 AS REAL)
+             ELSE NULL END AS speed_pct,
+        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
+             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.fielding, 0)) * 100 AS REAL)
+             ELSE NULL END AS fielding_pct,
+        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
+             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.arm,      0)) * 100 AS REAL)
+             ELSE NULL END AS arm_pct,
+        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
+             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.velocity, 0)) * 100 AS REAL)
+             ELSE NULL END AS velocity_pct,
+        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
+             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.junk,     0)) * 100 AS REAL)
+             ELSE NULL END AS junk_pct,
+        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
+             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.accuracy, 0)) * 100 AS REAL)
+             ELSE NULL END AS accuracy_pct
+    FROM player_season_game_stats psg
+    JOIN player_seasons ps ON ps.id = psg.player_season_id
+    JOIN seasons s         ON s.id  = ps.season_id
+)
+SELECT
+    r.season_id,
+    r.season_num,
+    r.power, r.contact, r.speed, r.fielding, r.arm,
+    r.velocity, r.junk, r.accuracy,
+    r.power_pct, r.contact_pct, r.speed_pct, r.fielding_pct, r.arm_pct,
+    r.velocity_pct, r.junk_pct, r.accuracy_pct,
+    COALESCE(saa.avg_power,    0),
+    COALESCE(saa.avg_contact,  0),
+    COALESCE(saa.avg_speed,    0),
+    COALESCE(saa.avg_fielding, 0),
+    COALESCE(saa.avg_arm,      0),
+    COALESCE(saa.avg_velocity, 0),
+    COALESCE(saa.avg_junk,     0),
+    COALESCE(saa.avg_accuracy, 0)
+FROM ranked r
+LEFT JOIN season_attribute_averages saa ON saa.season_id = r.season_id
+WHERE r.player_id = ?
+ORDER BY r.season_num ASC
+`, playerID)
+	if err != nil {
+		return nil, fmt.Errorf("querying attribute history for player %d: %w", playerID, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []PlayerAttributeHistoryRow
+	for rows.Next() {
+		var r PlayerAttributeHistoryRow
+		var powerPct, contactPct, speedPct, fieldingPct, armPct sql.NullFloat64
+		var velocityPct, junkPct, accuracyPct sql.NullFloat64
+		if err := rows.Scan(
+			&r.SeasonID, &r.SeasonNum,
+			&r.Power, &r.Contact, &r.Speed, &r.Fielding, &r.Arm,
+			&r.Velocity, &r.Junk, &r.Accuracy,
+			&powerPct, &contactPct, &speedPct, &fieldingPct, &armPct,
+			&velocityPct, &junkPct, &accuracyPct,
+			&r.LgAvgPower, &r.LgAvgContact, &r.LgAvgSpeed, &r.LgAvgFielding, &r.LgAvgArm,
+			&r.LgAvgVelocity, &r.LgAvgJunk, &r.LgAvgAccuracy,
+		); err != nil {
+			return nil, fmt.Errorf("scanning attribute history row: %w", err)
+		}
+		if powerPct.Valid    { r.PowerPct    = &powerPct.Float64 }
+		if contactPct.Valid  { r.ContactPct  = &contactPct.Float64 }
+		if speedPct.Valid    { r.SpeedPct    = &speedPct.Float64 }
+		if fieldingPct.Valid { r.FieldingPct = &fieldingPct.Float64 }
+		if armPct.Valid      { r.ArmPct      = &armPct.Float64 }
+		if velocityPct.Valid { r.VelocityPct = &velocityPct.Float64 }
+		if junkPct.Valid     { r.JunkPct     = &junkPct.Float64 }
+		if accuracyPct.Valid { r.AccuracyPct = &accuracyPct.Float64 }
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // SetHallOfFamer updates the is_hall_of_famer flag for the given player.
 func (s *PlayerQueryStore) SetHallOfFamer(ctx context.Context, playerID int64, isHoF bool) error {
 	v := 0

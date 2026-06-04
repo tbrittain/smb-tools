@@ -77,6 +77,24 @@ func TestImportSeason_SeasonRecordCreated(t *testing.T) {
 	}
 }
 
+func TestImportSeason_LeagueAvgAttributesPopulated(t *testing.T) {
+	svc, companionDB, reader := newTestImportService(t)
+	ctx := context.Background()
+
+	result := importSeason1(t, svc, companionDB, reader)
+
+	var avgPower float64
+	err := companionDB.QueryRowContext(ctx,
+		`SELECT avg_power FROM season_attribute_averages WHERE season_id = ?`, result.SeasonID,
+	).Scan(&avgPower)
+	if err != nil {
+		t.Fatalf("season_attribute_averages row missing after import: %v", err)
+	}
+	if avgPower <= 0 {
+		t.Errorf("avg_power = %.4f, want > 0 (fixture has players with non-zero attributes)", avgPower)
+	}
+}
+
 func TestImportSeason_SeasonOffsetApplied(t *testing.T) {
 	svc, companionDB, _ := newTestImportService(t)
 	ctx := context.Background()

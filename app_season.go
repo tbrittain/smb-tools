@@ -257,6 +257,51 @@ func (a *App) GetPlayerSeasonLog(playerID int64) ([]PlayerSeasonLogDTO, error) {
 	return out, nil
 }
 
+// GetPlayerAttributeHistory returns one entry per season for the given player,
+// carrying raw attribute values, league-wide percentile ranks, and the eagerly
+// persisted league averages. Results are ordered by season number ascending.
+func (a *App) GetPlayerAttributeHistory(playerID int64) ([]PlayerAttributeSeasonDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	rows, err := a.playerQueryStore.GetPlayerAttributeHistory(a.ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PlayerAttributeSeasonDTO, len(rows))
+	for i, r := range rows {
+		out[i] = PlayerAttributeSeasonDTO{
+			SeasonNum:     r.SeasonNum,
+			SeasonID:      r.SeasonID,
+			Power:         r.Power,
+			Contact:       r.Contact,
+			Speed:         r.Speed,
+			Fielding:      r.Fielding,
+			Arm:           r.Arm,
+			Velocity:      r.Velocity,
+			Junk:          r.Junk,
+			Accuracy:      r.Accuracy,
+			PowerPct:      r.PowerPct,
+			ContactPct:    r.ContactPct,
+			SpeedPct:      r.SpeedPct,
+			FieldingPct:   r.FieldingPct,
+			ArmPct:        r.ArmPct,
+			VelocityPct:   r.VelocityPct,
+			JunkPct:       r.JunkPct,
+			AccuracyPct:   r.AccuracyPct,
+			LgAvgPower:    r.LgAvgPower,
+			LgAvgContact:  r.LgAvgContact,
+			LgAvgSpeed:    r.LgAvgSpeed,
+			LgAvgFielding: r.LgAvgFielding,
+			LgAvgArm:      r.LgAvgArm,
+			LgAvgVelocity: r.LgAvgVelocity,
+			LgAvgJunk:     r.LgAvgJunk,
+			LgAvgAccuracy: r.LgAvgAccuracy,
+		}
+	}
+	return out, nil
+}
+
 // GetTeamHistory returns all seasons played by a team with champion flags.
 func (a *App) GetTeamHistory(teamID int64) (TeamHistoryDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {

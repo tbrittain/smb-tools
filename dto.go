@@ -297,6 +297,41 @@ type PlayerSeasonLogDTO struct {
 	PlayoffPitching   *CareerPitchingStatsDTO `json:"playoffPitching"`
 }
 
+// PlayerAttributeSeasonDTO is one season's entry in the player attribute trend
+// chart. It carries raw attribute values, percentile ranks within that season,
+// and the league-wide averages persisted at import time.
+//
+// Percentile fields are nil when the player was the only one in the season
+// (PERCENT_RANK is undefined for a single-row partition).
+type PlayerAttributeSeasonDTO struct {
+	SeasonNum   int   `json:"seasonNum"`
+	SeasonID    int64 `json:"seasonId"`
+	Power       int   `json:"power"`
+	Contact     int   `json:"contact"`
+	Speed       int   `json:"speed"`
+	Fielding    int   `json:"fielding"`
+	Arm         int   `json:"arm"`
+	Velocity    int   `json:"velocity"`
+	Junk        int   `json:"junk"`
+	Accuracy    int   `json:"accuracy"`
+	PowerPct    *float64 `json:"powerPct"`
+	ContactPct  *float64 `json:"contactPct"`
+	SpeedPct    *float64 `json:"speedPct"`
+	FieldingPct *float64 `json:"fieldingPct"`
+	ArmPct      *float64 `json:"armPct"`
+	VelocityPct *float64 `json:"velocityPct"`
+	JunkPct     *float64 `json:"junkPct"`
+	AccuracyPct *float64 `json:"accuracyPct"`
+	LgAvgPower    float64 `json:"lgAvgPower"`
+	LgAvgContact  float64 `json:"lgAvgContact"`
+	LgAvgSpeed    float64 `json:"lgAvgSpeed"`
+	LgAvgFielding float64 `json:"lgAvgFielding"`
+	LgAvgArm      float64 `json:"lgAvgArm"`
+	LgAvgVelocity float64 `json:"lgAvgVelocity"`
+	LgAvgJunk     float64 `json:"lgAvgJunk"`
+	LgAvgAccuracy float64 `json:"lgAvgAccuracy"`
+}
+
 // ── Teams ─────────────────────────────────────────────────────────────────────
 
 // TeamSearchResultDTO is a lightweight team record for search results.

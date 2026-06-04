@@ -73,6 +73,8 @@ func TestMigrateLegacy_Full(t *testing.T) {
 	assertRowCount(t, companionDB, "team_playoff_schedules", 1)
 	// Team 1 has 2 GUIDs → 1 alt GUID row
 	assertRowCount(t, companionDB, "team_alt_guids", 1)
+	// One league-average row per season.
+	assertRowCount(t, companionDB, "season_attribute_averages", 2)
 	// Player 1 has 2 GUIDs → 1 alt GUID row
 	assertRowCount(t, companionDB, "player_alt_guids", 1)
 	// player_season_teams: Alex S10=1, Sam S10=1, Riley S10=1 (FA slot skipped; prior team kept),
