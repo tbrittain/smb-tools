@@ -95,6 +95,6 @@ Users can create custom awards beyond the built-in list. Custom awards have `IsB
 
 ## Source Files
 
-**SmbExplorerCompanion** (`C:\Users\Trey\source\SmbExplorerCompanion`):
+**SmbExplorerCompanion** (https://github.com/tbrittain/SmbExplorerCompanion):
 - `SmbExplorerCompanion.Database/Entities/Lookups/PlayerAward.cs` — `PlayerAward` entity with all flag properties
 - `SmbExplorerCompanion.Database/SmbExplorerCompanionDbContext.cs` — `SeedLookups()` method contains the full seeded award list with all property values

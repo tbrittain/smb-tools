@@ -72,7 +72,6 @@ func (s *FranchiseService) CreateFranchise(
 		ID:          id,
 		Name:        name,
 		GameVersion: version,
-		DBPath:      dbPath,
 	}
 	if err := s.franchises.Create(ctx, f); err != nil {
 		_ = os.RemoveAll(s.dirs.FranchiseDir(id))
@@ -98,7 +97,7 @@ func (s *FranchiseService) OpenFranchise(ctx context.Context, id string) (*sql.D
 		return nil, models.Franchise{}, fmt.Errorf("looking up franchise %q: %w", id, err)
 	}
 
-	db, err := internaldb.OpenCompanion(ctx, f.DBPath)
+	db, err := internaldb.OpenCompanion(ctx, s.dirs.CompanionDBPath(f.ID))
 	if err != nil {
 		return nil, models.Franchise{}, fmt.Errorf("opening companion DB for franchise %q: %w", id, err)
 	}

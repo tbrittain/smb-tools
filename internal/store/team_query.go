@@ -627,6 +627,7 @@ ORDER BY g.game_number ASC
 // season. RoundNumber and RoundLabel are computed from the full set of playoff
 // series in the season so that a team eliminated in round 1 of a 4-round bracket
 // still sees RoundNumber=1 / RoundLabel="Round of 16".
+//nolint:gocognit // two correlated queries (series numbers → round mapping, then game rows) with nullable field scan; splitting queries would lose the single round-mapping pass
 func (s *TeamQueryStore) GetTeamSeasonPlayoffSchedule(ctx context.Context, teamHistoryID int64, seasonID int64) ([]models.PlayoffGameRow, error) {
 	// Step 1: fetch all distinct series numbers for the season so we can map each
 	// to its correct bracket round regardless of which team we're viewing.

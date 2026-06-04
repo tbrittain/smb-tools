@@ -8,7 +8,6 @@ type Franchise struct {
 	ID               string
 	Name             string
 	GameVersion      GameVersion
-	DBPath           string
 	CreatedAt        time.Time
 	LastSyncedAt     *time.Time
 	LastSyncedSeason *int

@@ -66,6 +66,7 @@ LIMIT 50
 // GetPlayerCareer returns the player's bio and combined career totals (regular season + playoffs).
 // Reads from pre-computed career tables (stat_type='total_career') — no on-read rate computation.
 // Returns sql.ErrNoRows wrapped in an error if the player does not exist.
+//nolint:gocognit // two independent queries (batting + pitching career tables) each with ~12 nullable field assignments; the dual-query structure is a schema constraint, not reducible without splitting queries
 func (s *PlayerQueryStore) GetPlayerCareer(ctx context.Context, playerID int64) (models.PlayerCareer, error) {
 	var c models.PlayerCareer
 	var hof int
@@ -244,6 +245,7 @@ func (s *PlayerQueryStore) loadSeasonTeams(ctx context.Context, psIDs []int64) (
 // scanSeasonLogRows scans either regular (isRegularSeason=1) or playoff
 // (isRegularSeason=0) rows for a player. Returns the rows and a map from
 // season_id to slice index (used by the caller to merge playoff stats).
+//nolint:gocognit // single scan handles batting × pitching × regular/playoff in one pass; sentinel-based detection of optional stat objects is correct — splitting into multiple queries loses the single-pass guarantee
 func (s *PlayerQueryStore) scanSeasonLogRows(
 	ctx context.Context, playerID int64, isRegularSeason int,
 ) ([]models.PlayerSeasonLogRow, map[int64]int, error) {

@@ -305,7 +305,7 @@ Same columns as Career Pitching but with `Season` prepended at index 0, and two 
 
 ## Source Files
 
-**SMB3Explorer** (`C:\Users\Trey\source\SMB3Explorer`):
+**SMB3Explorer** (https://github.com/tbrittain/SMB3Explorer):
 - `SMB3Explorer/Models/Exports/BattingStatistic.cs` — abstract base with all batting stat properties and `[Index]`/`[Name]` attributes
 - `SMB3Explorer/Models/Exports/BattingMostRecentSeasonStatistic.cs` — adds OPS+, PlayerId, SeasonId, TeamId columns
 - `SMB3Explorer/Models/Exports/CareerStatistic.cs` — career batting base class

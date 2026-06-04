@@ -31,6 +31,78 @@ type MigrationResult struct {
 	LogosSkipped     int // non-zero when legacy had logo blobs
 }
 
+// legacyFranchiseData holds all data read from the legacy DB before the transaction opens.
+type legacyFranchiseData struct {
+	seasons             []store.LegacySeason
+	teams               []store.LegacyTeam
+	seasonTeamHistories []store.LegacySeasonTeamHistory
+	players             []store.LegacyPlayer
+	playerSeasons       []store.LegacyPlayerSeason
+	seasonTeamsByPSID   map[int][]store.LegacyPlayerSeasonTeam
+	gameStats           []store.LegacyGameStats
+	battingStats        []store.LegacyBattingStat
+	pitchingStats       []store.LegacyPitchingStat
+	traitsByPSID        map[int][]string
+	pitchesByPSID       map[int][]string
+	awardAssignments    []store.LegacyAwardAssignment
+	seasonSchedules     []store.LegacyScheduleGame
+	playoffSchedules    []store.LegacyPlayoffGame
+	championships       []store.LegacyChampionship
+}
+
+// readLegacyData reads all franchise data from the legacy DB in one sequential pass.
+// Reads happen before the companion transaction opens so legacy reads don't block writes.
+func readLegacyData(ctx context.Context, reader *store.LegacyCompanionReader, franchiseID int) (legacyFranchiseData, error) {
+	var d legacyFranchiseData
+	var err error
+	if d.seasons, err = reader.ReadSeasons(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading seasons: %w", err)
+	}
+	if d.teams, err = reader.ReadTeams(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading teams: %w", err)
+	}
+	if d.seasonTeamHistories, err = reader.ReadSeasonTeamHistory(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading season team history: %w", err)
+	}
+	if d.players, err = reader.ReadPlayers(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading players: %w", err)
+	}
+	if d.playerSeasons, err = reader.ReadPlayerSeasons(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading player seasons: %w", err)
+	}
+	if d.seasonTeamsByPSID, err = reader.ReadPlayerSeasonTeams(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading player season teams: %w", err)
+	}
+	if d.gameStats, err = reader.ReadGameStats(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading game stats: %w", err)
+	}
+	if d.battingStats, err = reader.ReadBattingStats(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading batting stats: %w", err)
+	}
+	if d.pitchingStats, err = reader.ReadPitchingStats(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading pitching stats: %w", err)
+	}
+	if d.traitsByPSID, err = reader.ReadTraits(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading traits: %w", err)
+	}
+	if d.pitchesByPSID, err = reader.ReadPitches(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading pitches: %w", err)
+	}
+	if d.awardAssignments, err = reader.ReadAwardAssignments(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading award assignments: %w", err)
+	}
+	if d.seasonSchedules, err = reader.ReadSeasonSchedules(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading season schedules: %w", err)
+	}
+	if d.playoffSchedules, err = reader.ReadPlayoffSchedules(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading playoff schedules: %w", err)
+	}
+	if d.championships, err = reader.ReadChampionships(ctx, franchiseID); err != nil {
+		return legacyFranchiseData{}, fmt.Errorf("reading championships: %w", err)
+	}
+	return d, nil
+}
+
 // Migrate imports all data for legacyFranchiseID from legacyDB into companionDB.
 //
 // leagueGUID is a caller-generated UUID written to seasons.league_guid and
@@ -48,66 +120,9 @@ func (svc *LegacyMigrationService) Migrate(
 		return MigrationResult{}, fmt.Errorf("creating legacy reader: %w", err)
 	}
 
-	// Read all data before opening the transaction so legacy reads don't block writes.
-	seasons, err := reader.ReadSeasons(ctx, legacyFranchiseID)
+	data, err := readLegacyData(ctx, reader, legacyFranchiseID)
 	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading seasons: %w", err)
-	}
-	teams, err := reader.ReadTeams(ctx, legacyFranchiseID)
-	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading teams: %w", err)
-	}
-	seasonTeamHistories, err := reader.ReadSeasonTeamHistory(ctx, legacyFranchiseID)
-	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading season team history: %w", err)
-	}
-	players, err := reader.ReadPlayers(ctx, legacyFranchiseID)
-	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading players: %w", err)
-	}
-	playerSeasons, err := reader.ReadPlayerSeasons(ctx, legacyFranchiseID)
-	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading player seasons: %w", err)
-	}
-	seasonTeamsByPSID, err := reader.ReadPlayerSeasonTeams(ctx, legacyFranchiseID)
-	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading player season teams: %w", err)
-	}
-	gameStats, err := reader.ReadGameStats(ctx, legacyFranchiseID)
-	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading game stats: %w", err)
-	}
-	battingStats, err := reader.ReadBattingStats(ctx, legacyFranchiseID)
-	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading batting stats: %w", err)
-	}
-	pitchingStats, err := reader.ReadPitchingStats(ctx, legacyFranchiseID)
-	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading pitching stats: %w", err)
-	}
-	traitsByPSID, err := reader.ReadTraits(ctx, legacyFranchiseID)
-	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading traits: %w", err)
-	}
-	pitchesByPSID, err := reader.ReadPitches(ctx, legacyFranchiseID)
-	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading pitches: %w", err)
-	}
-	awardAssignments, err := reader.ReadAwardAssignments(ctx, legacyFranchiseID)
-	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading award assignments: %w", err)
-	}
-	seasonSchedules, err := reader.ReadSeasonSchedules(ctx, legacyFranchiseID)
-	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading season schedules: %w", err)
-	}
-	playoffSchedules, err := reader.ReadPlayoffSchedules(ctx, legacyFranchiseID)
-	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading playoff schedules: %w", err)
-	}
-	championships, err := reader.ReadChampionships(ctx, legacyFranchiseID)
-	if err != nil {
-		return MigrationResult{}, fmt.Errorf("reading championships: %w", err)
+		return MigrationResult{}, err
 	}
 
 	// Check for logo data (not migrated; reported in result).
@@ -118,7 +133,7 @@ func (svc *LegacyMigrationService) Migrate(
 
 	// Resolve award IDs outside the main transaction. Custom awards are inserted
 	// here; built-ins are matched by original_name.
-	awardIDByOriginalName, err := svc.resolveAwardIDs(ctx, awardAssignments, companionDB)
+	awardIDByOriginalName, err := svc.resolveAwardIDs(ctx, data.awardAssignments, companionDB)
 	if err != nil {
 		return MigrationResult{}, fmt.Errorf("resolving award IDs: %w", err)
 	}
@@ -135,10 +150,10 @@ func (svc *LegacyMigrationService) Migrate(
 	}()
 
 	result, err := svc.migrateInTx(ctx, tx, leagueGUID,
-		seasons, teams, seasonTeamHistories,
-		players, playerSeasons, seasonTeamsByPSID, gameStats, battingStats, pitchingStats,
-		traitsByPSID, pitchesByPSID, awardAssignments, awardIDByOriginalName,
-		seasonSchedules, playoffSchedules, championships,
+		data.seasons, data.teams, data.seasonTeamHistories,
+		data.players, data.playerSeasons, data.seasonTeamsByPSID, data.gameStats, data.battingStats, data.pitchingStats,
+		data.traitsByPSID, data.pitchesByPSID, data.awardAssignments, awardIDByOriginalName,
+		data.seasonSchedules, data.playoffSchedules, data.championships,
 	)
 	if err != nil {
 		return MigrationResult{}, err
@@ -176,17 +191,77 @@ func (svc *LegacyMigrationService) migrateInTx(
 	teamStore := store.NewTeamHistoryStore(tx)
 	playerStore := store.NewPlayerSeasonStore(tx)
 	scheduleStore := store.NewScheduleStore(tx)
-
 	result := MigrationResult{}
 
-	// ID maps: legacy ID → new companion DB ID
-	// (needed to remap foreign keys in schedule rows)
-	legacySeasonIDToNew := make(map[int]int64, len(seasons))
-	legacySTHIDToNew := make(map[int]int64, len(seasonTeamHistories))
-	legacyPSIDToNew := make(map[int]int64, len(playerSeasons))
-	legacyPlayerIDs := make([]int64, 0, len(players))
+	var err error
+	var legacySeasonIDToNew map[int]int64
+	var legacyTeamIDToNew map[int]int64
+	var legacySTHIDToNew map[int]int64
+	var legacyPlayerIDToNew map[int]int64
+	var legacyPlayerIDs []int64
+	var legacyPSIDToNew map[int]int64
 
-	// ── 1. Seasons ──────────────────────────────────────────────────────────────
+	legacySeasonIDToNew, result.SeasonsMigrated, err = svc.migrateLegacySeasons(ctx, seasonStore, leagueGUID, seasons)
+	if err != nil {
+		return result, err
+	}
+	legacyTeamIDToNew, result.TeamsMigrated, err = svc.migrateLegacyTeams(ctx, tx, teamStore, teams)
+	if err != nil {
+		return result, err
+	}
+	legacySTHIDToNew, err = svc.migrateLegacySeasonTeamHistory(ctx, teamStore, seasonTeamHistories, legacySeasonIDToNew, legacyTeamIDToNew)
+	if err != nil {
+		return result, err
+	}
+	legacyPlayerIDToNew, legacyPlayerIDs, result.PlayersMigrated, err = svc.migrateLegacyPlayers(ctx, tx, playerStore, players)
+	if err != nil {
+		return result, err
+	}
+	legacyPSIDToNew, err = svc.migrateLegacyPlayerSeasons(ctx, playerStore, playerSeasons, players, traitsByPSID, pitchesByPSID, seasonTeamsByPSID, legacyPlayerIDToNew, legacySeasonIDToNew, legacySTHIDToNew)
+	if err != nil {
+		return result, err
+	}
+	if err := svc.migrateLegacyGameStats(ctx, playerStore, gameStats, legacyPSIDToNew); err != nil {
+		return result, err
+	}
+	if err := svc.migrateLegacyBattingStats(ctx, playerStore, battingStats, legacyPSIDToNew); err != nil {
+		return result, err
+	}
+	if err := svc.migrateLegacyPitchingStats(ctx, playerStore, pitchingStats, legacyPSIDToNew); err != nil {
+		return result, err
+	}
+	result.AwardsMigrated, err = svc.migrateLegacyAwards(ctx, tx, awardAssignments, awardIDByOriginalName, legacyPSIDToNew)
+	if err != nil {
+		return result, err
+	}
+	if err := svc.migrateLegacyRegularSchedule(ctx, scheduleStore, seasonSchedules, legacySeasonIDToNew, legacySTHIDToNew, legacyPSIDToNew); err != nil {
+		return result, err
+	}
+	if err := svc.migrateLegacyPlayoffSchedule(ctx, scheduleStore, playoffSchedules, legacySeasonIDToNew, legacySTHIDToNew, legacyPSIDToNew); err != nil {
+		return result, err
+	}
+	if err := migrateLegacyPlayoffConfig(ctx, seasonStore, playoffSchedules, legacySeasonIDToNew); err != nil {
+		return result, err
+	}
+	if err := migrateLegacyChampionshipAwards(ctx, tx, championships, legacySeasonIDToNew, legacySTHIDToNew); err != nil {
+		return result, err
+	}
+	if err := migrateLegacyContextStats(ctx, tx, legacySeasonIDToNew); err != nil {
+		return result, err
+	}
+	if err := ApplyCareerStats(ctx, tx, legacyPlayerIDs); err != nil {
+		return result, fmt.Errorf("computing career stats: %w", err)
+	}
+	return result, nil
+}
+
+func (svc *LegacyMigrationService) migrateLegacySeasons(
+	ctx context.Context,
+	seasonStore *store.SeasonStore,
+	leagueGUID string,
+	seasons []store.LegacySeason,
+) (legacySeasonIDToNew map[int]int64, count int, err error) {
+	legacySeasonIDToNew = make(map[int]int64, len(seasons))
 	for _, s := range seasons {
 		newID, err := seasonStore.Upsert(ctx, store.Season{
 			LeagueGUID:       leagueGUID,
@@ -195,35 +270,51 @@ func (svc *LegacyMigrationService) migrateInTx(
 			NumGames:         s.NumGamesRegularSeason,
 		})
 		if err != nil {
-			return result, fmt.Errorf("upserting season %d: %w", s.ID, err)
+			return nil, 0, fmt.Errorf("upserting season %d: %w", s.ID, err)
 		}
 		legacySeasonIDToNew[s.ID] = newID
-		result.SeasonsMigrated++
+		count++
 	}
+	return legacySeasonIDToNew, count, nil
+}
 
-	// ── 2. Teams ────────────────────────────────────────────────────────────────
-	legacyTeamIDToNew := make(map[int]int64, len(teams))
+func (svc *LegacyMigrationService) migrateLegacyTeams(
+	ctx context.Context,
+	tx *sql.Tx,
+	teamStore *store.TeamHistoryStore,
+	teams []store.LegacyTeam,
+) (legacyTeamIDToNew map[int]int64, count int, err error) {
+	legacyTeamIDToNew = make(map[int]int64, len(teams))
 	for _, t := range teams {
 		if len(t.GameGUIDs) == 0 {
 			continue
 		}
 		teamID, err := teamStore.UpsertTeam(ctx, t.GameGUIDs[0], "")
 		if err != nil {
-			return result, fmt.Errorf("upserting team %d: %w", t.ID, err)
+			return nil, 0, fmt.Errorf("upserting team %d: %w", t.ID, err)
 		}
 		for _, altGUID := range t.GameGUIDs[1:] {
 			if _, execErr := tx.ExecContext(ctx,
 				`INSERT OR IGNORE INTO team_alt_guids (team_id, game_guid) VALUES (?, ?)`,
 				teamID, altGUID,
 			); execErr != nil {
-				return result, fmt.Errorf("inserting alt GUID for team %d: %w", t.ID, execErr)
+				return nil, 0, fmt.Errorf("inserting alt GUID for team %d: %w", t.ID, execErr)
 			}
 		}
 		legacyTeamIDToNew[t.ID] = teamID
-		result.TeamsMigrated++
+		count++
 	}
+	return legacyTeamIDToNew, count, nil
+}
 
-	// ── 3. Season team history ───────────────────────────────────────────────────
+func (svc *LegacyMigrationService) migrateLegacySeasonTeamHistory(
+	ctx context.Context,
+	teamStore *store.TeamHistoryStore,
+	seasonTeamHistories []store.LegacySeasonTeamHistory,
+	legacySeasonIDToNew map[int]int64,
+	legacyTeamIDToNew map[int]int64,
+) (legacySTHIDToNew map[int]int64, err error) {
+	legacySTHIDToNew = make(map[int]int64, len(seasonTeamHistories))
 	for _, h := range seasonTeamHistories {
 		newSeasonID, ok := legacySeasonIDToNew[h.SeasonID]
 		if !ok {
@@ -234,40 +325,48 @@ func (svc *LegacyMigrationService) migrateInTx(
 			continue
 		}
 		newHistID, err := teamStore.UpsertSeasonHistory(ctx, store.TeamSeasonHistory{
-			TeamID:         newTeamID,
-			SeasonID:       newSeasonID,
-			TeamName:       h.TeamName,
-			ConferenceName: h.ConferenceName,
-			DivisionName:   h.DivisionName,
-			Budget:         h.Budget,
-			Payroll:        h.Payroll,
-			Wins:           h.Wins,
-			Losses:         h.Losses,
-			GamesBack:      h.GamesBehind,
-			RunsFor:        h.RunsScored,
-			RunsAgainst:    h.RunsAllowed,
-			TotalPower:     h.TotalPower,
-			TotalContact:   h.TotalContact,
-			TotalSpeed:     h.TotalSpeed,
-			TotalFielding:  h.TotalFielding,
-			TotalArm:       h.TotalArm,
-			TotalVelocity:  h.TotalVelocity,
-			TotalJunk:      h.TotalJunk,
-			TotalAccuracy:  h.TotalAccuracy,
-			PlayoffSeed:    h.PlayoffSeed,
-			PlayoffWins:    h.PlayoffWins,
-			PlayoffLosses:  h.PlayoffLosses,
-			PlayoffRunsFor: h.PlayoffRunsScored,
+			TeamID:             newTeamID,
+			SeasonID:           newSeasonID,
+			TeamName:           h.TeamName,
+			ConferenceName:     h.ConferenceName,
+			DivisionName:       h.DivisionName,
+			Budget:             h.Budget,
+			Payroll:            h.Payroll,
+			Wins:               h.Wins,
+			Losses:             h.Losses,
+			GamesBack:          h.GamesBehind,
+			RunsFor:            h.RunsScored,
+			RunsAgainst:        h.RunsAllowed,
+			TotalPower:         h.TotalPower,
+			TotalContact:       h.TotalContact,
+			TotalSpeed:         h.TotalSpeed,
+			TotalFielding:      h.TotalFielding,
+			TotalArm:           h.TotalArm,
+			TotalVelocity:      h.TotalVelocity,
+			TotalJunk:          h.TotalJunk,
+			TotalAccuracy:      h.TotalAccuracy,
+			PlayoffSeed:        h.PlayoffSeed,
+			PlayoffWins:        h.PlayoffWins,
+			PlayoffLosses:      h.PlayoffLosses,
+			PlayoffRunsFor:     h.PlayoffRunsScored,
 			PlayoffRunsAgainst: h.PlayoffRunsAllowed,
 		})
 		if err != nil {
-			return result, fmt.Errorf("upserting team history (legacy sth %d): %w", h.ID, err)
+			return nil, fmt.Errorf("upserting team history (legacy sth %d): %w", h.ID, err)
 		}
 		legacySTHIDToNew[h.ID] = newHistID
 	}
+	return legacySTHIDToNew, nil
+}
 
-	// ── 4. Players ──────────────────────────────────────────────────────────────
-	legacyPlayerIDToNew := make(map[int]int64, len(players))
+func (svc *LegacyMigrationService) migrateLegacyPlayers(
+	ctx context.Context,
+	tx *sql.Tx,
+	playerStore *store.PlayerSeasonStore,
+	players []store.LegacyPlayer,
+) (legacyPlayerIDToNew map[int]int64, playerIDs []int64, count int, err error) {
+	legacyPlayerIDToNew = make(map[int]int64, len(players))
+	playerIDs = make([]int64, 0, len(players))
 	for _, p := range players {
 		if len(p.GameGUIDs) == 0 {
 			continue
@@ -281,13 +380,13 @@ func (svc *LegacyMigrationService) migrateInTx(
 			ChemistryType: p.ChemistryType,
 		})
 		if err != nil {
-			return result, fmt.Errorf("upserting player %d: %w", p.ID, err)
+			return nil, nil, 0, fmt.Errorf("upserting player %d: %w", p.ID, err)
 		}
 		if p.IsHallOfFamer {
 			if _, execErr := tx.ExecContext(ctx,
 				`UPDATE players SET is_hall_of_famer = 1 WHERE id = ?`, playerID,
 			); execErr != nil {
-				return result, fmt.Errorf("setting HoF for player %d: %w", p.ID, execErr)
+				return nil, nil, 0, fmt.Errorf("setting HoF for player %d: %w", p.ID, execErr)
 			}
 		}
 		for _, altGUID := range p.GameGUIDs[1:] {
@@ -295,21 +394,33 @@ func (svc *LegacyMigrationService) migrateInTx(
 				`INSERT OR IGNORE INTO player_alt_guids (player_id, game_guid) VALUES (?, ?)`,
 				playerID, altGUID,
 			); execErr != nil {
-				return result, fmt.Errorf("inserting alt GUID for player %d: %w", p.ID, execErr)
+				return nil, nil, 0, fmt.Errorf("inserting alt GUID for player %d: %w", p.ID, execErr)
 			}
 		}
 		legacyPlayerIDToNew[p.ID] = playerID
-		legacyPlayerIDs = append(legacyPlayerIDs, playerID)
-		result.PlayersMigrated++
+		playerIDs = append(playerIDs, playerID)
+		count++
 	}
+	return legacyPlayerIDToNew, playerIDs, count, nil
+}
 
-	// Build lookup for player attributes needed when upserting player seasons.
+func (svc *LegacyMigrationService) migrateLegacyPlayerSeasons(
+	ctx context.Context,
+	playerStore *store.PlayerSeasonStore,
+	playerSeasons []store.LegacyPlayerSeason,
+	players []store.LegacyPlayer,
+	traitsByPSID map[int][]string,
+	pitchesByPSID map[int][]string,
+	seasonTeamsByPSID map[int][]store.LegacyPlayerSeasonTeam,
+	legacyPlayerIDToNew map[int]int64,
+	legacySeasonIDToNew map[int]int64,
+	legacySTHIDToNew map[int]int64,
+) (legacyPSIDToNew map[int]int64, err error) {
 	legacyPlayerByID := make(map[int]store.LegacyPlayer, len(players))
 	for _, p := range players {
 		legacyPlayerByID[p.ID] = p
 	}
-
-	// ── 5. Player seasons ────────────────────────────────────────────────────────
+	legacyPSIDToNew = make(map[int]int64, len(playerSeasons))
 	for _, ps := range playerSeasons {
 		newPlayerID, ok := legacyPlayerIDToNew[ps.PlayerID]
 		if !ok {
@@ -319,8 +430,6 @@ func (svc *LegacyMigrationService) migrateInTx(
 		if !ok {
 			continue
 		}
-		traits := joinStrings(traitsByPSID[ps.ID])
-		pitches := joinStrings(pitchesByPSID[ps.ID])
 		legacyPlayer := legacyPlayerByID[ps.PlayerID]
 		newPSID, err := playerStore.UpsertSeason(ctx, store.PlayerSeason{
 			PlayerID:          newPlayerID,
@@ -333,35 +442,47 @@ func (svc *LegacyMigrationService) migrateInTx(
 			BatHand:           legacyPlayer.BatHand,
 			ThrowHand:         legacyPlayer.ThrowHand,
 			ChemistryType:     legacyPlayer.ChemistryType,
-			TraitsJSON:        traits,
-			PitchesJSON:       pitches,
+			TraitsJSON:        joinStrings(traitsByPSID[ps.ID]),
+			PitchesJSON:       joinStrings(pitchesByPSID[ps.ID]),
 		})
 		if err != nil {
-			return result, fmt.Errorf("upserting player season (legacy ps %d): %w", ps.ID, err)
+			return nil, fmt.Errorf("upserting player season (legacy ps %d): %w", ps.ID, err)
 		}
 		legacyPSIDToNew[ps.ID] = newPSID
-
-		// Migrate all team associations from legacy PlayerTeamHistory.
-		if legacyTeams := seasonTeamsByPSID[ps.ID]; len(legacyTeams) > 0 {
-			var seasonTeams []store.PlayerSeasonTeam
-			for _, lt := range legacyTeams {
-				if newSTHID, ok := legacySTHIDToNew[lt.TeamHistID]; ok {
-					seasonTeams = append(seasonTeams, store.PlayerSeasonTeam{
-						PlayerSeasonID: newPSID,
-						TeamHistoryID:  newSTHID,
-						SortOrder:      lt.SortOrder,
-					})
-				}
-			}
-			if len(seasonTeams) > 0 {
-				if err := playerStore.ReplaceSeasonTeams(ctx, newPSID, seasonTeams); err != nil {
-					return result, fmt.Errorf("migrating season teams for legacy ps %d: %w", ps.ID, err)
-				}
-			}
+		if err := migrateLegacyPSTeams(ctx, playerStore, newPSID, seasonTeamsByPSID[ps.ID], legacySTHIDToNew); err != nil {
+			return nil, fmt.Errorf("migrating season teams for legacy ps %d: %w", ps.ID, err)
 		}
 	}
+	return legacyPSIDToNew, nil
+}
 
-	// ── 6. Game stats ────────────────────────────────────────────────────────────
+// migrateLegacyPSTeams writes team associations for one player season.
+func migrateLegacyPSTeams(ctx context.Context, playerStore *store.PlayerSeasonStore, newPSID int64, legacyTeams []store.LegacyPlayerSeasonTeam, legacySTHIDToNew map[int]int64) error {
+	if len(legacyTeams) == 0 {
+		return nil
+	}
+	var seasonTeams []store.PlayerSeasonTeam
+	for _, lt := range legacyTeams {
+		if newSTHID, ok := legacySTHIDToNew[lt.TeamHistID]; ok {
+			seasonTeams = append(seasonTeams, store.PlayerSeasonTeam{
+				PlayerSeasonID: newPSID,
+				TeamHistoryID:  newSTHID,
+				SortOrder:      lt.SortOrder,
+			})
+		}
+	}
+	if len(seasonTeams) == 0 {
+		return nil
+	}
+	return playerStore.ReplaceSeasonTeams(ctx, newPSID, seasonTeams)
+}
+
+func (svc *LegacyMigrationService) migrateLegacyGameStats(
+	ctx context.Context,
+	playerStore *store.PlayerSeasonStore,
+	gameStats []store.LegacyGameStats,
+	legacyPSIDToNew map[int]int64,
+) error {
 	for _, gs := range gameStats {
 		newPSID, ok := legacyPSIDToNew[gs.PlayerSeasonID]
 		if !ok {
@@ -378,11 +499,18 @@ func (svc *LegacyMigrationService) migrateInTx(
 			Junk:           gs.Junk,
 			Accuracy:       gs.Accuracy,
 		}); err != nil {
-			return result, fmt.Errorf("upserting game stats (legacy ps %d): %w", gs.PlayerSeasonID, err)
+			return fmt.Errorf("upserting game stats (legacy ps %d): %w", gs.PlayerSeasonID, err)
 		}
 	}
+	return nil
+}
 
-	// ── 7. Batting stats ─────────────────────────────────────────────────────────
+func (svc *LegacyMigrationService) migrateLegacyBattingStats(
+	ctx context.Context,
+	playerStore *store.PlayerSeasonStore,
+	battingStats []store.LegacyBattingStat,
+	legacyPSIDToNew map[int]int64,
+) error {
 	for _, bs := range battingStats {
 		newPSID, ok := legacyPSIDToNew[bs.PlayerSeasonID]
 		if !ok {
@@ -426,12 +554,19 @@ func (svc *LegacyMigrationService) migrateInTx(
 			BBPct:            tmp.BBPct,
 			ABPerHR:          tmp.ABPerHR,
 		}); err != nil {
-			return result, fmt.Errorf("upserting batting stats (legacy ps %d, reg=%v): %w",
+			return fmt.Errorf("upserting batting stats (legacy ps %d, reg=%v): %w",
 				bs.PlayerSeasonID, bs.IsRegularSeason, err)
 		}
 	}
+	return nil
+}
 
-	// ── 8. Pitching stats ────────────────────────────────────────────────────────
+func (svc *LegacyMigrationService) migrateLegacyPitchingStats(
+	ctx context.Context,
+	playerStore *store.PlayerSeasonStore,
+	pitchingStats []store.LegacyPitchingStat,
+	legacyPSIDToNew map[int]int64,
+) error {
 	for _, ps := range pitchingStats {
 		newPSID, ok := legacyPSIDToNew[ps.PlayerSeasonID]
 		if !ok {
@@ -479,12 +614,20 @@ func (svc *LegacyMigrationService) migrateInTx(
 			WinPct:          ptmp.WinPct,
 			PPerIP:          ptmp.PPerIP,
 		}); err != nil {
-			return result, fmt.Errorf("upserting pitching stats (legacy ps %d, reg=%v): %w",
+			return fmt.Errorf("upserting pitching stats (legacy ps %d, reg=%v): %w",
 				ps.PlayerSeasonID, ps.IsRegularSeason, err)
 		}
 	}
+	return nil
+}
 
-	// ── 9. Awards ────────────────────────────────────────────────────────────────
+func (svc *LegacyMigrationService) migrateLegacyAwards(
+	ctx context.Context,
+	tx *sql.Tx,
+	awardAssignments []store.LegacyAwardAssignment,
+	awardIDByOriginalName map[string]int64,
+	legacyPSIDToNew map[int]int64,
+) (count int, err error) {
 	for _, a := range awardAssignments {
 		newPSID, ok := legacyPSIDToNew[a.LegacyPlayerSeasonID]
 		if !ok {
@@ -498,13 +641,22 @@ func (svc *LegacyMigrationService) migrateInTx(
 			`INSERT OR IGNORE INTO player_season_awards (player_season_id, award_id) VALUES (?, ?)`,
 			newPSID, newAwardID,
 		); execErr != nil {
-			return result, fmt.Errorf("inserting award %q for ps %d: %w",
+			return count, fmt.Errorf("inserting award %q for ps %d: %w",
 				a.OriginalName, a.LegacyPlayerSeasonID, execErr)
 		}
-		result.AwardsMigrated++
+		count++
 	}
+	return count, nil
+}
 
-	// ── 10. Regular season schedule ──────────────────────────────────────────────
+func (svc *LegacyMigrationService) migrateLegacyRegularSchedule(
+	ctx context.Context,
+	scheduleStore *store.ScheduleStore,
+	seasonSchedules []store.LegacyScheduleGame,
+	legacySeasonIDToNew map[int]int64,
+	legacySTHIDToNew map[int]int64,
+	legacyPSIDToNew map[int]int64,
+) error {
 	for _, g := range seasonSchedules {
 		newSeasonID, ok := legacySeasonIDToNew[g.LegacySeasonID]
 		if !ok {
@@ -540,12 +692,21 @@ func (svc *LegacyMigrationService) migrateInTx(
 			HomeScore:           g.HomeScore,
 			AwayScore:           g.AwayScore,
 		}); err != nil {
-			return result, fmt.Errorf("upserting schedule game %d (season %d): %w",
+			return fmt.Errorf("upserting schedule game %d (season %d): %w",
 				g.GlobalGameNum, g.LegacySeasonID, err)
 		}
 	}
+	return nil
+}
 
-	// ── 11. Playoff schedule ─────────────────────────────────────────────────────
+func (svc *LegacyMigrationService) migrateLegacyPlayoffSchedule(
+	ctx context.Context,
+	scheduleStore *store.ScheduleStore,
+	playoffSchedules []store.LegacyPlayoffGame,
+	legacySeasonIDToNew map[int]int64,
+	legacySTHIDToNew map[int]int64,
+	legacyPSIDToNew map[int]int64,
+) error {
 	for _, g := range playoffSchedules {
 		newSeasonID, ok := legacySeasonIDToNew[g.LegacySeasonID]
 		if !ok {
@@ -581,34 +742,48 @@ func (svc *LegacyMigrationService) migrateInTx(
 			HomeScore:           g.HomeScore,
 			AwayScore:           g.AwayScore,
 		}); err != nil {
-			return result, fmt.Errorf("upserting playoff game %d series %d (season %d): %w",
+			return fmt.Errorf("upserting playoff game %d series %d (season %d): %w",
 				g.GlobalGameNum, g.SeriesNumber, g.LegacySeasonID, err)
 		}
 	}
+	return nil
+}
 
-	// ── 11b. Playoff config inference ────────────────────────────────────────────
-	// t_playoffs is unavailable in the legacy path; derive rounds and series
-	// length from the playoff game data we just imported.
-	seenLegacySeasons := make(map[int]struct{})
+// migrateLegacyPlayoffConfig infers and persists playoff rounds/series-length for each
+// season that has playoff game data. t_playoffs is unavailable in the legacy path.
+func migrateLegacyPlayoffConfig(
+	ctx context.Context,
+	seasonStore *store.SeasonStore,
+	playoffSchedules []store.LegacyPlayoffGame,
+	legacySeasonIDToNew map[int]int64,
+) error {
+	seen := make(map[int]struct{})
 	for _, g := range playoffSchedules {
-		seenLegacySeasons[g.LegacySeasonID] = struct{}{}
+		seen[g.LegacySeasonID] = struct{}{}
 	}
-	for legacySeasonID := range seenLegacySeasons {
+	for legacySeasonID := range seen {
 		newSeasonID, ok := legacySeasonIDToNew[legacySeasonID]
 		if !ok {
 			continue
 		}
 		if err := seasonStore.InferAndSetPlayoffConfig(ctx, newSeasonID); err != nil {
-			return result, fmt.Errorf("inferring playoff config for legacy season %d: %w", legacySeasonID, err)
+			return fmt.Errorf("inferring playoff config for legacy season %d: %w", legacySeasonID, err)
 		}
 	}
+	return nil
+}
 
-	// ── 11c. Championship awards ─────────────────────────────────────────────────
-	// The legacy DB stores championship winners in ChampionshipWinners, not as
-	// player awards. We derive the runner-up from the highest-numbered played
-	// final-series games. The season_champions view is intentionally bypassed here
-	// because the legacy DB contains unplayed game rows with NULL scores that would
-	// fail its completeness gate.
+// migrateLegacyChampionshipAwards assigns League Champion / Conference Champion awards.
+// The legacy DB stores championship winners in ChampionshipWinners (not as player awards)
+// and may contain unplayed game rows with NULL scores that would fail the season_champions
+// view's completeness gate — we bypass it and use the IDs directly.
+func migrateLegacyChampionshipAwards(
+	ctx context.Context,
+	tx *sql.Tx,
+	championships []store.LegacyChampionship,
+	legacySeasonIDToNew map[int]int64,
+	legacySTHIDToNew map[int]int64,
+) error {
 	awardStore := store.NewAwardStore(tx)
 	for _, champ := range championships {
 		newSeasonID, ok := legacySeasonIDToNew[champ.LegacySeasonID]
@@ -624,29 +799,24 @@ func (svc *LegacyMigrationService) migrateInTx(
 			newRunnerUpHistID = legacySTHIDToNew[champ.RunnerUpSTHID]
 		}
 		if err := awardStore.AssignChampionshipAwardsForTeams(ctx, tx, newSeasonID, newChampHistID, newRunnerUpHistID); err != nil {
-			return result, fmt.Errorf("assigning championship awards for legacy season %d: %w", champ.LegacySeasonID, err)
+			return fmt.Errorf("assigning championship awards for legacy season %d: %w", champ.LegacySeasonID, err)
 		}
 	}
+	return nil
+}
 
-	// ── 12. Context stats (OPS+, ERA+, FIP, FIP-, smbWAR) ───────────────────────
-	// ImportSeason computes these immediately after writing counting stats.
-	// The legacy migration must do the same after all batting/pitching rows land.
+// migrateLegacyContextStats computes OPS+, ERA+, FIP, FIP-, and smbWAR for every
+// migrated season. Must run after all batting and pitching rows are written.
+func migrateLegacyContextStats(ctx context.Context, tx *sql.Tx, legacySeasonIDToNew map[int]int64) error {
 	for _, newSeasonID := range legacySeasonIDToNew {
 		if err := ApplyContextStats(ctx, tx, newSeasonID, true); err != nil {
-			return result, fmt.Errorf("computing context stats for season %d (regular): %w", newSeasonID, err)
+			return fmt.Errorf("computing context stats for season %d (regular): %w", newSeasonID, err)
 		}
 		if err := ApplyContextStats(ctx, tx, newSeasonID, false); err != nil {
-			return result, fmt.Errorf("computing context stats for season %d (playoffs): %w", newSeasonID, err)
+			return fmt.Errorf("computing context stats for season %d (playoffs): %w", newSeasonID, err)
 		}
 	}
-
-	// ── 13. Career stats ─────────────────────────────────────────────────────────
-	// Must run after step 12 so per-season smb_war values are populated.
-	if err := ApplyCareerStats(ctx, tx, legacyPlayerIDs); err != nil {
-		return result, fmt.Errorf("computing career stats: %w", err)
-	}
-
-	return result, nil
+	return nil
 }
 
 // resolveAwardIDs builds a map of OriginalName → new awards.id.

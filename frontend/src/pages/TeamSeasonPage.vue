@@ -9,6 +9,7 @@ import AppLink from '../components/AppLink.vue'
 import EmptyState from '../components/EmptyState.vue'
 import HofBadge from '../components/HofBadge.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
+import MediaGallery from '../components/MediaGallery.vue'
 import StatHighlightCell from '../components/StatHighlightCell.vue'
 import StatHighlightLegend from '../components/StatHighlightLegend.vue'
 import TeamLogoDisplay from '../components/TeamLogoDisplay.vue'
@@ -722,6 +723,15 @@ function rosterPRateTip(playerId: number, statKey: string, label: string): strin
             </table>
           </div>
         </div>
+      </section>
+
+      <!-- Media gallery -->
+      <section class="grid-section">
+        <MediaGallery
+          entity-type="team_season"
+          :entity-id="historyId"
+          :entity-label="`${detail.team.teamName} S${detail.team.seasonNum}`"
+        />
       </section>
     </template>
 
