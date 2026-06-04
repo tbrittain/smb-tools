@@ -50,7 +50,16 @@ Each layer has its own CLAUDE.md with full coding standards, testing requirement
 ## Project Structure
 
 ```
-app.go                    # Wails App struct — THIN, delegates only
+app.go                    # Wails App struct, lifecycle hooks, requireCompanionDB — core only
+app_franchise.go          # Franchise CRUD, sync, snapshots, save-file discovery
+app_season.go             # Season, player, and team query bindings
+app_leaderboard.go        # Leaderboard query bindings and stat highlights
+app_awards.go             # Awards and Hall of Fame bindings
+app_migration.go          # Legacy SmbExplorerCompanion migration bindings
+app_logo.go               # Team logo upload and assignment bindings
+app_media.go              # Media upload/gallery bindings and asset middleware
+app_legacy.go             # Platform helpers (legacy DB detection, UUID generation)
+dto.go                    # All frontend-facing DTO types and mapping helpers
 main.go                   # Wails entry point
 internal/
   config/                 # App data directories, franchise registry paths
