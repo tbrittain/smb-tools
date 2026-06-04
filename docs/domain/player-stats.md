@@ -121,13 +121,13 @@ SMB3Explorer exports both. The companion app persists season-level data and comp
 
 ## Source Files
 
-**SMB3Explorer** (`C:\Users\Trey\source\SMB3Explorer`):
+**SMB3Explorer** (https://github.com/tbrittain/SMB3Explorer):
 - `SMB3Explorer/Resources/Sql/CareerStatsBatting.sql` — all batting stat columns from `t_stats_batting`
 - `SMB3Explorer/Resources/Sql/CareerStatsPitching.sql` — all pitching stat columns from `t_stats_pitching`
 - `SMB3Explorer/Models/Exports/BattingStatistic.cs` — batting stat export model with derived stat formulas
 - `SMB3Explorer/Models/Exports/PitchingStatistic.cs` — pitching stat export model with derived stat formulas
 
-**SmbExplorerCompanion** (`C:\Users\Trey\source\SmbExplorerCompanion`):
+**SmbExplorerCompanion** (https://github.com/tbrittain/SmbExplorerCompanion):
 - `SmbExplorerCompanion.Database/Entities/PlayerSeasonBattingStat.cs` — all batting stat properties (counting + rate)
 - `SmbExplorerCompanion.Database/Entities/PlayerSeasonPitchingStat.cs` — all pitching stat properties (counting + rate)
 - `SmbExplorerCompanion.Csv/Models/SeasonStatBatting.cs` — CSV import model for batting stats

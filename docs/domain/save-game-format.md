@@ -53,7 +53,7 @@ This database is NOT the game's save file — it is the companion's own persiste
 
 ## Source Files
 
-**SMB3Explorer** (`C:\Users\Trey\source\SMB3Explorer`):
+**SMB3Explorer** (https://github.com/tbrittain/SMB3Explorer):
 - `SMB3Explorer/Services/DataService/DataServiceInit.cs` — decompression logic, SQLite connection setup, schema validation (checks for `t_stats` and `t_leagues`)
 - `SMB3Explorer/Resources/Sql/DatabaseTables.sql` — query used to list all tables for schema validation
 - `SMB3Explorer/ApplicationConfig/ApplicationConfig.cs` — persists last-used save file path and league access history

@@ -324,7 +324,7 @@ Playoff game win/loss calculations, used to compute playoff standings (champion 
 
 ## Source Files
 
-**SMB3Explorer** (`C:\Users\Trey\source\SMB3Explorer`) — SQL queries that reveal the schema:
+**SMB3Explorer** (https://github.com/tbrittain/SMB3Explorer) — SQL queries that reveal the schema:
 - `SMB3Explorer/Resources/Sql/MostRecentSeasonPlayersSmb3.sql` — player attributes, traits, salary join
 - `SMB3Explorer/Resources/Sql/MostRecentSeasonPlayersSmb4.sql` — SMB4 additions: chemistry, handedness, pitch repertoire
 - `SMB3Explorer/Resources/Sql/MostRecentSeasonTeams.sql` — team standings, aggregate attributes, budget/payroll

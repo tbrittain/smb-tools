@@ -112,7 +112,7 @@ The companion app cannot recover data that was never imported before these event
 
 ## Source Files
 
-**SmbExplorerCompanion** (`C:\Users\Trey\source\SmbExplorerCompanion`):
+**SmbExplorerCompanion** (https://github.com/tbrittain/SmbExplorerCompanion):
 - `SmbExplorerCompanion.Csv/Services/CsvReaderService.cs` — parses all 8 CSV file types using CsvHelper ClassMaps
 - `SmbExplorerCompanion.Database/Services/Imports/CsvImportRepository.cs` — persistence logic: entity matching by GUID, creation of PlayerSeason, SeasonTeamHistory, stats, schedules
 - `SmbExplorerCompanion.Csv/Models/OverallPlayer.cs` — player CSV model (maps `MostRecentSeasonPlayers.csv`)
