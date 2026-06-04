@@ -86,6 +86,7 @@ docs/                     # Game domain knowledge and legacy app reference
 - **No writing to the SMB save game file** (except the team transfer tool, which writes to a copy)
 - **No skipping tests** because a feature "seems simple" — edge cases in stat calculations and import logic are where bugs live
 - **Non-trivial bug fixes require tests.** If a fix corrects business logic (not a typo or rename), a test that would have caught the bug must accompany it. "Non-trivial" means: nullable data, domain encoding/decoding, multi-step data flow (import pipeline, migration), conditional branching on domain values, or anything where a wrong assumption caused the original bug.
+- **Never suppress `gocognit` without an explanation.** `//nolint:gocognit` is only acceptable when followed by a comment explaining why decomposition isn't feasible (e.g., `//nolint:gocognit // large switch over domain enum — splitting would obscure the mapping`). A bare suppression with no comment is forbidden; it becomes invisible debt that never gets revisited. If you encounter a bare `//nolint:gocognit` anywhere in the codebase during work, flag it to the user before continuing.
 
 ## Development Commands
 

@@ -16,6 +16,7 @@ import (
 // If no user-assignable awards exist for the season yet, award IDs are pre-populated
 // with auto-suggestions (All-Star for top 2 per team, Silver Slugger for top 1 per
 // position) and AutoSuggested is set to true on the result.
+//nolint:gocognit // sequential orchestrator: 12+ independent query calls each with error handling, plus two data-grouping loops; no shared abstraction reduces the inherent fan-out
 func (s *AwardStore) GetSeasonAwardCandidates(ctx context.Context, seasonID int64) (models.SeasonAwardCandidates, error) {
 	var out models.SeasonAwardCandidates
 	out.SeasonID = seasonID
@@ -486,18 +487,12 @@ func (s *AwardStore) applyAutoSuggest(ctx context.Context, candidates *models.Se
 		return err
 	}
 
-	// Top 2 batters per team → All-Star.
+	// Top 2 batters and pitchers per team → All-Star.
 	for _, team := range candidates.ByTeam {
-		for i, b := range team.Batters {
-			if i >= 2 {
-				break
-			}
+		for _, b := range team.Batters[:min(2, len(team.Batters))] {
 			addToAwardMap(awardMap, b.PlayerSeasonID, allStarID)
 		}
-		for i, p := range team.Pitchers {
-			if i >= 2 {
-				break
-			}
+		for _, p := range team.Pitchers[:min(2, len(team.Pitchers))] {
 			addToAwardMap(awardMap, p.PlayerSeasonID, allStarID)
 		}
 	}

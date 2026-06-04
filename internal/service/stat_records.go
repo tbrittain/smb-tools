@@ -238,35 +238,14 @@ func computeBattingLeagueLeaders(rows []store.BattingCountRow) map[int]map[strin
 
 func battingSeasonBest(rows []store.BattingCountRow) map[string][]int64 {
 	leaders := make(map[string][]int64, len(battingStatExtractors))
+	// Lower-is-better counting stats require the same PA threshold as rate stats
+	// to prevent unqualified players (e.g. pitchers with 1 AB) from winning.
+	qualified := func(r store.BattingCountRow) bool {
+		return float64(r.PlateAppearances) >= float64(r.NumGames)*3.1
+	}
 	for key, fn := range battingStatExtractors {
-		higherIsBetter := battingCountHigherIsBetter[key]
-		hasBest := false
-		var best int
-		for _, r := range rows {
-			// Lower-is-better counting stats require the same PA threshold as rate stats
-			// to prevent unqualified players (e.g. pitchers with 1 AB) from winning.
-			if !higherIsBetter && float64(r.PlateAppearances) < float64(r.NumGames)*3.1 {
-				continue
-			}
-			v := fn(r)
-			if !hasBest || isBetterCount(v, best, higherIsBetter) {
-				best = v
-				hasBest = true
-			}
-		}
-		if !hasBest {
-			continue
-		}
-		if higherIsBetter && best <= 0 {
-			continue
-		}
-		for _, r := range rows {
-			if !higherIsBetter && float64(r.PlateAppearances) < float64(r.NumGames)*3.1 {
-				continue
-			}
-			if fn(r) == best {
-				leaders[key] = append(leaders[key], r.PlayerID)
-			}
+		for _, r := range countLeaders(rows, fn, battingCountHigherIsBetter[key], qualified) {
+			leaders[key] = append(leaders[key], r.PlayerID)
 		}
 	}
 	return leaders
@@ -274,33 +253,12 @@ func battingSeasonBest(rows []store.BattingCountRow) map[string][]int64 {
 
 func computeBattingSingleSeasonRecords(rows []store.BattingCountRow) map[string][]PlayerSeasonRef {
 	out := make(map[string][]PlayerSeasonRef, len(battingStatExtractors))
+	qualified := func(r store.BattingCountRow) bool {
+		return float64(r.PlateAppearances) >= float64(r.NumGames)*3.1
+	}
 	for key, fn := range battingStatExtractors {
-		higherIsBetter := battingCountHigherIsBetter[key]
-		hasBest := false
-		var best int
-		for _, r := range rows {
-			if !higherIsBetter && float64(r.PlateAppearances) < float64(r.NumGames)*3.1 {
-				continue
-			}
-			v := fn(r)
-			if !hasBest || isBetterCount(v, best, higherIsBetter) {
-				best = v
-				hasBest = true
-			}
-		}
-		if !hasBest {
-			continue
-		}
-		if higherIsBetter && best <= 0 {
-			continue
-		}
-		for _, r := range rows {
-			if !higherIsBetter && float64(r.PlateAppearances) < float64(r.NumGames)*3.1 {
-				continue
-			}
-			if fn(r) == best {
-				out[key] = append(out[key], PlayerSeasonRef{PlayerID: r.PlayerID, SeasonNum: r.SeasonNum})
-			}
+		for _, r := range countLeaders(rows, fn, battingCountHigherIsBetter[key], qualified) {
+			out[key] = append(out[key], PlayerSeasonRef{PlayerID: r.PlayerID, SeasonNum: r.SeasonNum})
 		}
 	}
 	return out
@@ -340,35 +298,14 @@ func computePitchingLeagueLeaders(rows []store.PitchingCountRow) map[int]map[str
 
 func pitchingSeasonBest(rows []store.PitchingCountRow) map[string][]int64 {
 	leaders := make(map[string][]int64, len(pitchingStatExtractors))
+	// Lower-is-better counting stats (H, ER, BB allowed) require IP qualification
+	// to prevent non-starting pitchers from winning on trivially small samples.
+	qualified := func(r store.PitchingCountRow) bool {
+		return r.OutsPitched >= r.NumGames*3
+	}
 	for key, fn := range pitchingStatExtractors {
-		higherIsBetter := pitchingCountHigherIsBetter[key]
-		hasBest := false
-		var best int
-		for _, r := range rows {
-			// Lower-is-better counting stats (H, ER, BB allowed) require IP qualification
-			// to prevent non-starting pitchers from winning on trivially small samples.
-			if !higherIsBetter && r.OutsPitched < r.NumGames*3 {
-				continue
-			}
-			v := fn(r)
-			if !hasBest || isBetterCount(v, best, higherIsBetter) {
-				best = v
-				hasBest = true
-			}
-		}
-		if !hasBest {
-			continue
-		}
-		if higherIsBetter && best <= 0 {
-			continue
-		}
-		for _, r := range rows {
-			if !higherIsBetter && r.OutsPitched < r.NumGames*3 {
-				continue
-			}
-			if fn(r) == best {
-				leaders[key] = append(leaders[key], r.PlayerID)
-			}
+		for _, r := range countLeaders(rows, fn, pitchingCountHigherIsBetter[key], qualified) {
+			leaders[key] = append(leaders[key], r.PlayerID)
 		}
 	}
 	return leaders
@@ -376,33 +313,12 @@ func pitchingSeasonBest(rows []store.PitchingCountRow) map[string][]int64 {
 
 func computePitchingSingleSeasonRecords(rows []store.PitchingCountRow) map[string][]PlayerSeasonRef {
 	out := make(map[string][]PlayerSeasonRef, len(pitchingStatExtractors))
+	qualified := func(r store.PitchingCountRow) bool {
+		return r.OutsPitched >= r.NumGames*3
+	}
 	for key, fn := range pitchingStatExtractors {
-		higherIsBetter := pitchingCountHigherIsBetter[key]
-		hasBest := false
-		var best int
-		for _, r := range rows {
-			if !higherIsBetter && r.OutsPitched < r.NumGames*3 {
-				continue
-			}
-			v := fn(r)
-			if !hasBest || isBetterCount(v, best, higherIsBetter) {
-				best = v
-				hasBest = true
-			}
-		}
-		if !hasBest {
-			continue
-		}
-		if higherIsBetter && best <= 0 {
-			continue
-		}
-		for _, r := range rows {
-			if !higherIsBetter && r.OutsPitched < r.NumGames*3 {
-				continue
-			}
-			if fn(r) == best {
-				out[key] = append(out[key], PlayerSeasonRef{PlayerID: r.PlayerID, SeasonNum: r.SeasonNum})
-			}
+		for _, r := range countLeaders(rows, fn, pitchingCountHigherIsBetter[key], qualified) {
+			out[key] = append(out[key], PlayerSeasonRef{PlayerID: r.PlayerID, SeasonNum: r.SeasonNum})
 		}
 	}
 	return out
@@ -462,37 +378,37 @@ var battingRateHigherIsBetter = map[string]bool{
 // pitchingRateExtractors for season-level tracking. Includes ERA+ and FIP- which
 // are league-adjusted and tracked at season granularity only (not career).
 var pitchingRateExtractors = map[string]func(store.PitchingRateRow) *float64{
-	"era":     func(r store.PitchingRateRow) *float64 { return r.ERA },
-	"whip":    func(r store.PitchingRateRow) *float64 { return r.WHIP },
-	"k9":      func(r store.PitchingRateRow) *float64 { return r.K9 },
-	"bb9":     func(r store.PitchingRateRow) *float64 { return r.BB9 },
-	"h9":      func(r store.PitchingRateRow) *float64 { return r.H9 },
-	"hr9":     func(r store.PitchingRateRow) *float64 { return r.HR9 },
-	"kPerBb":  func(r store.PitchingRateRow) *float64 { return r.KPerBB },
-	"kPct":    func(r store.PitchingRateRow) *float64 { return r.KPct },
-	"winPct":  func(r store.PitchingRateRow) *float64 { return r.WinPct },
-	"pPerIp":  func(r store.PitchingRateRow) *float64 { return r.PPerIP },
-	"fip":     func(r store.PitchingRateRow) *float64 { return r.FIP },
-	"eraPlus": func(r store.PitchingRateRow) *float64 { return r.ERAPlus },
+	"era":      func(r store.PitchingRateRow) *float64 { return r.ERA },
+	"whip":     func(r store.PitchingRateRow) *float64 { return r.WHIP },
+	"k9":       func(r store.PitchingRateRow) *float64 { return r.K9 },
+	"bb9":      func(r store.PitchingRateRow) *float64 { return r.BB9 },
+	"h9":       func(r store.PitchingRateRow) *float64 { return r.H9 },
+	"hr9":      func(r store.PitchingRateRow) *float64 { return r.HR9 },
+	"kPerBb":   func(r store.PitchingRateRow) *float64 { return r.KPerBB },
+	"kPct":     func(r store.PitchingRateRow) *float64 { return r.KPct },
+	"winPct":   func(r store.PitchingRateRow) *float64 { return r.WinPct },
+	"pPerIp":   func(r store.PitchingRateRow) *float64 { return r.PPerIP },
+	"fip":      func(r store.PitchingRateRow) *float64 { return r.FIP },
+	"eraPlus":  func(r store.PitchingRateRow) *float64 { return r.ERAPlus },
 	"fipMinus": func(r store.PitchingRateRow) *float64 { return r.FIPMinus },
-	"smbWar":  func(r store.PitchingRateRow) *float64 { return r.SmbWAR },
+	"smbWar":   func(r store.PitchingRateRow) *float64 { return r.SmbWAR },
 }
 
 var pitchingRateHigherIsBetter = map[string]bool{
-	"era":     false,
-	"whip":    false,
-	"k9":      true,
-	"bb9":     false,
-	"h9":      false,
-	"hr9":     false,
-	"kPerBb":  true,
-	"kPct":    true,
-	"winPct":  true,
-	"pPerIp":  false,
-	"fip":     false,
-	"eraPlus": true,   // higher ERA+ = better (100 = league average)
+	"era":      false,
+	"whip":     false,
+	"k9":       true,
+	"bb9":      false,
+	"h9":       false,
+	"hr9":      false,
+	"kPerBb":   true,
+	"kPct":     true,
+	"winPct":   true,
+	"pPerIp":   false,
+	"fip":      false,
+	"eraPlus":  true,  // higher ERA+ = better (100 = league average)
 	"fipMinus": false, // lower FIP- = better (100 = league average)
-	"smbWar":  true,
+	"smbWar":   true,
 }
 
 var battingCareerRateExtractors = map[string]func(store.BattingCareerRateRow) *float64{
@@ -550,24 +466,8 @@ func computeBattingRateLeagueLeaders(rows []store.BattingRateRow) map[int]map[st
 func battingRateSeasonBest(rows []store.BattingRateRow) map[string][]int64 {
 	leaders := make(map[string][]int64, len(battingRateExtractors))
 	for key, fn := range battingRateExtractors {
-		higherIsBetter := battingRateHigherIsBetter[key]
-		var best *float64
-		for _, r := range rows {
-			v := fn(r)
-			if v == nil {
-				continue
-			}
-			if best == nil || isBetterRate(*v, *best, higherIsBetter) {
-				best = v
-			}
-		}
-		if best == nil {
-			continue
-		}
-		for _, r := range rows {
-			if v := fn(r); v != nil && *v == *best {
-				leaders[key] = append(leaders[key], r.PlayerID)
-			}
+		for _, r := range rateLeaders(rows, fn, battingRateHigherIsBetter[key]) {
+			leaders[key] = append(leaders[key], r.PlayerID)
 		}
 	}
 	return leaders
@@ -590,24 +490,8 @@ func computePitchingRateLeagueLeaders(rows []store.PitchingRateRow) map[int]map[
 func pitchingRateSeasonBest(rows []store.PitchingRateRow) map[string][]int64 {
 	leaders := make(map[string][]int64, len(pitchingRateExtractors))
 	for key, fn := range pitchingRateExtractors {
-		higherIsBetter := pitchingRateHigherIsBetter[key]
-		var best *float64
-		for _, r := range rows {
-			v := fn(r)
-			if v == nil {
-				continue
-			}
-			if best == nil || isBetterRate(*v, *best, higherIsBetter) {
-				best = v
-			}
-		}
-		if best == nil {
-			continue
-		}
-		for _, r := range rows {
-			if v := fn(r); v != nil && *v == *best {
-				leaders[key] = append(leaders[key], r.PlayerID)
-			}
+		for _, r := range rateLeaders(rows, fn, pitchingRateHigherIsBetter[key]) {
+			leaders[key] = append(leaders[key], r.PlayerID)
 		}
 	}
 	return leaders
@@ -624,24 +508,8 @@ func computeBattingRateSingleSeasonRecords(rows []store.BattingRateRow) map[stri
 	}
 	out := make(map[string][]PlayerSeasonRef, len(battingRateExtractors))
 	for key, fn := range battingRateExtractors {
-		higherIsBetter := battingRateHigherIsBetter[key]
-		var best *float64
-		for _, r := range qualified {
-			v := fn(r)
-			if v == nil {
-				continue
-			}
-			if best == nil || isBetterRate(*v, *best, higherIsBetter) {
-				best = v
-			}
-		}
-		if best == nil {
-			continue
-		}
-		for _, r := range qualified {
-			if v := fn(r); v != nil && *v == *best {
-				out[key] = append(out[key], PlayerSeasonRef{PlayerID: r.PlayerID, SeasonNum: r.SeasonNum})
-			}
+		for _, r := range rateLeaders(qualified, fn, battingRateHigherIsBetter[key]) {
+			out[key] = append(out[key], PlayerSeasonRef{PlayerID: r.PlayerID, SeasonNum: r.SeasonNum})
 		}
 	}
 	return out
@@ -656,24 +524,8 @@ func computePitchingRateSingleSeasonRecords(rows []store.PitchingRateRow) map[st
 	}
 	out := make(map[string][]PlayerSeasonRef, len(pitchingRateExtractors))
 	for key, fn := range pitchingRateExtractors {
-		higherIsBetter := pitchingRateHigherIsBetter[key]
-		var best *float64
-		for _, r := range qualified {
-			v := fn(r)
-			if v == nil {
-				continue
-			}
-			if best == nil || isBetterRate(*v, *best, higherIsBetter) {
-				best = v
-			}
-		}
-		if best == nil {
-			continue
-		}
-		for _, r := range qualified {
-			if v := fn(r); v != nil && *v == *best {
-				out[key] = append(out[key], PlayerSeasonRef{PlayerID: r.PlayerID, SeasonNum: r.SeasonNum})
-			}
+		for _, r := range rateLeaders(qualified, fn, pitchingRateHigherIsBetter[key]) {
+			out[key] = append(out[key], PlayerSeasonRef{PlayerID: r.PlayerID, SeasonNum: r.SeasonNum})
 		}
 	}
 	return out
@@ -693,24 +545,8 @@ func computeBattingCareerRateRecords(rows []store.BattingCareerRateRow, paThresh
 	}
 	records := make(map[string][]int64, len(battingCareerRateExtractors))
 	for key, fn := range battingCareerRateExtractors {
-		higherIsBetter := battingRateHigherIsBetter[key]
-		var best *float64
-		for _, r := range qualified {
-			v := fn(r)
-			if v == nil {
-				continue
-			}
-			if best == nil || isBetterRate(*v, *best, higherIsBetter) {
-				best = v
-			}
-		}
-		if best == nil {
-			continue
-		}
-		for _, r := range qualified {
-			if v := fn(r); v != nil && *v == *best {
-				records[key] = append(records[key], r.PlayerID)
-			}
+		for _, r := range rateLeaders(qualified, fn, battingRateHigherIsBetter[key]) {
+			records[key] = append(records[key], r.PlayerID)
 		}
 	}
 	return records
@@ -728,24 +564,8 @@ func computePitchingCareerRateRecords(rows []store.PitchingCareerRateRow, outsTh
 	}
 	records := make(map[string][]int64, len(pitchingCareerRateExtractors))
 	for key, fn := range pitchingCareerRateExtractors {
-		higherIsBetter := pitchingRateHigherIsBetter[key]
-		var best *float64
-		for _, r := range qualified {
-			v := fn(r)
-			if v == nil {
-				continue
-			}
-			if best == nil || isBetterRate(*v, *best, higherIsBetter) {
-				best = v
-			}
-		}
-		if best == nil {
-			continue
-		}
-		for _, r := range qualified {
-			if v := fn(r); v != nil && *v == *best {
-				records[key] = append(records[key], r.PlayerID)
-			}
+		for _, r := range rateLeaders(qualified, fn, pitchingRateHigherIsBetter[key]) {
+			records[key] = append(records[key], r.PlayerID)
 		}
 	}
 	return records
@@ -766,43 +586,117 @@ func careerRecordsFromTotals(
 	if len(totals) == 0 {
 		return nil
 	}
-
 	allKeys := make(map[string]struct{})
 	for _, t := range totals {
 		for k := range t {
 			allKeys[k] = struct{}{}
 		}
 	}
-
 	records := make(map[string][]int64, len(allKeys))
 	for key := range allKeys {
-		isHigher := higherIsBetter[key]
-		hasBest := false
-		var best int
-		for pid, t := range totals {
-			if !isHigher && qualifies != nil && !qualifies(pid, t) {
-				continue
-			}
-			v := t[key]
-			if !hasBest || isBetterCount(v, best, isHigher) {
-				best = v
-				hasBest = true
-			}
-		}
-		if !hasBest {
-			continue
-		}
-		if isHigher && best <= 0 {
-			continue
-		}
-		for pid, t := range totals {
-			if !isHigher && qualifies != nil && !qualifies(pid, t) {
-				continue
-			}
-			if t[key] == best {
-				records[key] = append(records[key], pid)
-			}
+		if leaders := careerCountLeaders(totals, key, higherIsBetter[key], qualifies); leaders != nil {
+			records[key] = leaders
 		}
 	}
 	return records
+}
+
+// countLeaders returns all rows whose extracted int value equals the best value
+// across the slice. For lower-is-better stats (higherIsBetter == false), only rows
+// where isQualified returns true are considered.
+// Returns nil if no eligible row exists or if the best higher-is-better value is ≤ 0.
+func countLeaders[Row any](
+	rows []Row,
+	extract func(Row) int,
+	higherIsBetter bool,
+	isQualified func(Row) bool,
+) []Row {
+	hasBest := false
+	var best int
+	for _, r := range rows {
+		if !higherIsBetter && !isQualified(r) {
+			continue
+		}
+		v := extract(r)
+		if !hasBest || isBetterCount(v, best, higherIsBetter) {
+			best = v
+			hasBest = true
+		}
+	}
+	if !hasBest || (higherIsBetter && best <= 0) {
+		return nil
+	}
+	var tied []Row
+	for _, r := range rows {
+		if !higherIsBetter && !isQualified(r) {
+			continue
+		}
+		if extract(r) == best {
+			tied = append(tied, r)
+		}
+	}
+	return tied
+}
+
+// rateLeaders returns all rows whose extracted *float64 value equals the best value
+// across the slice. Rows with a nil extracted value are skipped.
+// Returns nil if no row yields a non-nil value.
+func rateLeaders[Row any](rows []Row, extract func(Row) *float64, higherIsBetter bool) []Row {
+	var best *float64
+	for _, r := range rows {
+		v := extract(r)
+		if v == nil {
+			continue
+		}
+		if best == nil || isBetterRate(*v, *best, higherIsBetter) {
+			best = v
+		}
+	}
+	if best == nil {
+		return nil
+	}
+	var tied []Row
+	for _, r := range rows {
+		if v := extract(r); v != nil && *v == *best {
+			tied = append(tied, r)
+		}
+	}
+	return tied
+}
+
+// careerCountLeaders finds the best career total for key across all players and returns
+// the player IDs that share that best value. For lower-is-better stats, only players
+// for whom qualifies returns true are considered.
+// Returns nil if no eligible player exists or if the best higher-is-better value is ≤ 0.
+func careerCountLeaders(
+	totals map[int64]map[string]int,
+	key string,
+	isHigher bool,
+	qualifies func(int64, map[string]int) bool,
+) []int64 {
+	hasBest := false
+	var best int
+	for pid, t := range totals {
+		if !isHigher && qualifies != nil && !qualifies(pid, t) {
+			continue
+		}
+		v := t[key]
+		if !hasBest || isBetterCount(v, best, isHigher) {
+			best = v
+			hasBest = true
+		}
+	}
+	if !hasBest || (isHigher && best <= 0) {
+		return nil
+	}
+	var leaders []int64
+	for pid, t := range totals {
+		if !isHigher && qualifies != nil && !qualifies(pid, t) {
+			continue
+		}
+		if t[key] == best {
+			leaders = append(leaders, pid)
+		}
+	}
+	return leaders
 }

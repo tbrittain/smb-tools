@@ -376,6 +376,95 @@ func TestMigrateLegacy_TeamAssociations(t *testing.T) {
 	}
 }
 
+// TestMigrateLegacy_OrphanedPlayerNoGUID verifies that a player with no GameGUIDs is
+// silently skipped: their player season and batting stats must NOT be migrated, and
+// the migration must still succeed without error.
+//
+// This exercises the phase-4 guard (player skipped) → phase-5 guard (player season
+// skipped) → phase-7 guard (batting stat skipped) chain in migrateInTx.
+func TestMigrateLegacy_OrphanedPlayerNoGUID(t *testing.T) {
+	ctx := context.Background()
+	legacyDB := testutil.NewLegacyCompanionDB(t)
+
+	// Insert a player with no PlayerGameIdHistory entry for franchise A.
+	// BatHandednessId=1 (R), ThrowHandednessId=1 (R), PrimaryPositionId=8 (CF), ChemistryId=1.
+	if _, err := legacyDB.ExecContext(ctx, `
+		INSERT INTO Players (Id, FirstName, LastName, IsHallOfFamer,
+		                     BatHandednessId, ThrowHandednessId, PrimaryPositionId,
+		                     PitcherRoleId, ChemistryId, FranchiseId)
+		VALUES (99, 'Ghost', 'Player', 0, 1, 1, 8, NULL, 1, 1)
+	`); err != nil {
+		t.Fatalf("inserting ghost player: %v", err)
+	}
+	// Player season for ghost player in season 10.
+	if _, err := legacyDB.ExecContext(ctx, `
+		INSERT INTO PlayerSeasons (Id, PlayerId, SeasonId, Age, Salary)
+		VALUES (99, 99, 10, 25, 100)
+	`); err != nil {
+		t.Fatalf("inserting ghost player season: %v", err)
+	}
+	// Batting stats for the ghost player season.
+	if _, err := legacyDB.ExecContext(ctx, `
+		INSERT INTO PlayerSeasonBattingStats
+		    (PlayerSeasonId, GamesPlayed, GamesBatting, AtBats, PlateAppearances, IsRegularSeason)
+		VALUES (99, 30, 30, 90, 100, 1)
+	`); err != nil {
+		t.Fatalf("inserting ghost batting stats: %v", err)
+	}
+
+	companionDB := testutil.NewTestDB(t)
+	result, err := newLegacyMigrationSvc().Migrate(ctx, legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy)
+	if err != nil {
+		t.Fatalf("Migrate with orphaned player: %v", err)
+	}
+
+	// The ghost player must not be counted or migrated.
+	if result.PlayersMigrated != 3 {
+		t.Errorf("PlayersMigrated = %d, want 3 (ghost player must be skipped)", result.PlayersMigrated)
+	}
+	assertRowCount(t, companionDB, "players", 3)
+	assertRowCount(t, companionDB, "player_seasons", 6)
+}
+
+// TestMigrateLegacy_OrphanedSeasonTeamHistory verifies that a season team history entry
+// for a team with no GameGUIDs is silently skipped.
+//
+// This exercises the phase-2 guard (team skipped because no GUIDs) → phase-3 guard
+// (season team history for that team is skipped) chain in migrateInTx.
+func TestMigrateLegacy_OrphanedSeasonTeamHistory(t *testing.T) {
+	ctx := context.Background()
+	legacyDB := testutil.NewLegacyCompanionDB(t)
+
+	// Insert a team for franchise A with no TeamGameIdHistory entries — it will be
+	// skipped in phase 2 (guard: `if len(t.GameGUIDs) == 0 { continue }`).
+	if _, err := legacyDB.ExecContext(ctx, `
+		INSERT INTO Teams (Id, FranchiseId) VALUES (99, 1)
+	`); err != nil {
+		t.Fatalf("inserting team without GUIDs: %v", err)
+	}
+	// Season team history for the no-GUID team in season 10.
+	// Phase-3 guard fires: team 99 is absent from legacyTeamIDToNew.
+	if _, err := legacyDB.ExecContext(ctx, `
+		INSERT INTO SeasonTeamHistory
+		    (Id, SeasonId, TeamId, DivisionId, TeamNameHistoryId,
+		     Budget, Payroll, Surplus, SurplusPerGame, Wins, Losses,
+		     GamesBehind, WinPercentage, PythagoreanWinPercentage,
+		     ExpectedWins, ExpectedLosses, RunsScored, RunsAllowed)
+		VALUES (99, 10, 99, 1, 1, 0,0,0,0, 0,0, 0,0,0, 0,0,0,0)
+	`); err != nil {
+		t.Fatalf("inserting orphaned season team history: %v", err)
+	}
+
+	companionDB := testutil.NewTestDB(t)
+	_, err := newLegacyMigrationSvc().Migrate(ctx, legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy)
+	if err != nil {
+		t.Fatalf("Migrate with orphaned STH: %v", err)
+	}
+	// The orphaned team and its STH must not appear in the companion DB.
+	assertRowCount(t, companionDB, "teams", 2)
+	assertRowCount(t, companionDB, "team_season_history", 4) // 2 real teams × 2 seasons
+}
+
 // TestMigrateLegacy_GameStatsNullCoalesce verifies NULL Arm/Velocity/Junk/Accuracy
 // in legacy are stored as 0 in the new schema.
 func TestMigrateLegacy_GameStatsNullCoalesce(t *testing.T) {
