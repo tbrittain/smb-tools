@@ -114,7 +114,7 @@ Simple two-screen navigation:
 
 ## Source Files
 
-**SMB3Explorer** (`C:\Users\Trey\source\SMB3Explorer`):
+**SMB3Explorer** (https://github.com/tbrittain/SMB3Explorer):
 - `SMB3Explorer/Services/DataService/DataServiceInit.cs` — decompression, SQLite connection, schema validation
 - `SMB3Explorer/Services/DataService/DataService.cs` — main service class and SQL execution helpers
 - `SMB3Explorer/Services/DataService/DataServiceFranchises.cs` — franchise/league loading

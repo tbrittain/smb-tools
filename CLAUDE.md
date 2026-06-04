@@ -12,14 +12,8 @@ smb-tools is a cross-platform desktop application (Wails v2 + Go backend + Vue 3
 
 ## Read These Docs First
 
-All design decisions, rationale, and domain knowledge live in `docs/`. Before implementing anything, read:
+Game domain knowledge and UI standards live in `docs/`. Before implementing anything, read:
 
-- `docs/architecture/decisions.md` — committed technology choices (don't relitigate these)
-- `docs/architecture/backend-structure.md` — Go package layout and patterns
-- `docs/architecture/data-layer.md` — two-database architecture, per-franchise DBs, snapshot strategy
-- `docs/architecture/testing-strategy.md` — testing requirements and approach
-- `docs/architecture/ux-flows.md` — core user flows
-- `docs/roadmap.md` — current phase and what's in scope
 - `docs/domain/` — save game schema, player model, stats, traits, awards
 - `docs/frontend-style-guide.md` — canonical UI patterns (links, etc.) — check before hand-rolling any common UI element
 
@@ -202,7 +196,7 @@ wails build            # Build for current platform — also regenerates wailsjs
 
 Before writing any query that touches the save game database, verify every table and column name against one of these two authoritative sources:
 
-1. **SMB3Explorer SQL files** at `C:\Users\Trey\source\SMB3Explorer\SMB3Explorer\Resources\Sql\` — battle-tested queries against the real game. This is the fastest reference; check the relevant `.sql` file before using any column name.
+1. **SMB3Explorer SQL files** in the SMB3Explorer repository (https://github.com/tbrittain/SMB3Explorer) under `SMB3Explorer/Resources/Sql/` — battle-tested queries against the real game. This is the fastest reference; check the relevant `.sql` file before using any column name.
 
 2. **A decompressed real save file** — decompress any `.sav` from `%LOCALAPPDATA%\Metalhead\Super Mega Baseball 4\` using `internal/db.DecompressAndOpen` and run `PRAGMA table_info(<table_name>)` to see the actual columns.
 

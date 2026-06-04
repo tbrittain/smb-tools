@@ -389,7 +389,7 @@ Tracks when lookup tables were seeded to prevent re-seeding on subsequent app la
 
 ## Source Files
 
-**SmbExplorerCompanion** (`C:\Users\Trey\source\SmbExplorerCompanion`):
+**SmbExplorerCompanion** (https://github.com/tbrittain/SmbExplorerCompanion):
 
 *Main domain entities:*
 - `SmbExplorerCompanion.Database/Entities/Franchise.cs`

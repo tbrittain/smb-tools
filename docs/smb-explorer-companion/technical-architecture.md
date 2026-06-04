@@ -91,7 +91,7 @@ All other awards (`IsUserAssignable = true`) require manual assignment via the A
 
 ## Source Files
 
-**SmbExplorerCompanion** (`C:\Users\Trey\source\SmbExplorerCompanion`):
+**SmbExplorerCompanion** (https://github.com/tbrittain/SmbExplorerCompanion):
 
 *Database / EF Core:*
 - `SmbExplorerCompanion.Database/SmbExplorerCompanionDbContext.cs` — DbContext, relationships, seeding
