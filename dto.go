@@ -298,30 +298,43 @@ type PlayerSeasonLogDTO struct {
 }
 
 // PlayerAttributeSeasonDTO is one season's entry in the player attribute trend
-// chart. It carries raw attribute values, percentile ranks within that season,
-// and the league-wide averages persisted at import time.
+// chart. It carries raw attribute values, two percentile variants, and two sets
+// of reference averages (league-wide and role-specific).
 //
-// Percentile fields are nil when the player was the only one in the season
+// Universal stats (power/contact/speed/fielding) have both *Pct (vs. whole
+// league) and *PctRole (vs. own role group). Role-exclusive stats (arm,
+// velocity, junk, accuracy) have only the role-specific variant since comparing
+// them league-wide is not meaningful.
+//
+// Percentile fields are nil when the comparison group has only one player
 // (PERCENT_RANK is undefined for a single-row partition).
 type PlayerAttributeSeasonDTO struct {
-	SeasonNum   int   `json:"seasonNum"`
-	SeasonID    int64 `json:"seasonId"`
-	Power       int   `json:"power"`
-	Contact     int   `json:"contact"`
-	Speed       int   `json:"speed"`
-	Fielding    int   `json:"fielding"`
-	Arm         int   `json:"arm"`
-	Velocity    int   `json:"velocity"`
-	Junk        int   `json:"junk"`
-	Accuracy    int   `json:"accuracy"`
+	SeasonNum int   `json:"seasonNum"`
+	SeasonID  int64 `json:"seasonId"`
+	// Raw attributes
+	Power    int `json:"power"`
+	Contact  int `json:"contact"`
+	Speed    int `json:"speed"`
+	Fielding int `json:"fielding"`
+	Arm      int `json:"arm"`
+	Velocity int `json:"velocity"`
+	Junk     int `json:"junk"`
+	Accuracy int `json:"accuracy"`
+	// League-wide percentiles (universal stats only)
 	PowerPct    *float64 `json:"powerPct"`
 	ContactPct  *float64 `json:"contactPct"`
 	SpeedPct    *float64 `json:"speedPct"`
 	FieldingPct *float64 `json:"fieldingPct"`
-	ArmPct      *float64 `json:"armPct"`
-	VelocityPct *float64 `json:"velocityPct"`
-	JunkPct     *float64 `json:"junkPct"`
-	AccuracyPct *float64 `json:"accuracyPct"`
+	// Role-specific percentiles
+	ArmPct          *float64 `json:"armPct"`
+	VelocityPct     *float64 `json:"velocityPct"`
+	JunkPct         *float64 `json:"junkPct"`
+	AccuracyPct     *float64 `json:"accuracyPct"`
+	PowerPctRole    *float64 `json:"powerPctRole"`
+	ContactPctRole  *float64 `json:"contactPctRole"`
+	SpeedPctRole    *float64 `json:"speedPctRole"`
+	FieldingPctRole *float64 `json:"fieldingPctRole"`
+	// League-wide averages
 	LgAvgPower    float64 `json:"lgAvgPower"`
 	LgAvgContact  float64 `json:"lgAvgContact"`
 	LgAvgSpeed    float64 `json:"lgAvgSpeed"`
@@ -330,6 +343,15 @@ type PlayerAttributeSeasonDTO struct {
 	LgAvgVelocity float64 `json:"lgAvgVelocity"`
 	LgAvgJunk     float64 `json:"lgAvgJunk"`
 	LgAvgAccuracy float64 `json:"lgAvgAccuracy"`
+	// Role-specific averages (batter-group or pitcher-group depending on player role)
+	RoleAvgPower    float64 `json:"roleAvgPower"`
+	RoleAvgContact  float64 `json:"roleAvgContact"`
+	RoleAvgSpeed    float64 `json:"roleAvgSpeed"`
+	RoleAvgFielding float64 `json:"roleAvgFielding"`
+	RoleAvgArm      float64 `json:"roleAvgArm"`
+	RoleAvgVelocity float64 `json:"roleAvgVelocity"`
+	RoleAvgJunk     float64 `json:"roleAvgJunk"`
+	RoleAvgAccuracy float64 `json:"roleAvgAccuracy"`
 }
 
 // ── Teams ─────────────────────────────────────────────────────────────────────

@@ -15,29 +15,105 @@ const props = defineProps<{
 }>()
 
 type Mode = 'raw' | 'percentile'
-const mode = ref<Mode>('raw')
+type ComparisonMode = 'role' | 'league'
 
-// Batter attributes always shown; pitcher-specific ones added for pitchers.
+const mode = ref<Mode>('raw')
+const comparisonMode = ref<ComparisonMode>('role')
+
+// AttrDef carries both league-wide and role-specific keys so the chart can
+// switch between them based on the comparison toggle.
 interface AttrDef {
   key: keyof main.PlayerAttributeSeasonDTO
-  pctKey: keyof main.PlayerAttributeSeasonDTO
-  lgKey: keyof main.PlayerAttributeSeasonDTO
+  // Percentile keys: pctLeagueKey = league-wide, pctRoleKey = own role group.
+  // For role-exclusive stats (arm, velocity, junk, accuracy) both point to the
+  // same field because no meaningful league-wide comparison exists.
+  pctLeagueKey: keyof main.PlayerAttributeSeasonDTO
+  pctRoleKey: keyof main.PlayerAttributeSeasonDTO
+  // Average keys: lgAvgKey for league-wide overlay, roleAvgKey for role overlay.
+  lgAvgKey: keyof main.PlayerAttributeSeasonDTO
+  roleAvgKey: keyof main.PlayerAttributeSeasonDTO
   label: string
   color: string
 }
 
 const BATTER_ATTRS: AttrDef[] = [
-  { key: 'power', pctKey: 'powerPct', lgKey: 'lgAvgPower', label: 'Power', color: '#e06c75' },
-  { key: 'contact', pctKey: 'contactPct', lgKey: 'lgAvgContact', label: 'Contact', color: '#98c379' },
-  { key: 'speed', pctKey: 'speedPct', lgKey: 'lgAvgSpeed', label: 'Speed', color: '#61afef' },
-  { key: 'fielding', pctKey: 'fieldingPct', lgKey: 'lgAvgFielding', label: 'Fielding', color: '#c678dd' },
-  { key: 'arm', pctKey: 'armPct', lgKey: 'lgAvgArm', label: 'Arm', color: '#e5c07b' },
+  {
+    key: 'power',
+    pctLeagueKey: 'powerPct',
+    pctRoleKey: 'powerPctRole',
+    lgAvgKey: 'lgAvgPower',
+    roleAvgKey: 'roleAvgPower',
+    label: 'Power',
+    color: '#e06c75',
+  },
+  {
+    key: 'contact',
+    pctLeagueKey: 'contactPct',
+    pctRoleKey: 'contactPctRole',
+    lgAvgKey: 'lgAvgContact',
+    roleAvgKey: 'roleAvgContact',
+    label: 'Contact',
+    color: '#98c379',
+  },
+  {
+    key: 'speed',
+    pctLeagueKey: 'speedPct',
+    pctRoleKey: 'speedPctRole',
+    lgAvgKey: 'lgAvgSpeed',
+    roleAvgKey: 'roleAvgSpeed',
+    label: 'Speed',
+    color: '#61afef',
+  },
+  {
+    key: 'fielding',
+    pctLeagueKey: 'fieldingPct',
+    pctRoleKey: 'fieldingPctRole',
+    lgAvgKey: 'lgAvgFielding',
+    roleAvgKey: 'roleAvgFielding',
+    label: 'Fielding',
+    color: '#c678dd',
+  },
+  // Arm is batter-only; both pct keys point to armPct (role-specific after migration 0014).
+  {
+    key: 'arm',
+    pctLeagueKey: 'armPct',
+    pctRoleKey: 'armPct',
+    lgAvgKey: 'lgAvgArm',
+    roleAvgKey: 'roleAvgArm',
+    label: 'Arm',
+    color: '#e5c07b',
+  },
 ]
 
 const PITCHER_ATTRS: AttrDef[] = [
-  { key: 'velocity', pctKey: 'velocityPct', lgKey: 'lgAvgVelocity', label: 'Velocity', color: '#56b6c2' },
-  { key: 'junk', pctKey: 'junkPct', lgKey: 'lgAvgJunk', label: 'Junk', color: '#d19a66' },
-  { key: 'accuracy', pctKey: 'accuracyPct', lgKey: 'lgAvgAccuracy', label: 'Accuracy', color: '#abb2bf' },
+  // Pitching stats are pitcher-only; both pct keys point to the role-specific field.
+  {
+    key: 'velocity',
+    pctLeagueKey: 'velocityPct',
+    pctRoleKey: 'velocityPct',
+    lgAvgKey: 'lgAvgVelocity',
+    roleAvgKey: 'roleAvgVelocity',
+    label: 'Velocity',
+    color: '#56b6c2',
+  },
+  {
+    key: 'junk',
+    pctLeagueKey: 'junkPct',
+    pctRoleKey: 'junkPct',
+    lgAvgKey: 'lgAvgJunk',
+    roleAvgKey: 'roleAvgJunk',
+    label: 'Junk',
+    color: '#d19a66',
+  },
+  {
+    key: 'accuracy',
+    pctLeagueKey: 'accuracyPct',
+    pctRoleKey: 'accuracyPct',
+    lgAvgKey: 'lgAvgAccuracy',
+    roleAvgKey: 'roleAvgAccuracy',
+    label: 'Accuracy',
+    color: '#abb2bf',
+  },
 ]
 
 const activeAttrs = computed<AttrDef[]>(() => (props.isPitcher ? [...BATTER_ATTRS, ...PITCHER_ATTRS] : BATTER_ATTRS))
@@ -46,6 +122,7 @@ const xAxisData = computed(() => props.seasons.map((s) => `S${s.seasonNum}`))
 
 const chartOption = computed(() => {
   const isPercentile = mode.value === 'percentile'
+  const isRole = comparisonMode.value === 'role'
 
   const series: object[] = []
 
@@ -53,7 +130,8 @@ const chartOption = computed(() => {
     // Player line
     const playerData = props.seasons.map((s) => {
       if (isPercentile) {
-        const pct = s[attr.pctKey] as number | undefined
+        const pctKey = isRole ? attr.pctRoleKey : attr.pctLeagueKey
+        const pct = s[pctKey] as number | undefined
         return pct != null ? Math.round(pct) : null
       }
       return s[attr.key] as number
@@ -71,23 +149,26 @@ const chartOption = computed(() => {
       connectNulls: false,
     })
 
-    // League average line — dashed, no symbols, same color but lighter
+    // Average overlay — dashed, no symbols, same color but lighter.
+    // In raw mode: shows the league-wide average.
+    // In percentile mode: shows 50 (any average group is at the 50th percentile
+    // of that group by definition), but switches key so the tooltip context changes.
+    const avgKey = isPercentile && isRole ? attr.roleAvgKey : attr.lgAvgKey
     const lgData = props.seasons.map((s) => {
-      const raw = s[attr.lgKey] as number
+      const raw = s[avgKey] as number
       if (raw === 0) return null
-      if (isPercentile) return 50 // league avg is always the 50th percentile by definition
+      if (isPercentile) return 50
       return Math.round(raw * 10) / 10
     })
 
     series.push({
-      name: `Lg Avg ${attr.label}`,
+      name: `Avg ${attr.label}`,
       type: 'line',
       data: lgData,
       smooth: false,
       symbol: 'none',
       lineStyle: { color: attr.color, width: 1, type: 'dashed', opacity: 0.45 },
       itemStyle: { color: attr.color },
-      // Hide from legend — it tracks with its paired player line
       legendHoverLink: false,
       tooltip: { show: false },
     })
@@ -116,7 +197,6 @@ const chartOption = computed(() => {
       splitLine: { lineStyle: { color: 'rgba(255,255,255,0.08)' } },
     },
     legend: {
-      // Show only player lines (not the league avg dashed lines)
       data: activeAttrs.value.map((a) => a.label),
       bottom: 8,
       textStyle: { color: '#abb2bf', fontSize: 11 },
@@ -130,24 +210,26 @@ const chartOption = computed(() => {
       borderColor: 'rgba(255,255,255,0.12)',
       textStyle: { color: '#cdd6f4', fontSize: 12 },
       formatter(params: object[]) {
-        const items = (params as { seriesName: string; value: number | null; color: string }[])
-          // Only show player lines (skip league avg lines)
-          .filter((p) => !p.seriesName.startsWith('Lg Avg') && p.value != null)
+        const items = (params as { seriesName: string; value: number | null; color: string }[]).filter(
+          (p) => !p.seriesName.startsWith('Avg ') && p.value != null,
+        )
         if (items.length === 0) return ''
         const season =
           props.seasons[xAxisData.value.indexOf((params as { axisValueLabel: string }[])[0]?.axisValueLabel ?? '')]
         const label = isPercentile ? 'Percentile' : 'Rating'
+        const avgLabel = isPercentile && isRole ? 'role avg' : 'lg avg'
         let html = `<div style="font-weight:600;margin-bottom:4px">Season ${season?.seasonNum ?? ''}</div>`
         for (const item of items) {
           const lgAttr = activeAttrs.value.find((a) => a.label === item.seriesName)
-          const lgVal = lgAttr && season ? (season[lgAttr.lgKey] as number) : null
-          const lgStr =
-            lgVal && lgVal > 0
+          const avgKey = isPercentile && isRole ? lgAttr?.roleAvgKey : lgAttr?.lgAvgKey
+          const avgVal = avgKey && season ? (season[avgKey] as number) : null
+          const avgStr =
+            avgVal && avgVal > 0
               ? isPercentile
-                ? ' <span style="opacity:0.55">(lg avg: 50th)</span>'
-                : ` <span style="opacity:0.55">(lg avg: ${lgVal.toFixed(1)})</span>`
+                ? ` <span style="opacity:0.55">(${avgLabel}: ${avgVal.toFixed(1)})</span>`
+                : ` <span style="opacity:0.55">(${avgLabel}: ${avgVal.toFixed(1)})</span>`
               : ''
-          html += `<div><span style="color:${item.color}">●</span> ${item.seriesName}: <strong>${item.value}</strong>${lgStr}</div>`
+          html += `<div><span style="color:${item.color}">●</span> ${item.seriesName}: <strong>${item.value}</strong>${avgStr}</div>`
         }
         return html
       },
@@ -160,20 +242,28 @@ const chartOption = computed(() => {
 <template>
   <div class="attr-trend-chart">
     <div class="chart-controls">
-      <button
-        class="mode-btn"
-        :class="{ active: mode === 'raw' }"
-        @click="mode = 'raw'"
-      >
-        Raw (1–99)
-      </button>
-      <button
-        class="mode-btn"
-        :class="{ active: mode === 'percentile' }"
-        @click="mode = 'percentile'"
-      >
-        Percentile
-      </button>
+      <div class="toggle-group">
+        <button class="mode-btn" :class="{ active: mode === 'raw' }" @click="mode = 'raw'">Raw (1–99)</button>
+        <button class="mode-btn" :class="{ active: mode === 'percentile' }" @click="mode = 'percentile'">
+          Percentile
+        </button>
+      </div>
+      <div v-if="mode === 'percentile'" class="toggle-group">
+        <button
+          class="mode-btn"
+          :class="{ active: comparisonMode === 'role' }"
+          @click="comparisonMode = 'role'"
+        >
+          vs. My Role
+        </button>
+        <button
+          class="mode-btn"
+          :class="{ active: comparisonMode === 'league' }"
+          @click="comparisonMode = 'league'"
+        >
+          vs. League
+        </button>
+      </div>
     </div>
     <VChart class="chart" :option="chartOption" autoresize />
   </div>
@@ -187,6 +277,12 @@ const chartOption = computed(() => {
 }
 
 .chart-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.toggle-group {
   display: flex;
   gap: 0.25rem;
 }

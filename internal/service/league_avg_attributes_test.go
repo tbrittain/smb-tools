@@ -137,6 +137,89 @@ func TestApplyLeagueAvgAttributes_SinglePlayer(t *testing.T) {
 	}
 }
 
+// TestApplyLeagueAvgAttributes_RoleSplit seeds two batters and one pitcher,
+// then verifies that batter-only and pitcher-only averages are computed
+// separately and do not bleed into each other.
+func TestApplyLeagueAvgAttributes_RoleSplit(t *testing.T) {
+	ctx := context.Background()
+	cdb := testutil.NewTestDB(t)
+	seasonStore := store.NewSeasonStore(cdb)
+	playerStore := store.NewPlayerSeasonStore(cdb)
+
+	seasonID, err := seasonStore.Upsert(ctx, store.Season{
+		LeagueGUID: "avg-test-004", SaveGameSeasonID: 4, SeasonNum: 4,
+	})
+	if err != nil {
+		t.Fatalf("upsert season: %v", err)
+	}
+
+	// Two batters: power 60 and 80 → batter avg power = 70.
+	for _, g := range []struct{ guid string; power int }{{guid: "B1", power: 60}, {guid: "B2", power: 80}} {
+		pid, err := playerStore.UpsertPlayer(ctx, store.PlayerIdentity{GameGUID: g.guid, FirstName: "B", LastName: "B"})
+		if err != nil {
+			t.Fatalf("upsert batter %s: %v", g.guid, err)
+		}
+		psID, err := playerStore.UpsertSeason(ctx, store.PlayerSeason{
+			PlayerID: pid, SeasonID: seasonID,
+			BatHand: "R", ThrowHand: "R", ChemistryType: "Competitive",
+			TraitsJSON: "[]", PitchesJSON: "[]",
+		})
+		if err != nil {
+			t.Fatalf("upsert batter season %s: %v", g.guid, err)
+		}
+		if err := playerStore.UpsertGameStats(ctx, store.PlayerSeasonGameStats{
+			PlayerSeasonID: psID, Power: g.power, Velocity: 0,
+		}); err != nil {
+			t.Fatalf("upsert batter stats %s: %v", g.guid, err)
+		}
+	}
+
+	// One pitcher: power 50, velocity 90 → pitcher avg power = 50, pitcher avg velocity = 90.
+	pid, err := playerStore.UpsertPlayer(ctx, store.PlayerIdentity{GameGUID: "P1", FirstName: "P", LastName: "P"})
+	if err != nil {
+		t.Fatalf("upsert pitcher: %v", err)
+	}
+	psID, err := playerStore.UpsertSeason(ctx, store.PlayerSeason{
+		PlayerID: pid, SeasonID: seasonID, PitcherRole: "SP",
+		BatHand: "R", ThrowHand: "R", ChemistryType: "Competitive",
+		TraitsJSON: "[]", PitchesJSON: "[]",
+	})
+	if err != nil {
+		t.Fatalf("upsert pitcher season: %v", err)
+	}
+	if err := playerStore.UpsertGameStats(ctx, store.PlayerSeasonGameStats{
+		PlayerSeasonID: psID, Power: 50, Velocity: 90,
+	}); err != nil {
+		t.Fatalf("upsert pitcher stats: %v", err)
+	}
+
+	if err := service.ApplyLeagueAvgAttributes(ctx, cdb, seasonID); err != nil {
+		t.Fatalf("ApplyLeagueAvgAttributes: %v", err)
+	}
+
+	var batterAvgPower, pitcherAvgPower, pitcherAvgVelocity float64
+	if err := cdb.QueryRowContext(ctx, `
+		SELECT batter_avg_power, pitcher_avg_power, pitcher_avg_velocity
+		FROM season_attribute_averages WHERE season_id = ?
+	`, seasonID).Scan(&batterAvgPower, &pitcherAvgPower, &pitcherAvgVelocity); err != nil {
+		t.Fatalf("reading role averages: %v", err)
+	}
+
+	const epsilon = 0.001
+	// batter avg power = (60+80)/2 = 70
+	if math.Abs(batterAvgPower-70.0) > epsilon {
+		t.Errorf("batter_avg_power = %.4f, want 70.0", batterAvgPower)
+	}
+	// pitcher avg power = 50 (single pitcher)
+	if math.Abs(pitcherAvgPower-50.0) > epsilon {
+		t.Errorf("pitcher_avg_power = %.4f, want 50.0", pitcherAvgPower)
+	}
+	// pitcher avg velocity = 90
+	if math.Abs(pitcherAvgVelocity-90.0) > epsilon {
+		t.Errorf("pitcher_avg_velocity = %.4f, want 90.0", pitcherAvgVelocity)
+	}
+}
+
 // TestApplyLeagueAvgAttributes_Idempotent verifies calling the function twice
 // for the same season does not fail and leaves exactly one row.
 func TestApplyLeagueAvgAttributes_Idempotent(t *testing.T) {

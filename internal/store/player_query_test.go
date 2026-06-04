@@ -265,6 +265,115 @@ func TestGetPlayerSeasonLog_MultiSeason(t *testing.T) {
 	}
 }
 
+// TestGetPlayerAttributeHistory_RoleAvgReturned seeds two batters and one
+// pitcher, runs ApplyLeagueAvgAttributes, and verifies that GetPlayerAttributeHistory
+// returns the correct role-specific average for each player type.
+func TestGetPlayerAttributeHistory_RoleAvgReturned(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+
+	// Two batters: power 60 and 80 → batter avg power = 70.
+	pBat1 := seedPlayer(t, db, "gB1", "Bat", "One")
+	pBat2 := seedPlayer(t, db, "gB2", "Bat", "Two")
+	psBat1 := seedPlayerSeason(t, db, pBat1, s1, nil)
+	psBat2 := seedPlayerSeason(t, db, pBat2, s1, nil)
+	seedGameStats(t, db, psBat1, 60, 0, 0, 0, 0)
+	seedGameStats(t, db, psBat2, 80, 0, 0, 0, 0)
+
+	// One pitcher: power 50, velocity 90.
+	pPit := seedPlayer(t, db, "gP1", "Pit", "One")
+	psPit := seedPitcherPlayerSeason(t, db, pPit, s1)
+	seedGameStatsPitcher(t, db, psPit, 50, 90)
+
+	if err := service.ApplyLeagueAvgAttributes(ctx, db, s1); err != nil {
+		t.Fatalf("ApplyLeagueAvgAttributes: %v", err)
+	}
+	if err := service.ApplyPlayerAttributePercentiles(ctx, db, s1); err != nil {
+		t.Fatalf("ApplyPlayerAttributePercentiles: %v", err)
+	}
+
+	pq := store.NewPlayerQueryStore(db)
+	const epsilon = 0.001
+
+	t.Run("batter gets batter role avg power", func(t *testing.T) {
+		rows, err := pq.GetPlayerAttributeHistory(ctx, pBat1)
+		if err != nil {
+			t.Fatalf("GetPlayerAttributeHistory: %v", err)
+		}
+		if len(rows) != 1 {
+			t.Fatalf("expected 1 row, got %d", len(rows))
+		}
+		// Batter role avg power = (60+80)/2 = 70.
+		if math.Abs(rows[0].RoleAvgPower-70.0) > epsilon {
+			t.Errorf("RoleAvgPower for batter = %.4f, want 70.0", rows[0].RoleAvgPower)
+		}
+	})
+
+	t.Run("pitcher gets pitcher role avg power and velocity", func(t *testing.T) {
+		rows, err := pq.GetPlayerAttributeHistory(ctx, pPit)
+		if err != nil {
+			t.Fatalf("GetPlayerAttributeHistory: %v", err)
+		}
+		if len(rows) != 1 {
+			t.Fatalf("expected 1 row, got %d", len(rows))
+		}
+		// Pitcher role avg power = 50 (only pitcher).
+		if math.Abs(rows[0].RoleAvgPower-50.0) > epsilon {
+			t.Errorf("RoleAvgPower for pitcher = %.4f, want 50.0", rows[0].RoleAvgPower)
+		}
+		// Pitcher role avg velocity = 90.
+		if math.Abs(rows[0].RoleAvgVelocity-90.0) > epsilon {
+			t.Errorf("RoleAvgVelocity for pitcher = %.4f, want 90.0", rows[0].RoleAvgVelocity)
+		}
+	})
+
+	t.Run("batter has power_pct_role populated", func(t *testing.T) {
+		rows, err := pq.GetPlayerAttributeHistory(ctx, pBat1)
+		if err != nil {
+			t.Fatalf("GetPlayerAttributeHistory: %v", err)
+		}
+		// pBat1 has power 60; pBat2 has 80. Among batters only: pBat1 is lowest.
+		if rows[0].PowerPctRole == nil {
+			t.Fatal("PowerPctRole is nil, want a value")
+		}
+		if *rows[0].PowerPctRole > 5 {
+			t.Errorf("PowerPctRole for lowest batter = %.2f, want ≈0", *rows[0].PowerPctRole)
+		}
+	})
+}
+
+// seedPitcherPlayerSeason inserts a pitcher player_season (pitcher_role='SP').
+func seedPitcherPlayerSeason(t *testing.T, db *sql.DB, playerID, seasonID int64) int64 {
+	t.Helper()
+	var id int64
+	err := db.QueryRowContext(context.Background(), `
+		INSERT INTO player_seasons
+		    (player_id, season_id, age, salary,
+		     primary_position, secondary_position, pitcher_role,
+		     bat_hand, throw_hand, chemistry_type, traits_json, pitches_json)
+		VALUES (?,?,28,900,'SP','','SP','R','R','Competitive','[]','[]') RETURNING id
+	`, playerID, seasonID).Scan(&id)
+	if err != nil {
+		t.Fatalf("seedPitcherPlayerSeason: %v", err)
+	}
+	return id
+}
+
+// seedGameStatsPitcher inserts game stats with pitcher-relevant columns set.
+func seedGameStatsPitcher(t *testing.T, db *sql.DB, psID int64, power, velocity int) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(), `
+		INSERT INTO player_season_game_stats
+		    (player_season_id, power, contact, speed, fielding, arm, velocity, junk, accuracy)
+		VALUES (?,?,0,0,0,0,?,0,0)
+	`, psID, power, velocity)
+	if err != nil {
+		t.Fatalf("seedGameStatsPitcher: %v", err)
+	}
+}
+
 // seedGameStats inserts a player_season_game_stats row for an existing player_season.
 func seedGameStats(t *testing.T, db *sql.DB, psID int64, power, contact, speed, fielding, arm int) {
 	t.Helper()

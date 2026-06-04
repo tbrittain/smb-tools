@@ -1153,6 +1153,10 @@ export namespace main {
 	    velocityPct?: number;
 	    junkPct?: number;
 	    accuracyPct?: number;
+	    powerPctRole?: number;
+	    contactPctRole?: number;
+	    speedPctRole?: number;
+	    fieldingPctRole?: number;
 	    lgAvgPower: number;
 	    lgAvgContact: number;
 	    lgAvgSpeed: number;
@@ -1161,6 +1165,14 @@ export namespace main {
 	    lgAvgVelocity: number;
 	    lgAvgJunk: number;
 	    lgAvgAccuracy: number;
+	    roleAvgPower: number;
+	    roleAvgContact: number;
+	    roleAvgSpeed: number;
+	    roleAvgFielding: number;
+	    roleAvgArm: number;
+	    roleAvgVelocity: number;
+	    roleAvgJunk: number;
+	    roleAvgAccuracy: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new PlayerAttributeSeasonDTO(source);
@@ -1186,6 +1198,10 @@ export namespace main {
 	        this.velocityPct = source["velocityPct"];
 	        this.junkPct = source["junkPct"];
 	        this.accuracyPct = source["accuracyPct"];
+	        this.powerPctRole = source["powerPctRole"];
+	        this.contactPctRole = source["contactPctRole"];
+	        this.speedPctRole = source["speedPctRole"];
+	        this.fieldingPctRole = source["fieldingPctRole"];
 	        this.lgAvgPower = source["lgAvgPower"];
 	        this.lgAvgContact = source["lgAvgContact"];
 	        this.lgAvgSpeed = source["lgAvgSpeed"];
@@ -1194,6 +1210,14 @@ export namespace main {
 	        this.lgAvgVelocity = source["lgAvgVelocity"];
 	        this.lgAvgJunk = source["lgAvgJunk"];
 	        this.lgAvgAccuracy = source["lgAvgAccuracy"];
+	        this.roleAvgPower = source["roleAvgPower"];
+	        this.roleAvgContact = source["roleAvgContact"];
+	        this.roleAvgSpeed = source["roleAvgSpeed"];
+	        this.roleAvgFielding = source["roleAvgFielding"];
+	        this.roleAvgArm = source["roleAvgArm"];
+	        this.roleAvgVelocity = source["roleAvgVelocity"];
+	        this.roleAvgJunk = source["roleAvgJunk"];
+	        this.roleAvgAccuracy = source["roleAvgAccuracy"];
 	    }
 	}
 	export class PlayerAwardEntryDTO {
