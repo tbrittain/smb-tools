@@ -227,6 +227,9 @@ func (svc *LegacyMigrationService) migrateInTx(
 	if err := migrateLegacyLeagueAvgAttributes(ctx, tx, legacySeasonIDToNew); err != nil {
 		return result, err
 	}
+	if err := migrateLegacyPlayerAttributePercentiles(ctx, tx, legacySeasonIDToNew); err != nil {
+		return result, err
+	}
 	if err := svc.migrateLegacyBattingStats(ctx, playerStore, battingStats, legacyPSIDToNew); err != nil {
 		return result, err
 	}
@@ -829,6 +832,18 @@ func migrateLegacyLeagueAvgAttributes(ctx context.Context, tx *sql.Tx, legacySea
 	for _, newSeasonID := range legacySeasonIDToNew {
 		if err := ApplyLeagueAvgAttributes(ctx, tx, newSeasonID); err != nil {
 			return fmt.Errorf("computing league attribute averages for season %d: %w", newSeasonID, err)
+		}
+	}
+	return nil
+}
+
+// migrateLegacyPlayerAttributePercentiles computes and persists per-player
+// attribute percentile ranks for every migrated season. Must run after
+// migrateLegacyGameStats so the game stats rows are present.
+func migrateLegacyPlayerAttributePercentiles(ctx context.Context, tx *sql.Tx, legacySeasonIDToNew map[int]int64) error {
+	for _, newSeasonID := range legacySeasonIDToNew {
+		if err := ApplyPlayerAttributePercentiles(ctx, tx, newSeasonID); err != nil {
+			return fmt.Errorf("computing player attribute percentiles for season %d: %w", newSeasonID, err)
 		}
 	}
 	return nil

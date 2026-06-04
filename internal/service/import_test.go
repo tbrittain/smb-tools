@@ -93,6 +93,18 @@ func TestImportSeason_LeagueAvgAttributesPopulated(t *testing.T) {
 	if avgPower <= 0 {
 		t.Errorf("avg_power = %.4f, want > 0 (fixture has players with non-zero attributes)", avgPower)
 	}
+
+	var pctRows int
+	if err := companionDB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM player_season_attribute_percentiles
+		 WHERE player_season_id IN (SELECT id FROM player_seasons WHERE season_id = ?)`,
+		result.SeasonID,
+	).Scan(&pctRows); err != nil {
+		t.Fatalf("querying player_season_attribute_percentiles: %v", err)
+	}
+	if pctRows == 0 {
+		t.Error("player_season_attribute_percentiles has 0 rows after import, want > 0")
+	}
 }
 
 func TestImportSeason_SeasonOffsetApplied(t *testing.T) {

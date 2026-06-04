@@ -444,62 +444,27 @@ type PlayerAttributeHistoryRow struct {
 
 // GetPlayerAttributeHistory returns one row per season for the given player,
 // ordered by season number ascending. Each row includes the player's raw
-// attribute values, their percentile rank within that season (nil if they
-// were the only player), and the pre-computed league averages.
+// attribute values, pre-computed percentile ranks (nil if the player was the
+// only one in that season), and pre-computed league averages.
 //
-// Percentile ranks are computed via PERCENT_RANK() window function partitioned
-// by season, so a value of 75 means the player scored higher than 75% of all
-// players in that season for that attribute.
+// Percentile ranks and league averages are read from eagerly-populated tables
+// (player_season_attribute_percentiles, season_attribute_averages) so this
+// query is a plain indexed JOIN with no window functions.
 func (s *PlayerQueryStore) GetPlayerAttributeHistory(ctx context.Context, playerID int64) ([]PlayerAttributeHistoryRow, error) {
 	rows, err := s.db.QueryContext(ctx, `
-WITH ranked AS (
-    SELECT
-        ps.player_id,
-        ps.season_id,
-        s.season_num,
-        COALESCE(psg.power,    0) AS power,
-        COALESCE(psg.contact,  0) AS contact,
-        COALESCE(psg.speed,    0) AS speed,
-        COALESCE(psg.fielding, 0) AS fielding,
-        COALESCE(psg.arm,      0) AS arm,
-        COALESCE(psg.velocity, 0) AS velocity,
-        COALESCE(psg.junk,     0) AS junk,
-        COALESCE(psg.accuracy, 0) AS accuracy,
-        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
-             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.power,    0)) * 100 AS REAL)
-             ELSE NULL END AS power_pct,
-        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
-             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.contact,  0)) * 100 AS REAL)
-             ELSE NULL END AS contact_pct,
-        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
-             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.speed,    0)) * 100 AS REAL)
-             ELSE NULL END AS speed_pct,
-        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
-             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.fielding, 0)) * 100 AS REAL)
-             ELSE NULL END AS fielding_pct,
-        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
-             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.arm,      0)) * 100 AS REAL)
-             ELSE NULL END AS arm_pct,
-        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
-             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.velocity, 0)) * 100 AS REAL)
-             ELSE NULL END AS velocity_pct,
-        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
-             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.junk,     0)) * 100 AS REAL)
-             ELSE NULL END AS junk_pct,
-        CASE WHEN COUNT(*) OVER (PARTITION BY ps.season_id) > 1
-             THEN CAST(PERCENT_RANK() OVER (PARTITION BY ps.season_id ORDER BY COALESCE(psg.accuracy, 0)) * 100 AS REAL)
-             ELSE NULL END AS accuracy_pct
-    FROM player_season_game_stats psg
-    JOIN player_seasons ps ON ps.id = psg.player_season_id
-    JOIN seasons s         ON s.id  = ps.season_id
-)
 SELECT
-    r.season_id,
-    r.season_num,
-    r.power, r.contact, r.speed, r.fielding, r.arm,
-    r.velocity, r.junk, r.accuracy,
-    r.power_pct, r.contact_pct, r.speed_pct, r.fielding_pct, r.arm_pct,
-    r.velocity_pct, r.junk_pct, r.accuracy_pct,
+    ps.season_id,
+    s.season_num,
+    COALESCE(psg.power,    0),
+    COALESCE(psg.contact,  0),
+    COALESCE(psg.speed,    0),
+    COALESCE(psg.fielding, 0),
+    COALESCE(psg.arm,      0),
+    COALESCE(psg.velocity, 0),
+    COALESCE(psg.junk,     0),
+    COALESCE(psg.accuracy, 0),
+    psap.power_pct, psap.contact_pct, psap.speed_pct, psap.fielding_pct, psap.arm_pct,
+    psap.velocity_pct, psap.junk_pct, psap.accuracy_pct,
     COALESCE(saa.avg_power,    0),
     COALESCE(saa.avg_contact,  0),
     COALESCE(saa.avg_speed,    0),
@@ -508,10 +473,13 @@ SELECT
     COALESCE(saa.avg_velocity, 0),
     COALESCE(saa.avg_junk,     0),
     COALESCE(saa.avg_accuracy, 0)
-FROM ranked r
-LEFT JOIN season_attribute_averages saa ON saa.season_id = r.season_id
-WHERE r.player_id = ?
-ORDER BY r.season_num ASC
+FROM player_season_game_stats psg
+JOIN player_seasons ps  ON ps.id  = psg.player_season_id
+JOIN seasons s          ON s.id   = ps.season_id
+LEFT JOIN player_season_attribute_percentiles psap ON psap.player_season_id = psg.player_season_id
+LEFT JOIN season_attribute_averages saa            ON saa.season_id = ps.season_id
+WHERE ps.player_id = ?
+ORDER BY s.season_num ASC
 `, playerID)
 	if err != nil {
 		return nil, fmt.Errorf("querying attribute history for player %d: %w", playerID, err)

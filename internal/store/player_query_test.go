@@ -294,9 +294,9 @@ func seedLeagueAvg(t *testing.T, db *sql.DB, seasonID int64, avgPower, avgContac
 }
 
 // TestGetPlayerAttributeHistory_PercentileRanks seeds three players in the
-// same season, seeds the league averages, and verifies that the player with
-// the highest Power receives the highest percentile, the lowest receives the
-// lowest, and the middle player falls between them.
+// same season, computes percentiles via ApplyPlayerAttributePercentiles, and
+// verifies that the player with the highest Power receives the highest
+// percentile, the lowest receives the lowest, and the middle falls between.
 func TestGetPlayerAttributeHistory_PercentileRanks(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
@@ -316,6 +316,11 @@ func TestGetPlayerAttributeHistory_PercentileRanks(t *testing.T) {
 	seedGameStats(t, db, psLow, 40, 50, 60, 70, 80)
 	seedGameStats(t, db, psMid, 60, 65, 60, 70, 80)
 	seedGameStats(t, db, psHigh, 80, 90, 60, 70, 80)
+
+	// Persist percentile ranks — mirrors the import pipeline step.
+	if err := service.ApplyPlayerAttributePercentiles(ctx, db, s1); err != nil {
+		t.Fatalf("ApplyPlayerAttributePercentiles: %v", err)
+	}
 
 	pq := store.NewPlayerQueryStore(db)
 
@@ -418,8 +423,8 @@ func TestGetPlayerAttributeHistory_MultiSeason(t *testing.T) {
 }
 
 // TestGetPlayerAttributeHistory_SinglePlayerNilPercentile verifies that when
-// only one player exists in a season, the percentile fields are nil (PERCENT_RANK
-// is undefined for a single-row partition).
+// only one player exists in a season, ApplyPlayerAttributePercentiles stores
+// NULL and GetPlayerAttributeHistory returns nil for all percentile fields.
 func TestGetPlayerAttributeHistory_SinglePlayerNilPercentile(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
@@ -428,6 +433,11 @@ func TestGetPlayerAttributeHistory_SinglePlayerNilPercentile(t *testing.T) {
 	pid := seedPlayer(t, db, "gSolo", "Solo", "Player")
 	ps1 := seedPlayerSeason(t, db, pid, s1, nil)
 	seedGameStats(t, db, ps1, 75, 65, 55, 45, 35)
+
+	// Single-player season: ApplyPlayerAttributePercentiles stores NULLs.
+	if err := service.ApplyPlayerAttributePercentiles(ctx, db, s1); err != nil {
+		t.Fatalf("ApplyPlayerAttributePercentiles: %v", err)
+	}
 
 	pq := store.NewPlayerQueryStore(db)
 	rows, err := pq.GetPlayerAttributeHistory(ctx, pid)
