@@ -20,6 +20,8 @@ import (
 // must never be opened as one.
 const legacyMigrationSourcePath = "(legacy migration)"
 
+const docsURL = "https://tbrittain.github.io/smb-tools/"
+
 // App is the Wails application struct. It is intentionally thin: it wires
 // dependencies at startup and exposes bindings to the frontend. All business
 // logic lives in internal/service and internal/store.
@@ -95,6 +97,10 @@ func (a *App) setupMenu(ctx context.Context) {
 		if err := openDirectory(a.dirs.DataDir); err != nil {
 			log.Printf("open app data dir: %v", err)
 		}
+	})
+	fileMenu.AddSeparator()
+	fileMenu.AddText("View Documentation", nil, func(_ *menu.CallbackData) {
+		runtime.BrowserOpenURL(ctx, docsURL)
 	})
 	runtime.MenuSetApplicationMenu(ctx, appMenu)
 }

@@ -50,6 +50,12 @@ jobs:
       - name: Frontend test
         run: cd frontend && npm run test:run
 
+      - name: Install docs dependencies
+        run: cd user-docs && npm ci
+
+      - name: Build docs
+        run: cd user-docs && npm run build
+
   build:
     needs: test
     runs-on: ubuntu-latest
