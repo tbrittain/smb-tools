@@ -125,7 +125,7 @@ const allTeams = computed<{ historyId: number; name: string; points: WinDeltaPoi
       historyId: props.currentTeamHistoryId,
       name: props.currentTeamName,
       points: currentTeamPoints.value,
-      color: 'var(--color-accent)',
+      color: '#ffffff',
     },
   ]
   if (showDivision.value && divisionFetched.value) {
