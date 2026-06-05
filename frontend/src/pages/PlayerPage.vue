@@ -1,13 +1,18 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
-import { GetPlayerCareer, GetPlayerCareerAwards, GetPlayerSeasonLog } from '../../wailsjs/go/main/App'
+import {
+  GetPlayerAttributeHistory,
+  GetPlayerCareer,
+  GetPlayerCareerAwards,
+  GetPlayerSeasonLog,
+} from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
-import AttributesTable from '../components/AttributesTable.vue'
 import CareerStatSummary from '../components/CareerStatSummary.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import MediaGallery from '../components/MediaGallery.vue'
 import PlayerAttributesTable from '../components/PlayerAttributesTable.vue'
+import PlayerAttributeTrendChart from '../components/PlayerAttributeTrendChart.vue'
 import PlayerBioCard from '../components/PlayerBioCard.vue'
 import PlayerStatTable from '../components/PlayerStatTable.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
@@ -21,6 +26,7 @@ const highlightsStore = useStatHighlightsStore()
 const career = ref<main.PlayerCareerDTO | null>(null)
 const seasonLog = ref<main.PlayerSeasonLogDTO[]>([])
 const awardsBySeason = ref<Record<string, main.AwardDTO[]>>({})
+const attributeHistory = ref<main.PlayerAttributeSeasonDTO[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -38,9 +44,6 @@ const mostRecentSeason = computed(() =>
   seasonLog.value.length > 0 ? seasonLog.value[seasonLog.value.length - 1] : undefined,
 )
 
-// Most recent attributes
-const latestAttrs = computed(() => mostRecentSeason.value)
-
 const isPitcher = computed(() => {
   const s = mostRecentSeason.value
   return s != null && (s.primaryPosition === 'P' || s.pitcherRole !== '')
@@ -52,18 +55,21 @@ watch(
     career.value = null
     seasonLog.value = []
     awardsBySeason.value = {}
+    attributeHistory.value = []
     loading.value = true
     error.value = null
     highlightsStore.fetch()
     try {
-      const [c, log, awards] = await Promise.all([
+      const [c, log, awards, attrHistory] = await Promise.all([
         GetPlayerCareer(id),
         GetPlayerSeasonLog(id),
         GetPlayerCareerAwards(id),
+        GetPlayerAttributeHistory(id),
       ])
       career.value = c
       seasonLog.value = log ?? []
       awardsBySeason.value = awards ?? {}
+      attributeHistory.value = attrHistory ?? []
       statMode.value = isPitcher.value ? 'pitching' : 'batting'
       set([{ label: c ? `${c.firstName} ${c.lastName}` : 'Player' }])
     } catch (e) {
@@ -89,21 +95,12 @@ watch(
         <!-- Career stat summary row -->
         <CareerStatSummary :batting="career.batting" :pitching="career.pitching" />
 
-        <!-- Attributes -->
-        <section v-if="latestAttrs" class="section">
-          <h3>Attributes
-            <span class="season-tag">Season {{ latestAttrs.seasonNum }}</span>
-          </h3>
-          <AttributesTable
-            :power="latestAttrs.power"
-            :contact="latestAttrs.contact"
-            :speed="latestAttrs.speed"
-            :fielding="latestAttrs.fielding"
-            :arm="latestAttrs.arm"
-            :velocity="latestAttrs.velocity"
-            :junk="latestAttrs.junk"
-            :accuracy="latestAttrs.accuracy"
-            :show-pitching="isPitcher"
+        <!-- Attribute trend chart -->
+        <section v-if="attributeHistory.length > 0" class="section">
+          <h3>Attributes</h3>
+          <PlayerAttributeTrendChart
+            :seasons="attributeHistory"
+            :is-pitcher="isPitcher"
           />
         </section>
 

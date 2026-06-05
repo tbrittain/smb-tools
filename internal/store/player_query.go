@@ -410,6 +410,157 @@ ORDER BY s.season_num ASC
 	return out, index, rows.Err()
 }
 
+// PlayerAttributeHistoryRow holds one season's attribute snapshot for the
+// trend chart.
+//
+// Percentile fields are nil when the player is the only one in the relevant
+// comparison group (PERCENT_RANK is undefined for a single-row partition).
+//
+// Universal stats (power/contact/speed/fielding) carry both a league-wide
+// percentile (*Pct) and a role-specific one (*PctRole). Role-exclusive stats
+// (arm, velocity, junk, accuracy) have only a role-specific percentile.
+//
+// RoleAvg* fields carry the average for the player's own role group and are
+// used as the reference-line value when comparing vs. own role.
+type PlayerAttributeHistoryRow struct {
+	SeasonID    int64
+	SeasonNum   int
+	Power       int
+	Contact     int
+	Speed       int
+	Fielding    int
+	Arm         int
+	Velocity    int
+	Junk        int
+	Accuracy    int
+	// League-wide percentiles (universal stats only)
+	PowerPct    *float64
+	ContactPct  *float64
+	SpeedPct    *float64
+	FieldingPct *float64
+	// Role-specific percentiles (all 8 stats)
+	ArmPct          *float64
+	VelocityPct     *float64
+	JunkPct         *float64
+	AccuracyPct     *float64
+	PowerPctRole    *float64
+	ContactPctRole  *float64
+	SpeedPctRole    *float64
+	FieldingPctRole *float64
+	// League-wide averages
+	LgAvgPower    float64
+	LgAvgContact  float64
+	LgAvgSpeed    float64
+	LgAvgFielding float64
+	LgAvgArm      float64
+	LgAvgVelocity float64
+	LgAvgJunk     float64
+	LgAvgAccuracy float64
+	// Role-specific averages (batter or pitcher depending on player's role)
+	RoleAvgPower    float64
+	RoleAvgContact  float64
+	RoleAvgSpeed    float64
+	RoleAvgFielding float64
+	RoleAvgArm      float64
+	RoleAvgVelocity float64
+	RoleAvgJunk     float64
+	RoleAvgAccuracy float64
+}
+
+// GetPlayerAttributeHistory returns one row per season for the given player,
+// ordered by season number ascending. Each row includes raw attribute values,
+// pre-computed league-wide and role-specific percentile ranks, league-wide
+// averages, and role-specific averages.
+//
+// All percentile and average data is read from eagerly-populated tables so
+// this query is a plain indexed JOIN with no window functions at read time.
+//nolint:gocognit // 12 nullable float assignments (one per percentile column that is NULL for single-player seasons) count as branches — splitting the scan into separate queries would lose the single-round-trip guarantee
+func (s *PlayerQueryStore) GetPlayerAttributeHistory(ctx context.Context, playerID int64) ([]PlayerAttributeHistoryRow, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT
+    ps.season_id,
+    s.season_num,
+    COALESCE(psg.power,    0),
+    COALESCE(psg.contact,  0),
+    COALESCE(psg.speed,    0),
+    COALESCE(psg.fielding, 0),
+    COALESCE(psg.arm,      0),
+    COALESCE(psg.velocity, 0),
+    COALESCE(psg.junk,     0),
+    COALESCE(psg.accuracy, 0),
+    -- league-wide percentiles (universal stats)
+    psap.power_pct, psap.contact_pct, psap.speed_pct, psap.fielding_pct,
+    -- role-specific percentiles (role-exclusive stats + role variants of universal)
+    psap.arm_pct, psap.velocity_pct, psap.junk_pct, psap.accuracy_pct,
+    psap.power_pct_role, psap.contact_pct_role, psap.speed_pct_role, psap.fielding_pct_role,
+    -- league-wide averages
+    COALESCE(saa.avg_power,    0),
+    COALESCE(saa.avg_contact,  0),
+    COALESCE(saa.avg_speed,    0),
+    COALESCE(saa.avg_fielding, 0),
+    COALESCE(saa.avg_arm,      0),
+    COALESCE(saa.avg_velocity, 0),
+    COALESCE(saa.avg_junk,     0),
+    COALESCE(saa.avg_accuracy, 0),
+    -- role-specific averages: pick batter or pitcher avg based on this player's role
+    COALESCE(CASE WHEN ps.pitcher_role != '' THEN saa.pitcher_avg_power    ELSE saa.batter_avg_power    END, 0),
+    COALESCE(CASE WHEN ps.pitcher_role != '' THEN saa.pitcher_avg_contact  ELSE saa.batter_avg_contact  END, 0),
+    COALESCE(CASE WHEN ps.pitcher_role != '' THEN saa.pitcher_avg_speed    ELSE saa.batter_avg_speed    END, 0),
+    COALESCE(CASE WHEN ps.pitcher_role != '' THEN saa.pitcher_avg_fielding ELSE saa.batter_avg_fielding END, 0),
+    COALESCE(saa.batter_avg_arm,      0),
+    COALESCE(saa.pitcher_avg_velocity, 0),
+    COALESCE(saa.pitcher_avg_junk,     0),
+    COALESCE(saa.pitcher_avg_accuracy, 0)
+FROM player_season_game_stats psg
+JOIN player_seasons ps  ON ps.id  = psg.player_season_id
+JOIN seasons s          ON s.id   = ps.season_id
+LEFT JOIN player_season_attribute_percentiles psap ON psap.player_season_id = psg.player_season_id
+LEFT JOIN season_attribute_averages saa            ON saa.season_id = ps.season_id
+WHERE ps.player_id = ?
+ORDER BY s.season_num ASC
+`, playerID)
+	if err != nil {
+		return nil, fmt.Errorf("querying attribute history for player %d: %w", playerID, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []PlayerAttributeHistoryRow
+	for rows.Next() {
+		var r PlayerAttributeHistoryRow
+		var powerPct, contactPct, speedPct, fieldingPct sql.NullFloat64
+		var armPct, velocityPct, junkPct, accuracyPct sql.NullFloat64
+		var powerPctRole, contactPctRole, speedPctRole, fieldingPctRole sql.NullFloat64
+		if err := rows.Scan(
+			&r.SeasonID, &r.SeasonNum,
+			&r.Power, &r.Contact, &r.Speed, &r.Fielding, &r.Arm,
+			&r.Velocity, &r.Junk, &r.Accuracy,
+			&powerPct, &contactPct, &speedPct, &fieldingPct,
+			&armPct, &velocityPct, &junkPct, &accuracyPct,
+			&powerPctRole, &contactPctRole, &speedPctRole, &fieldingPctRole,
+			&r.LgAvgPower, &r.LgAvgContact, &r.LgAvgSpeed, &r.LgAvgFielding, &r.LgAvgArm,
+			&r.LgAvgVelocity, &r.LgAvgJunk, &r.LgAvgAccuracy,
+			&r.RoleAvgPower, &r.RoleAvgContact, &r.RoleAvgSpeed, &r.RoleAvgFielding, &r.RoleAvgArm,
+			&r.RoleAvgVelocity, &r.RoleAvgJunk, &r.RoleAvgAccuracy,
+		); err != nil {
+			return nil, fmt.Errorf("scanning attribute history row: %w", err)
+		}
+		if powerPct.Valid        { r.PowerPct        = &powerPct.Float64 }
+		if contactPct.Valid      { r.ContactPct      = &contactPct.Float64 }
+		if speedPct.Valid        { r.SpeedPct        = &speedPct.Float64 }
+		if fieldingPct.Valid     { r.FieldingPct     = &fieldingPct.Float64 }
+		if armPct.Valid          { r.ArmPct          = &armPct.Float64 }
+		if velocityPct.Valid     { r.VelocityPct     = &velocityPct.Float64 }
+		if junkPct.Valid         { r.JunkPct         = &junkPct.Float64 }
+		if accuracyPct.Valid     { r.AccuracyPct     = &accuracyPct.Float64 }
+		if powerPctRole.Valid    { r.PowerPctRole    = &powerPctRole.Float64 }
+		if contactPctRole.Valid  { r.ContactPctRole  = &contactPctRole.Float64 }
+		if speedPctRole.Valid    { r.SpeedPctRole    = &speedPctRole.Float64 }
+		if fieldingPctRole.Valid { r.FieldingPctRole = &fieldingPctRole.Float64 }
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // SetHallOfFamer updates the is_hall_of_famer flag for the given player.
 func (s *PlayerQueryStore) SetHallOfFamer(ctx context.Context, playerID int64, isHoF bool) error {
 	v := 0

@@ -54,6 +54,8 @@ export function GetPitchingCareerLeaders(arg1:main.LeaderboardFiltersDTO):Promis
 
 export function GetPitchingSeasonLeaders(arg1:main.LeaderboardFiltersDTO):Promise<main.PitchingLeaderPageDTO>;
 
+export function GetPlayerAttributeHistory(arg1:number):Promise<Array<main.PlayerAttributeSeasonDTO>>;
+
 export function GetPlayerCareer(arg1:number):Promise<main.PlayerCareerDTO>;
 
 export function GetPlayerCareerAwards(arg1:number):Promise<Record<string, Array<main.AwardDTO>>>;

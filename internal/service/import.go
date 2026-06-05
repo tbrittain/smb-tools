@@ -71,6 +71,8 @@ func (svc *ImportService) ImportSeason(
 }
 
 // importInTx performs the actual import work within the provided transaction.
+//
+//nolint:gocognit // 14-step sequential pipeline — each step depends on the previous step's output; decomposing would scatter the pipeline state across many call sites without reducing real complexity
 func (svc *ImportService) importInTx(
 	ctx context.Context,
 	tx *sql.Tx,
@@ -113,7 +115,19 @@ func (svc *ImportService) importInTx(
 	}
 	result.Players = len(playerGUIDToSeasonID)
 
-	// ── 4–7. Batting and pitching stats (regular season + playoffs) ─────────
+	// ── 4. League attribute averages ────────────────────────────────────────
+	// Runs after all game stats are written (step 3) so the aggregate is complete.
+	if err := ApplyLeagueAvgAttributes(ctx, tx, companionSeasonID); err != nil {
+		return result, fmt.Errorf("computing league attribute averages: %w", err)
+	}
+
+	// ── 5. Player attribute percentiles ─────────────────────────────────────
+	// Runs after game stats (step 3) so PERCENT_RANK has complete season data.
+	if err := ApplyPlayerAttributePercentiles(ctx, tx, companionSeasonID); err != nil {
+		return result, fmt.Errorf("computing player attribute percentiles: %w", err)
+	}
+
+	// ── 6–9. Batting and pitching stats (regular season + playoffs) ─────────
 	if err := svc.importBattingStats(ctx, playerStore, reader, saveGameSeasonID, true, playerGUIDToSeasonID); err != nil {
 		return result, fmt.Errorf("importing regular season batting stats: %w", err)
 	}
@@ -127,7 +141,7 @@ func (svc *ImportService) importInTx(
 		return result, fmt.Errorf("importing playoff pitching stats: %w", err)
 	}
 
-	// ── 8. Context stats (OPS+, ERA+, FIP, FIP-, smbWAR) ───────────────────
+	// ── 10. Context stats (OPS+, ERA+, FIP, FIP-, smbWAR) ──────────────────
 	// Runs after all counting stats are written so league aggregates are complete.
 	if err := ApplyContextStats(ctx, tx, companionSeasonID, true); err != nil {
 		return result, fmt.Errorf("computing context stats (regular season): %w", err)
@@ -136,13 +150,13 @@ func (svc *ImportService) importInTx(
 		return result, fmt.Errorf("computing context stats (playoffs): %w", err)
 	}
 
-	// ── 9. Career stats ──────────────────────────────────────────────────────
+	// ── 11. Career stats ─────────────────────────────────────────────────────
 	// Must run after ApplyContextStats so per-season smb_war values are set.
 	if err := ApplyCareerStats(ctx, tx, playerIDs); err != nil {
 		return result, fmt.Errorf("computing career stats: %w", err)
 	}
 
-	// ── 10. Regular season schedule ─────────────────────────────────────────
+	// ── 12. Regular season schedule ──────────────────────────────────────────
 	if err := scheduleStore.DeleteSeasonSchedule(ctx, companionSeasonID); err != nil {
 		return result, fmt.Errorf("clearing old schedule: %w", err)
 	}
@@ -152,14 +166,14 @@ func (svc *ImportService) importInTx(
 	}
 	result.Games = gameCount
 
-	// ── 11. Playoff schedule + seeds ────────────────────────────────────────
+	// ── 13. Playoff schedule + seeds ─────────────────────────────────────────
 	playoffCount, err := svc.importPlayoffScheduleAndSeeds(ctx, scheduleStore, teamStore, reader, saveGameSeasonID, companionSeasonID, teamGUIDToHistoryID, playerGUIDToSeasonID)
 	if err != nil {
 		return result, err
 	}
 	result.PlayoffGames = playoffCount
 
-	// ── 12. Playoff config ───────────────────────────────────────────────────
+	// ── 14. Playoff config ────────────────────────────────────────────────────
 	// Prefer the authoritative values from t_playoffs; fall back to inference
 	// from the game data we just persisted (covers saves where t_playoffs is
 	// missing and the legacy import path).
