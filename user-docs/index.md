@@ -12,6 +12,9 @@ hero:
     - theme: alt
       text: View on GitHub
       link: https://github.com/tbrittain/smb-tools
+    - theme: alt
+      text: Feature Roadmap
+      link: https://github.com/users/tbrittain/projects/10
 
 features:
   - title: Franchise Stat Tracking
