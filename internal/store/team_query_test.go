@@ -160,6 +160,75 @@ func TestGetTeamSeasonSchedule_FiltersByTeam(t *testing.T) {
 	}
 }
 
+func TestGetTeamSeasonSchedule_ScoresAndOrder(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	seedSeason(t, db, 1, 1, 40)
+	t1 := seedTeam(t, db, "tgA")
+	t2 := seedTeam(t, db, "tgB")
+	hist1 := seedTeamHistory(t, db, t1, 1, "Alpha", "E", "AL", 10, 10)
+	hist2 := seedTeamHistory(t, db, t2, 1, "Beta", "E", "AL", 10, 10)
+
+	// Game 1: hist1 home, wins 5-3. Game 2: hist1 away at hist2, wins 2-1 as visitor.
+	// Game 3: unplayed (NULL scores).
+	insertScheduleGame(t, db, 1, 1, hist1, hist2, 5, 3)
+	insertScheduleGame(t, db, 1, 2, hist2, hist1, 1, 2) // hist1 is away, wins
+	insertScheduleGameNullScore(t, db, 1, 3, hist1, hist2)
+
+	tq := store.NewTeamQueryStore(db)
+	games, err := tq.GetTeamSeasonSchedule(ctx, hist1, 1)
+	if err != nil {
+		t.Fatalf("GetTeamSeasonSchedule: %v", err)
+	}
+	if len(games) != 3 {
+		t.Fatalf("expected 3 games, got %d", len(games))
+	}
+
+	// Ordered by game_number; TeamGameNum is 1-based sequential.
+	g1, g2, g3 := games[0], games[1], games[2]
+	if g1.TeamGameNum != 1 || g2.TeamGameNum != 2 || g3.TeamGameNum != 3 {
+		t.Errorf("unexpected TeamGameNum sequence: %d %d %d", g1.TeamGameNum, g2.TeamGameNum, g3.TeamGameNum)
+	}
+
+	// Game 1: hist1 is home.
+	if g1.HomeTeamHistoryID != hist1 {
+		t.Errorf("game 1 home team: want %d, got %d", hist1, g1.HomeTeamHistoryID)
+	}
+	if g1.HomeScore == nil || *g1.HomeScore != 5 {
+		t.Errorf("game 1 home score: want 5, got %v", g1.HomeScore)
+	}
+	if g1.AwayScore == nil || *g1.AwayScore != 3 {
+		t.Errorf("game 1 away score: want 3, got %v", g1.AwayScore)
+	}
+
+	// Game 2: hist1 is away, wins 2-1.
+	if g2.AwayTeamHistoryID != hist1 {
+		t.Errorf("game 2 away team: want %d, got %d", hist1, g2.AwayTeamHistoryID)
+	}
+	if g2.AwayScore == nil || *g2.AwayScore != 2 {
+		t.Errorf("game 2 away (hist1) score: want 2, got %v", g2.AwayScore)
+	}
+
+	// Game 3: scores are nil (unplayed).
+	if g3.HomeScore != nil || g3.AwayScore != nil {
+		t.Errorf("game 3 should have nil scores, got home=%v away=%v", g3.HomeScore, g3.AwayScore)
+	}
+}
+
+func insertScheduleGameNullScore(t *testing.T, db *sql.DB, seasonID, gameNum int, homeHistID, awayHistID int64) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(), `
+INSERT INTO team_season_schedules
+    (season_id, game_number, day, home_team_history_id, away_team_history_id,
+     home_score, away_score)
+VALUES (?,?,1,?,?,NULL,NULL)
+`, seasonID, gameNum, homeHistID, awayHistID)
+	if err != nil {
+		t.Fatalf("insertScheduleGameNullScore: %v", err)
+	}
+}
+
 func TestListAllTeamSeasons(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
