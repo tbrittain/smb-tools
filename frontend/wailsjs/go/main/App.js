@@ -170,6 +170,10 @@ export function GetTeamSeasonDetail(arg1) {
   return window['go']['main']['App']['GetTeamSeasonDetail'](arg1);
 }
 
+export function GetTeamSeasonScheduleByHistoryID(arg1) {
+  return window['go']['main']['App']['GetTeamSeasonScheduleByHistoryID'](arg1);
+}
+
 export function GetTeamSeasonsForMediaPicker(arg1) {
   return window['go']['main']['App']['GetTeamSeasonsForMediaPicker'](arg1);
 }

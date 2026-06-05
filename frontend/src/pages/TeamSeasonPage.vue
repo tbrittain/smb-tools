@@ -10,6 +10,7 @@ import EmptyState from '../components/EmptyState.vue'
 import HofBadge from '../components/HofBadge.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import MediaGallery from '../components/MediaGallery.vue'
+import SeasonWinDeltaChart from '../components/SeasonWinDeltaChart.vue'
 import StatHighlightCell from '../components/StatHighlightCell.vue'
 import StatHighlightLegend from '../components/StatHighlightLegend.vue'
 import TeamLogoDisplay from '../components/TeamLogoDisplay.vue'
@@ -526,6 +527,18 @@ function rosterPRateTip(playerId: number, statKey: string, label: string): strin
         </DataTable>
 
         <StatHighlightLegend v-if="rosterView !== 'attributes'" />
+      </section>
+
+      <!-- Season Performance (win-delta chart) -->
+      <section class="grid-section">
+        <h3>Season Performance</h3>
+        <SeasonWinDeltaChart
+          :current-team-history-id="detail.team.historyId"
+          :current-team-name="detail.team.teamName"
+          :current-team-division-name="detail.team.divisionName"
+          :current-team-season-id="detail.team.seasonId"
+          :schedule="detail.schedule"
+        />
       </section>
 
       <!-- Schedule -->

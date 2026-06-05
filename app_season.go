@@ -420,6 +420,28 @@ func (a *App) GetTeamSeasonDetail(teamHistoryID int64) (TeamSeasonDetailDTO, err
 	}, nil
 }
 
+// GetTeamSeasonScheduleByHistoryID returns the regular-season game log for a
+// single team season. Used by the win-delta chart's division fan-out: each
+// division peer is fetched individually rather than in one batch query.
+func (a *App) GetTeamSeasonScheduleByHistoryID(teamHistoryID int64) ([]ScheduleGameDTO, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return nil, err
+	}
+	teamSummary, err := a.teamQueryStore.GetTeamSeasonSummaryByHistoryID(a.ctx, teamHistoryID)
+	if err != nil {
+		return nil, fmt.Errorf("team summary: %w", err)
+	}
+	schedule, err := a.teamQueryStore.GetTeamSeasonSchedule(a.ctx, teamHistoryID, teamSummary.SeasonID)
+	if err != nil {
+		return nil, fmt.Errorf("schedule: %w", err)
+	}
+	out := make([]ScheduleGameDTO, len(schedule))
+	for i, g := range schedule {
+		out[i] = scheduleGameToDTO(g)
+	}
+	return out, nil
+}
+
 // GetHistoricalTeams returns one aggregated row per team for the historical
 // teams page, covering the inclusive season range [seasonStart, seasonEnd].
 // Results are ordered by total wins descending.

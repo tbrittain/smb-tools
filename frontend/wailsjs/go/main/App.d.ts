@@ -86,6 +86,8 @@ export function GetTeamLogos(arg1:number):Promise<Array<main.TeamLogoDTO>>;
 
 export function GetTeamSeasonDetail(arg1:number):Promise<main.TeamSeasonDetailDTO>;
 
+export function GetTeamSeasonScheduleByHistoryID(arg1:number):Promise<Array<main.ScheduleGameDTO>>;
+
 export function GetTeamSeasonsForMediaPicker(arg1:number):Promise<Array<main.TeamSeasonPickerResultDTO>>;
 
 export function GetTeamTopPlayers(arg1:number):Promise<Array<main.TeamTopPlayerDTO>>;
