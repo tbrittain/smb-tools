@@ -22,6 +22,14 @@ export default defineConfig({
           { text: 'User Guide', link: '/user-guide' },
         ],
       },
+      {
+        text: 'Core Workflows',
+        items: [
+          { text: 'Save Game Setup & Season Sync', link: '/save-game-setup' },
+          { text: 'Importing from SmbExplorerCompanion', link: '/legacy-migration' },
+          { text: 'Franchise Forking', link: '/franchise-forking' },
+        ],
+      },
     ],
     socialLinks: [
       { icon: 'github', link: 'https://github.com/tbrittain/smb-tools' },
