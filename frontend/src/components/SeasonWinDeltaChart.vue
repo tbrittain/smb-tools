@@ -155,6 +155,11 @@ const chartOption = computed(() => {
 
   const showLegend = showDivision.value && allTeams.value.length > 1
 
+  const maxGameNum = allTeams.value.reduce(
+    (max, team) => Math.max(max, team.points.length > 0 ? team.points[team.points.length - 1].gameNum : 0),
+    0,
+  )
+
   return {
     backgroundColor: 'transparent',
     grid: { left: 48, right: 24, top: showLegend ? 48 : 24, bottom: showLegend ? 56 : 32, containLabel: false },
@@ -168,6 +173,8 @@ const chartOption = computed(() => {
       axisLine: { lineStyle: { color: 'rgba(255,255,255,0.12)' } },
       splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
       minInterval: 1,
+      min: 1,
+      max: maxGameNum > 0 ? maxGameNum : undefined,
     },
     yAxis: {
       type: 'value',
