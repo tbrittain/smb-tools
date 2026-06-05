@@ -36,6 +36,12 @@ export default defineConfig({
           { text: 'CSV Exports', link: '/csv-exports' },
         ],
       },
+      {
+        text: 'Tools',
+        items: [
+          { text: 'Team Transfer Tool', link: '/team-transfer' },
+        ],
+      },
     ],
     socialLinks: [
       { icon: 'github', link: 'https://github.com/tbrittain/smb-tools' },
