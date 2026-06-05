@@ -126,7 +126,6 @@ function backToSelector() {
     <div v-if="step === 'source'" class="step">
       <p class="step-desc">
         Locate your <code>SmbExplorerCompanion.db</code> file to bring your franchise history into smb-tools.
-        Team logos are not migrated.
       </p>
 
       <p v-if="error" class="error-text">{{ error }}</p>
@@ -217,8 +216,6 @@ function backToSelector() {
           <span class="version-badge">{{ entry.gameVersion.toUpperCase() }}</span>
         </li>
       </ul>
-
-      <p class="notice-text">⚠ Team logos will not be migrated.</p>
 
       <div class="step-actions">
         <AppButton variant="secondary" @click="step = 'names'">Back</AppButton>

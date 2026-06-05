@@ -125,7 +125,6 @@ func (svc *LegacyMigrationService) Migrate(
 		return MigrationResult{}, err
 	}
 
-	// Check for logo data (not migrated; reported in result).
 	logosSkipped, err := svc.countLogos(ctx, legacyDB, legacyFranchiseID)
 	if err != nil {
 		return MigrationResult{}, fmt.Errorf("checking logos: %w", err)
