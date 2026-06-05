@@ -34,7 +34,8 @@ export default defineConfig({
       {
         text: 'Team Transfer Tool',
         items: [
-          { text: 'Overview', link: '/team-transfer' },
+          { text: 'League Export & Import', link: '/team-transfer' },
+          { text: 'Save Game Editor', link: '/save-game-editor' },
         ],
       },
     ],
