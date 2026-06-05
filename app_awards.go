@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 
 	"smb-tools/internal/models"
 )
@@ -40,6 +41,7 @@ func (a *App) ListAllAwards() ([]AwardDTO, error) {
 
 // CreateCustomAward creates a user-defined award and returns it with its new ID.
 func (a *App) CreateCustomAward(dto AwardDTO) (AwardDTO, error) {
+	slog.Info("CreateCustomAward", "name", dto.Name)
 	if err := a.requireCompanionDB(); err != nil {
 		return AwardDTO{}, err
 	}
@@ -52,8 +54,10 @@ func (a *App) CreateCustomAward(dto AwardDTO) (AwardDTO, error) {
 	}
 	id, err := a.awardStore.CreateCustomAward(a.ctx, m)
 	if err != nil {
+		slog.Error("CreateCustomAward: failed", "name", dto.Name, "err", err)
 		return AwardDTO{}, err
 	}
+	slog.Info("CreateCustomAward: created", "id", id)
 	dto.ID = id
 	dto.IsBuiltIn = false
 	return dto, nil
@@ -202,6 +206,7 @@ func (a *App) GetSeasonAwardCandidates(seasonID int64) (SeasonAwardCandidatesDTO
 // SubmitSeasonAwards replaces user-assignable awards for all specified player-seasons
 // in a single transaction. Players omitted from the request are not modified.
 func (a *App) SubmitSeasonAwards(req SubmitSeasonAwardsDTO) error {
+	slog.Info("SubmitSeasonAwards", "players", len(req.PlayerAwards))
 	if err := a.requireCompanionDB(); err != nil {
 		return err
 	}
@@ -212,7 +217,12 @@ func (a *App) SubmitSeasonAwards(req SubmitSeasonAwardsDTO) error {
 			AwardIDs:       e.AwardIDs,
 		}
 	}
-	return a.awardStore.SubmitMultiplePlayerAwards(a.ctx, entries)
+	if err := a.awardStore.SubmitMultiplePlayerAwards(a.ctx, entries); err != nil {
+		slog.Error("SubmitSeasonAwards: failed", "err", err)
+		return err
+	}
+	slog.Info("SubmitSeasonAwards: complete")
+	return nil
 }
 
 // SetHallOfFamer updates the Hall of Fame status for a player.

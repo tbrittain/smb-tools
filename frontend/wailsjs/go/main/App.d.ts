@@ -108,9 +108,13 @@ export function ListLegacyFranchises(arg1:string):Promise<Array<main.LegacyFranc
 
 export function ListSnapshots():Promise<Array<main.SnapshotDTO>>;
 
+export function LogFrontendError(arg1:string,arg2:string,arg3:string):Promise<void>;
+
 export function MigrateLegacyFranchise(arg1:string,arg2:number,arg3:string,arg4:string):Promise<main.MigrateLegacyResult>;
 
 export function OpenAppDataDir():Promise<void>;
+
+export function OpenBugReport(arg1:boolean):Promise<void>;
 
 export function ProbeFranchiseSaveFile(arg1:string):Promise<main.SaveFileCandidateDTO>;
 

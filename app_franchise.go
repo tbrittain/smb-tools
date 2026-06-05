@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -69,10 +69,12 @@ func (a *App) ListFranchises() ([]FranchiseDTO, error) {
 	}
 	franchises, err := a.franchiseStore.List(a.ctx)
 	if err != nil {
+		slog.Error("ListFranchises: listing franchises", "err", err)
 		return nil, err
 	}
 	allSources, err := a.franchiseSourceStore.ListAll(a.ctx)
 	if err != nil {
+		slog.Error("ListFranchises: listing sources", "err", err)
 		return nil, err
 	}
 	// Build a map of franchiseID → active source (highest season_offset)
@@ -93,14 +95,17 @@ func (a *App) ListFranchises() ([]FranchiseDTO, error) {
 // CreateFranchise creates a new franchise. saveFilePath and leagueGUID may be
 // empty if the user wants to configure the save file later via SetInitialSource.
 func (a *App) CreateFranchise(name, gameVersion, saveFilePath, leagueGUID string) (FranchiseDTO, error) {
+	slog.Info("CreateFranchise", "name", name, "gameVersion", gameVersion)
 	if a.franchiseService == nil {
 		return FranchiseDTO{}, fmt.Errorf("app not initialized")
 	}
 	v := models.GameVersion(gameVersion)
 	f, err := a.franchiseService.CreateFranchise(a.ctx, name, v, saveFilePath, leagueGUID)
 	if err != nil {
+		slog.Error("CreateFranchise: failed", "err", err)
 		return FranchiseDTO{}, err
 	}
+	slog.Info("CreateFranchise: created", "id", f.ID)
 	src, _ := a.franchiseSourceStore.GetActive(a.ctx, f.ID)
 	return franchiseToDTO(f, src), nil
 }
@@ -112,10 +117,11 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 		return FranchiseDTO{}, fmt.Errorf("app not initialized")
 	}
 
+	slog.Info("SelectFranchise", "id", id)
 	// Close previous companion DB and clear per-franchise stores
 	if a.companionDB != nil {
 		if err := a.companionDB.Close(); err != nil {
-			log.Printf("SelectFranchise: closing previous companion DB: %v", err)
+			slog.Error("SelectFranchise: closing previous companion DB", "err", err)
 		}
 		a.companionDB = nil
 		a.activeFranchise = nil
@@ -132,8 +138,10 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 
 	companionDB, f, err := a.franchiseService.OpenFranchise(a.ctx, id)
 	if err != nil {
+		slog.Error("SelectFranchise: opening franchise", "id", id, "err", err)
 		return FranchiseDTO{}, err
 	}
+	slog.Info("SelectFranchise: opened", "id", id, "name", f.Name)
 	a.companionDB = companionDB
 	a.activeFranchise = &f
 	a.snapshotStore = store.NewSnapshotStore(companionDB)
@@ -166,10 +174,12 @@ func (a *App) GetActiveFranchise() FranchiseDTO {
 
 // RenameFranchise updates the display name of a franchise.
 func (a *App) RenameFranchise(id, newName string) error {
+	slog.Info("RenameFranchise", "id", id, "newName", newName)
 	if a.franchiseStore == nil {
 		return fmt.Errorf("app not initialized")
 	}
 	if err := a.franchiseStore.Rename(a.ctx, id, newName); err != nil {
+		slog.Error("RenameFranchise: failed", "id", id, "err", err)
 		return err
 	}
 	// Update in-memory active franchise if it's the one being renamed
@@ -183,6 +193,7 @@ func (a *App) RenameFranchise(id, newName string) error {
 // the current season, and imports it into the companion database. Safe to call
 // multiple times — existing data is replaced with the latest save game state.
 func (a *App) SyncSeason() (SyncSeasonResult, error) {
+	slog.Info("SyncSeason: starting")
 	if a.activeFranchise == nil {
 		return SyncSeasonResult{}, fmt.Errorf("no active franchise selected")
 	}
@@ -208,13 +219,19 @@ func (a *App) SyncSeason() (SyncSeasonResult, error) {
 
 	result, err := a.syncService.SyncSeason(a.ctx, a.companionDB, reader, tmpPath, src.LeagueGUID, src.SeasonOffset)
 	if err != nil {
+		slog.Error("SyncSeason: failed", "err", err)
 		return SyncSeasonResult{}, err
 	}
-	runtime.LogInfof(a.ctx, "SyncSeason: imported season %d — %d players, %d teams, %d games",
-		result.SeasonNum, result.Players, result.Teams, result.Games)
+	slog.Info("SyncSeason: imported",
+		"seasonNum", result.SeasonNum,
+		"players", result.Players,
+		"teams", result.Teams,
+		"games", result.Games,
+		"playoffGames", result.PlayoffGames,
+	)
 
 	if err := a.franchiseStore.RecordSync(a.ctx, a.activeFranchise.ID, result.SeasonNum); err != nil {
-		log.Printf("SyncSeason: recording sync: %v", err)
+		slog.Error("SyncSeason: recording sync", "err", err)
 	}
 	a.statRecordsService.Invalidate()
 
@@ -296,16 +313,23 @@ func (a *App) ReimportSeasonFromSnapshot(snapshotID int64, seasonNum int) (Reimp
 
 	reader := store.NewSqliteSaveGameReader(saveDB, "")
 
+	slog.Info("ReimportSeasonFromSnapshot", "seasonNum", seasonNum, "snapshotID", snapshotID)
 	result, err := a.importService.ImportSeason(
 		a.ctx, a.companionDB, reader,
 		season.SaveGameSeasonID, saveGameSeasonNum,
 		season.LeagueGUID, src.SeasonOffset,
 	)
 	if err != nil {
+		slog.Error("ReimportSeasonFromSnapshot: failed", "seasonNum", seasonNum, "err", err)
 		return ReimportSeasonResult{}, fmt.Errorf("reimporting season %d: %w", seasonNum, err)
 	}
-	runtime.LogInfof(a.ctx, "ReimportSeasonFromSnapshot: reimported season %d from snapshot %d — %d players, %d teams, %d games",
-		seasonNum, snapshotID, result.Players, result.Teams, result.Games)
+	slog.Info("ReimportSeasonFromSnapshot: complete",
+		"seasonNum", seasonNum,
+		"snapshotID", snapshotID,
+		"players", result.Players,
+		"teams", result.Teams,
+		"games", result.Games,
+	)
 	a.statRecordsService.Invalidate()
 
 	return ReimportSeasonResult{
@@ -324,22 +348,22 @@ func (a *App) ReimportSeasonFromSnapshot(snapshotID int64, seasonNum int) (Reimp
 func (a *App) GetSaveFileCandidates() ([]SaveFileCandidateDTO, error) {
 	candidates, err := config.DiscoverSaveFiles()
 	if err != nil {
-		runtime.LogWarningf(a.ctx, "GetSaveFileCandidates: discovery error: %v", err)
+		slog.Warn("GetSaveFileCandidates: discovery error", "err", err)
 		return []SaveFileCandidateDTO{}, nil
 	}
 
-	runtime.LogInfof(a.ctx, "GetSaveFileCandidates: found %d league save file(s)", len(candidates))
+	slog.Info("GetSaveFileCandidates: found save files", "count", len(candidates))
 
 	var out []SaveFileCandidateDTO
 	for _, c := range candidates {
-		runtime.LogDebugf(a.ctx, "GetSaveFileCandidates: probing %s", c.Path)
+		slog.Debug("GetSaveFileCandidates: probing", "path", c.Path)
 		dto := SaveFileCandidateDTO{
 			Path:        c.Path,
 			GameVersion: string(c.GameVersion),
 		}
 		leagues, err := a.probeLeaguesFromPath(c.Path)
 		if err != nil {
-			runtime.LogWarningf(a.ctx, "GetSaveFileCandidates: probe failed for %s: %v", c.Path, err)
+			slog.Warn("GetSaveFileCandidates: probe failed", "path", c.Path, "err", err)
 			out = append(out, dto)
 			continue
 		}
@@ -351,15 +375,20 @@ func (a *App) GetSaveFileCandidates() ([]SaveFileCandidateDTO, error) {
 			dto.IsFranchise    = lg.Mode == models.LeagueModeFranchise
 			dto.PlayerTeamName = lg.PlayerTeamName
 			dto.LeagueGUID     = lg.GUID
-			runtime.LogInfof(a.ctx, "GetSaveFileCandidates: %s -> mode=%s league=%q team=%q seasons=%d",
-				c.Path, dto.Mode, dto.LeagueName, dto.PlayerTeamName, dto.NumSeasons)
+			slog.Info("GetSaveFileCandidates: probed",
+				"path", c.Path,
+				"mode", dto.Mode,
+				"league", dto.LeagueName,
+				"team", dto.PlayerTeamName,
+				"seasons", dto.NumSeasons,
+			)
 		} else {
-			runtime.LogWarningf(a.ctx, "GetSaveFileCandidates: %s -> no leagues found in save file", c.Path)
+			slog.Warn("GetSaveFileCandidates: no leagues found", "path", c.Path)
 		}
 		out = append(out, dto)
 	}
 
-	runtime.LogInfof(a.ctx, "GetSaveFileCandidates: returning %d candidate(s)", len(out))
+	slog.Info("GetSaveFileCandidates: returning candidates", "count", len(out))
 	return out, nil
 }
 
@@ -522,6 +551,7 @@ func (a *App) probeLeaguesFromPath(path string) ([]models.SaveGameLeague, error)
 // DeleteFranchise removes a franchise and deletes its data directory.
 // If the deleted franchise is currently active, it deselects it.
 func (a *App) DeleteFranchise(id string) error {
+	slog.Info("DeleteFranchise", "id", id)
 	if a.franchiseService == nil {
 		return fmt.Errorf("app not initialized")
 	}
@@ -538,7 +568,12 @@ func (a *App) DeleteFranchise(id string) error {
 		a.leaderboardQueryStore = nil
 		a.awardStore = nil
 	}
-	return a.franchiseService.DeleteFranchise(a.ctx, id)
+	if err := a.franchiseService.DeleteFranchise(a.ctx, id); err != nil {
+		slog.Error("DeleteFranchise: failed", "id", id, "err", err)
+		return err
+	}
+	slog.Info("DeleteFranchise: deleted", "id", id)
+	return nil
 }
 
 // ---- helpers ---------------------------------------------------------------

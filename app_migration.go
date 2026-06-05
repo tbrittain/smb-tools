@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	internaldb "smb-tools/internal/db"
@@ -89,6 +89,7 @@ func (a *App) MigrateLegacyFranchise(
 	newFranchiseName string,
 	gameVersion string,
 ) (MigrateLegacyResult, error) {
+	slog.Info("MigrateLegacyFranchise: starting", "legacyID", legacyFranchiseID, "name", newFranchiseName, "version", gameVersion)
 	if a.franchiseService == nil || a.legacyMigrationService == nil {
 		return MigrateLegacyResult{}, fmt.Errorf("app not initialized")
 	}
@@ -101,15 +102,17 @@ func (a *App) MigrateLegacyFranchise(
 	// Create the new franchise (no live save file source — migration provides data).
 	newFranchise, err := a.franchiseService.CreateFranchise(a.ctx, newFranchiseName, version, "", "")
 	if err != nil {
+		slog.Error("MigrateLegacyFranchise: creating franchise", "err", err)
 		return MigrateLegacyResult{}, fmt.Errorf("creating franchise: %w", err)
 	}
+	slog.Debug("MigrateLegacyFranchise: franchise created", "id", newFranchise.ID)
 
 	// cleanupFranchise deletes the newly created franchise if the migration fails,
 	// preventing an orphaned registry entry and empty companion DB. The companion DB
 	// must be closed before calling this on Windows (open files cannot be deleted).
 	cleanupFranchise := func() {
 		if delErr := a.franchiseService.DeleteFranchise(a.ctx, newFranchise.ID); delErr != nil {
-			log.Printf("MigrateLegacyFranchise: cleanup after failure: %v", delErr)
+			slog.Error("MigrateLegacyFranchise: cleanup after failure", "err", delErr)
 		}
 	}
 
@@ -145,10 +148,16 @@ func (a *App) MigrateLegacyFranchise(
 		a.ctx, legacyDB, legacyFranchiseID, companionDB, leagueGUID,
 	)
 	if err != nil {
+		slog.Error("MigrateLegacyFranchise: migration failed", "legacyID", legacyFranchiseID, "err", err)
 		_ = companionDB.Close()
 		cleanupFranchise()
 		return MigrateLegacyResult{}, fmt.Errorf("migrating franchise: %w", err)
 	}
+	slog.Info("MigrateLegacyFranchise: complete",
+		"franchiseID", newFranchise.ID,
+		"seasons", migResult.SeasonsMigrated,
+		"players", migResult.PlayersMigrated,
+	)
 
 	return MigrateLegacyResult{
 		FranchiseID:     newFranchise.ID,

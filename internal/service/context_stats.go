@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"smb-tools/internal/models"
 	"smb-tools/internal/store"
@@ -135,6 +136,7 @@ func ComputePitchingWAR(eraPlus, fipMinus *float64, outsPitched int) *float64 {
 // computes LeagueStats, then updates every player batting/pitching row with
 // OPS+, ERA+, FIP, FIP−, and smbWAR. All DB calls use db (typically a *sql.Tx).
 func ApplyContextStats(ctx context.Context, db store.DBTX, seasonID int64, isRegularSeason bool) error {
+	slog.Debug("ApplyContextStats: starting", "seasonID", seasonID, "regularSeason", isRegularSeason)
 	cs := store.NewContextStatsStore(db)
 
 	bt, err := cs.GetLeagueBattingTotals(ctx, seasonID, isRegularSeason)
@@ -181,6 +183,7 @@ func ApplyContextStats(ctx context.Context, db store.DBTX, seasonID int64, isReg
 	if err := applyPitchingContextStats(ctx, cs, seasonID, isRegularSeason, lg); err != nil {
 		return fmt.Errorf("ApplyContextStats pitching: %w", err)
 	}
+	slog.Debug("ApplyContextStats: complete", "seasonID", seasonID, "regularSeason", isRegularSeason)
 	return nil
 }
 
@@ -244,6 +247,7 @@ func applyPitchingContextStats(
 // (regular_season, playoffs, total_career) for each player in playerIDs.
 // Must be called after ApplyContextStats so per-season smb_war values are set.
 func ApplyCareerStats(ctx context.Context, db store.DBTX, playerIDs []int64) error {
+	slog.Debug("ApplyCareerStats: starting", "players", len(playerIDs))
 	cs := store.NewCareerStatsStore(db)
 	statTypes := []models.CareerStatType{
 		models.CareerStatTypeRegularSeason,
@@ -260,6 +264,7 @@ func ApplyCareerStats(ctx context.Context, db store.DBTX, playerIDs []int64) err
 			}
 		}
 	}
+	slog.Debug("ApplyCareerStats: complete", "players", len(playerIDs))
 	return nil
 }
 

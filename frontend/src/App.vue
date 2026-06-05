@@ -4,7 +4,9 @@ import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
 import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { EventsOn } from '../wailsjs/runtime/runtime'
 import AppButton from './components/AppButton.vue'
+import BugReportDialog from './components/BugReportDialog.vue'
 import FranchiseCreate from './components/FranchiseCreate.vue'
 import FranchiseSelector from './components/FranchiseSelector.vue'
 import GlobalSearch from './components/GlobalSearch.vue'
@@ -17,10 +19,14 @@ const franchiseStore = useFranchiseStore()
 const { crumbs, clear: clearCrumbs } = useBreadcrumbs()
 const toast = useToast()
 const showCreate = ref(false)
+const showBugReport = ref(false)
 const error = ref<string | null>(null)
 
 onMounted(async () => {
   await franchiseStore.loadFranchises()
+  EventsOn('openBugReport', () => {
+    showBugReport.value = true
+  })
 })
 
 // Reload the franchise list whenever the user navigates back to the selector
@@ -76,6 +82,7 @@ function goToCrumb(historyPosition: number) {
   <div id="app-root">
     <ConfirmDialog />
     <Toast position="bottom-center" />
+    <BugReportDialog v-model:visible="showBugReport" />
     <!-- Loading state -->
     <div v-if="franchiseStore.loading" class="fullscreen-center">
       <span class="loading-text">Loading…</span>

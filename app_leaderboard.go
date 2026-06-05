@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log/slog"
 	"strconv"
 )
 
@@ -12,6 +13,7 @@ func (a *App) GetBattingCareerLeaders(filters LeaderboardFiltersDTO) (BattingLea
 	}
 	rows, total, err := a.leaderboardQueryStore.GetBattingCareerLeaders(a.ctx, leaderboardFiltersToDomain(filters))
 	if err != nil {
+		slog.Error("GetBattingCareerLeaders", "err", err)
 		return BattingLeaderPageDTO{}, err
 	}
 	out := make([]BattingLeaderRowDTO, len(rows))
@@ -29,6 +31,7 @@ func (a *App) GetBattingSeasonLeaders(filters LeaderboardFiltersDTO) (BattingLea
 	}
 	rows, total, err := a.leaderboardQueryStore.GetBattingSeasonLeaders(a.ctx, leaderboardFiltersToDomain(filters))
 	if err != nil {
+		slog.Error("GetBattingSeasonLeaders", "err", err)
 		return BattingLeaderPageDTO{}, err
 	}
 	out := make([]BattingLeaderRowDTO, len(rows))
@@ -46,6 +49,7 @@ func (a *App) GetPitchingCareerLeaders(filters LeaderboardFiltersDTO) (PitchingL
 	}
 	rows, total, err := a.leaderboardQueryStore.GetPitchingCareerLeaders(a.ctx, leaderboardFiltersToDomain(filters))
 	if err != nil {
+		slog.Error("GetPitchingCareerLeaders", "err", err)
 		return PitchingLeaderPageDTO{}, err
 	}
 	out := make([]PitchingLeaderRowDTO, len(rows))
@@ -63,6 +67,7 @@ func (a *App) GetPitchingSeasonLeaders(filters LeaderboardFiltersDTO) (PitchingL
 	}
 	rows, total, err := a.leaderboardQueryStore.GetPitchingSeasonLeaders(a.ctx, leaderboardFiltersToDomain(filters))
 	if err != nil {
+		slog.Error("GetPitchingSeasonLeaders", "err", err)
 		return PitchingLeaderPageDTO{}, err
 	}
 	out := make([]PitchingLeaderRowDTO, len(rows))
@@ -79,10 +84,13 @@ func (a *App) GetStatHighlights() (StatHighlightsDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
 		return StatHighlightsDTO{}, err
 	}
+	slog.Debug("GetStatHighlights: fetching")
 	cache, err := a.statRecordsService.Get(a.ctx)
 	if err != nil {
+		slog.Error("GetStatHighlights", "err", err)
 		return StatHighlightsDTO{}, err
 	}
+	slog.Debug("GetStatHighlights: done")
 
 	leadersBatting := make(map[string]map[string][]int64, len(cache.LeagueLeadersBatting))
 	for seasonNum, stats := range cache.LeagueLeadersBatting {
