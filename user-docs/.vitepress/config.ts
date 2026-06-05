@@ -6,11 +6,23 @@ export default defineConfig({
   base: '/smb-tools/',
   lang: 'en-US',
   lastUpdated: true,
+  head: [['link', { rel: 'icon', href: '/smb-tools/logo.png' }]],
   themeConfig: {
+    logo: '/logo.png',
     nav: [
       { text: 'Home', link: '/' },
+      { text: 'Getting Started', link: '/getting-started' },
+      { text: 'User Guide', link: '/user-guide' },
     ],
-    sidebar: [],
+    sidebar: [
+      {
+        text: 'Guide',
+        items: [
+          { text: 'Getting Started', link: '/getting-started' },
+          { text: 'User Guide', link: '/user-guide' },
+        ],
+      },
+    ],
     socialLinks: [
       { icon: 'github', link: 'https://github.com/tbrittain/smb-tools' },
     ],
