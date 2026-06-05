@@ -4,26 +4,26 @@ title: Getting Started
 
 # Getting Started
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+smb-tools is a franchise history tracker and stat viewer for Super Mega Baseball 4. Think Baseball Reference, but for the franchise you have been running for the past three years — career leaderboards, season-by-season stat lines, Hall of Fame management, the complete picture that the game itself never gives you.
 
-## Installation
+## Where It Comes From
 
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+Two apps came before this one.
 
-Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.
+**SMB3Explorer** was a data extraction tool. Super Mega Baseball stores rich per-season statistics in its save file — batting averages, ERA, player attribute snapshots, schedule results — but never fully surfaces them in its own UI. SMB3Explorer cracked the save file open and exported everything as CSV files so players could actually use it.
 
-## First Steps
+**SmbExplorerCompanion** was the franchise history viewer built to consume those CSV files. It maintained its own database of franchise history across seasons, kept stats well beyond the game's built-in 50-season limit, and presented everything through a Baseball Reference-style interface.
 
-Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet.
+Together they worked, but the workflow was cumbersome: run SMB3Explorer to produce CSV exports, import those CSVs into SmbExplorerCompanion, then view the stats. Two separate Windows-only applications, both requiring the .NET 7 runtime, with a manual multi-step handoff every time you wanted to sync a new season.
 
-At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident.
+**smb-tools is a re-envisioning of both.** It reads your save file directly — no CSV exports, no separate export step, no intermediary files. Syncing a season is a single button click. And it runs on Windows, macOS, and Linux.
 
-### Connecting a Save File
+## What It Does
 
-Similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio.
+**Franchise stat tracking** is the core of the app. After a brief first-time setup, you connect smb-tools to your SMB4 franchise save and sync each season as you finish it. The app builds a permanent record of everything the game would eventually discard: career statistics, season-by-season breakdowns, player development over time, award history, Hall of Fame, and franchise leaderboards going back as far as you have been playing.
 
-Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus.
+**The team transfer tool** — coming in a later release — extends the app into territory neither original app ever touched: packaging up entire leagues and moving teams between save games, with a full save game editor for making large-scale changes to rosters and attributes. This is the most-requested community feature for SMB4, and smb-tools is building it as a first-class part of the app.
 
-## Next Steps
+## A Note on Game Version
 
-Temporibus autem quibusdam et aut officiis debitis aut rerum necessitatibus saepe eveniet ut et voluptates repudiandae sint et molestiae non recusandae. Itaque earum rerum hic tenetur a sapiente delectus, ut aut reiciendis voluptatibus maiores.
+smb-tools currently works with **Super Mega Baseball 4** save files. If you tracked your franchise history in SmbExplorerCompanion, you can bring that data forward — see [Importing from SmbExplorerCompanion](./legacy-migration).
