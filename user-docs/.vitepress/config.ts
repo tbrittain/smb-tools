@@ -30,6 +30,12 @@ export default defineConfig({
           { text: 'Franchise Forking', link: '/franchise-forking' },
         ],
       },
+      {
+        text: 'Data & Exports',
+        items: [
+          { text: 'CSV Exports', link: '/csv-exports' },
+        ],
+      },
     ],
     socialLinks: [
       { icon: 'github', link: 'https://github.com/tbrittain/smb-tools' },
