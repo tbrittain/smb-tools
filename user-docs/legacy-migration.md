@@ -8,10 +8,6 @@ If you tracked your franchise history with **SmbExplorerCompanion** (the predece
 
 Both SMB3 and SMB4 franchises stored in SmbExplorerCompanion can be imported.
 
-::: info What is not migrated
-Team logos are not migrated. All other franchise history — seasons, teams, players, stats, and awards — is imported.
-:::
-
 ## Starting the Import
 
 From the franchise selector screen, click **Import from SmbExplorerCompanion**. smb-tools will look for your database file in the default location. If it finds one, it will show a banner with the detected path and a **Use this file** button.
@@ -32,7 +28,7 @@ On the next screen, you can confirm or change the name of each franchise. The fi
 
 The confirmation screen lists what will be created. Review the names and game versions, then click **Import** to proceed.
 
-The import runs sequentially. When it finishes, you'll see a summary for each franchise showing how many seasons, teams, players, and awards were migrated. If any logos in the database were skipped, the count is shown separately.
+The import runs sequentially. When it finishes, you'll see a summary for each franchise showing how many seasons, teams, players, and awards were migrated.
 
 ## After Import: Connecting a Save File
 
