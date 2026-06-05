@@ -11,35 +11,30 @@ export default defineConfig({
     logo: '/logo.png',
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Getting Started', link: '/getting-started' },
-      { text: 'User Guide', link: '/user-guide' },
+      { text: 'Franchise Stat Tracking', link: '/save-game-setup' },
+      { text: 'Team Transfer Tool', link: '/team-transfer' },
     ],
     sidebar: [
       {
-        text: 'Guide',
+        text: 'Introduction',
         items: [
           { text: 'Getting Started', link: '/getting-started' },
           { text: 'User Guide', link: '/user-guide' },
         ],
       },
       {
-        text: 'Core Workflows',
+        text: 'Franchise Stat Tracking',
         items: [
           { text: 'Save Game Setup & Season Sync', link: '/save-game-setup' },
           { text: 'Importing from SmbExplorerCompanion', link: '/legacy-migration' },
           { text: 'Franchise Forking', link: '/franchise-forking' },
-        ],
-      },
-      {
-        text: 'Data & Exports',
-        items: [
           { text: 'CSV Exports', link: '/csv-exports' },
         ],
       },
       {
-        text: 'Tools',
+        text: 'Team Transfer Tool',
         items: [
-          { text: 'Team Transfer Tool', link: '/team-transfer' },
+          { text: 'Overview', link: '/team-transfer' },
         ],
       },
     ],
