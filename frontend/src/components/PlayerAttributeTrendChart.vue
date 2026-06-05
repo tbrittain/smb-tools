@@ -116,7 +116,9 @@ const PITCHER_ATTRS: AttrDef[] = [
   },
 ]
 
-const activeAttrs = computed<AttrDef[]>(() => (props.isPitcher ? [...BATTER_ATTRS, ...PITCHER_ATTRS] : BATTER_ATTRS))
+const activeAttrs = computed<AttrDef[]>(() =>
+  props.isPitcher ? [...BATTER_ATTRS.filter((a) => a.key !== 'arm'), ...PITCHER_ATTRS] : BATTER_ATTRS,
+)
 
 const xAxisData = computed(() => props.seasons.map((s) => `S${s.seasonNum}`))
 
