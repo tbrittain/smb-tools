@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 
 	"smb-tools/internal/store"
 )
@@ -49,17 +50,22 @@ func (s *SyncService) SyncSeason(
 	leagueGUID string,
 	seasonOffset int,
 ) (SyncResult, error) {
+	slog.Info("sync: detecting current season")
 	seasonInfo, err := reader.GetCurrentSeason(ctx, leagueGUID)
 	if err != nil {
+		slog.Error("sync: detecting current season", "err", err)
 		return SyncResult{}, fmt.Errorf("detecting current season: %w", err)
 	}
 
 	displaySeasonNum := seasonInfo.SeasonNum + seasonOffset
+	slog.Info("sync: taking snapshot", "seasonNum", displaySeasonNum)
 
 	snapshotID, isNew, err := s.snapshot.TakeSnapshotFromFile(ctx, saveFilePath, displaySeasonNum)
 	if err != nil {
+		slog.Error("sync: taking snapshot", "seasonNum", displaySeasonNum, "err", err)
 		return SyncResult{}, fmt.Errorf("taking snapshot for season %d: %w", displaySeasonNum, err)
 	}
+	slog.Info("sync: snapshot captured", "snapshotID", snapshotID, "isNew", isNew)
 
 	importResult, err := s.importer.ImportSeason(
 		ctx, companionDB, reader,
@@ -67,8 +73,10 @@ func (s *SyncService) SyncSeason(
 		leagueGUID, seasonOffset,
 	)
 	if err != nil {
+		slog.Error("sync: importing season", "seasonNum", displaySeasonNum, "err", err)
 		return SyncResult{}, fmt.Errorf("importing season %d: %w", displaySeasonNum, err)
 	}
+	slog.Info("sync: complete", "seasonNum", displaySeasonNum)
 
 	return SyncResult{
 		SeasonID:      importResult.SeasonID,

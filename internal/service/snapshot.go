@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -40,6 +41,7 @@ func (s *SnapshotService) TakeSnapshot(ctx context.Context, decompressedBytes []
 		return 0, false, fmt.Errorf("checking latest snapshot hash: %w", err)
 	}
 	if latest == hash { //nolint:gocritic // comparing same named types
+		slog.Debug("snapshot: identical to last — skipping", "seasonNum", seasonNum)
 		return 0, false, nil // identical to last snapshot — skip
 	}
 
@@ -69,6 +71,7 @@ func (s *SnapshotService) TakeSnapshot(ctx context.Context, decompressedBytes []
 		_ = os.Remove(fullPath)
 		return 0, false, fmt.Errorf("recording snapshot metadata: %w", err)
 	}
+	slog.Info("snapshot: captured", "seasonNum", seasonNum, "id", snapshotID, "file", string(fileName))
 	return snapshotID, true, nil
 }
 

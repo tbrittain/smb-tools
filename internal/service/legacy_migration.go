@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"smb-tools/internal/models"
 	"smb-tools/internal/store"
@@ -115,6 +116,7 @@ func (svc *LegacyMigrationService) Migrate(
 	companionDB *sql.DB,
 	leagueGUID string,
 ) (MigrationResult, error) {
+	slog.Info("legacy migration: starting", "legacyFranchiseID", legacyFranchiseID)
 	reader, err := store.NewLegacyCompanionReader(ctx, legacyDB)
 	if err != nil {
 		return MigrationResult{}, fmt.Errorf("creating legacy reader: %w", err)
@@ -122,8 +124,13 @@ func (svc *LegacyMigrationService) Migrate(
 
 	data, err := readLegacyData(ctx, reader, legacyFranchiseID)
 	if err != nil {
+		slog.Error("legacy migration: reading data", "err", err)
 		return MigrationResult{}, err
 	}
+	slog.Debug("legacy migration: data read",
+		"seasons", len(data.seasons),
+		"players", len(data.players),
+	)
 
 	logosSkipped, err := svc.countLogos(ctx, legacyDB, legacyFranchiseID)
 	if err != nil {
@@ -162,6 +169,12 @@ func (svc *LegacyMigrationService) Migrate(
 	if err = tx.Commit(); err != nil {
 		return MigrationResult{}, fmt.Errorf("committing migration transaction: %w", err)
 	}
+	slog.Info("legacy migration: complete",
+		"legacyFranchiseID", legacyFranchiseID,
+		"seasons", result.SeasonsMigrated,
+		"players", result.PlayersMigrated,
+		"awards", result.AwardsMigrated,
+	)
 	return result, nil
 }
 

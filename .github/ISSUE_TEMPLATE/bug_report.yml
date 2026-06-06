@@ -1,0 +1,68 @@
+name: Bug report
+description: Report something that isn't working.
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Found in the title bar or Help → About. Example: v1.0.0-rc.1
+      placeholder: v1.0.0-rc.1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - Windows 10
+        - Windows 11
+        - macOS 14 (Sonoma)
+        - macOS 15 (Sequoia)
+        - Linux
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What did you do before the issue occurred?
+      placeholder: |
+        1. Open franchise "..."
+        2. Click "Sync Season"
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log output
+      description: >
+        Paste the log tail from Help → Report a Bug, or attach the full session log file from
+        your smb-tools data directory (logs/ folder). Optional but very helpful for diagnosing crashes.
+      render: shell
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Anything else that might be relevant — save file details, franchise history, etc.

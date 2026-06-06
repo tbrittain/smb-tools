@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"strings"
+	"time"
 
 	"smb-tools/internal/models"
 	"smb-tools/internal/store"
@@ -49,6 +51,7 @@ func (svc *ImportService) ImportSeason(
 	leagueGUID string,
 	seasonOffset int,
 ) (ImportResult, error) {
+	start := time.Now()
 	tx, err := companionDB.BeginTx(ctx, nil)
 	if err != nil {
 		return ImportResult{}, fmt.Errorf("beginning import transaction: %w", err)
@@ -67,6 +70,14 @@ func (svc *ImportService) ImportSeason(
 	if err = tx.Commit(); err != nil {
 		return ImportResult{}, fmt.Errorf("committing import transaction: %w", err)
 	}
+	slog.Info("import: complete",
+		"seasonNum", result.SeasonNum,
+		"players", result.Players,
+		"teams", result.Teams,
+		"games", result.Games,
+		"playoffGames", result.PlayoffGames,
+		"duration", time.Since(start).Round(time.Millisecond),
+	)
 	return result, nil
 }
 
@@ -87,8 +98,10 @@ func (svc *ImportService) importInTx(
 	playerStore := store.NewPlayerSeasonStore(tx)
 	scheduleStore := store.NewScheduleStore(tx)
 
+	start := time.Now()
 	displaySeasonNum := saveGameSeasonNum + seasonOffset
 	result := ImportResult{SeasonNum: displaySeasonNum}
+	slog.Info("import: starting", "seasonNum", displaySeasonNum)
 
 	// ── 1. Season record ────────────────────────────────────────────────────
 	companionSeasonID, err := seasonStore.Upsert(ctx, store.Season{
@@ -97,81 +110,112 @@ func (svc *ImportService) importInTx(
 		SeasonNum:        displaySeasonNum,
 	})
 	if err != nil {
+		slog.Error("import: step 1 failed", "step", "upsert season", "err", err)
 		return result, fmt.Errorf("upserting season: %w", err)
 	}
 	result.SeasonID = companionSeasonID
+	slog.Debug("import: step 1 complete", "step", "season record", "seasonID", companionSeasonID)
 
 	// ── 2. Teams ────────────────────────────────────────────────────────────
 	teamGUIDToHistoryID, teamNameToHistoryID, teamCount, err := svc.importTeams(ctx, teamStore, reader, saveGameSeasonID, companionSeasonID)
 	if err != nil {
+		slog.Error("import: step 2 failed", "step", "teams", "err", err)
 		return result, err
 	}
 	result.Teams = teamCount
+	slog.Debug("import: step 2 complete", "step", "teams", "teams", teamCount)
 
 	// ── 3. Players ──────────────────────────────────────────────────────────
 	playerGUIDToSeasonID, playerIDs, err := svc.importPlayers(ctx, playerStore, reader, saveGameSeasonID, companionSeasonID, teamNameToHistoryID)
 	if err != nil {
+		slog.Error("import: step 3 failed", "step", "players", "err", err)
 		return result, err
 	}
 	result.Players = len(playerGUIDToSeasonID)
+	slog.Debug("import: step 3 complete", "step", "players", "players", result.Players)
 
 	// ── 4. League attribute averages ────────────────────────────────────────
 	// Runs after all game stats are written (step 3) so the aggregate is complete.
 	if err := ApplyLeagueAvgAttributes(ctx, tx, companionSeasonID); err != nil {
+		slog.Error("import: step 4 failed", "step", "league attribute averages", "err", err)
 		return result, fmt.Errorf("computing league attribute averages: %w", err)
 	}
+	slog.Debug("import: step 4 complete", "step", "league attribute averages")
 
 	// ── 5. Player attribute percentiles ─────────────────────────────────────
 	// Runs after game stats (step 3) so PERCENT_RANK has complete season data.
 	if err := ApplyPlayerAttributePercentiles(ctx, tx, companionSeasonID); err != nil {
+		slog.Error("import: step 5 failed", "step", "player attribute percentiles", "err", err)
 		return result, fmt.Errorf("computing player attribute percentiles: %w", err)
 	}
+	slog.Debug("import: step 5 complete", "step", "player attribute percentiles")
 
 	// ── 6–9. Batting and pitching stats (regular season + playoffs) ─────────
 	if err := svc.importBattingStats(ctx, playerStore, reader, saveGameSeasonID, true, playerGUIDToSeasonID); err != nil {
+		slog.Error("import: step 6 failed", "step", "regular season batting stats", "err", err)
 		return result, fmt.Errorf("importing regular season batting stats: %w", err)
 	}
+	slog.Debug("import: step 6 complete", "step", "regular season batting stats")
+
 	if err := svc.importPitchingStats(ctx, playerStore, reader, saveGameSeasonID, true, playerGUIDToSeasonID); err != nil {
+		slog.Error("import: step 7 failed", "step", "regular season pitching stats", "err", err)
 		return result, fmt.Errorf("importing regular season pitching stats: %w", err)
 	}
+	slog.Debug("import: step 7 complete", "step", "regular season pitching stats")
+
 	if err := svc.importBattingStats(ctx, playerStore, reader, saveGameSeasonID, false, playerGUIDToSeasonID); err != nil {
+		slog.Error("import: step 8 failed", "step", "playoff batting stats", "err", err)
 		return result, fmt.Errorf("importing playoff batting stats: %w", err)
 	}
+	slog.Debug("import: step 8 complete", "step", "playoff batting stats")
+
 	if err := svc.importPitchingStats(ctx, playerStore, reader, saveGameSeasonID, false, playerGUIDToSeasonID); err != nil {
+		slog.Error("import: step 9 failed", "step", "playoff pitching stats", "err", err)
 		return result, fmt.Errorf("importing playoff pitching stats: %w", err)
 	}
+	slog.Debug("import: step 9 complete", "step", "playoff pitching stats")
 
 	// ── 10. Context stats (OPS+, ERA+, FIP, FIP-, smbWAR) ──────────────────
 	// Runs after all counting stats are written so league aggregates are complete.
 	if err := ApplyContextStats(ctx, tx, companionSeasonID, true); err != nil {
+		slog.Error("import: step 10 failed", "step", "context stats (regular season)", "err", err)
 		return result, fmt.Errorf("computing context stats (regular season): %w", err)
 	}
 	if err := ApplyContextStats(ctx, tx, companionSeasonID, false); err != nil {
+		slog.Error("import: step 10 failed", "step", "context stats (playoffs)", "err", err)
 		return result, fmt.Errorf("computing context stats (playoffs): %w", err)
 	}
+	slog.Debug("import: step 10 complete", "step", "context stats")
 
 	// ── 11. Career stats ─────────────────────────────────────────────────────
 	// Must run after ApplyContextStats so per-season smb_war values are set.
 	if err := ApplyCareerStats(ctx, tx, playerIDs); err != nil {
+		slog.Error("import: step 11 failed", "step", "career stats", "err", err)
 		return result, fmt.Errorf("computing career stats: %w", err)
 	}
+	slog.Debug("import: step 11 complete", "step", "career stats", "players", len(playerIDs))
 
 	// ── 12. Regular season schedule ──────────────────────────────────────────
 	if err := scheduleStore.DeleteSeasonSchedule(ctx, companionSeasonID); err != nil {
+		slog.Error("import: step 12 failed", "step", "clear old schedule", "err", err)
 		return result, fmt.Errorf("clearing old schedule: %w", err)
 	}
 	gameCount, err := svc.importRegularSeasonSchedule(ctx, scheduleStore, reader, saveGameSeasonID, companionSeasonID, teamGUIDToHistoryID, playerGUIDToSeasonID)
 	if err != nil {
+		slog.Error("import: step 12 failed", "step", "regular season schedule", "err", err)
 		return result, err
 	}
 	result.Games = gameCount
+	slog.Debug("import: step 12 complete", "step", "regular season schedule", "games", gameCount)
 
 	// ── 13. Playoff schedule + seeds ─────────────────────────────────────────
 	playoffCount, err := svc.importPlayoffScheduleAndSeeds(ctx, scheduleStore, teamStore, reader, saveGameSeasonID, companionSeasonID, teamGUIDToHistoryID, playerGUIDToSeasonID)
 	if err != nil {
+		slog.Error("import: step 13 failed", "step", "playoff schedule", "err", err)
 		return result, err
 	}
 	result.PlayoffGames = playoffCount
+	slog.Debug("import: step 13 complete", "step", "playoff schedule", "games", playoffCount)
 
 	// ── 14. Playoff config ────────────────────────────────────────────────────
 	// Prefer the authoritative values from t_playoffs; fall back to inference
@@ -179,17 +223,21 @@ func (svc *ImportService) importInTx(
 	// missing and the legacy import path).
 	cfg, err := reader.GetSeasonPlayoffConfig(ctx, saveGameSeasonID)
 	if err != nil {
+		slog.Error("import: step 14 failed", "step", "playoff config", "err", err)
 		return result, fmt.Errorf("reading playoff config: %w", err)
 	}
 	if cfg != nil {
 		if err := seasonStore.UpdatePlayoffConfig(ctx, companionSeasonID, cfg.Rounds, cfg.SeriesLength); err != nil {
+			slog.Error("import: step 14 failed", "step", "persist playoff config", "err", err)
 			return result, fmt.Errorf("persisting playoff config: %w", err)
 		}
 	} else if playoffCount > 0 {
 		if err := seasonStore.InferAndSetPlayoffConfig(ctx, companionSeasonID); err != nil {
+			slog.Error("import: step 14 failed", "step", "infer playoff config", "err", err)
 			return result, fmt.Errorf("inferring playoff config: %w", err)
 		}
 	}
+	slog.Debug("import: step 14 complete", "step", "playoff config", "duration", time.Since(start).Round(time.Millisecond))
 
 	return result, nil
 }

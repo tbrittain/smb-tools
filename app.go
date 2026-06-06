@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
+	"os"
 
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"smb-tools/internal/config"
 	internaldb "smb-tools/internal/db"
+	"smb-tools/internal/logger"
 	"smb-tools/internal/models"
 	"smb-tools/internal/service"
 	"smb-tools/internal/store"
@@ -29,6 +31,8 @@ type App struct {
 	ctx                 context.Context
 	version             string
 	dirs                *config.AppDirs
+	logFilePath         string   // path to current session log file; empty if logger failed
+	logCleanup          func()   // closes the session log file
 	registryDB          *sql.DB
 	companionDB         *sql.DB // active franchise companion DB; nil if none selected
 	activeFranchise     *models.Franchise
@@ -63,14 +67,24 @@ func (a *App) startup(ctx context.Context) {
 
 	dirs, err := config.NewAppDirs()
 	if err != nil {
-		log.Printf("startup: resolving app directories: %v", err)
+		fmt.Fprintf(os.Stderr, "startup: resolving app directories: %v\n", err)
 		return
 	}
 	a.dirs = dirs
 
+	cleanup, sessionFile, err := logger.Setup(dirs.LogsDir, a.version == "dev")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "startup: initializing logger: %v\n", err)
+	} else {
+		a.logCleanup = cleanup
+		a.logFilePath = sessionFile
+	}
+
+	slog.Info("startup", "version", a.version)
+
 	registryDB, err := internaldb.OpenRegistry(ctx, dirs.RegistryPath)
 	if err != nil {
-		log.Printf("startup: opening registry DB: %v", err)
+		slog.Error("startup: opening registry DB", "err", err)
 		return
 	}
 	a.registryDB = registryDB
@@ -89,32 +103,43 @@ func (a *App) startup(ctx context.Context) {
 
 func (a *App) setupMenu(ctx context.Context) {
 	appMenu := menu.NewMenu()
+
 	fileMenu := appMenu.AddSubmenu("File")
 	fileMenu.AddText("Open App Data Directory", nil, func(_ *menu.CallbackData) {
 		if a.dirs == nil {
 			return
 		}
 		if err := openDirectory(a.dirs.DataDir); err != nil {
-			log.Printf("open app data dir: %v", err)
+			slog.Error("open app data dir", "err", err)
 		}
 	})
 	fileMenu.AddSeparator()
 	fileMenu.AddText("View Documentation", nil, func(_ *menu.CallbackData) {
 		runtime.BrowserOpenURL(ctx, docsURL)
 	})
+
+	helpMenu := appMenu.AddSubmenu("Help")
+	helpMenu.AddText("Report a Bug", nil, func(_ *menu.CallbackData) {
+		runtime.EventsEmit(ctx, "openBugReport")
+	})
+
 	runtime.MenuSetApplicationMenu(ctx, appMenu)
 }
 
 func (a *App) shutdown(_ context.Context) {
 	if a.companionDB != nil {
 		if err := a.companionDB.Close(); err != nil {
-			log.Printf("shutdown: closing companion DB: %v", err)
+			slog.Error("shutdown: closing companion DB", "err", err)
 		}
 	}
 	if a.registryDB != nil {
 		if err := a.registryDB.Close(); err != nil {
-			log.Printf("shutdown: closing registry DB: %v", err)
+			slog.Error("shutdown: closing registry DB", "err", err)
 		}
+	}
+	slog.Info("shutdown")
+	if a.logCleanup != nil {
+		a.logCleanup()
 	}
 }
 

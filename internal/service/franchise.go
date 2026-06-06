@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/google/uuid"
@@ -45,6 +46,7 @@ func (s *FranchiseService) CreateFranchise(
 	saveFilePath string,
 	leagueGUID string,
 ) (models.Franchise, error) {
+	slog.Info("FranchiseService.CreateFranchise", "name", name, "version", version)
 	if name == "" {
 		return models.Franchise{}, fmt.Errorf("franchise name must not be empty")
 	}
@@ -86,6 +88,7 @@ func (s *FranchiseService) CreateFranchise(
 		}
 	}
 
+	slog.Info("FranchiseService.CreateFranchise: created", "id", id)
 	return f, nil
 }
 
@@ -108,6 +111,7 @@ func (s *FranchiseService) OpenFranchise(ctx context.Context, id string) (*sql.D
 // then deletes the companion DB file and snapshots directory from disk.
 // This is irreversible.
 func (s *FranchiseService) DeleteFranchise(ctx context.Context, id string) error {
+	slog.Info("FranchiseService.DeleteFranchise", "id", id)
 	if err := s.sources.DeleteByFranchise(ctx, id); err != nil {
 		return fmt.Errorf("removing franchise sources: %w", err)
 	}
@@ -117,5 +121,6 @@ func (s *FranchiseService) DeleteFranchise(ctx context.Context, id string) error
 	if err := os.RemoveAll(s.dirs.FranchiseDir(id)); err != nil {
 		return fmt.Errorf("removing franchise directory: %w", err)
 	}
+	slog.Info("FranchiseService.DeleteFranchise: deleted", "id", id)
 	return nil
 }

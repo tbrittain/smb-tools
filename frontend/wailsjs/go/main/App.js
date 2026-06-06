@@ -214,12 +214,20 @@ export function ListSnapshots() {
   return window['go']['main']['App']['ListSnapshots']();
 }
 
+export function LogFrontendError(arg1, arg2, arg3) {
+  return window['go']['main']['App']['LogFrontendError'](arg1, arg2, arg3);
+}
+
 export function MigrateLegacyFranchise(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['MigrateLegacyFranchise'](arg1, arg2, arg3, arg4);
 }
 
 export function OpenAppDataDir() {
   return window['go']['main']['App']['OpenAppDataDir']();
+}
+
+export function OpenBugReport(arg1) {
+  return window['go']['main']['App']['OpenBugReport'](arg1);
 }
 
 export function ProbeFranchiseSaveFile(arg1) {

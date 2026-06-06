@@ -10,6 +10,7 @@ import ConfirmationService from 'primevue/confirmationservice'
 import ToastService from 'primevue/toastservice'
 import Tooltip from 'primevue/tooltip'
 import { createApp } from 'vue'
+import { LogFrontendError } from '../wailsjs/go/main/App'
 import App from './App.vue'
 import router from './router'
 import './assets/tokens.css'
@@ -34,5 +35,18 @@ app.use(PrimeVue, {
 })
 
 app.directive('tooltip', Tooltip)
+
+app.config.errorHandler = (err, _instance, info) => {
+  const msg = err instanceof Error ? err.message : String(err)
+  const stack = err instanceof Error ? (err.stack ?? '') : ''
+  LogFrontendError(msg, stack, info ?? '')
+}
+
+window.addEventListener('unhandledrejection', (event) => {
+  const r = event.reason
+  const msg = r instanceof Error ? r.message : String(r)
+  const stack = r instanceof Error ? (r.stack ?? '') : ''
+  LogFrontendError(msg, stack, 'unhandledrejection')
+})
 
 app.mount('#app')

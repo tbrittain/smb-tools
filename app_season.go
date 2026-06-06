@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strconv"
 	"strings"
@@ -176,11 +177,13 @@ func (a *App) SearchTeams(query string) ([]TeamSearchResultDTO, error) {
 // GetPlayerCareer returns a player's bio and career regular-season totals.
 // Rate stats are read from pre-computed career tables — no on-read computation.
 func (a *App) GetPlayerCareer(playerID int64) (PlayerCareerDTO, error) {
+	slog.Debug("GetPlayerCareer", "playerID", playerID)
 	if err := a.requireCompanionDB(); err != nil {
 		return PlayerCareerDTO{}, err
 	}
 	career, err := a.playerQueryStore.GetPlayerCareer(a.ctx, playerID)
 	if err != nil {
+		slog.Error("GetPlayerCareer", "playerID", playerID, "err", err)
 		return PlayerCareerDTO{}, err
 	}
 	return PlayerCareerDTO{
@@ -368,12 +371,14 @@ func (a *App) GetTeamTopPlayers(teamID int64) ([]TeamTopPlayerDTO, error) {
 // team season. Rate stats are computed on roster players before returning.
 // Only teamHistoryID is required — seasonID is derived from the team summary.
 func (a *App) GetTeamSeasonDetail(teamHistoryID int64) (TeamSeasonDetailDTO, error) {
+	slog.Debug("GetTeamSeasonDetail", "teamHistoryID", teamHistoryID)
 	if err := a.requireCompanionDB(); err != nil {
 		return TeamSeasonDetailDTO{}, err
 	}
 
 	teamSummary, err := a.teamQueryStore.GetTeamSeasonSummaryByHistoryID(a.ctx, teamHistoryID)
 	if err != nil {
+		slog.Error("GetTeamSeasonDetail: team summary", "teamHistoryID", teamHistoryID, "err", err)
 		return TeamSeasonDetailDTO{}, fmt.Errorf("team summary: %w", err)
 	}
 	seasonID := teamSummary.SeasonID

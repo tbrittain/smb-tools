@@ -16,6 +16,8 @@ type AppDirs struct {
 	RegistryPath string
 	// FranchisesDir is the directory containing per-franchise subdirectories.
 	FranchisesDir string
+	// LogsDir is the directory containing session log files.
+	LogsDir string
 }
 
 // NewAppDirs resolves platform-specific app data directories and ensures
@@ -33,6 +35,7 @@ func NewAppDirs() (*AppDirs, error) {
 		DataDir:       dataDir,
 		RegistryPath:  filepath.Join(dataDir, "registry.db"),
 		FranchisesDir: franchisesDir,
+		LogsDir:       filepath.Join(dataDir, "logs"),
 	}, nil
 }
 
