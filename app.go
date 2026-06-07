@@ -188,7 +188,11 @@ func (a *App) CheckForUpdate() UpdateInfo {
 		slog.Warn("CheckForUpdate: request failed", "err", err)
 		return UpdateInfo{}
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			slog.Warn("CheckForUpdate: close response body", "err", cerr)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		slog.Warn("CheckForUpdate: unexpected status", "status", resp.StatusCode)
