@@ -117,6 +117,12 @@ npm run test           # Vitest
 wails dev              # Full app in dev mode (hot reload)
 wails build            # Build for current platform — also regenerates wailsjs/ bindings
                        # Run this after any Go binding/DTO changes and before opening a PR
+
+# Testing update-check behavior
+# CheckForUpdate() exits early for "dev" builds, so inject a fake old version:
+wails dev -ldflags "-X main.Version=v0.0.1"
+# The update check fires in a background goroutine — give it a few seconds after
+# startup before expecting the menu item or sidebar label to appear.
 ```
 
 ## Save Game SQL — Real Schema Required

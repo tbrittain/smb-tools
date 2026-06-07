@@ -295,6 +295,7 @@ function goToCrumb(historyPosition: number) {
   border-top: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 0.25rem;
 }
 
