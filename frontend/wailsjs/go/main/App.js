@@ -26,6 +26,10 @@ export function BrowseSaveFile() {
   return window['go']['main']['App']['BrowseSaveFile']();
 }
 
+export function CheckForUpdate() {
+  return window['go']['main']['App']['CheckForUpdate']();
+}
+
 export function ComputeSeasonStatLeaderAwards(arg1) {
   return window['go']['main']['App']['ComputeSeasonStatLeaderAwards'](arg1);
 }

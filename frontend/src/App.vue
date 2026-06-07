@@ -4,7 +4,8 @@ import Toast from 'primevue/toast'
 import { useToast } from 'primevue/usetoast'
 import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { EventsOn } from '../wailsjs/runtime/runtime'
+import { GetVersion } from '../wailsjs/go/main/App'
+import { BrowserOpenURL, EventsOn } from '../wailsjs/runtime/runtime'
 import AppButton from './components/AppButton.vue'
 import BugReportDialog from './components/BugReportDialog.vue'
 import FranchiseCreate from './components/FranchiseCreate.vue'
@@ -22,10 +23,22 @@ const showCreate = ref(false)
 const showBugReport = ref(false)
 const error = ref<string | null>(null)
 
+const appVersion = ref('')
+const updateTag = ref('')
+const updateURL = ref('')
+
 onMounted(async () => {
   await franchiseStore.loadFranchises()
+
+  const v = await GetVersion()
+  if (v !== 'dev') appVersion.value = v
+
   EventsOn('openBugReport', () => {
     showBugReport.value = true
+  })
+  EventsOn('updateAvailable', (info: { tag: string; url: string }) => {
+    updateTag.value = info.tag
+    updateURL.value = info.url
   })
 })
 
@@ -99,6 +112,13 @@ function goToCrumb(historyPosition: number) {
         <div class="app-brand">
           <h1>smb-tools</h1>
           <p>Super Mega Baseball franchise history tracker</p>
+          <p v-if="appVersion" class="app-version-line">
+            <span class="app-version">{{ appVersion }}</span>
+            <template v-if="updateURL">
+              <span class="app-version-sep">·</span>
+              <button class="update-link" @click="BrowserOpenURL(updateURL)">Update available: {{ updateTag }}</button>
+            </template>
+          </p>
         </div>
 
         <p v-if="error" class="error-text">{{ error }}</p>
@@ -137,6 +157,13 @@ function goToCrumb(historyPosition: number) {
         <div class="sidebar-footer">
           <span class="active-franchise-name">{{ franchiseStore.active.name }}</span>
           <AppButton variant="ghost" size="sm" @click="franchiseStore.active = null">Switch</AppButton>
+          <div v-if="appVersion" class="sidebar-version">
+            <span>{{ appVersion }}</span>
+            <template v-if="updateURL">
+              <span class="sidebar-version-sep">·</span>
+              <button class="sidebar-update-link" @click="BrowserOpenURL(updateURL)">{{ updateTag }} available</button>
+            </template>
+          </div>
         </div>
       </aside>
       <main class="main-content">
@@ -268,6 +295,7 @@ function goToCrumb(historyPosition: number) {
   border-top: 1px solid var(--color-border);
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 0.25rem;
 }
 
@@ -388,5 +416,64 @@ function goToCrumb(historyPosition: number) {
 
 .back-btn:hover {
   color: var(--color-text-primary);
+}
+
+/* Version / update display */
+.app-version-line {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.375rem;
+}
+
+.app-version {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.app-version-sep {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.update-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.update-link:hover {
+  text-decoration: underline;
+}
+
+.sidebar-version {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  margin-top: 0.25rem;
+}
+
+.sidebar-version-sep {
+  color: var(--color-text-secondary);
+}
+
+.sidebar-update-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 0.75rem;
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.sidebar-update-link:hover {
+  text-decoration: underline;
 }
 </style>
