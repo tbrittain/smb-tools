@@ -117,6 +117,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             smb-tools-windows-amd64.zip
             smb-tools-linux-amd64.zip

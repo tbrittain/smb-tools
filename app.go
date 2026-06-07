@@ -12,6 +12,7 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"golang.org/x/mod/semver"
 	"smb-tools/internal/config"
 	internaldb "smb-tools/internal/db"
 	"smb-tools/internal/logger"
@@ -208,7 +209,7 @@ func (a *App) CheckForUpdate() UpdateInfo {
 		return UpdateInfo{}
 	}
 
-	if release.TagName == "" || release.TagName == a.version {
+	if semver.Compare(release.TagName, a.version) <= 0 {
 		return UpdateInfo{}
 	}
 
