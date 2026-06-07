@@ -14,6 +14,8 @@ export function BrowseMediaFile():Promise<string>;
 
 export function BrowseSaveFile():Promise<string>;
 
+export function CheckForUpdate():Promise<main.UpdateInfo>;
+
 export function ComputeSeasonStatLeaderAwards(arg1:number):Promise<void>;
 
 export function CreateCustomAward(arg1:main.AwardDTO):Promise<main.AwardDTO>;

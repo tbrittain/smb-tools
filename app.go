@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -98,10 +101,18 @@ func (a *App) startup(ctx context.Context) {
 	a.mediaStore = store.NewMediaStore()
 	a.mediaService = service.NewMediaService(a.mediaStore, dirs)
 
-	a.setupMenu(ctx)
+	a.setupMenu(ctx, nil)
+
+	go func() {
+		info := a.CheckForUpdate()
+		if info.Available {
+			a.setupMenu(ctx, &info)
+			runtime.EventsEmit(ctx, "updateAvailable", info)
+		}
+	}()
 }
 
-func (a *App) setupMenu(ctx context.Context) {
+func (a *App) setupMenu(ctx context.Context, update *UpdateInfo) {
 	appMenu := menu.NewMenu()
 
 	fileMenu := appMenu.AddSubmenu("File")
@@ -117,6 +128,13 @@ func (a *App) setupMenu(ctx context.Context) {
 	fileMenu.AddText("View Documentation", nil, func(_ *menu.CallbackData) {
 		runtime.BrowserOpenURL(ctx, docsURL)
 	})
+	if update != nil && update.Available {
+		fileMenu.AddSeparator()
+		url := update.URL
+		fileMenu.AddText("Update Available: "+update.Tag, nil, func(_ *menu.CallbackData) {
+			runtime.BrowserOpenURL(ctx, url)
+		})
+	}
 
 	helpMenu := appMenu.AddSubmenu("Help")
 	helpMenu.AddText("Report a Bug", nil, func(_ *menu.CallbackData) {
@@ -147,6 +165,55 @@ func (a *App) shutdown(_ context.Context) {
 
 // GetVersion returns the running app version.
 func (a *App) GetVersion() string { return a.version }
+
+// CheckForUpdate queries the GitHub releases API and reports whether a newer
+// version is available. Returns an empty UpdateInfo when running a dev build
+// or when the request fails — callers should treat an empty result as "no update".
+func (a *App) CheckForUpdate() UpdateInfo {
+	if a.version == "dev" {
+		return UpdateInfo{}
+	}
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequestWithContext(a.ctx, http.MethodGet,
+		"https://api.github.com/repos/tbrittain/smb-tools/releases/latest", nil)
+	if err != nil {
+		slog.Warn("CheckForUpdate: failed to build request", "err", err)
+		return UpdateInfo{}
+	}
+	req.Header.Set("User-Agent", "smb-tools/"+a.version)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Warn("CheckForUpdate: request failed", "err", err)
+		return UpdateInfo{}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		slog.Warn("CheckForUpdate: unexpected status", "status", resp.StatusCode)
+		return UpdateInfo{}
+	}
+
+	var release struct {
+		TagName string `json:"tag_name"`
+		HTMLURL string `json:"html_url"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		slog.Warn("CheckForUpdate: failed to decode response", "err", err)
+		return UpdateInfo{}
+	}
+
+	if release.TagName == "" || release.TagName == a.version {
+		return UpdateInfo{}
+	}
+
+	return UpdateInfo{
+		Available: true,
+		Tag:       release.TagName,
+		URL:       release.HTMLURL,
+	}
+}
 
 // OpenAppDataDir opens the smb-tools app data directory in the OS file manager.
 func (a *App) OpenAppDataDir() error {

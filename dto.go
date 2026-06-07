@@ -4,6 +4,16 @@ import (
 	"smb-tools/internal/models"
 )
 
+// ── App ───────────────────────────────────────────────────────────────────────
+
+// UpdateInfo is returned by CheckForUpdate. Available is false when running a
+// dev build or when no newer release could be determined.
+type UpdateInfo struct {
+	Available bool   `json:"available"`
+	Tag       string `json:"tag"`
+	URL       string `json:"url"`
+}
+
 // ── Media ─────────────────────────────────────────────────────────────────────
 
 // MediaTeamSeasonAssocDTO identifies the team-season linked to a media item.
