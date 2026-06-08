@@ -7,7 +7,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { GetVersion } from '../wailsjs/go/main/App'
 import { BrowserOpenURL, EventsOn } from '../wailsjs/runtime/runtime'
 import AppButton from './components/AppButton.vue'
-import BugReportDialog from './components/BugReportDialog.vue'
 import FranchiseCreate from './components/FranchiseCreate.vue'
 import FranchiseSelector from './components/FranchiseSelector.vue'
 import GlobalSearch from './components/GlobalSearch.vue'
@@ -20,7 +19,6 @@ const franchiseStore = useFranchiseStore()
 const { crumbs, clear: clearCrumbs } = useBreadcrumbs()
 const toast = useToast()
 const showCreate = ref(false)
-const showBugReport = ref(false)
 const error = ref<string | null>(null)
 
 const appVersion = ref('')
@@ -33,9 +31,6 @@ onMounted(async () => {
   const v = await GetVersion()
   if (v !== 'dev') appVersion.value = v
 
-  EventsOn('openBugReport', () => {
-    showBugReport.value = true
-  })
   EventsOn('updateAvailable', (info: { tag: string; url: string }) => {
     updateTag.value = info.tag
     updateURL.value = info.url
@@ -95,7 +90,6 @@ function goToCrumb(historyPosition: number) {
   <div id="app-root">
     <ConfirmDialog />
     <Toast position="bottom-center" />
-    <BugReportDialog v-model:visible="showBugReport" />
     <!-- Loading state -->
     <div v-if="franchiseStore.loading" class="fullscreen-center">
       <span class="loading-text">Loading…</span>

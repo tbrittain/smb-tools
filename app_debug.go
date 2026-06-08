@@ -19,24 +19,21 @@ func (a *App) LogFrontendError(message, stack, context string) {
 }
 
 // OpenBugReport assembles a pre-filled GitHub bug report URL and opens it in
-// the user's default browser. When includeSystemInfo is true, the OS and
-// architecture are added as URL parameters.
-func (a *App) OpenBugReport(includeSystemInfo bool) error {
+// the user's default browser.
+func (a *App) OpenBugReport() error {
 	logTail := logger.TailFile(a.logFilePath, bugReportLogMaxBytes)
-	issueURL := buildBugReportURL(a.version, goruntime.GOOS, goruntime.GOARCH, logTail, includeSystemInfo)
+	issueURL := buildBugReportURL(a.version, goruntime.GOOS, goruntime.GOARCH, logTail)
 	runtime.BrowserOpenURL(a.ctx, issueURL)
 	return nil
 }
 
 // buildBugReportURL is a pure function that assembles the GitHub issue pre-fill
 // URL. Extracted for testability (no Wails context required).
-func buildBugReportURL(version, goos, goarch, logTail string, includeSystemInfo bool) string {
+func buildBugReportURL(version, goos, goarch, logTail string) string {
 	params := url.Values{}
 	params.Set("template", "bug_report.yml")
 	params.Set("version", version)
-	if includeSystemInfo {
-		params.Set("operating-system", goos+"/"+goarch)
-	}
+	params.Set("operating-system", goos+"/"+goarch)
 	if logTail != "" {
 		params.Set("logs", logTail)
 	}
