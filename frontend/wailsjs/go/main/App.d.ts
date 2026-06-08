@@ -116,7 +116,7 @@ export function MigrateLegacyFranchise(arg1:string,arg2:number,arg3:string,arg4:
 
 export function OpenAppDataDir():Promise<void>;
 
-export function OpenBugReport(arg1:boolean):Promise<void>;
+export function OpenBugReport():Promise<void>;
 
 export function ProbeFranchiseSaveFile(arg1:string):Promise<main.SaveFileCandidateDTO>;
 

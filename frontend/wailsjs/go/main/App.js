@@ -230,8 +230,8 @@ export function OpenAppDataDir() {
   return window['go']['main']['App']['OpenAppDataDir']();
 }
 
-export function OpenBugReport(arg1) {
-  return window['go']['main']['App']['OpenBugReport'](arg1);
+export function OpenBugReport() {
+  return window['go']['main']['App']['OpenBugReport']();
 }
 
 export function ProbeFranchiseSaveFile(arg1) {

@@ -139,7 +139,9 @@ func (a *App) setupMenu(ctx context.Context, update *UpdateInfo) {
 
 	helpMenu := appMenu.AddSubmenu("Help")
 	helpMenu.AddText("Report a Bug", nil, func(_ *menu.CallbackData) {
-		runtime.EventsEmit(ctx, "openBugReport")
+		if err := a.OpenBugReport(); err != nil {
+			slog.Error("open bug report", "err", err)
+		}
 	})
 	helpMenu.AddSeparator()
 	helpMenu.Append(menu.Label("Version " + a.version).Disable())
