@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ListFranchiseSources, ListSnapshots, ReimportSeasonFromSnapshot, SyncSeason } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppButton from '../components/AppButton.vue'
+import AppHelpButton from '../components/AppHelpButton.vue'
 import SaveFilePicker from '../components/SaveFilePicker.vue'
 import SnapshotPicker from '../components/SnapshotPicker.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
@@ -225,7 +226,10 @@ async function handleReimport() {
 
     <!-- Connected save files -->
     <section class="card-section">
-      <h3>Connected Save Files</h3>
+      <div class="heading-row">
+        <h3>Connected Save Files</h3>
+        <AppHelpButton docs-path="save-game-setup.html#connecting-and-replacing-a-save-file" />
+      </div>
 
       <!-- No source yet — show picker to connect one -->
       <template v-if="!franchiseStore.active?.hasActiveSource && !sourcesWithRanges.length">
@@ -324,6 +328,7 @@ async function handleReimport() {
         <div class="fork-title-group">
           <h3>Fork Franchise From New Save Game</h3>
           <span class="advanced-badge">Advanced</span>
+          <AppHelpButton docs-path="franchise-forking.html#franchise-forking" />
         </div>
         <AppButton v-if="!showForkForm" variant="ghost" size="sm" @click="openForkForm">
           Add Fork Source
@@ -355,7 +360,10 @@ async function handleReimport() {
 
     <!-- Sync -->
     <section class="card-section">
-      <h3>Sync Season</h3>
+      <div class="heading-row">
+        <h3>Sync Season</h3>
+        <AppHelpButton docs-path="save-game-setup.html#syncing-a-season" />
+      </div>
       <p class="sync-help">
         Reads the current season from your save file. Sync once after the regular season
         ends, then again after the playoffs conclude — <strong>before</strong> progressing
@@ -381,7 +389,10 @@ async function handleReimport() {
 
     <!-- Reimport from snapshot -->
     <section v-if="franchiseStore.active" class="card-section">
-      <h3>Reimport Season from Snapshot</h3>
+      <div class="heading-row">
+        <h3>Reimport Season from Snapshot</h3>
+        <AppHelpButton docs-path="save-game-setup.html#reimporting-from-a-snapshot" />
+      </div>
       <p class="sync-help">
         Select a previously captured snapshot and reimport its season data. Use this to
         recover from a bad sync or correct data after the playoffs. Your awards for that
@@ -445,6 +456,12 @@ h3 {
   font-weight: 600;
   color: var(--color-text-primary);
   margin: 0;
+}
+
+.heading-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
 }
 
 .card-section {
