@@ -21,19 +21,19 @@ const makeSave = (
 
 const sampleCandidates: main.SaveFileCandidateDTO[] = [
   makeSave(
-    'C:\\Users\\Trey\\AppData\\Local\\Metalhead\\Super Mega Baseball 4\\76561198034146134\\league-aaa.sav',
+    'C:\\Users\\Player\\AppData\\Local\\Metalhead\\Super Mega Baseball 4\\76561198000000001\\league-aaa.sav',
     'Super Mega League',
     'Honey Badgers',
     12,
   ),
   makeSave(
-    'C:\\Users\\Trey\\AppData\\Local\\Metalhead\\Super Mega Baseball 4\\76561198034146134\\league-bbb.sav',
+    'C:\\Users\\Player\\AppData\\Local\\Metalhead\\Super Mega Baseball 4\\76561198000000001\\league-bbb.sav',
     'Dynasty Mode',
     'Vapors',
     4,
   ),
   makeSave(
-    'C:\\Users\\Trey\\AppData\\Local\\Metalhead\\Super Mega Baseball 4\\76561198034146134\\league-ccc.sav',
+    'C:\\Users\\Player\\AppData\\Local\\Metalhead\\Super Mega Baseball 4\\76561198000000001\\league-ccc.sav',
     '',
     '',
     0,
