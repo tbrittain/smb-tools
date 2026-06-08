@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import type { main } from '../../wailsjs/go/models'
 import AppButton from './AppButton.vue'
+import AppHelpButton from './AppHelpButton.vue'
 import SaveFilePicker from './SaveFilePicker.vue'
 
 const emit = defineEmits<{
@@ -42,7 +43,10 @@ async function handleSubmit() {
 
 <template>
   <div class="franchise-create">
-    <h2>New Franchise</h2>
+    <div class="heading-row">
+      <h2>New Franchise</h2>
+      <AppHelpButton docs-path="save-game-setup.html#creating-a-franchise" />
+    </div>
 
     <div class="field">
       <label for="franchise-name">Name</label>
@@ -93,10 +97,17 @@ async function handleSubmit() {
   margin: 0 auto;
 }
 
+.heading-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 1.5rem;
+}
+
 h2 {
   font-size: 1.4rem;
   font-weight: 600;
-  margin-bottom: 1.5rem;
+  margin: 0;
   color: var(--color-text-primary);
 }
 

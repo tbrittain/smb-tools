@@ -13,9 +13,41 @@ When you open smb-tools for the first time, you'll see the franchise selector. C
 You'll be asked for two things:
 
 - **Name** — a label for this franchise in smb-tools. It does not have to match the league name in the game.
-- **Save File** — the `.sav` file for your franchise. Only franchise mode saves are shown in the picker. smb-tools looks for saves in the default SMB4 location (`%LOCALAPPDATA%\Metalhead\Super Mega Baseball 4\`), so your file should appear automatically.
+- **Save File** — the `.sav` file for your franchise. Only franchise mode saves are shown in the picker — smb-tools looks specifically for files named `league-<id>.sav` and filters out auxiliary files like `master.sav`, `mugshots-*.sav`, and `season-*.sav`.
+
+On Windows, smb-tools looks in the default SMB4 location (`%LOCALAPPDATA%\Metalhead\Super Mega Baseball 4\`) and your file should appear automatically. **On macOS and Linux, where to look — and whether smb-tools can find it for you — depends on how you're running the game.** See [Finding Your Save File on macOS and Linux](#finding-your-save-file-on-macos-and-linux) below.
+
+If your file doesn't appear in the picker, click **Browse for file…** to open a native file picker and select the `.sav` file directly, wherever it lives on disk.
 
 After selecting a save file, smb-tools shows the league name and your team name as a confirmation. Click **Create Franchise** to finish.
+
+## Finding Your Save File on macOS and Linux
+
+smb-tools itself is a cross-platform app — it runs natively on Windows, macOS, and Linux. **Super Mega Baseball 4 is not.** It's a Windows/Steam title with no native Mac or Linux build, so on those platforms you're running it through some form of Windows compatibility layer, and the save file ends up wherever that layer's virtual filesystem puts it.
+
+### Linux: Steam Play / Proton
+
+The most common way to play SMB4 on Linux (including Steam Deck) is through **Steam Play with Proton**, Steam's built-in Windows compatibility layer. Proton runs the game inside a per-game compatibility prefix that mirrors a Windows filesystem layout, and the game writes its saves there exactly as it would on Windows.
+
+In practice, this means your save files typically end up at:
+
+```
+~/.local/share/Metalhead/Super Mega Baseball 4/<steam-id>/
+```
+
+smb-tools knows about this convention and **automatically searches it** alongside the standard Windows location, so your save file should appear in the picker without any extra setup — even though SMB4 isn't a native Linux game. If you've moved your Steam library to a non-default location, or you're running SMB4 through a standalone Wine/Proton prefix outside of Steam, auto-discovery may not find it; use **Browse for file…** to point smb-tools at the prefix's `drive_c` directory directly.
+
+### macOS: compatibility layers (CrossOver, etc.)
+
+There's no confirmed native macOS release of SMB4, and Apple platforms don't support Proton. Players running the game on a Mac typically use a third-party Windows compatibility layer such as **CrossOver** (CodeWeavers' Wine-based tool), or run Windows itself in a virtual machine.
+
+These setups don't follow one consistent save location the way Proton does on Linux, so **smb-tools does not attempt to auto-discover save files on macOS** — the picker will come up empty. This is expected, not a bug. Click **Browse for file…** and navigate into your compatibility layer's virtual Windows drive (for example, CrossOver bottles expose a `drive_c` folder) to the same path the game would use on Windows:
+
+```
+.../drive_c/users/<you>/AppData/Local/Metalhead/Super Mega Baseball 4/
+```
+
+Once you've located the `league-<id>.sav` file for your franchise, select it and smb-tools will read it the same way it does on any platform.
 
 ## Connecting and Replacing a Save File
 

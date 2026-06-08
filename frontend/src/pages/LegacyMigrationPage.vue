@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { BrowseLegacyDB, DetectLegacyDB, ListLegacyFranchises, MigrateLegacyFranchise } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppButton from '../components/AppButton.vue'
+import AppHelpButton from '../components/AppHelpButton.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
 type Step = 'source' | 'select' | 'names' | 'confirm' | 'progress' | 'done'
@@ -119,7 +120,10 @@ function backToSelector() {
     <!-- Header -->
     <div class="page-header">
       <button class="back-btn" @click="backToSelector">← Back</button>
-      <h1>Import from SmbExplorerCompanion</h1>
+      <div class="heading-row">
+        <h1>Import from SmbExplorerCompanion</h1>
+        <AppHelpButton docs-path="legacy-migration.html#starting-the-import" />
+      </div>
     </div>
 
     <!-- ── Source step ─────────────────────────────────────────────── -->
@@ -297,6 +301,12 @@ function backToSelector() {
 
 .back-btn:hover {
   color: var(--color-text-primary);
+}
+
+.heading-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
 }
 
 h1 {
