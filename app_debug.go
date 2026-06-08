@@ -35,7 +35,7 @@ func buildBugReportURL(version, goos, goarch, logTail string, includeSystemInfo 
 	params.Set("template", "bug_report.yml")
 	params.Set("version", version)
 	if includeSystemInfo {
-		params.Set("os", goos+"/"+goarch)
+		params.Set("operating-system", goos+"/"+goarch)
 	}
 	if logTail != "" {
 		params.Set("logs", logTail)
