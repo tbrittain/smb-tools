@@ -1,6 +1,7 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import type { main } from '../../wailsjs/go/models'
+import { useSaveFileCandidates } from '../composables/useSaveFileCandidates'
 import AppButton from './AppButton.vue'
 import AppHelpButton from './AppHelpButton.vue'
 import SaveFilePicker from './SaveFilePicker.vue'
@@ -20,10 +21,28 @@ const selectedProbe = ref<main.SaveFileCandidateDTO | null>(null)
 const submitting = ref(false)
 const error = ref<string | null>(null)
 
+const {
+  candidates,
+  loading,
+  scanning,
+  browsing,
+  error: pickerError,
+  load,
+  scanDirectory,
+  browseFile,
+} = useSaveFileCandidates()
+
+onMounted(load)
+
 function onSaveFileChange(path: string, leagueGUID: string, probe?: main.SaveFileCandidateDTO) {
   selectedPath.value = path
   selectedLeagueGUID.value = leagueGUID
   selectedProbe.value = probe ?? null
+}
+
+async function handleBrowseFile() {
+  const c = await browseFile()
+  if (c) onSaveFileChange(c.path, c.leagueGUID, c)
 }
 
 async function handleSubmit() {
@@ -63,7 +82,17 @@ async function handleSubmit() {
     <div class="field">
       <label>Save File</label>
       <p class="field-hint">Only franchise mode saves are shown.</p>
-      <SaveFilePicker :selected-path="selectedPath" @change="onSaveFileChange" />
+      <SaveFilePicker
+        :candidates="candidates"
+        :loading="loading"
+        :scanning="scanning"
+        :browsing="browsing"
+        :error="pickerError"
+        :selected-path="selectedPath"
+        @change="onSaveFileChange"
+        @scan-directory="scanDirectory"
+        @browse-file="handleBrowseFile"
+      />
     </div>
 
     <!-- Confirmation: show what will be connected -->
