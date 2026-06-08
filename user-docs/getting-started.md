@@ -16,7 +16,11 @@ Two apps came before this one.
 
 Together they worked, but the workflow was cumbersome: run SMB3Explorer to produce CSV exports, import those CSVs into SmbExplorerCompanion, then view the stats. Two separate Windows-only applications, both requiring the .NET 7 runtime, with a manual multi-step handoff every time you wanted to sync a new season.
 
-**smb-tools is a re-envisioning of both.** It reads your save file directly — no CSV exports, no separate export step, no intermediary files. Syncing a season is a single button click. And it runs on Windows, macOS, and Linux.
+**smb-tools is a re-envisioning of both.** It reads your save file directly — no CSV exports, no separate export step, no intermediary files. Syncing a season is a single button click. And the smb-tools app itself runs on Windows, macOS, and Linux.
+
+::: tip Playing on macOS or Linux?
+smb-tools runs natively on all three platforms, but Super Mega Baseball 4 is a Windows/Steam title with no native Mac or Linux release — so where your save file lives, and how you point smb-tools at it, depends on how you're running the game. See [Finding Your Save File on macOS and Linux](./save-game-setup#finding-your-save-file-on-macos-and-linux) for specifics.
+:::
 
 ## What It Does
 
