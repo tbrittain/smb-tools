@@ -28,16 +28,16 @@ func TestBuildBugReportURL_TemplateParam(t *testing.T) {
 func TestBuildBugReportURL_SystemInfoIncluded(t *testing.T) {
 	raw := buildBugReportURL("dev", "windows", "amd64", "", true)
 	u, _ := url.Parse(raw)
-	if got := u.Query().Get("os"); got != "windows/amd64" {
-		t.Errorf("os param = %q, want %q", got, "windows/amd64")
+	if got := u.Query().Get("operating-system"); got != "windows/amd64" {
+		t.Errorf("operating-system param = %q, want %q", got, "windows/amd64")
 	}
 }
 
 func TestBuildBugReportURL_SystemInfoExcluded(t *testing.T) {
 	raw := buildBugReportURL("dev", "windows", "amd64", "", false)
 	u, _ := url.Parse(raw)
-	if got := u.Query().Get("os"); got != "" {
-		t.Errorf("os param should be absent, got %q", got)
+	if got := u.Query().Get("operating-system"); got != "" {
+		t.Errorf("operating-system param should be absent, got %q", got)
 	}
 }
 
