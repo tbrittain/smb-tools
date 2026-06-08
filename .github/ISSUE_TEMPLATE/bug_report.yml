@@ -6,7 +6,7 @@ body:
     id: version
     attributes:
       label: App version
-      description: "Found in the title bar or Help → About. Example: v1.0.0-rc.1"
+      description: "Found in the Help menu (Help → Version ...). Example: v1.0.0-rc.1"
       placeholder: v1.0.0-rc.1
     validations:
       required: true
