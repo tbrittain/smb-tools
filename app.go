@@ -228,13 +228,6 @@ func (a *App) OpenAppDataDir() error {
 	return openDirectory(a.dirs.DataDir)
 }
 
-// OpenDocsPage opens a page on the user-docs site — optionally with an anchor
-// (e.g. "save-game-setup.html#syncing-a-season") — in the user's default browser.
-func (a *App) OpenDocsPage(pagePath string) error {
-	runtime.BrowserOpenURL(a.ctx, docsURL+pagePath)
-	return nil
-}
-
 // requireCompanionDB returns an error if no franchise companion DB is open.
 func (a *App) requireCompanionDB() error {
 	if a.companionDB == nil {

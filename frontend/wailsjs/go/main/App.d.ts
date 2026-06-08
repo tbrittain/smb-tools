@@ -118,8 +118,6 @@ export function OpenAppDataDir():Promise<void>;
 
 export function OpenBugReport(arg1:boolean):Promise<void>;
 
-export function OpenDocsPage(arg1:string):Promise<void>;
-
 export function ProbeFranchiseSaveFile(arg1:string):Promise<main.SaveFileCandidateDTO>;
 
 export function ProbeLeagues(arg1:string):Promise<Array<main.SaveFileCandidateDTO>>;

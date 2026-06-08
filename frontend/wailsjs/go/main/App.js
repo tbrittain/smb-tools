@@ -234,10 +234,6 @@ export function OpenBugReport(arg1) {
   return window['go']['main']['App']['OpenBugReport'](arg1);
 }
 
-export function OpenDocsPage(arg1) {
-  return window['go']['main']['App']['OpenDocsPage'](arg1);
-}
-
 export function ProbeFranchiseSaveFile(arg1) {
   return window['go']['main']['App']['ProbeFranchiseSaveFile'](arg1);
 }

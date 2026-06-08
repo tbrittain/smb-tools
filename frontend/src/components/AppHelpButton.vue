@@ -1,14 +1,16 @@
 <script lang="ts" setup>
 import Button from 'primevue/button'
-import { OpenDocsPage } from '../../wailsjs/go/main/App'
+import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
+
+const DOCS_BASE_URL = 'https://tbrittain.github.io/smb-tools/'
 
 const props = defineProps<{
   /** Relative path (and optional anchor) on the user-docs site, e.g. "save-game-setup.html#syncing-a-season". */
   docsPath: string
 }>()
 
-async function openDocs() {
-  await OpenDocsPage(props.docsPath)
+function openDocs() {
+  BrowserOpenURL(DOCS_BASE_URL + props.docsPath)
 }
 </script>
 
