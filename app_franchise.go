@@ -354,7 +354,7 @@ func (a *App) GetSaveFileCandidates() ([]SaveFileCandidateDTO, error) {
 
 	slog.Info("GetSaveFileCandidates: found save files", "count", len(candidates))
 
-	var out []SaveFileCandidateDTO
+	out := []SaveFileCandidateDTO{}
 	for _, c := range candidates {
 		slog.Debug("GetSaveFileCandidates: probing", "path", c.Path)
 		dto := SaveFileCandidateDTO{
@@ -503,6 +503,48 @@ func (a *App) BrowseSaveFile() (string, error) {
 		return "", fmt.Errorf("file dialog: %w", err)
 	}
 	return path, nil
+}
+
+// BrowseSaveDirectory opens the OS directory picker and scans the chosen
+// directory (and its immediate subdirectories) for franchise save files,
+// probing each for league metadata. This mirrors what GetSaveFileCandidates
+// does for the default platform paths, giving the user the same scan-and-identify
+// experience for a custom location. Returns an empty slice if the user cancels.
+func (a *App) BrowseSaveDirectory() ([]SaveFileCandidateDTO, error) {
+	dir, err := runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select Folder Containing SMB4 Save Files",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("directory dialog: %w", err)
+	}
+	if dir == "" {
+		return []SaveFileCandidateDTO{}, nil
+	}
+	candidates := config.ScanDirShallow(dir, models.GameVersionSMB4)
+	out := []SaveFileCandidateDTO{}
+	for _, c := range candidates {
+		dto := SaveFileCandidateDTO{
+			Path:        c.Path,
+			GameVersion: string(c.GameVersion),
+		}
+		leagues, err := a.probeLeaguesFromPath(c.Path)
+		if err != nil {
+			slog.Warn("BrowseSaveDirectory: probe failed", "path", c.Path, "err", err)
+			out = append(out, dto)
+			continue
+		}
+		if len(leagues) > 0 {
+			lg := leagues[0]
+			dto.LeagueName     = lg.Name
+			dto.NumSeasons     = lg.NumSeasons
+			dto.Mode           = leagueMode(lg)
+			dto.IsFranchise    = lg.Mode == models.LeagueModeFranchise
+			dto.PlayerTeamName = lg.PlayerTeamName
+			dto.LeagueGUID     = lg.GUID
+		}
+		out = append(out, dto)
+	}
+	return out, nil
 }
 
 // ProbeLeagues opens a save file and returns its league metadata. Use this

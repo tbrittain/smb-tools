@@ -22,6 +22,10 @@ export function BrowseMediaFile() {
   return window['go']['main']['App']['BrowseMediaFile']();
 }
 
+export function BrowseSaveDirectory() {
+  return window['go']['main']['App']['BrowseSaveDirectory']();
+}
+
 export function BrowseSaveFile() {
   return window['go']['main']['App']['BrowseSaveFile']();
 }

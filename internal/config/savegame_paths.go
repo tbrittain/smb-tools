@@ -32,9 +32,9 @@ func DiscoverSaveFiles() ([]SaveGameCandidate, error) {
 		return nil, err
 	}
 
-	var candidates []SaveGameCandidate
+	candidates := []SaveGameCandidate{}
 	for _, root := range roots {
-		found := WalkForSaveFiles(root.dir, root.version)
+		found := ScanDirShallow(root.dir, root.version)
 		candidates = append(candidates, found...)
 	}
 	return candidates, nil
@@ -76,28 +76,42 @@ func saveGameRoots() ([]saveRoot, error) {
 	}
 }
 
-// WalkForSaveFiles recurses into root looking for .sav files.
-// Exported so it can be called with a custom root in tests and in the UI
-// when the user manually points to a save directory.
-func WalkForSaveFiles(root string, version models.GameVersion) []SaveGameCandidate {
-	if _, err := os.Stat(root); os.IsNotExist(err) {
-		return nil
+// ScanDirShallow finds league-*.sav files in root and its immediate
+// subdirectories. It does not recurse further — the SMB4 save layout is
+// {game_dir}/{steam_id}/league-*.sav, so at most one subdir level is needed.
+// Always returns a non-nil slice.
+func ScanDirShallow(root string, version models.GameVersion) []SaveGameCandidate {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return []SaveGameCandidate{}
 	}
+	out := []SaveGameCandidate{}
+	for _, e := range entries {
+		fullPath := filepath.Join(root, e.Name())
+		if !e.IsDir() {
+			if isSaveFile(e.Name()) {
+				out = append(out, SaveGameCandidate{Path: fullPath, GameVersion: version})
+			}
+		} else {
+			subEntries, err := os.ReadDir(fullPath)
+			if err != nil {
+				continue
+			}
+			for _, sub := range subEntries {
+				if !sub.IsDir() && isSaveFile(sub.Name()) {
+					out = append(out, SaveGameCandidate{
+						Path:        filepath.Join(fullPath, sub.Name()),
+						GameVersion: version,
+					})
+				}
+			}
+		}
+	}
+	return out
+}
 
-	var found []SaveGameCandidate
-	_ = filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
-			return nil
-		}
-		// Only league save files are valid SMB franchise saves.
-		// The naming convention (confirmed from SMB3Explorer) is league-{GUID}.sav.
-		// master.sav, mugshots-*.sav, season-*.sav, and *.sav.bak are auxiliary
-		// data files that cannot be associated with an app franchise.
-		base := filepath.Base(path)
-		if filepath.Ext(base) == ".sav" && strings.HasPrefix(base, "league-") {
-			found = append(found, SaveGameCandidate{Path: path, GameVersion: version})
-		}
-		return nil
-	})
-	return found
+// isSaveFile reports whether name is a league save file (league-*.sav).
+// master.sav, mugshots-*.sav, season-*.sav, and *.sav.bak are excluded.
+func isSaveFile(name string) bool {
+	return filepath.Ext(name) == ".sav" && strings.HasPrefix(name, "league-")
 }

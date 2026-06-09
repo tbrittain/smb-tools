@@ -7,11 +7,25 @@ import AppHelpButton from '../components/AppHelpButton.vue'
 import SaveFilePicker from '../components/SaveFilePicker.vue'
 import SnapshotPicker from '../components/SnapshotPicker.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
+import { useSaveFileCandidates } from '../composables/useSaveFileCandidates'
 import { useFranchiseStore } from '../stores/franchise'
 import { useStatHighlightsStore } from '../stores/statHighlights'
 
 const franchiseStore = useFranchiseStore()
 const highlightsStore = useStatHighlightsStore()
+
+// ── Save file candidates (shared across all SaveFilePicker instances) ─────────
+
+const {
+  candidates,
+  loading: candidatesLoading,
+  scanning,
+  browsing,
+  error: pickerError,
+  load: loadCandidates,
+  scanDirectory,
+  browseFile,
+} = useSaveFileCandidates()
 
 // ── Source history ────────────────────────────────────────────────────────────
 
@@ -60,6 +74,7 @@ const { set } = useBreadcrumbs()
 onMounted(() => set([{ label: 'Setup' }]))
 onMounted(loadSources)
 onMounted(loadSnapshots)
+onMounted(loadCandidates)
 
 function sourceDisplayName(src: (typeof sourcesWithRanges.value)[number]): string {
   if (src.isLegacy) return 'Legacy import'
@@ -155,6 +170,23 @@ async function handleForkSourceChange(path: string, leagueGUID: string) {
   }
 }
 
+// ── Browse-file wrappers (forward single-file browse result to each picker's change handler) ──
+
+async function browseForReplace() {
+  const c = await browseFile()
+  if (c) await handleSaveFileChange(c.path, c.leagueGUID)
+}
+
+async function browseForLegacy() {
+  const c = await browseFile()
+  if (c) handleLegacyFileSelected(c.path, c.leagueGUID, c)
+}
+
+async function browseForFork() {
+  const c = await browseFile()
+  if (c) await handleForkSourceChange(c.path, c.leagueGUID)
+}
+
 // ── Sync ────────────────────────────────────────────────────────────────────
 
 const syncing = ref(false)
@@ -234,7 +266,16 @@ async function handleReimport() {
       <!-- No source yet — show picker to connect one -->
       <template v-if="!franchiseStore.active?.hasActiveSource && !sourcesWithRanges.length">
         <p class="hint-text">Connect a save file to enable syncing.</p>
-        <SaveFilePicker @change="handleSaveFileChange" />
+        <SaveFilePicker
+          :candidates="candidates"
+          :loading="candidatesLoading"
+          :scanning="scanning"
+          :browsing="browsing"
+          :error="pickerError"
+          @change="handleSaveFileChange"
+          @scan-directory="scanDirectory"
+          @browse-file="browseForReplace"
+        />
         <p v-if="replaceError" class="error-text">{{ replaceError }}</p>
       </template>
 
@@ -272,7 +313,17 @@ async function handleReimport() {
         <template v-if="franchiseStore.active?.hasLegacySource && !franchiseStore.active?.hasActiveSource && !showReplacePicker">
           <template v-if="!pendingLegacySource">
             <p class="hint-text">Connect a save file to enable syncing.</p>
-            <SaveFilePicker :used-source-labels="usedSourceLabels" @change="handleLegacyFileSelected" />
+            <SaveFilePicker
+              :candidates="candidates"
+              :loading="candidatesLoading"
+              :scanning="scanning"
+              :browsing="browsing"
+              :error="pickerError"
+              :used-source-labels="usedSourceLabels"
+              @change="handleLegacyFileSelected"
+              @scan-directory="scanDirectory"
+              @browse-file="browseForLegacy"
+            />
           </template>
           <template v-else>
             <p class="hint-text">
@@ -309,9 +360,16 @@ async function handleReimport() {
             use this only to fix a wrong file selection, not to add a new league.
           </p>
           <SaveFilePicker
+            :candidates="candidates"
+            :loading="candidatesLoading"
+            :scanning="scanning"
+            :browsing="browsing"
+            :error="pickerError"
             :selected-path="franchiseStore.active?.activeSourcePath"
             :used-source-labels="usedSourceLabels"
             @change="handleSaveFileChange"
+            @scan-directory="scanDirectory"
+            @browse-file="browseForReplace"
           />
           <p v-if="replaceError" class="error-text">{{ replaceError }}</p>
           <AppButton variant="ghost" size="sm" @click="showReplacePicker = false">Cancel</AppButton>
@@ -352,7 +410,17 @@ async function handleReimport() {
           Seasons from this source will be numbered starting after Season {{ forkSeasonOffset }}.
           This should match your last synced season ({{ lastSeason }}).
         </p>
-        <SaveFilePicker :used-source-labels="usedSourceLabels" @change="handleForkSourceChange" />
+        <SaveFilePicker
+          :candidates="candidates"
+          :loading="candidatesLoading"
+          :scanning="scanning"
+          :browsing="browsing"
+          :error="pickerError"
+          :used-source-labels="usedSourceLabels"
+          @change="handleForkSourceChange"
+          @scan-directory="scanDirectory"
+          @browse-file="browseForFork"
+        />
         <p v-if="forkError" class="error-text">{{ forkError }}</p>
         <AppButton variant="ghost" size="sm" @click="showForkForm = false">Cancel</AppButton>
       </template>
