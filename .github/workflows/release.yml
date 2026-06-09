@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+env:
+  WAILS_VERSION: v2.12.0
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -72,8 +75,16 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      - name: Cache Wails CLI
+        id: cache-wails
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/wails
+          key: wails-${{ env.WAILS_VERSION }}-${{ runner.os }}
+
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+        if: steps.cache-wails.outputs.cache-hit != 'true'
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@${{ env.WAILS_VERSION }}
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
