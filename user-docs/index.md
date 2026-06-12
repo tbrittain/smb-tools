@@ -4,7 +4,7 @@ layout: home
 hero:
   name: smb-tools
   text: Franchise history tracking for Super Mega Baseball 4
-  tagline: A re-envisioning of SMB3Explorer and SmbExplorerCompanion — one cross-platform app, one button to sync a season.
+  tagline: A re-envisioning of SMB3Explorer and SmbExplorerCompanion in the form of one unified cross-platform app.
   actions:
     - theme: brand
       text: Get Started
@@ -18,9 +18,9 @@ hero:
 
 features:
   - title: Franchise Stat Tracking
-    details: Connect your SMB4 save file and build a permanent record of your franchise — career leaderboards, season-by-season breakdowns, player development, awards, and Hall of Fame history that the game itself would eventually discard.
+    details: Connect your SMB4 save file and build a permanent record of your franchise. Career leaderboards, season-by-season breakdowns, player development, awards, and Hall of Fame history.
   - title: Team Transfer Tool
-    details: Coming soon. Package up entire leagues, move teams between save games, and make large-scale roster changes through a full save game editor. The most-requested community feature for SMB4, built as a first-class part of the app.
+    details: Coming soon. Package up entire leagues, move teams between save games, and make large-scale roster changes through a full save game editor.
   - title: No CSV exports required
-    details: Unlike the original two-app pipeline, smb-tools reads your save file directly. Syncing a season is a single button click — no intermediate files, no multi-step wizards.
+    details: Unlike SMBExplorerCompanion, smb-tools reads your save file directly. Syncing a season is as easy as a single button click with no intermediate CSV files.
 ---
