@@ -50,7 +50,7 @@ jobs:
       - name: Go lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          version: v2.12.2
 
       - name: Go test
         run: go test -tags webkit2_41 ./...
