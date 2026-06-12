@@ -8,27 +8,27 @@ title: CSV Exports
 CSV exports are not yet available. This page documents the planned feature.
 :::
 
-CSV export is an opt-in capability for power users who want to take their franchise data outside of smb-tools — for analysis in a spreadsheet, sharing with the community, or feeding into external tooling. It is not required for any core app functionality.
+CSV export is an opt-in feature for people who want to get their franchise data out of smb-tools, whether that's for analysis in a spreadsheet, sharing with the community, or feeding into other tools. Nothing in the core app depends on it.
 
 ## Custom Export Builder
 
-The core of the export feature is a flexible query builder. Rather than offering a fixed set of named exports, smb-tools lets you describe exactly the dataset you want:
+At the heart of the export feature is a flexible query builder. Instead of a fixed set of named exports, you describe exactly the dataset you want:
 
-- **Choose your tables and relationships** — player stats, team records, awards, schedule data, or combinations across them.
-- **Select the columns you want** — include only what is relevant to your analysis. If you want batting average, home runs, and team name but nothing else, you get exactly that.
-- **Run and export** — smb-tools executes the query against your franchise data and writes the result to a CSV file.
+- Pick the tables and relationships you need: player stats, team records, awards, schedule data, or any combination of those.
+- Pick the columns. If all you care about is batting average, home runs, and team name, that's all you'll get.
+- Run it, and smb-tools writes the result to a CSV file.
 
-The goal is that you should never need to ask "can smb-tools export X?" — if the data is in your franchise, you can get it out.
+The idea is that you shouldn't have to wonder whether smb-tools can export something. If it's in your franchise data, you can get it out.
 
 ## Convenience Exports
 
-For common cases, a one-click export will be available directly from views you are already looking at:
+For the common cases, you'll be able to export straight from the view you're already looking at:
 
-- **Leaderboards** — export any leaderboard as currently filtered and configured.
-- **Player career stats** — export a player's full career stat line from their profile.
+- From a leaderboard, export it exactly as filtered and configured.
+- From a player's profile, export their full career stat line.
 
-These are shortcuts built on the same underlying export engine, not a separate system.
+Both use the same export engine under the hood; they're just shortcuts to it.
 
 ## SMB3Explorer-Compatible Season Export
 
-A full season export will produce output in a format compatible with the original SMB3Explorer CSV schema. If you have existing spreadsheets or community tools built around SMB3Explorer exports, this will slot in without changes.
+A full season export will match the original SMB3Explorer CSV schema, so if you've got spreadsheets or community tools built around those exports, they should keep working without changes.
