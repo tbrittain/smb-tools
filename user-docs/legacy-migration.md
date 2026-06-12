@@ -4,7 +4,7 @@ title: Importing from SmbExplorerCompanion
 
 # Importing from SmbExplorerCompanion
 
-If you tracked your franchise history with **SmbExplorerCompanion** (the predecessor to smb-tools), you can bring that data into smb-tools in a few steps. The import reads your existing `SmbExplorerCompanion.db` file and creates one or more franchises in smb-tools — your original data is never modified.
+If you tracked your franchise history with **SmbExplorerCompanion** (the predecessor to smb-tools), you can bring that data into smb-tools in a few steps. The import reads your existing `SmbExplorerCompanion.db` file and creates one or more franchises in smb-tools. Your original data is never touched.
 
 ## Starting the Import
 
@@ -16,7 +16,7 @@ If your file is in a different location, click **Browse for SmbExplorerCompanion
 
 After the database is loaded, you'll see a list of every franchise it contains. Each entry is labelled **SMB3** or **SMB4** depending on which game it originated from.
 
-Check the franchises you want to import. You can select as many as you like — each one becomes a separate franchise in smb-tools.
+Check the franchises you want to import. You can select as many as you like; each one becomes a separate franchise in smb-tools.
 
 ## Renaming Before Import
 
