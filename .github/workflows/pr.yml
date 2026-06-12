@@ -44,9 +44,6 @@ jobs:
       - name: Build frontend
         run: cd frontend && npm run build
 
-      - name: Go vet
-        run: go vet ./...
-
       - name: Go lint
         uses: golangci/golangci-lint-action@v9
         with:
