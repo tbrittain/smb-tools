@@ -9,6 +9,9 @@ hero:
     - theme: brand
       text: Get Started
       link: /getting-started
+    - theme: brand
+      text: Download Latest Release
+      link: https://github.com/tbrittain/smb-tools/releases/latest
     - theme: alt
       text: View on GitHub
       link: https://github.com/tbrittain/smb-tools
