@@ -4,11 +4,45 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      golang-x:
+        patterns:
+          - "golang.org/x/*"
+      modernc:
+        patterns:
+          - "modernc.org/*"
+      wails:
+        patterns:
+          - "github.com/wailsapp/*"
 
   - package-ecosystem: npm
     directory: /frontend
     schedule:
       interval: weekly
+    groups:
+      storybook:
+        patterns:
+          - "storybook"
+          - "@storybook/*"
+          - "@chromatic-com/storybook"
+      vue:
+        patterns:
+          - "vue"
+          - "@vue/*"
+          - "vue-router"
+          - "vue-tsc"
+          - "pinia"
+      primevue:
+        patterns:
+          - "primevue"
+          - "@primeuix/*"
+          - "primeicons"
+      vite-vitest:
+        patterns:
+          - "vite"
+          - "vitest"
+          - "@vitest/*"
+          - "@vitejs/*"
 
   - package-ecosystem: npm
     directory: /user-docs
@@ -19,3 +53,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
