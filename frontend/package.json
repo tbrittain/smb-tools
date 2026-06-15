@@ -28,7 +28,7 @@
     "vue-router": "5.1.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.16",
+    "@biomejs/biome": "2.5.0",
     "@chromatic-com/storybook": "5.2.1",
     "@storybook/addon-a11y": "10.4.5",
     "@storybook/addon-docs": "10.4.5",
