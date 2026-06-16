@@ -20,6 +20,7 @@ func TestGetSeasonPlayoffConfig_Found(t *testing.T) {
 	}
 	if cfg == nil {
 		t.Fatal("expected non-nil config for season 100, got nil")
+		return
 	}
 	if cfg.Rounds != 1 {
 		t.Errorf("Rounds: want 1, got %d", cfg.Rounds)

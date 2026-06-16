@@ -60,6 +60,8 @@ type App struct {
 	logoService           *service.LogoService
 	mediaStore            *store.MediaStore
 	mediaService          *service.MediaService
+	exportStore           *store.ExportStore
+	exportPresetStore     *store.ExportPresetStore
 }
 
 func NewApp(version string) *App {

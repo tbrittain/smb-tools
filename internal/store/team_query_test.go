@@ -109,7 +109,7 @@ func TestGetTeamSeasonRoster(t *testing.T) {
 	hist2 := seedTeamHistory(t, db, t2, 1, "Team Two", "W", "AL", 30, 10)
 
 	// Three players on team 1, one on team 2
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		guid := string(rune('a' + i))
 		pid := seedPlayer(t, db, "g"+guid, "Player", guid)
 		psid := seedPlayerSeason(t, db, pid, 1, &hist1)
@@ -593,6 +593,7 @@ func TestGetTeamTopPlayers(t *testing.T) {
 		}
 		if playerA == nil {
 			t.Fatal("player A not found in results")
+			return
 		}
 		for _, aw := range playerA.Awards {
 			if aw == "MVP" {
