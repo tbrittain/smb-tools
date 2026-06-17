@@ -62,6 +62,10 @@ export function useExportConfig() {
   const totalCount = ref<number>(0)
   const isPreviewLoading = ref<boolean>(false)
   const previewFirst = ref<number>(0)
+  // Columns the preview table actually renders. Snapshotted from selectedColumns
+  // only when a fetch runs, so toggling a column checkbox doesn't change what's
+  // displayed until Apply (or a dataset/preset change) actually re-queries.
+  const appliedColumns = ref<ExportColumnDef[]>([])
 
   // ── Export state ─────────────────────────────────────────────────────────────
 
@@ -73,8 +77,10 @@ export function useExportConfig() {
     if (selectedColumnKeys.value.length === 0) {
       previewRows.value = []
       totalCount.value = 0
+      appliedColumns.value = []
       return
     }
+    appliedColumns.value = selectedColumns.value
     isPreviewLoading.value = true
     try {
       const result = await PreviewExportData(buildOptions())
@@ -123,7 +129,7 @@ export function useExportConfig() {
       filters,
       sortCol: sortCol.value,
       sortDir: sortDir.value,
-      careerStatType: ds.supportsCareerStatType ? careerStatType.value : '',
+      careerStatType: ds.statTypeOptions !== 'none' ? careerStatType.value : '',
       offset: previewFirst.value,
     })
   }
@@ -227,6 +233,7 @@ export function useExportConfig() {
     totalCount,
     isPreviewLoading,
     previewFirst,
+    appliedColumns,
     refreshPreview,
     applyAndPreview,
     onPreviewPage,

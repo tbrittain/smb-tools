@@ -49,8 +49,7 @@ JOIN player_seasons ps ON ps.id = bs.player_season_id
 JOIN players p         ON p.id  = ps.player_id
 JOIN seasons s         ON s.id  = ps.season_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
-LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
-WHERE bs.is_regular_season = 1`,
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
 	cols: map[string]exportColumn{
 		"player_name":     {`p.first_name || ' ' || p.last_name`, "Player", "string"},
 		"first_name":      {`p.first_name`, "First Name", "string"},
@@ -103,8 +102,7 @@ JOIN player_seasons ps ON ps.id = pit.player_season_id
 JOIN players p         ON p.id  = ps.player_id
 JOIN seasons s         ON s.id  = ps.season_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
-LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
-WHERE pit.is_regular_season = 1`,
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
 	cols: map[string]exportColumn{
 		"player_name":     {`p.first_name || ' ' || p.last_name`, "Player", "string"},
 		"first_name":      {`p.first_name`, "First Name", "string"},
@@ -462,6 +460,27 @@ func buildExportQuery(def datasetDef, opts ExportOptions, limit int) (string, []
 			extraConds[len(extraConds)-1] = "cps.stat_type = ?"
 		}
 		args = append(args, st)
+	}
+
+	// batting_season / pitching_season: toggle between regular season and playoffs.
+	if def.id == "batting_season" || def.id == "pitching_season" {
+		st := opts.CareerStatType
+		if st == "" {
+			st = "regular_season"
+		}
+		if st != "regular_season" && st != "playoffs" {
+			return "", nil, fmt.Errorf("invalid stat type %q", st)
+		}
+		isRegSeason := 0
+		if st == "regular_season" {
+			isRegSeason = 1
+		}
+		col := "bs.is_regular_season"
+		if def.id == "pitching_season" {
+			col = "pit.is_regular_season"
+		}
+		extraConds = append(extraConds, col+" = ?")
+		args = append(args, isRegSeason)
 	}
 
 	for _, f := range opts.Filters {

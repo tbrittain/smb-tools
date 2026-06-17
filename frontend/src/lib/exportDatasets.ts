@@ -18,7 +18,9 @@ export interface ExportDatasetDef {
   id: string
   label: string
   columns: ExportColumnDef[]
-  supportsCareerStatType: boolean
+  // 'none': no stat-type toggle. 'season': Reg Season / Playoffs toggle.
+  // 'career': Reg Season / Playoffs / Total toggle.
+  statTypeOptions: 'none' | 'season' | 'career'
 }
 
 const battingSeasonColumns: ExportColumnDef[] = [
@@ -291,55 +293,55 @@ export const EXPORT_DATASETS: ExportDatasetDef[] = [
     id: 'batting_season',
     label: 'Player Season Batting',
     columns: battingSeasonColumns,
-    supportsCareerStatType: false,
+    statTypeOptions: 'season',
   },
   {
     id: 'pitching_season',
     label: 'Player Season Pitching',
     columns: pitchingSeasonColumns,
-    supportsCareerStatType: false,
+    statTypeOptions: 'season',
   },
   {
     id: 'standings',
     label: 'Team Season Standings',
     columns: standingsColumns,
-    supportsCareerStatType: false,
+    statTypeOptions: 'none',
   },
   {
     id: 'career_batting',
     label: 'Career Batting Stats',
     columns: careerBattingColumns,
-    supportsCareerStatType: true,
+    statTypeOptions: 'career',
   },
   {
     id: 'career_pitching',
     label: 'Career Pitching Stats',
     columns: careerPitchingColumns,
-    supportsCareerStatType: true,
+    statTypeOptions: 'career',
   },
   {
     id: 'player_season_attributes',
     label: 'Player Season Attributes',
     columns: playerSeasonAttributesColumns,
-    supportsCareerStatType: false,
+    statTypeOptions: 'none',
   },
   {
     id: 'award_winners',
     label: 'Season Award Winners',
     columns: awardWinnersColumns,
-    supportsCareerStatType: false,
+    statTypeOptions: 'none',
   },
   {
     id: 'regular_season_schedule',
     label: 'Regular Season Schedule',
     columns: regularSeasonScheduleColumns,
-    supportsCareerStatType: false,
+    statTypeOptions: 'none',
   },
   {
     id: 'playoff_schedule',
     label: 'Playoff Schedule',
     columns: playoffScheduleColumns,
-    supportsCareerStatType: false,
+    statTypeOptions: 'none',
   },
 ]
 

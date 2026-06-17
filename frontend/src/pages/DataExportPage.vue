@@ -26,6 +26,7 @@ const {
   totalCount,
   isPreviewLoading,
   previewFirst,
+  appliedColumns,
   applyAndPreview,
   onPreviewPage,
   isExporting,
@@ -138,7 +139,7 @@ function setCareerStatType(v: string) {
         />
       </div>
       <ExportPreviewTable
-        :selected-columns="selectedColumns"
+        :selected-columns="appliedColumns"
         :rows="previewRows"
         :loading="isPreviewLoading"
         :total-count="totalCount"

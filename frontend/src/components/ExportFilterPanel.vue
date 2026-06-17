@@ -106,8 +106,8 @@ function updateValue(index: number, value: string) {
 
 <template>
   <div class="filter-panel">
-    <!-- Career stat type toggle — dedicated control, not a generic filter row -->
-    <div v-if="dataset.supportsCareerStatType" class="filter-section">
+    <!-- Stat type toggle — dedicated control, not a generic filter row -->
+    <div v-if="dataset.statTypeOptions !== 'none'" class="filter-section">
       <span class="filter-label">Stat Type</span>
       <div class="toggle-group">
         <button
@@ -125,6 +125,7 @@ function updateValue(index: number, value: string) {
           Playoffs
         </button>
         <button
+          v-if="dataset.statTypeOptions === 'career'"
           class="toggle-btn"
           :class="{ active: careerStatType === 'total_career' }"
           @click="$emit('update:careerStatType', 'total_career')"
@@ -209,7 +210,7 @@ function updateValue(index: number, value: string) {
     </div>
 
     <p
-      v-if="filterRows.length === 0 && availableColumns.length === 0 && !dataset.supportsCareerStatType"
+      v-if="filterRows.length === 0 && availableColumns.length === 0 && dataset.statTypeOptions === 'none'"
       class="no-filters"
     >
       No columns selected.

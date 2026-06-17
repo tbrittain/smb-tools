@@ -128,6 +128,61 @@ func TestPreviewExportData_PitchingSeason(t *testing.T) {
 	}
 }
 
+func TestPreviewExportData_SeasonStatTypeFilter(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	teamID := seedTeam(t, db, "team-stf")
+	h1 := seedTeamHistory(t, db, teamID, s1, "Statters", "East", "NL", 30, 10)
+	p := seedPlayer(t, db, "guid-stf-season", "Sam", "Stats")
+	ps := seedPlayerSeason(t, db, p, s1, &h1)
+	seedBatting(t, db, ps, true, 400, 120, 20, 80)
+	seedBatting(t, db, ps, false, 20, 8, 2, 5)
+
+	regPreview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:      "batting_season",
+		Columns:        []string{"player_name", "home_runs"},
+		CareerStatType: "regular_season",
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData batting_season regular_season: %v", err)
+	}
+	if regPreview.TotalCount != 1 {
+		t.Fatalf("TotalCount (regular_season): want 1, got %d", regPreview.TotalCount)
+	}
+	if hr, _ := regPreview.Rows[0]["home_runs"].(int64); hr != 20 {
+		t.Errorf("home_runs (regular_season): want 20, got %v", regPreview.Rows[0]["home_runs"])
+	}
+
+	playoffPreview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:      "batting_season",
+		Columns:        []string{"player_name", "home_runs"},
+		CareerStatType: "playoffs",
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData batting_season playoffs: %v", err)
+	}
+	if playoffPreview.TotalCount != 1 {
+		t.Fatalf("TotalCount (playoffs): want 1, got %d", playoffPreview.TotalCount)
+	}
+	if hr, _ := playoffPreview.Rows[0]["home_runs"].(int64); hr != 2 {
+		t.Errorf("home_runs (playoffs): want 2, got %v", playoffPreview.Rows[0]["home_runs"])
+	}
+}
+
+func TestPreviewExportData_SeasonStatTypeRejectsInvalidValue(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	_, err := store.NewExportStore(db).PreviewExportData(context.Background(), store.ExportOptions{
+		DatasetID:      "batting_season",
+		Columns:        []string{"player_name"},
+		CareerStatType: "total_career",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid season stat type, got nil")
+	}
+}
+
 func TestPreviewExportData_Standings(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
