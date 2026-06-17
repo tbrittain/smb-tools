@@ -182,6 +182,9 @@ onMounted(() => set([{ label: 'Export' }]))
   margin-top: auto;
   border-top: 1px solid var(--color-border);
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .apply-btn {
