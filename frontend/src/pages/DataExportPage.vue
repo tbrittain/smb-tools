@@ -1,10 +1,12 @@
 <script lang="ts" setup>
 import Button from 'primevue/button'
+import { onMounted } from 'vue'
 import ExportColumnSelector from '../components/ExportColumnSelector.vue'
 import ExportDatasetPicker from '../components/ExportDatasetPicker.vue'
 import ExportFilterPanel from '../components/ExportFilterPanel.vue'
 import ExportPresetManager from '../components/ExportPresetManager.vue'
 import ExportPreviewTable from '../components/ExportPreviewTable.vue'
+import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 import { useExportConfig } from '../composables/useExportConfig'
 import { EXPORT_DATASETS } from '../lib/exportDatasets'
 
@@ -30,6 +32,9 @@ const {
   toConfigJSON,
   fromConfigJSON,
 } = useExportConfig()
+
+const { set } = useBreadcrumbs()
+onMounted(() => set([{ label: 'Export' }]))
 </script>
 
 <template>
