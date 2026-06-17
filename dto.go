@@ -1405,10 +1405,11 @@ type ExportOptionsDTO struct {
 	SortCol        string         `json:"sortCol"`
 	SortDir        string         `json:"sortDir"` // "asc" | "desc"
 	CareerStatType string         `json:"careerStatType"`
+	Offset         int            `json:"offset"` // row offset for preview pagination; ignored by ExportToCSV
 }
 
-// ExportPreviewDTO is the preview response: up to 500 rows keyed by column key.
-// TotalCount is the full untruncated row count so the UI can show "Showing 500 of N".
+// ExportPreviewDTO is one page of preview results keyed by column key.
+// TotalCount is the full untruncated row count so the UI can paginate.
 type ExportPreviewDTO struct {
 	Rows       []map[string]any `json:"rows"`
 	TotalCount int              `json:"totalCount"`

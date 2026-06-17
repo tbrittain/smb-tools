@@ -29,8 +29,8 @@ func (a *App) GetTeamsForExport() ([]TeamPickerResultDTO, error) {
 	return out, nil
 }
 
-// PreviewExportData returns up to 500 rows for the given export configuration
-// plus the total matching row count so the frontend can show a truncation notice.
+// PreviewExportData returns one page of rows for the given export configuration
+// plus the total matching row count so the frontend can paginate the preview.
 func (a *App) PreviewExportData(opts ExportOptionsDTO) (ExportPreviewDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {
 		return ExportPreviewDTO{}, err
@@ -46,6 +46,7 @@ func (a *App) PreviewExportData(opts ExportOptionsDTO) (ExportPreviewDTO, error)
 		SortCol:        opts.SortCol,
 		SortDir:        opts.SortDir,
 		CareerStatType: opts.CareerStatType,
+		Offset:         opts.Offset,
 	})
 	if err != nil {
 		slog.Error("PreviewExportData", "dataset", opts.DatasetID, "err", err)

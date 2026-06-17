@@ -390,11 +390,64 @@ VALUES (?,?,1,50,50,200,0,60,0,0,10,40,0,0,0,0,0,0,0,0,0)
 	if preview.TotalCount != total {
 		t.Errorf("TotalCount: want %d, got %d", total, preview.TotalCount)
 	}
-	if len(preview.Rows) > 20 {
-		t.Errorf("preview rows: want ≤20, got %d", len(preview.Rows))
+	if len(preview.Rows) > 50 {
+		t.Errorf("preview rows: want ≤50, got %d", len(preview.Rows))
 	}
 	if preview.TotalCount <= len(preview.Rows) {
 		t.Errorf("TotalCount (%d) should exceed preview row count (%d)", preview.TotalCount, len(preview.Rows))
+	}
+}
+
+func TestPreviewExportData_OffsetRespected(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	const total = 75
+	for i := range total {
+		p := seedPlayer(t, db, fmt.Sprintf("guid-off-%d", i), fmt.Sprintf("P%d", i), "Last")
+		_, err := db.ExecContext(ctx, `
+INSERT INTO player_career_batting_stats
+    (player_id, stat_type, seasons_played, games_played, games_batting, at_bats,
+     runs, hits, doubles, triples, home_runs, rbi, stolen_bases, caught_stealing,
+     walks, strikeouts, hit_by_pitch, sac_hits, sac_flies, errors, passed_balls)
+VALUES (?,?,1,50,50,200,0,60,0,0,10,40,0,0,0,0,0,0,0,0,0)
+`, p, "regular_season")
+		if err != nil {
+			t.Fatalf("seed player %d: %v", i, err)
+		}
+	}
+
+	firstPage, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:      "career_batting",
+		Columns:        []string{"player_name"},
+		CareerStatType: "regular_season",
+		SortCol:        "player_name",
+		SortDir:        "asc",
+		Offset:         0,
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData first page: %v", err)
+	}
+	if len(firstPage.Rows) != 50 {
+		t.Fatalf("first page rows: want 50, got %d", len(firstPage.Rows))
+	}
+
+	secondPage, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:      "career_batting",
+		Columns:        []string{"player_name"},
+		CareerStatType: "regular_season",
+		SortCol:        "player_name",
+		SortDir:        "asc",
+		Offset:         50,
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData second page: %v", err)
+	}
+	if len(secondPage.Rows) != total-50 {
+		t.Fatalf("second page rows: want %d, got %d", total-50, len(secondPage.Rows))
+	}
+	if secondPage.Rows[0]["player_name"] == firstPage.Rows[0]["player_name"] {
+		t.Errorf("second page should not repeat first page's rows")
 	}
 }
 

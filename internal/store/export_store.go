@@ -401,7 +401,12 @@ type ExportOptions struct {
 	SortCol        string
 	SortDir        string
 	CareerStatType string
+	Offset         int
 }
+
+// previewPageSize is the number of rows returned per preview page, matching
+// the leaderboards page's paginator (rows=50).
+const previewPageSize = 50
 
 // FilterRow is one filter condition from the frontend.
 type FilterRow struct {
@@ -411,7 +416,7 @@ type FilterRow struct {
 	Value2 string
 }
 
-// ExportPreview is the result of a preview query (≤500 rows + total count).
+// ExportPreview is the result of a preview query (one page of rows + total count).
 type ExportPreview struct {
 	Rows       []map[string]any
 	TotalCount int
@@ -421,7 +426,7 @@ type ExportPreview struct {
 // Column keys and the sort field are looked up in the dataset definition — an
 // unknown key returns an error so the caller surfaces bad state clearly rather
 // than silently producing wrong SQL.
-// limit=0 means no LIMIT clause (used by ExportToCSV).
+// limit=0 means no LIMIT/OFFSET clause (used by ExportToCSV).
 //
 //nolint:gocognit // large switch-style allowlist validation — splitting would obscure the mapping
 func buildExportQuery(def datasetDef, opts ExportOptions, limit int) (string, []any, error) {
@@ -510,24 +515,25 @@ func buildExportQuery(def datasetDef, opts ExportOptions, limit int) (string, []
 
 	limitClause := ""
 	if limit > 0 {
-		limitClause = "\nLIMIT ?"
-		args = append(args, limit)
+		limitClause = "\nLIMIT ? OFFSET ?"
+		args = append(args, limit, opts.Offset)
 	}
 
 	q := "SELECT " + strings.Join(selects, ", ") + "\n" + fromClause + orderBy + limitClause
 	return q, args, nil
 }
 
-// PreviewExportData executes the export query with a 20-row limit and also
-// runs a COUNT(*) to return the total matching row count.
+// PreviewExportData executes the export query for one page (previewPageSize
+// rows, starting at opts.Offset) and also runs a COUNT(*) to return the total
+// matching row count.
 func (s *ExportStore) PreviewExportData(ctx context.Context, opts ExportOptions) (ExportPreview, error) {
 	def, ok := datasetByID[opts.DatasetID]
 	if !ok {
 		return ExportPreview{}, fmt.Errorf("unknown dataset %q", opts.DatasetID)
 	}
 
-	// Build the data query (limit 20) and a count query sharing the same WHERE.
-	dataQ, dataArgs, err := buildExportQuery(def, opts, 20)
+	// Build the data query (one page) and a count query sharing the same WHERE.
+	dataQ, dataArgs, err := buildExportQuery(def, opts, previewPageSize)
 	if err != nil {
 		return ExportPreview{}, err
 	}

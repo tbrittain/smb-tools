@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import Column from 'primevue/column'
-import DataTable from 'primevue/datatable'
+import DataTable, { type DataTablePageEvent } from 'primevue/datatable'
 import type { ExportColumnDef } from '../lib/exportDatasets'
 
 defineProps<{
@@ -8,7 +8,16 @@ defineProps<{
   rows: Record<string, unknown>[]
   loading: boolean
   totalCount: number
+  first: number
 }>()
+
+const emit = defineEmits<{
+  page: [first: number]
+}>()
+
+function onPage(event: DataTablePageEvent) {
+  emit('page', event.first)
+}
 
 function formatCell(value: unknown, col: ExportColumnDef): string {
   if (value === null || value === undefined) return ''
@@ -25,10 +34,16 @@ function formatCell(value: unknown, col: ExportColumnDef): string {
     <DataTable
       :value="rows"
       :loading="loading"
+      lazy
+      :total-records="totalCount"
+      :first="first"
+      paginator
+      :rows="50"
       size="small"
       scrollable
       scroll-height="flex"
       class="preview-table"
+      @page="onPage"
     >
       <template #empty>
         <span class="empty-msg">
@@ -49,14 +64,6 @@ function formatCell(value: unknown, col: ExportColumnDef): string {
         </template>
       </Column>
     </DataTable>
-    <div v-if="totalCount > 0" class="preview-caption">
-      <template v-if="rows.length < totalCount">
-        Showing {{ rows.length }} of {{ totalCount }} rows
-      </template>
-      <template v-else>
-        {{ totalCount }} row{{ totalCount === 1 ? '' : 's' }}
-      </template>
-    </div>
   </div>
 </template>
 
@@ -77,12 +84,5 @@ function formatCell(value: unknown, col: ExportColumnDef): string {
 .empty-msg {
   color: var(--color-text-secondary);
   font-size: 0.875rem;
-}
-
-.preview-caption {
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  text-align: right;
-  padding-right: 0.25rem;
 }
 </style>

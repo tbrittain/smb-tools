@@ -25,7 +25,9 @@ const {
   previewRows,
   totalCount,
   isPreviewLoading,
-  refreshPreview,
+  previewFirst,
+  applyAndPreview,
+  onPreviewPage,
   isExporting,
   downloadCSV,
   toConfigJSON,
@@ -92,7 +94,7 @@ function setCareerStatType(v: string) {
           :loading="isPreviewLoading"
           :disabled="selectedColumnKeys.length === 0"
           class="apply-btn"
-          @click="refreshPreview"
+          @click="applyAndPreview"
         />
         <Button
           label="Export CSV"
@@ -140,6 +142,8 @@ function setCareerStatType(v: string) {
         :rows="previewRows"
         :loading="isPreviewLoading"
         :total-count="totalCount"
+        :first="previewFirst"
+        @page="onPreviewPage"
       />
     </div>
   </div>

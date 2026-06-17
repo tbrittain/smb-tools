@@ -61,6 +61,7 @@ export function useExportConfig() {
   const previewRows = ref<Record<string, unknown>[]>([])
   const totalCount = ref<number>(0)
   const isPreviewLoading = ref<boolean>(false)
+  const previewFirst = ref<number>(0)
 
   // ── Export state ─────────────────────────────────────────────────────────────
 
@@ -86,6 +87,16 @@ export function useExportConfig() {
     }
   }
 
+  function applyAndPreview() {
+    previewFirst.value = 0
+    refreshPreview()
+  }
+
+  function onPreviewPage(first: number) {
+    previewFirst.value = first
+    refreshPreview()
+  }
+
   // ── Dataset change ────────────────────────────────────────────────────────────
 
   function onDatasetChange() {
@@ -93,6 +104,7 @@ export function useExportConfig() {
     careerStatType.value = 'regular_season'
     sortCol.value = ''
     sortDir.value = 'asc'
+    previewFirst.value = 0
     selectAllColumns()
     refreshPreview()
   }
@@ -112,6 +124,7 @@ export function useExportConfig() {
       sortCol: sortCol.value,
       sortDir: sortDir.value,
       careerStatType: ds.supportsCareerStatType ? careerStatType.value : '',
+      offset: previewFirst.value,
     })
   }
 
@@ -153,6 +166,7 @@ export function useExportConfig() {
   function fromPreset(datasetId: string, configJSON: string) {
     activeDatasetId.value = datasetId
     if (fromConfigJSON(configJSON)) {
+      previewFirst.value = 0
       refreshPreview()
     }
   }
@@ -212,7 +226,10 @@ export function useExportConfig() {
     previewRows,
     totalCount,
     isPreviewLoading,
+    previewFirst,
     refreshPreview,
+    applyAndPreview,
+    onPreviewPage,
     // export
     isExporting,
     downloadCSV,
