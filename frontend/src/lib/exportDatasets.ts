@@ -18,7 +18,9 @@ export interface ExportDatasetDef {
   id: string
   label: string
   columns: ExportColumnDef[]
-  supportsCareerStatType: boolean
+  // 'none': no stat-type toggle. 'season': Reg Season / Playoffs toggle.
+  // 'career': Reg Season / Playoffs / Total toggle.
+  statTypeOptions: 'none' | 'season' | 'career'
 }
 
 const battingSeasonColumns: ExportColumnDef[] = [
@@ -222,36 +224,124 @@ const careerPitchingColumns: ExportColumnDef[] = [
   { key: 'smb_war', label: 'smbWAR', dataType: 'float' },
 ]
 
+const playerSeasonAttributesColumns: ExportColumnDef[] = [
+  { key: 'player_name', label: 'Player', dataType: 'string' },
+  { key: 'first_name', label: 'First Name', dataType: 'string' },
+  { key: 'last_name', label: 'Last Name', dataType: 'string' },
+  { key: 'season_num', label: 'Season', dataType: 'int' },
+  { key: 'team_name', label: 'Team', dataType: 'enum' },
+  { key: 'age', label: 'Age', dataType: 'int' },
+  {
+    key: 'primary_position',
+    label: 'Position',
+    dataType: 'enum',
+    options: ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF'],
+  },
+  { key: 'pitcher_role', label: 'Role', dataType: 'enum', options: ['SP', 'RP', 'CL'] },
+  { key: 'bat_hand', label: 'Bat Hand', dataType: 'enum', options: ['L', 'R', 'S'] },
+  { key: 'throw_hand', label: 'Throw Hand', dataType: 'enum', options: ['L', 'R'] },
+  {
+    key: 'chemistry_type',
+    label: 'Chemistry',
+    dataType: 'enum',
+    options: ['Competitive', 'Spirited', 'Disciplined', 'Scholarly', 'Crafty'],
+  },
+  { key: 'salary', label: 'Salary', dataType: 'int' },
+  { key: 'power', label: 'Power', dataType: 'int' },
+  { key: 'contact', label: 'Contact', dataType: 'int' },
+  { key: 'speed', label: 'Speed', dataType: 'int' },
+  { key: 'fielding', label: 'Fielding', dataType: 'int' },
+  { key: 'arm', label: 'Arm', dataType: 'int' },
+  { key: 'velocity', label: 'Velocity', dataType: 'int' },
+  { key: 'junk', label: 'Junk', dataType: 'int' },
+  { key: 'accuracy', label: 'Accuracy', dataType: 'int' },
+]
+
+const awardWinnersColumns: ExportColumnDef[] = [
+  { key: 'player_name', label: 'Player', dataType: 'string' },
+  { key: 'first_name', label: 'First Name', dataType: 'string' },
+  { key: 'last_name', label: 'Last Name', dataType: 'string' },
+  { key: 'season_num', label: 'Season', dataType: 'int' },
+  { key: 'team_name', label: 'Team', dataType: 'enum' },
+  { key: 'award_name', label: 'Award', dataType: 'string' },
+  { key: 'award_original_name', label: 'Award (Original)', dataType: 'string' },
+  { key: 'award_type', label: 'Type', dataType: 'enum', options: ['Winner', 'Runner-Up'] },
+]
+
+const regularSeasonScheduleColumns: ExportColumnDef[] = [
+  { key: 'season_num', label: 'Season', dataType: 'int' },
+  { key: 'game_number', label: 'Game #', dataType: 'int' },
+  { key: 'day', label: 'Day', dataType: 'int' },
+  { key: 'home_team_name', label: 'Home Team', dataType: 'enum' },
+  { key: 'away_team_name', label: 'Away Team', dataType: 'enum' },
+  { key: 'home_score', label: 'Home Score', dataType: 'int' },
+  { key: 'away_score', label: 'Away Score', dataType: 'int' },
+]
+
+const playoffScheduleColumns: ExportColumnDef[] = [
+  { key: 'season_num', label: 'Season', dataType: 'int' },
+  { key: 'series_number', label: 'Series #', dataType: 'int' },
+  { key: 'game_number', label: 'Game #', dataType: 'int' },
+  { key: 'home_team_name', label: 'Home Team', dataType: 'enum' },
+  { key: 'away_team_name', label: 'Away Team', dataType: 'enum' },
+  { key: 'home_score', label: 'Home Score', dataType: 'int' },
+  { key: 'away_score', label: 'Away Score', dataType: 'int' },
+]
+
 export const EXPORT_DATASETS: ExportDatasetDef[] = [
   {
     id: 'batting_season',
     label: 'Player Season Batting',
     columns: battingSeasonColumns,
-    supportsCareerStatType: false,
+    statTypeOptions: 'season',
   },
   {
     id: 'pitching_season',
     label: 'Player Season Pitching',
     columns: pitchingSeasonColumns,
-    supportsCareerStatType: false,
+    statTypeOptions: 'season',
   },
   {
     id: 'standings',
     label: 'Team Season Standings',
     columns: standingsColumns,
-    supportsCareerStatType: false,
+    statTypeOptions: 'none',
   },
   {
     id: 'career_batting',
     label: 'Career Batting Stats',
     columns: careerBattingColumns,
-    supportsCareerStatType: true,
+    statTypeOptions: 'career',
   },
   {
     id: 'career_pitching',
     label: 'Career Pitching Stats',
     columns: careerPitchingColumns,
-    supportsCareerStatType: true,
+    statTypeOptions: 'career',
+  },
+  {
+    id: 'player_season_attributes',
+    label: 'Player Season Attributes',
+    columns: playerSeasonAttributesColumns,
+    statTypeOptions: 'none',
+  },
+  {
+    id: 'award_winners',
+    label: 'Season Award Winners',
+    columns: awardWinnersColumns,
+    statTypeOptions: 'none',
+  },
+  {
+    id: 'regular_season_schedule',
+    label: 'Regular Season Schedule',
+    columns: regularSeasonScheduleColumns,
+    statTypeOptions: 'none',
+  },
+  {
+    id: 'playoff_schedule',
+    label: 'Playoff Schedule',
+    columns: playoffScheduleColumns,
+    statTypeOptions: 'none',
   },
 ]
 

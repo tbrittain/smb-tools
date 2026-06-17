@@ -145,18 +145,27 @@ describe('useExportConfig', () => {
     expect(cfg.filterRows.value).toEqual([])
   })
 
-  it('buildOptions passes careerStatType only for career datasets, empty string otherwise', async () => {
+  it('buildOptions passes careerStatType only for datasets with a stat-type toggle, empty string otherwise', async () => {
     const cfg = mountComposable()
     await nextTick()
     mockPreviewExportData.mockClear()
 
-    // Default dataset is batting_season — careerStatType must be empty in options
+    // Default dataset is batting_season (statTypeOptions: 'season') — careerStatType is forwarded
     await cfg.refreshPreview()
 
     const seasonOpts = mockPreviewExportData.mock.calls[0][0]
-    expect(seasonOpts.careerStatType).toBe('')
+    expect(seasonOpts.careerStatType).toBe('regular_season')
 
-    // Switch to career_batting — careerStatType should be forwarded
+    // Switch to standings (statTypeOptions: 'none') — careerStatType must be empty
+    mockPreviewExportData.mockClear()
+    cfg.activeDatasetId.value = 'standings'
+    cfg.onDatasetChange()
+    await cfg.refreshPreview()
+
+    const standingsOpts = mockPreviewExportData.mock.calls[0][0]
+    expect(standingsOpts.careerStatType).toBe('')
+
+    // Switch to career_batting (statTypeOptions: 'career') — careerStatType should be forwarded
     mockPreviewExportData.mockClear()
     cfg.activeDatasetId.value = 'career_batting'
     cfg.onDatasetChange()
@@ -164,5 +173,29 @@ describe('useExportConfig', () => {
 
     const careerOpts = mockPreviewExportData.mock.calls[0][0]
     expect(careerOpts.careerStatType).toBe('regular_season')
+  })
+
+  it('appliedColumns only updates when a fetch actually runs, not on every checkbox toggle', async () => {
+    const cfg = mountComposable()
+    await nextTick()
+
+    const battingDataset = EXPORT_DATASET_MAP.batting_season
+    const hrKey = battingDataset.columns.find((c) => c.key === 'home_runs')?.key ?? 'home_runs'
+
+    // Initial mount already ran a fetch with all columns selected.
+    const initialKeys = cfg.appliedColumns.value.map((c) => c.key)
+    expect(initialKeys).toEqual(cfg.selectedColumnKeys.value)
+
+    // Deselecting a column updates the live selection immediately, but must NOT
+    // change what the preview table renders until a fetch actually runs.
+    cfg.selectedColumnKeys.value = cfg.selectedColumnKeys.value.filter((k) => k !== hrKey)
+    await nextTick()
+    expect(cfg.appliedColumns.value.map((c) => c.key)).toEqual(initialKeys)
+
+    // Clicking Apply runs the fetch and snapshots the new column selection.
+    cfg.applyAndPreview()
+    await nextTick()
+    expect(cfg.appliedColumns.value.map((c) => c.key)).toEqual(cfg.selectedColumnKeys.value)
+    expect(cfg.appliedColumns.value.some((c) => c.key === hrKey)).toBe(false)
   })
 })

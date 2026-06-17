@@ -49,8 +49,7 @@ JOIN player_seasons ps ON ps.id = bs.player_season_id
 JOIN players p         ON p.id  = ps.player_id
 JOIN seasons s         ON s.id  = ps.season_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
-LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
-WHERE bs.is_regular_season = 1`,
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
 	cols: map[string]exportColumn{
 		"player_name":     {`p.first_name || ' ' || p.last_name`, "Player", "string"},
 		"first_name":      {`p.first_name`, "First Name", "string"},
@@ -103,8 +102,7 @@ JOIN player_seasons ps ON ps.id = pit.player_season_id
 JOIN players p         ON p.id  = ps.player_id
 JOIN seasons s         ON s.id  = ps.season_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
-LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
-WHERE pit.is_regular_season = 1`,
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
 	cols: map[string]exportColumn{
 		"player_name":     {`p.first_name || ' ' || p.last_name`, "Player", "string"},
 		"first_name":      {`p.first_name`, "First Name", "string"},
@@ -267,6 +265,97 @@ JOIN players p ON p.id = cps.player_id`,
 	},
 }
 
+var playerSeasonAttributesDataset = datasetDef{
+	id:    "player_season_attributes",
+	label: "Player Season Attributes",
+	fromSQL: `FROM player_season_game_stats psg
+JOIN player_seasons ps ON ps.id = psg.player_season_id
+JOIN players p         ON p.id  = ps.player_id
+JOIN seasons s         ON s.id  = ps.season_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
+	cols: map[string]exportColumn{
+		"player_name":      {`p.first_name || ' ' || p.last_name`, "Player", "string"},
+		"first_name":       {`p.first_name`, "First Name", "string"},
+		"last_name":        {`p.last_name`, "Last Name", "string"},
+		"season_num":       {`s.season_num`, "Season", "int"},
+		"team_name":        {`COALESCE(tsh.team_name, '')`, "Team", "string"},
+		"age":              {`ps.age`, "Age", "int"},
+		"primary_position": {`ps.primary_position`, "Position", "string"},
+		"pitcher_role":     {`ps.pitcher_role`, "Role", "string"},
+		"bat_hand":         {`ps.bat_hand`, "Bat Hand", "string"},
+		"throw_hand":       {`ps.throw_hand`, "Throw Hand", "string"},
+		"chemistry_type":   {`ps.chemistry_type`, "Chemistry", "string"},
+		"salary":           {`ps.salary`, "Salary", "int"},
+		"power":            {`psg.power`, "Power", "int"},
+		"contact":          {`psg.contact`, "Contact", "int"},
+		"speed":            {`psg.speed`, "Speed", "int"},
+		"fielding":         {`psg.fielding`, "Fielding", "int"},
+		"arm":              {`psg.arm`, "Arm", "int"},
+		"velocity":         {`psg.velocity`, "Velocity", "int"},
+		"junk":             {`psg.junk`, "Junk", "int"},
+		"accuracy":         {`psg.accuracy`, "Accuracy", "int"},
+	},
+}
+
+var awardWinnersDataset = datasetDef{
+	id:    "award_winners",
+	label: "Season Award Winners",
+	fromSQL: `FROM player_season_awards psa
+JOIN awards a          ON a.id  = psa.award_id
+JOIN player_seasons ps ON ps.id = psa.player_season_id
+JOIN players p         ON p.id  = ps.player_id
+JOIN seasons s         ON s.id  = ps.season_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
+	cols: map[string]exportColumn{
+		"player_name":         {`p.first_name || ' ' || p.last_name`, "Player", "string"},
+		"first_name":          {`p.first_name`, "First Name", "string"},
+		"last_name":           {`p.last_name`, "Last Name", "string"},
+		"season_num":          {`s.season_num`, "Season", "int"},
+		"team_name":           {`COALESCE(tsh.team_name, '')`, "Team", "string"},
+		"award_name":          {`a.name`, "Award", "string"},
+		"award_original_name": {`a.original_name`, "Award (Original)", "string"},
+		"award_type":          {`CASE WHEN a.omit_from_groupings = 1 THEN 'Runner-Up' ELSE 'Winner' END`, "Type", "string"},
+	},
+}
+
+var regularSeasonScheduleDataset = datasetDef{
+	id:    "regular_season_schedule",
+	label: "Regular Season Schedule",
+	fromSQL: `FROM team_season_schedules tss
+JOIN seasons s           ON s.id          = tss.season_id
+JOIN team_season_history home_tsh ON home_tsh.id = tss.home_team_history_id
+JOIN team_season_history away_tsh ON away_tsh.id = tss.away_team_history_id`,
+	cols: map[string]exportColumn{
+		"season_num":     {`s.season_num`, "Season", "int"},
+		"game_number":    {`tss.game_number`, "Game #", "int"},
+		"day":            {`tss.day`, "Day", "int"},
+		"home_team_name": {`home_tsh.team_name`, "Home Team", "string"},
+		"away_team_name": {`away_tsh.team_name`, "Away Team", "string"},
+		"home_score":     {`tss.home_score`, "Home Score", "int"},
+		"away_score":     {`tss.away_score`, "Away Score", "int"},
+	},
+}
+
+var playoffScheduleDataset = datasetDef{
+	id:    "playoff_schedule",
+	label: "Playoff Schedule",
+	fromSQL: `FROM team_playoff_schedules tps
+JOIN seasons s           ON s.id          = tps.season_id
+JOIN team_season_history home_tsh ON home_tsh.id = tps.home_team_history_id
+JOIN team_season_history away_tsh ON away_tsh.id = tps.away_team_history_id`,
+	cols: map[string]exportColumn{
+		"season_num":     {`s.season_num`, "Season", "int"},
+		"series_number":  {`tps.series_number`, "Series #", "int"},
+		"game_number":    {`tps.game_number`, "Game #", "int"},
+		"home_team_name": {`home_tsh.team_name`, "Home Team", "string"},
+		"away_team_name": {`away_tsh.team_name`, "Away Team", "string"},
+		"home_score":     {`tps.home_score`, "Home Score", "int"},
+		"away_score":     {`tps.away_score`, "Away Score", "int"},
+	},
+}
+
 // allDatasets is the ordered list of datasets returned by GetExportDatasets.
 // The TypeScript constant in frontend/src/lib/exportDatasets.ts must match
 // these dataset IDs and column keys.
@@ -276,6 +365,10 @@ var allDatasets = []datasetDef{
 	standingsDataset,
 	careerBattingDataset,
 	careerPitchingDataset,
+	playerSeasonAttributesDataset,
+	awardWinnersDataset,
+	regularSeasonScheduleDataset,
+	playoffScheduleDataset,
 }
 
 // datasetByID maps dataset ID strings to their definitions for fast lookup.
@@ -306,7 +399,12 @@ type ExportOptions struct {
 	SortCol        string
 	SortDir        string
 	CareerStatType string
+	Offset         int
 }
+
+// previewPageSize is the number of rows returned per preview page, matching
+// the leaderboards page's paginator (rows=50).
+const previewPageSize = 50
 
 // FilterRow is one filter condition from the frontend.
 type FilterRow struct {
@@ -316,7 +414,7 @@ type FilterRow struct {
 	Value2 string
 }
 
-// ExportPreview is the result of a preview query (≤500 rows + total count).
+// ExportPreview is the result of a preview query (one page of rows + total count).
 type ExportPreview struct {
 	Rows       []map[string]any
 	TotalCount int
@@ -326,7 +424,7 @@ type ExportPreview struct {
 // Column keys and the sort field are looked up in the dataset definition — an
 // unknown key returns an error so the caller surfaces bad state clearly rather
 // than silently producing wrong SQL.
-// limit=0 means no LIMIT clause (used by ExportToCSV).
+// limit=0 means no LIMIT/OFFSET clause (used by ExportToCSV).
 //
 //nolint:gocognit // large switch-style allowlist validation — splitting would obscure the mapping
 func buildExportQuery(def datasetDef, opts ExportOptions, limit int) (string, []any, error) {
@@ -364,6 +462,27 @@ func buildExportQuery(def datasetDef, opts ExportOptions, limit int) (string, []
 		args = append(args, st)
 	}
 
+	// batting_season / pitching_season: toggle between regular season and playoffs.
+	if def.id == "batting_season" || def.id == "pitching_season" {
+		st := opts.CareerStatType
+		if st == "" {
+			st = "regular_season"
+		}
+		if st != "regular_season" && st != "playoffs" {
+			return "", nil, fmt.Errorf("invalid stat type %q", st)
+		}
+		isRegSeason := 0
+		if st == "regular_season" {
+			isRegSeason = 1
+		}
+		col := "bs.is_regular_season"
+		if def.id == "pitching_season" {
+			col = "pit.is_regular_season"
+		}
+		extraConds = append(extraConds, col+" = ?")
+		args = append(args, isRegSeason)
+	}
+
 	for _, f := range opts.Filters {
 		col, ok := def.cols[f.Column]
 		if !ok {
@@ -398,34 +517,42 @@ func buildExportQuery(def datasetDef, opts ExportOptions, limit int) (string, []
 		orderBy = "\nORDER BY " + col.sqlExpr + " " + dir
 	}
 
-	// Assemble the FROM clause: the datasetDef already includes a fixed WHERE
-	// (e.g. is_regular_season = 1 for season datasets). We append extra conditions
-	// with AND.
+	// Assemble the FROM clause. Some datasets include a fixed WHERE condition
+	// (e.g. is_regular_season = 1); others end with a JOIN. Use WHERE when there
+	// is no existing WHERE, otherwise AND — this matters for datasets that end
+	// with a LEFT JOIN, where tacking an AND onto the ON clause is semantically
+	// wrong (non-matching rows would still be returned with NULLs).
 	fromClause := def.fromSQL
 	if len(extraConds) > 0 {
-		fromClause += "\n  AND " + strings.Join(extraConds, "\n  AND ")
+		cond := strings.Join(extraConds, "\n  AND ")
+		if strings.Contains(def.fromSQL, "WHERE") {
+			fromClause += "\n  AND " + cond
+		} else {
+			fromClause += "\nWHERE " + cond
+		}
 	}
 
 	limitClause := ""
 	if limit > 0 {
-		limitClause = "\nLIMIT ?"
-		args = append(args, limit)
+		limitClause = "\nLIMIT ? OFFSET ?"
+		args = append(args, limit, opts.Offset)
 	}
 
 	q := "SELECT " + strings.Join(selects, ", ") + "\n" + fromClause + orderBy + limitClause
 	return q, args, nil
 }
 
-// PreviewExportData executes the export query with a 20-row limit and also
-// runs a COUNT(*) to return the total matching row count.
+// PreviewExportData executes the export query for one page (previewPageSize
+// rows, starting at opts.Offset) and also runs a COUNT(*) to return the total
+// matching row count.
 func (s *ExportStore) PreviewExportData(ctx context.Context, opts ExportOptions) (ExportPreview, error) {
 	def, ok := datasetByID[opts.DatasetID]
 	if !ok {
 		return ExportPreview{}, fmt.Errorf("unknown dataset %q", opts.DatasetID)
 	}
 
-	// Build the data query (limit 20) and a count query sharing the same WHERE.
-	dataQ, dataArgs, err := buildExportQuery(def, opts, 20)
+	// Build the data query (one page) and a count query sharing the same WHERE.
+	dataQ, dataArgs, err := buildExportQuery(def, opts, previewPageSize)
 	if err != nil {
 		return ExportPreview{}, err
 	}

@@ -557,6 +557,7 @@ export namespace main {
 	    sortCol: string;
 	    sortDir: string;
 	    careerStatType: string;
+	    offset: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ExportOptionsDTO(source);
@@ -570,6 +571,7 @@ export namespace main {
 	        this.sortCol = source["sortCol"];
 	        this.sortDir = source["sortDir"];
 	        this.careerStatType = source["careerStatType"];
+	        this.offset = source["offset"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

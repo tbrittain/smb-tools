@@ -128,6 +128,61 @@ func TestPreviewExportData_PitchingSeason(t *testing.T) {
 	}
 }
 
+func TestPreviewExportData_SeasonStatTypeFilter(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	teamID := seedTeam(t, db, "team-stf")
+	h1 := seedTeamHistory(t, db, teamID, s1, "Statters", "East", "NL", 30, 10)
+	p := seedPlayer(t, db, "guid-stf-season", "Sam", "Stats")
+	ps := seedPlayerSeason(t, db, p, s1, &h1)
+	seedBatting(t, db, ps, true, 400, 120, 20, 80)
+	seedBatting(t, db, ps, false, 20, 8, 2, 5)
+
+	regPreview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:      "batting_season",
+		Columns:        []string{"player_name", "home_runs"},
+		CareerStatType: "regular_season",
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData batting_season regular_season: %v", err)
+	}
+	if regPreview.TotalCount != 1 {
+		t.Fatalf("TotalCount (regular_season): want 1, got %d", regPreview.TotalCount)
+	}
+	if hr, _ := regPreview.Rows[0]["home_runs"].(int64); hr != 20 {
+		t.Errorf("home_runs (regular_season): want 20, got %v", regPreview.Rows[0]["home_runs"])
+	}
+
+	playoffPreview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:      "batting_season",
+		Columns:        []string{"player_name", "home_runs"},
+		CareerStatType: "playoffs",
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData batting_season playoffs: %v", err)
+	}
+	if playoffPreview.TotalCount != 1 {
+		t.Fatalf("TotalCount (playoffs): want 1, got %d", playoffPreview.TotalCount)
+	}
+	if hr, _ := playoffPreview.Rows[0]["home_runs"].(int64); hr != 2 {
+		t.Errorf("home_runs (playoffs): want 2, got %v", playoffPreview.Rows[0]["home_runs"])
+	}
+}
+
+func TestPreviewExportData_SeasonStatTypeRejectsInvalidValue(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	_, err := store.NewExportStore(db).PreviewExportData(context.Background(), store.ExportOptions{
+		DatasetID:      "batting_season",
+		Columns:        []string{"player_name"},
+		CareerStatType: "total_career",
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid season stat type, got nil")
+	}
+}
+
 func TestPreviewExportData_Standings(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
@@ -390,11 +445,64 @@ VALUES (?,?,1,50,50,200,0,60,0,0,10,40,0,0,0,0,0,0,0,0,0)
 	if preview.TotalCount != total {
 		t.Errorf("TotalCount: want %d, got %d", total, preview.TotalCount)
 	}
-	if len(preview.Rows) > 20 {
-		t.Errorf("preview rows: want ≤20, got %d", len(preview.Rows))
+	if len(preview.Rows) > 50 {
+		t.Errorf("preview rows: want ≤50, got %d", len(preview.Rows))
 	}
 	if preview.TotalCount <= len(preview.Rows) {
 		t.Errorf("TotalCount (%d) should exceed preview row count (%d)", preview.TotalCount, len(preview.Rows))
+	}
+}
+
+func TestPreviewExportData_OffsetRespected(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	const total = 75
+	for i := range total {
+		p := seedPlayer(t, db, fmt.Sprintf("guid-off-%d", i), fmt.Sprintf("P%d", i), "Last")
+		_, err := db.ExecContext(ctx, `
+INSERT INTO player_career_batting_stats
+    (player_id, stat_type, seasons_played, games_played, games_batting, at_bats,
+     runs, hits, doubles, triples, home_runs, rbi, stolen_bases, caught_stealing,
+     walks, strikeouts, hit_by_pitch, sac_hits, sac_flies, errors, passed_balls)
+VALUES (?,?,1,50,50,200,0,60,0,0,10,40,0,0,0,0,0,0,0,0,0)
+`, p, "regular_season")
+		if err != nil {
+			t.Fatalf("seed player %d: %v", i, err)
+		}
+	}
+
+	firstPage, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:      "career_batting",
+		Columns:        []string{"player_name"},
+		CareerStatType: "regular_season",
+		SortCol:        "player_name",
+		SortDir:        "asc",
+		Offset:         0,
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData first page: %v", err)
+	}
+	if len(firstPage.Rows) != 50 {
+		t.Fatalf("first page rows: want 50, got %d", len(firstPage.Rows))
+	}
+
+	secondPage, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:      "career_batting",
+		Columns:        []string{"player_name"},
+		CareerStatType: "regular_season",
+		SortCol:        "player_name",
+		SortDir:        "asc",
+		Offset:         50,
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData second page: %v", err)
+	}
+	if len(secondPage.Rows) != total-50 {
+		t.Fatalf("second page rows: want %d, got %d", total-50, len(secondPage.Rows))
+	}
+	if secondPage.Rows[0]["player_name"] == firstPage.Rows[0]["player_name"] {
+		t.Errorf("second page should not repeat first page's rows")
 	}
 }
 
@@ -469,5 +577,193 @@ func TestExportToCSV_RowCount(t *testing.T) {
 	// First row is the header; rest are data.
 	if got := len(records) - 1; got != numPlayers {
 		t.Errorf("data rows: want %d, got %d", numPlayers, got)
+	}
+}
+
+// ── Phase 3 dataset smoke tests ───────────────────────────────────────────────
+
+func TestPreviewExportData_PlayerSeasonAttributes(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	teamID := seedTeam(t, db, "team-attr")
+	h1 := seedTeamHistory(t, db, teamID, s1, "Attrs Team", "East", "NL", 20, 20)
+	p := seedPlayer(t, db, "guid-attr", "Attr", "Player")
+	ps := seedPlayerSeason(t, db, p, s1, &h1)
+	seedGameStats(t, db, ps, 85, 72, 60, 55, 45)
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID: "player_season_attributes",
+		Columns:   []string{"player_name", "season_num", "power"},
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData player_season_attributes: %v", err)
+	}
+	if preview.TotalCount != 1 {
+		t.Errorf("TotalCount: want 1, got %d", preview.TotalCount)
+	}
+	if power, _ := preview.Rows[0]["power"].(int64); power != 85 {
+		t.Errorf("power: want 85, got %v", preview.Rows[0]["power"])
+	}
+}
+
+func TestPreviewExportData_AwardWinners(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	teamID := seedTeam(t, db, "team-aw")
+	h1 := seedTeamHistory(t, db, teamID, s1, "Award Team", "East", "NL", 20, 20)
+	p := seedPlayer(t, db, "guid-aw", "Award", "Winner")
+	ps := seedPlayerSeason(t, db, p, s1, &h1)
+
+	res, err := db.ExecContext(ctx,
+		`INSERT INTO awards (name, original_name, importance, is_user_assignable, is_built_in) VALUES ('Test MVP','Test MVP',0,1,0)`)
+	if err != nil {
+		t.Fatalf("seed award: %v", err)
+	}
+	awardID, _ := res.LastInsertId()
+	_, err = db.ExecContext(ctx, `INSERT INTO player_season_awards (player_season_id, award_id) VALUES (?,?)`, ps, awardID)
+	if err != nil {
+		t.Fatalf("seed player_season_awards: %v", err)
+	}
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID: "award_winners",
+		Columns:   []string{"player_name", "season_num", "award_name", "award_type"},
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData award_winners: %v", err)
+	}
+	if preview.TotalCount != 1 {
+		t.Errorf("TotalCount: want 1, got %d", preview.TotalCount)
+	}
+	if awardType, _ := preview.Rows[0]["award_type"].(string); awardType != "Winner" {
+		t.Errorf("award_type: want %q, got %v", "Winner", preview.Rows[0]["award_type"])
+	}
+}
+
+func TestPreviewExportData_AwardWinnersRunnerUpFilter(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	teamID := seedTeam(t, db, "team-ruf")
+	h1 := seedTeamHistory(t, db, teamID, s1, "Filter Team", "East", "NL", 20, 20)
+	p := seedPlayer(t, db, "guid-ruf", "Runner", "Up")
+	ps := seedPlayerSeason(t, db, p, s1, &h1)
+
+	// Insert one winner and one runner-up award.
+	res, err := db.ExecContext(ctx,
+		`INSERT INTO awards (name, original_name, importance, omit_from_groupings, is_user_assignable, is_built_in) VALUES ('Winner Award','Winner Award',0,0,1,0)`)
+	if err != nil {
+		t.Fatalf("seed winner award: %v", err)
+	}
+	winnerID, _ := res.LastInsertId()
+	res, err = db.ExecContext(ctx,
+		`INSERT INTO awards (name, original_name, importance, omit_from_groupings, is_user_assignable, is_built_in) VALUES ('Runner Award','Runner Award',5,1,1,0)`)
+	if err != nil {
+		t.Fatalf("seed runner-up award: %v", err)
+	}
+	runnerID, _ := res.LastInsertId()
+	for _, id := range []int64{winnerID, runnerID} {
+		if _, err := db.ExecContext(ctx, `INSERT INTO player_season_awards (player_season_id, award_id) VALUES (?,?)`, ps, id); err != nil {
+			t.Fatalf("seed player_season_awards: %v", err)
+		}
+	}
+
+	// Without filter: both rows returned.
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID: "award_winners",
+		Columns:   []string{"award_type"},
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData (unfiltered): %v", err)
+	}
+	if preview.TotalCount != 2 {
+		t.Errorf("unfiltered TotalCount: want 2, got %d", preview.TotalCount)
+	}
+
+	// With award_type = Winner filter: only the winner row.
+	preview, err = store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID: "award_winners",
+		Columns:   []string{"award_type"},
+		Filters:   []store.FilterRow{{Column: "award_type", Op: "eq", Value: "Winner"}},
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData (filtered): %v", err)
+	}
+	if preview.TotalCount != 1 {
+		t.Errorf("filtered TotalCount: want 1, got %d", preview.TotalCount)
+	}
+	if awardType, _ := preview.Rows[0]["award_type"].(string); awardType != "Winner" {
+		t.Errorf("award_type: want %q, got %v", "Winner", preview.Rows[0]["award_type"])
+	}
+}
+
+func TestPreviewExportData_RegularSeasonSchedule(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	homeTeam := seedTeam(t, db, "team-rss-home")
+	awayTeam := seedTeam(t, db, "team-rss-away")
+	homeTH := seedTeamHistory(t, db, homeTeam, s1, "Home Nine", "East", "NL", 25, 15)
+	awayTH := seedTeamHistory(t, db, awayTeam, s1, "Away Nine", "West", "NL", 15, 25)
+
+	_, err := db.ExecContext(ctx, `
+INSERT INTO team_season_schedules
+    (season_id, game_number, day, home_team_history_id, away_team_history_id, home_score, away_score)
+VALUES (?,1,3,?,?,7,2)
+`, s1, homeTH, awayTH)
+	if err != nil {
+		t.Fatalf("seed schedule: %v", err)
+	}
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID: "regular_season_schedule",
+		Columns:   []string{"season_num", "game_number", "home_team_name", "away_team_name", "home_score"},
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData regular_season_schedule: %v", err)
+	}
+	if preview.TotalCount != 1 {
+		t.Errorf("TotalCount: want 1, got %d", preview.TotalCount)
+	}
+	if name, _ := preview.Rows[0]["home_team_name"].(string); name != "Home Nine" {
+		t.Errorf("home_team_name: want %q, got %v", "Home Nine", preview.Rows[0]["home_team_name"])
+	}
+	if score, _ := preview.Rows[0]["home_score"].(int64); score != 7 {
+		t.Errorf("home_score: want 7, got %v", preview.Rows[0]["home_score"])
+	}
+}
+
+func TestPreviewExportData_PlayoffSchedule(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	homeTeam := seedTeam(t, db, "team-ps-home")
+	awayTeam := seedTeam(t, db, "team-ps-away")
+	homeTH := seedTeamHistory(t, db, homeTeam, s1, "Playoff Home", "East", "NL", 25, 15)
+	awayTH := seedTeamHistory(t, db, awayTeam, s1, "Playoff Away", "West", "NL", 15, 25)
+	seedPlayoffGame(t, db, s1, 2, 3, homeTH, awayTH, 4, 1)
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID: "playoff_schedule",
+		Columns:   []string{"season_num", "series_number", "game_number", "home_team_name"},
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData playoff_schedule: %v", err)
+	}
+	if preview.TotalCount != 1 {
+		t.Errorf("TotalCount: want 1, got %d", preview.TotalCount)
+	}
+	if series, _ := preview.Rows[0]["series_number"].(int64); series != 2 {
+		t.Errorf("series_number: want 2, got %v", preview.Rows[0]["series_number"])
+	}
+	if name, _ := preview.Rows[0]["home_team_name"].(string); name != "Playoff Home" {
+		t.Errorf("home_team_name: want %q, got %v", "Playoff Home", preview.Rows[0]["home_team_name"])
 	}
 }

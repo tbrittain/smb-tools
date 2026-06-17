@@ -25,7 +25,10 @@ const {
   previewRows,
   totalCount,
   isPreviewLoading,
-  refreshPreview,
+  previewFirst,
+  appliedColumns,
+  applyAndPreview,
+  onPreviewPage,
   isExporting,
   downloadCSV,
   toConfigJSON,
@@ -33,7 +36,7 @@ const {
 } = useExportConfig()
 
 const { set } = useBreadcrumbs()
-onMounted(() => set([{ label: 'Export' }]))
+onMounted(() => set([{ label: 'Stat Explorer' }]))
 
 function setFilterRows(rows: main.FilterRowDTO[]) {
   filterRows.value = rows
@@ -92,7 +95,7 @@ function setCareerStatType(v: string) {
           :loading="isPreviewLoading"
           :disabled="selectedColumnKeys.length === 0"
           class="apply-btn"
-          @click="refreshPreview"
+          @click="applyAndPreview"
         />
         <Button
           label="Export CSV"
@@ -136,10 +139,12 @@ function setCareerStatType(v: string) {
         />
       </div>
       <ExportPreviewTable
-        :selected-columns="selectedColumns"
+        :selected-columns="appliedColumns"
         :rows="previewRows"
         :loading="isPreviewLoading"
         :total-count="totalCount"
+        :first="previewFirst"
+        @page="onPreviewPage"
       />
     </div>
   </div>
