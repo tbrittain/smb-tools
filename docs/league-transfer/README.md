@@ -28,6 +28,8 @@ problem this research is trying to de-risk before smb-tools invests in its own i
   shape for how the feature could fit into smb-tools' architecture.
 - [`ux-flow.md`](ux-flow.md) — the user-facing shape of the feature: top-level mode split, league
   discovery/introspection, export, import, and the safety disclaimers shown at import time.
+- [`implementation-plan.md`](implementation-plan.md) — the concrete Go/Vue implementation plan:
+  affected files, sequenced tasks, test coverage plan, and remaining open questions.
 
 ## Key Takeaway Up Front
 
