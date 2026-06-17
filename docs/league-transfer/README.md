@@ -26,6 +26,8 @@ problem this research is trying to de-risk before smb-tools invests in its own i
   works: a cloned league, correctly registered, loaded with no freeze and no errors.
 - [`plan.md`](plan.md) — what's left before smb-tools attempts an implementation, plus a rough
   shape for how the feature could fit into smb-tools' architecture.
+- [`ux-flow.md`](ux-flow.md) — the user-facing shape of the feature: top-level mode split, league
+  discovery/introspection, export, import, and the safety disclaimers shown at import time.
 
 ## Key Takeaway Up Front
 
