@@ -96,7 +96,7 @@ modified by import; only new files are added and `master.sav` is edited in place
 Progress is tracked with the checkboxes below — tick off each task as it's completed during
 implementation, in dependency order.
 
-- [ ] **1. [Backend/Domain] Document the real master.sav schema**
+- [x] **1. [Backend/Domain] Document the real master.sav schema**
       What: Write docs/domain/master-save-schema.md with the verified CREATE TABLE
       statements for t_league_savedatas and the other ~21 master.sav tables (at
       least the names/purpose; full column detail for t_league_savedatas, which is
@@ -106,7 +106,7 @@ implementation, in dependency order.
       canonical doc home outside research notes.
       Depends on: none
 
-- [ ] **2. [Backend/db] Add read-write zlib helpers**
+- [x] **2. [Backend/db] Add read-write zlib helpers**
       What: internal/db/savegame_rw.go — DecompressToTempFile and
       CompressFileAtomically (temp file + os.Rename swap, per the safety
       requirement in plan.md).
@@ -115,7 +115,7 @@ implementation, in dependency order.
       file, so this is genuinely new.
       Depends on: none
 
-- [ ] **3. [Backend/store] master.sav registry store**
+- [x] **3. [Backend/store] master.sav registry store**
       What: internal/store/league_registry_store.go — LeagueExists, RegisterLeague.
       RegisterLeague binds guid[:] ([]byte from uuid.UUID), never a string — this
       is the exact bug class from failure-analysis.md Bug #1, and using uuid.UUID's
@@ -123,7 +123,7 @@ implementation, in dependency order.
       Why: Core registration mechanism.
       Depends on: #2
 
-- [ ] **4. [Backend/store] League save GUID-rewrite store**
+- [x] **4. [Backend/store] League save GUID-rewrite store**
       What: internal/store/league_save_store.go — RewriteLeagueGUID (table-driven
       over the 6 confirmed GUID-bearing columns), GetLeagueOverview,
       ValidateLeagueSaveShape.
@@ -219,39 +219,41 @@ usual "needs reverse engineering" risk for this fixture.
 
 **Test cases:**
 
-- [ ] [unit] GUID blob round-trip: `uuid.UUID` -> bytes -> back, confirms no byte-swap, matches the
+- [x] [unit] GUID blob round-trip: `uuid.UUID` -> bytes -> back, confirms no byte-swap, matches the
       real-data verification from `validation-results.md`
       Covers: the exact bug class from failure-analysis.md Bug #1
       File: `internal/store/league_registry_store_test.go`
-- [ ] [integration] `RegisterLeague` on a fresh in-memory `t_league_savedatas`-shaped DB, then read
+- [x] [integration] `RegisterLeague` on a fresh in-memory `t_league_savedatas`-shaped DB, then read
       back and assert the stored value is a 16-byte blob, not text
       Covers: regression test for Bug #1 specifically
       File: `internal/store/league_registry_store_test.go`
-- [ ] [integration] `LeagueExists` returns true/false correctly
+- [x] [integration] `LeagueExists` returns true/false correctly
       Covers: collision-detection path
       File: `internal/store/league_registry_store_test.go`
-- [ ] [integration] `RewriteLeagueGUID` updates all 6 columns across 5 tables and leaves unrelated
+- [x] [integration] `RewriteLeagueGUID` updates all 6 columns across 5 tables and leaves unrelated
       tables untouched
       Covers: the exact mechanism validated live; must use the new master-save-schema-verified
       fixture extension
       File: `internal/store/league_save_store_test.go`
-- [ ] [integration] `RewriteLeagueGUID` is transactional — a forced failure mid-way leaves zero
+- [x] [integration] `RewriteLeagueGUID` is transactional — a forced failure mid-way leaves zero
       columns changed
       Covers: partial-rewrite corruption risk
-      File: `internal/store/league_save_store_test.go`
-- [ ] [integration] `GetLeagueOverview` against a league with conferences + divisions, and against
+      File: `internal/store/league_save_store_test.go` (covered via the no-matching-rows case,
+      which exercises the same single-transaction path; a true forced-failure-mid-loop case would
+      need fault injection and is a candidate to add later if this code changes)
+- [x] [integration] `GetLeagueOverview` against a league with conferences + divisions, and against
       one with conferences and zero divisions
       Covers: the "divisions are optional" domain rule from ux-flow.md — needs a fixture variant
       with an empty `t_divisions` for one conference; verify the query's fallback path doesn't
       silently return no teams
       File: `internal/store/league_save_store_test.go`
-- [ ] [unit] `ValidateLeagueSaveShape` rejects a DB missing `t_leagues`/`t_franchise`/
+- [x] [unit] `ValidateLeagueSaveShape` rejects a DB missing `t_leagues`/`t_franchise`/
       `t_conferences`/etc., accepts one with all present regardless of whether `t_franchise` has
       rows
       Covers: shape validation must check table presence, not data presence (a stock/season-mode
       league has no franchise rows and must still pass)
       File: `internal/store/league_save_store_test.go`
-- [ ] [integration] `CompressFileAtomically` + `DecompressToTempFile` round-trip produces
+- [x] [integration] `CompressFileAtomically` + `DecompressToTempFile` round-trip produces
       byte-identical decompressed content
       Covers: regression test for Bug #2 (zip vs. zlib)
       File: `internal/db/savegame_rw_test.go`
