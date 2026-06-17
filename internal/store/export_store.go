@@ -416,7 +416,7 @@ func buildExportQuery(def datasetDef, opts ExportOptions, limit int) (string, []
 	return q, args, nil
 }
 
-// PreviewExportData executes the export query with a 500-row limit and also
+// PreviewExportData executes the export query with a 20-row limit and also
 // runs a COUNT(*) to return the total matching row count.
 func (s *ExportStore) PreviewExportData(ctx context.Context, opts ExportOptions) (ExportPreview, error) {
 	def, ok := datasetByID[opts.DatasetID]
@@ -424,8 +424,8 @@ func (s *ExportStore) PreviewExportData(ctx context.Context, opts ExportOptions)
 		return ExportPreview{}, fmt.Errorf("unknown dataset %q", opts.DatasetID)
 	}
 
-	// Build the data query (limit 500) and a count query sharing the same WHERE.
-	dataQ, dataArgs, err := buildExportQuery(def, opts, 500)
+	// Build the data query (limit 20) and a count query sharing the same WHERE.
+	dataQ, dataArgs, err := buildExportQuery(def, opts, 20)
 	if err != nil {
 		return ExportPreview{}, err
 	}

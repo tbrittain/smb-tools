@@ -390,8 +390,8 @@ VALUES (?,?,1,50,50,200,0,60,0,0,10,40,0,0,0,0,0,0,0,0,0)
 	if preview.TotalCount != total {
 		t.Errorf("TotalCount: want %d, got %d", total, preview.TotalCount)
 	}
-	if len(preview.Rows) > 500 {
-		t.Errorf("preview rows: want ≤500, got %d", len(preview.Rows))
+	if len(preview.Rows) > 20 {
+		t.Errorf("preview rows: want ≤20, got %d", len(preview.Rows))
 	}
 	if preview.TotalCount <= len(preview.Rows) {
 		t.Errorf("TotalCount (%d) should exceed preview row count (%d)", preview.TotalCount, len(preview.Rows))

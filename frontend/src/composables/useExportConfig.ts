@@ -53,9 +53,11 @@ export function useExportConfig() {
   const totalCount = ref<number>(0)
   const isPreviewLoading = ref<boolean>(false)
 
-  // ── Debounced preview ─────────────────────────────────────────────────────────
+  // ── Export state ─────────────────────────────────────────────────────────────
 
-  let debounceTimer: ReturnType<typeof setTimeout> | null = null
+  const isExporting = ref<boolean>(false)
+
+  // ── Preview ───────────────────────────────────────────────────────────────────
 
   async function refreshPreview() {
     if (selectedColumnKeys.value.length === 0) {
@@ -75,13 +77,6 @@ export function useExportConfig() {
     }
   }
 
-  function schedulePreview() {
-    if (debounceTimer !== null) clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(() => {
-      refreshPreview()
-    }, 300)
-  }
-
   // ── Dataset change ────────────────────────────────────────────────────────────
 
   function onDatasetChange() {
@@ -92,7 +87,6 @@ export function useExportConfig() {
     sortCol.value = ''
     sortDir.value = 'asc'
     selectAllColumns()
-    schedulePreview()
   }
 
   // ── Options builder ───────────────────────────────────────────────────────────
@@ -153,7 +147,6 @@ export function useExportConfig() {
       careerStatType.value = cfg.careerStatType ?? 'regular_season'
       sortCol.value = cfg.sortCol ?? ''
       sortDir.value = cfg.sortDir ?? 'asc'
-      schedulePreview()
     } catch {
       toast.add({ severity: 'error', summary: 'Failed to load preset', life: 4000 })
     }
@@ -162,6 +155,7 @@ export function useExportConfig() {
   // ── CSV download ──────────────────────────────────────────────────────────────
 
   async function downloadCSV() {
+    isExporting.value = true
     try {
       const b64 = await ExportToCSV(buildOptions())
       const bytes = atob(b64)
@@ -174,8 +168,11 @@ export function useExportConfig() {
       a.download = `${activeDatasetId.value}_export.csv`
       a.click()
       URL.revokeObjectURL(url)
+      toast.add({ severity: 'success', summary: 'CSV exported', life: 3000 })
     } catch (e) {
       toast.add({ severity: 'error', summary: String(e), life: 5000 })
+    } finally {
+      isExporting.value = false
     }
   }
 
@@ -213,9 +210,11 @@ export function useExportConfig() {
     previewRows,
     totalCount,
     isPreviewLoading,
-    // actions
-    schedulePreview,
+    refreshPreview,
+    // export
+    isExporting,
     downloadCSV,
+    // presets
     toConfigJSON,
     fromConfigJSON,
   }

@@ -24,7 +24,8 @@ const {
   previewRows,
   totalCount,
   isPreviewLoading,
-  schedulePreview,
+  refreshPreview,
+  isExporting,
   downloadCSV,
   toConfigJSON,
   fromConfigJSON,
@@ -48,7 +49,6 @@ const {
         <ExportColumnSelector
           :columns="activeDataset.columns"
           v-model="selectedColumnKeys"
-          @update:model-value="schedulePreview"
         />
       </section>
 
@@ -61,10 +61,10 @@ const {
           :selected-team-name="selectedTeamName"
           :teams="teams"
           :career-stat-type="careerStatType"
-          @update:season-min="(v) => { seasonMin = v; schedulePreview() }"
-          @update:season-max="(v) => { seasonMax = v; schedulePreview() }"
-          @update:selected-team-name="(v) => { selectedTeamName = v; schedulePreview() }"
-          @update:career-stat-type="(v) => { careerStatType = v; schedulePreview() }"
+          @update:season-min="(v) => { seasonMin = v }"
+          @update:season-max="(v) => { seasonMax = v }"
+          @update:selected-team-name="(v) => { selectedTeamName = v }"
+          @update:career-stat-type="(v) => { careerStatType = v }"
         />
       </section>
 
@@ -76,6 +76,17 @@ const {
           @load="fromConfigJSON"
         />
       </section>
+
+      <div class="apply-row">
+        <Button
+          label="Apply"
+          icon="pi pi-refresh"
+          :loading="isPreviewLoading"
+          :disabled="selectedColumnKeys.length === 0"
+          class="apply-btn"
+          @click="refreshPreview"
+        />
+      </div>
     </div>
 
     <div class="right-panel">
@@ -84,7 +95,7 @@ const {
           <select
             class="sort-select"
             :value="sortCol"
-            @change="sortCol = ($event.target as HTMLSelectElement).value; schedulePreview()"
+            @change="sortCol = ($event.target as HTMLSelectElement).value"
           >
             <option value="">No sort</option>
             <option v-for="col in selectedColumns" :key="col.key" :value="col.key">
@@ -94,7 +105,7 @@ const {
           <button
             class="sort-dir-btn"
             :title="sortDir === 'asc' ? 'Ascending' : 'Descending'"
-            @click="sortDir = sortDir === 'asc' ? 'desc' : 'asc'; schedulePreview()"
+            @click="sortDir = sortDir === 'asc' ? 'desc' : 'asc'"
           >
             <i :class="sortDir === 'asc' ? 'pi pi-sort-amount-up-alt' : 'pi pi-sort-amount-down'" />
           </button>
@@ -102,7 +113,8 @@ const {
         <Button
           label="Export CSV"
           icon="pi pi-download"
-          :disabled="selectedColumnKeys.length === 0"
+          :loading="isExporting"
+          :disabled="isExporting || selectedColumnKeys.length === 0"
           @click="downloadCSV"
         />
       </div>
@@ -121,7 +133,7 @@ const {
   display: flex;
   flex: 1;
   min-height: 0;
-  gap: 0;
+  overflow: hidden;
 }
 
 .left-panel {
@@ -131,7 +143,6 @@ const {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0;
 }
 
 .panel-section {
@@ -140,6 +151,7 @@ const {
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
+  flex-shrink: 0;
 }
 
 .section-title {
@@ -151,13 +163,26 @@ const {
   margin: 0;
 }
 
+.apply-row {
+  padding: 1rem;
+  margin-top: auto;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.apply-btn {
+  width: 100%;
+}
+
 .right-panel {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   padding: 1rem;
   gap: 0.75rem;
+  overflow: hidden;
 }
 
 .right-toolbar {
