@@ -33,7 +33,7 @@ const {
 } = useExportConfig()
 
 const { set } = useBreadcrumbs()
-onMounted(() => set([{ label: 'Export' }]))
+onMounted(() => set([{ label: 'Stat Explorer' }]))
 
 function setFilterRows(rows: main.FilterRowDTO[]) {
   filterRows.value = rows

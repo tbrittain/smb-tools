@@ -146,7 +146,7 @@ function goToCrumb(historyPosition: number) {
           <router-link to="/leaderboards">Leaderboards</router-link>
           <router-link to="/awards">Awards</router-link>
           <router-link to="/hall-of-fame">Hall of Fame</router-link>
-          <router-link to="/export">Export</router-link>
+          <router-link to="/export">Stat Explorer</router-link>
           <router-link to="/setup">Setup</router-link>
         </nav>
         <div class="sidebar-footer">
