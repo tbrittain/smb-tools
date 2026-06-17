@@ -33,7 +33,7 @@ Tracks the three-phase delivery plan for the Data Export feature (`/export`). Ea
 
 ---
 
-## Phase 2 — Flexible User-Specified Filters
+## Phase 2 — Flexible User-Specified Filters (Complete, PR #158)
 
 **Goal:** Let users add arbitrary column comparison rows instead of only the hard-coded season/team/stat-type controls from Phase 1.
 
@@ -82,17 +82,18 @@ Only columns that exist in the selected dataset's `selectedColumnKeys` are avail
 
 ---
 
-## Phase 3 — Additional Datasets (8 total)
+## Phase 3 — Additional Datasets (9 total, Complete)
 
-**Goal:** Add the 3 remaining datasets to reach full parity with SMB3Explorer's export catalog.
+**Shipped:** 4 new datasets added (`player_season_attributes`, `award_winners`, `regular_season_schedule`, `playoff_schedule`). Also fixed a bug in `buildExportQuery` where filter conditions on datasets ending with a LEFT JOIN were incorrectly appended to the ON clause instead of as a WHERE clause.
 
-### Datasets to add
+### Datasets added
 
 | Dataset ID | Label | Primary source table(s) | Filter support |
 |---|---|---|---|
-| `player_season_attributes` | Player Season Attributes | `player_season_game_stats`, `player_seasons`, `players`, `seasons` | Season range, team |
-| `award_winners` | Season Award Winners | `player_season_awards`, `awards`, `player_seasons`, `players`, `seasons` | Season range |
-| `season_schedule` | Season Game Schedule | `season_schedule_results`, `team_season_history`, `seasons` | Season range, team |
+| `player_season_attributes` | Player Season Attributes | `player_season_game_stats`, `player_seasons`, `players`, `seasons` | All columns including enum filters |
+| `award_winners` | Season Award Winners | `player_season_awards`, `awards`, `player_seasons`, `players`, `seasons` | `award_type` enum (Winner/Runner-Up) |
+| `regular_season_schedule` | Regular Season Schedule | `team_season_schedules`, `team_season_history`, `seasons` | All columns |
+| `playoff_schedule` | Playoff Schedule | `team_playoff_schedules`, `team_season_history`, `seasons` | All columns |
 
 #### `player_season_attributes`
 

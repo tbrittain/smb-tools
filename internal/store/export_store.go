@@ -267,6 +267,97 @@ JOIN players p ON p.id = cps.player_id`,
 	},
 }
 
+var playerSeasonAttributesDataset = datasetDef{
+	id:    "player_season_attributes",
+	label: "Player Season Attributes",
+	fromSQL: `FROM player_season_game_stats psg
+JOIN player_seasons ps ON ps.id = psg.player_season_id
+JOIN players p         ON p.id  = ps.player_id
+JOIN seasons s         ON s.id  = ps.season_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
+	cols: map[string]exportColumn{
+		"player_name":      {`p.first_name || ' ' || p.last_name`, "Player", "string"},
+		"first_name":       {`p.first_name`, "First Name", "string"},
+		"last_name":        {`p.last_name`, "Last Name", "string"},
+		"season_num":       {`s.season_num`, "Season", "int"},
+		"team_name":        {`COALESCE(tsh.team_name, '')`, "Team", "string"},
+		"age":              {`ps.age`, "Age", "int"},
+		"primary_position": {`ps.primary_position`, "Position", "string"},
+		"pitcher_role":     {`ps.pitcher_role`, "Role", "string"},
+		"bat_hand":         {`ps.bat_hand`, "Bat Hand", "string"},
+		"throw_hand":       {`ps.throw_hand`, "Throw Hand", "string"},
+		"chemistry_type":   {`ps.chemistry_type`, "Chemistry", "string"},
+		"salary":           {`ps.salary`, "Salary", "int"},
+		"power":            {`psg.power`, "Power", "int"},
+		"contact":          {`psg.contact`, "Contact", "int"},
+		"speed":            {`psg.speed`, "Speed", "int"},
+		"fielding":         {`psg.fielding`, "Fielding", "int"},
+		"arm":              {`psg.arm`, "Arm", "int"},
+		"velocity":         {`psg.velocity`, "Velocity", "int"},
+		"junk":             {`psg.junk`, "Junk", "int"},
+		"accuracy":         {`psg.accuracy`, "Accuracy", "int"},
+	},
+}
+
+var awardWinnersDataset = datasetDef{
+	id:    "award_winners",
+	label: "Season Award Winners",
+	fromSQL: `FROM player_season_awards psa
+JOIN awards a          ON a.id  = psa.award_id
+JOIN player_seasons ps ON ps.id = psa.player_season_id
+JOIN players p         ON p.id  = ps.player_id
+JOIN seasons s         ON s.id  = ps.season_id
+LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
+	cols: map[string]exportColumn{
+		"player_name":         {`p.first_name || ' ' || p.last_name`, "Player", "string"},
+		"first_name":          {`p.first_name`, "First Name", "string"},
+		"last_name":           {`p.last_name`, "Last Name", "string"},
+		"season_num":          {`s.season_num`, "Season", "int"},
+		"team_name":           {`COALESCE(tsh.team_name, '')`, "Team", "string"},
+		"award_name":          {`a.name`, "Award", "string"},
+		"award_original_name": {`a.original_name`, "Award (Original)", "string"},
+		"award_type":          {`CASE WHEN a.omit_from_groupings = 1 THEN 'Runner-Up' ELSE 'Winner' END`, "Type", "string"},
+	},
+}
+
+var regularSeasonScheduleDataset = datasetDef{
+	id:    "regular_season_schedule",
+	label: "Regular Season Schedule",
+	fromSQL: `FROM team_season_schedules tss
+JOIN seasons s           ON s.id          = tss.season_id
+JOIN team_season_history home_tsh ON home_tsh.id = tss.home_team_history_id
+JOIN team_season_history away_tsh ON away_tsh.id = tss.away_team_history_id`,
+	cols: map[string]exportColumn{
+		"season_num":     {`s.season_num`, "Season", "int"},
+		"game_number":    {`tss.game_number`, "Game #", "int"},
+		"day":            {`tss.day`, "Day", "int"},
+		"home_team_name": {`home_tsh.team_name`, "Home Team", "string"},
+		"away_team_name": {`away_tsh.team_name`, "Away Team", "string"},
+		"home_score":     {`tss.home_score`, "Home Score", "int"},
+		"away_score":     {`tss.away_score`, "Away Score", "int"},
+	},
+}
+
+var playoffScheduleDataset = datasetDef{
+	id:    "playoff_schedule",
+	label: "Playoff Schedule",
+	fromSQL: `FROM team_playoff_schedules tps
+JOIN seasons s           ON s.id          = tps.season_id
+JOIN team_season_history home_tsh ON home_tsh.id = tps.home_team_history_id
+JOIN team_season_history away_tsh ON away_tsh.id = tps.away_team_history_id`,
+	cols: map[string]exportColumn{
+		"season_num":     {`s.season_num`, "Season", "int"},
+		"series_number":  {`tps.series_number`, "Series #", "int"},
+		"game_number":    {`tps.game_number`, "Game #", "int"},
+		"home_team_name": {`home_tsh.team_name`, "Home Team", "string"},
+		"away_team_name": {`away_tsh.team_name`, "Away Team", "string"},
+		"home_score":     {`tps.home_score`, "Home Score", "int"},
+		"away_score":     {`tps.away_score`, "Away Score", "int"},
+	},
+}
+
 // allDatasets is the ordered list of datasets returned by GetExportDatasets.
 // The TypeScript constant in frontend/src/lib/exportDatasets.ts must match
 // these dataset IDs and column keys.
@@ -276,6 +367,10 @@ var allDatasets = []datasetDef{
 	standingsDataset,
 	careerBattingDataset,
 	careerPitchingDataset,
+	playerSeasonAttributesDataset,
+	awardWinnersDataset,
+	regularSeasonScheduleDataset,
+	playoffScheduleDataset,
 }
 
 // datasetByID maps dataset ID strings to their definitions for fast lookup.
@@ -398,12 +493,19 @@ func buildExportQuery(def datasetDef, opts ExportOptions, limit int) (string, []
 		orderBy = "\nORDER BY " + col.sqlExpr + " " + dir
 	}
 
-	// Assemble the FROM clause: the datasetDef already includes a fixed WHERE
-	// (e.g. is_regular_season = 1 for season datasets). We append extra conditions
-	// with AND.
+	// Assemble the FROM clause. Some datasets include a fixed WHERE condition
+	// (e.g. is_regular_season = 1); others end with a JOIN. Use WHERE when there
+	// is no existing WHERE, otherwise AND — this matters for datasets that end
+	// with a LEFT JOIN, where tacking an AND onto the ON clause is semantically
+	// wrong (non-matching rows would still be returned with NULLs).
 	fromClause := def.fromSQL
 	if len(extraConds) > 0 {
-		fromClause += "\n  AND " + strings.Join(extraConds, "\n  AND ")
+		cond := strings.Join(extraConds, "\n  AND ")
+		if strings.Contains(def.fromSQL, "WHERE") {
+			fromClause += "\n  AND " + cond
+		} else {
+			fromClause += "\nWHERE " + cond
+		}
 	}
 
 	limitClause := ""

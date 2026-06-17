@@ -52,6 +52,8 @@ export function useExportConfig() {
     team_name: teams.value.map((t) => t.teamName),
     conference_name: [...new Set(teams.value.map((t) => t.conferenceName))].filter(Boolean).sort(),
     division_name: [...new Set(teams.value.map((t) => t.divisionName))].filter(Boolean).sort(),
+    home_team_name: teams.value.map((t) => t.teamName),
+    away_team_name: teams.value.map((t) => t.teamName),
   }))
 
   // ── Preview state ─────────────────────────────────────────────────────────────
