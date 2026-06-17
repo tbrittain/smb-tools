@@ -49,6 +49,11 @@ const router = createRouter({
       component: () => import('./pages/HallOfFamePage.vue'),
     },
     {
+      path: '/export',
+      component: () => import('./pages/DataExportPage.vue'),
+      meta: { fullWidth: true },
+    },
+    {
       path: '/setup',
       component: () => import('./pages/SetupPage.vue'),
     },

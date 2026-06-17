@@ -146,6 +146,7 @@ function goToCrumb(historyPosition: number) {
           <router-link to="/leaderboards">Leaderboards</router-link>
           <router-link to="/awards">Awards</router-link>
           <router-link to="/hall-of-fame">Hall of Fame</router-link>
+          <router-link to="/export">Export</router-link>
           <router-link to="/setup">Setup</router-link>
         </nav>
         <div class="sidebar-footer">
@@ -314,7 +315,7 @@ function goToCrumb(historyPosition: number) {
 
 .main-content {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   background: var(--color-bg);
   display: flex;
   flex-direction: column;
@@ -322,6 +323,8 @@ function goToCrumb(historyPosition: number) {
 
 .page-view {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   width: 100%;

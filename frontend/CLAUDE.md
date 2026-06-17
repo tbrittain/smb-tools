@@ -215,6 +215,41 @@ Use for pages with data-heavy grids or tables that benefit from the extra horizo
 
 > Both steps are required. Adding `meta: { fullWidth: true }` without the two-zone CSS produces content that spans edge-to-edge with no padding. Adding the two-zone CSS without the meta flag produces a layout still capped at 1280px.
 
+#### New page checklist
+
+Every new page in `src/pages/` requires all three of these:
+
+1. **Route** — add an entry in `router.ts` (with `meta: { fullWidth: true }` if applicable).
+2. **Sidebar link** — add a `<router-link>` in the `<nav class="sidebar-nav">` block in `App.vue` (top-level pages only).
+3. **Breadcrumb** — call `useBreadcrumbs().set(...)` in `onMounted` so the topbar label updates on navigation.
+
+**Top-level pages** (reachable directly from the sidebar) must also be added to `ROOT_PATHS` in `src/composables/useBreadcrumbs.ts`. Paths in that set reset the breadcrumb trail instead of pushing onto it, so navigating sidebar → Export doesn't carry over crumbs from wherever the user was before.
+
+```ts
+// useBreadcrumbs.ts
+const ROOT_PATHS = new Set(['/', '/teams', '/leaderboards', ..., '/my-page'])
+```
+
+```vue
+<!-- MyPage.vue -->
+<script lang="ts" setup>
+import { onMounted } from 'vue'
+import { useBreadcrumbs } from '../composables/useBreadcrumbs'
+
+const { set } = useBreadcrumbs()
+onMounted(() => set([{ label: 'My Page' }]))
+</script>
+```
+
+**Detail pages** (navigated to from a list, not the sidebar) do not go in `ROOT_PATHS`. They push onto the trail, so the parent page appears as a clickable crumb:
+
+```ts
+// e.g. PlayerPage.vue — the Teams crumb is injected automatically from the trail
+onMounted(() => set([{ label: playerName }]))
+```
+
+Omitting the breadcrumb call leaves the topbar blank when the user lands on the page.
+
 ---
 
 ### DataTable Column Headers

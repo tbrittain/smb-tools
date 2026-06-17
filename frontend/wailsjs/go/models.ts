@@ -532,6 +532,99 @@ export namespace main {
 	        this.smbWar = source["smbWar"];
 	    }
 	}
+	export class FilterRowDTO {
+	    column: string;
+	    op: string;
+	    value: string;
+	    value2: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new FilterRowDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.column = source["column"];
+	        this.op = source["op"];
+	        this.value = source["value"];
+	        this.value2 = source["value2"];
+	    }
+	}
+	export class ExportOptionsDTO {
+	    datasetId: string;
+	    columns: string[];
+	    filters: FilterRowDTO[];
+	    sortCol: string;
+	    sortDir: string;
+	    careerStatType: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportOptionsDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.datasetId = source["datasetId"];
+	        this.columns = source["columns"];
+	        this.filters = this.convertValues(source["filters"], FilterRowDTO);
+	        this.sortCol = source["sortCol"];
+	        this.sortDir = source["sortDir"];
+	        this.careerStatType = source["careerStatType"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ExportPresetDTO {
+	    id: string;
+	    name: string;
+	    datasetId: string;
+	    configJson: string;
+	    createdAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportPresetDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.datasetId = source["datasetId"];
+	        this.configJson = source["configJson"];
+	        this.createdAt = source["createdAt"];
+	    }
+	}
+	export class ExportPreviewDTO {
+	    rows: any[];
+	    totalCount: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportPreviewDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.rows = source["rows"];
+	        this.totalCount = source["totalCount"];
+	    }
+	}
+	
 	export class FranchiseDTO {
 	    id: string;
 	    name: string;

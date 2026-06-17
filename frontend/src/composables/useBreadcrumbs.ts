@@ -14,7 +14,16 @@ interface TrailEntry {
 
 // Paths that represent top-level navigation (sidebar links). Arriving at one
 // resets the trail rather than pushing onto it.
-const ROOT_PATHS = new Set(['/', '/teams', '/leaderboards', '/awards', '/hall-of-fame', '/setup', '/migrate-legacy'])
+const ROOT_PATHS = new Set([
+  '/',
+  '/teams',
+  '/leaderboards',
+  '/awards',
+  '/hall-of-fame',
+  '/export',
+  '/setup',
+  '/migrate-legacy',
+])
 
 const MAX_VISIBLE_TRAIL = 5
 

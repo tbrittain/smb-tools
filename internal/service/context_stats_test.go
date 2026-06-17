@@ -60,6 +60,7 @@ func TestComputeOPSPlus_LeagueAverage(t *testing.T) {
 	got := service.ComputeOPSPlus(ls, ptr(0.32), ptr(0.40))
 	if got == nil {
 		t.Fatal("expected non-nil OPS+")
+		return
 	}
 	// (0.32/0.32 + 0.40/0.40 - 1) * 100 = 100
 	if math.Abs(*got-100.0) > 1e-9 {
@@ -72,6 +73,7 @@ func TestComputeOPSPlus_AboveAverage(t *testing.T) {
 	got := service.ComputeOPSPlus(ls, ptr(0.38), ptr(0.55))
 	if got == nil {
 		t.Fatal("expected non-nil OPS+")
+		return
 	}
 	want := 100.0 * (0.38/0.32 + 0.55/0.40 - 1.0)
 	if math.Abs(*got-want) > 1e-9 {
@@ -102,6 +104,7 @@ func TestComputeERAPlus_LeagueAverage(t *testing.T) {
 	got := service.ComputeERAPlus(4.00, ptr(4.00))
 	if got == nil {
 		t.Fatal("expected non-nil ERA+")
+		return
 	}
 	if math.Abs(*got-100.0) > 1e-9 {
 		t.Errorf("league-average ERA+: got %.4f, want 100", *got)
@@ -112,6 +115,7 @@ func TestComputeERAPlus_BetterThanAverage(t *testing.T) {
 	got := service.ComputeERAPlus(4.00, ptr(2.00))
 	if got == nil {
 		t.Fatal("expected non-nil ERA+")
+		return
 	}
 	// 100 * 4.00/2.00 = 200
 	if math.Abs(*got-200.0) > 1e-9 {
@@ -138,6 +142,7 @@ func TestComputeFIP_Basic(t *testing.T) {
 	got := service.ComputeFIP(15, 40, 0, 180, 540, 3.00)
 	if got == nil {
 		t.Fatal("expected non-nil FIP")
+		return
 	}
 	if math.Abs(*got-2.75) > 1e-9 {
 		t.Errorf("FIP: got %.4f, want 2.75", *got)
@@ -156,6 +161,7 @@ func TestComputeFIPMinus_LeagueAverage(t *testing.T) {
 	got := service.ComputeFIPMinus(ptr(2.75), 2.75)
 	if got == nil {
 		t.Fatal("expected non-nil FIP-")
+		return
 	}
 	if math.Abs(*got-100.0) > 1e-9 {
 		t.Errorf("FIP- league average: got %.4f, want 100", *got)
@@ -178,6 +184,7 @@ func TestComputeBattingWAR_LeagueAverage(t *testing.T) {
 	got := service.ComputeBattingWAR(ptr(100.0), 200, 0, 0)
 	if got == nil {
 		t.Fatal("expected non-nil batting smbWAR")
+		return
 	}
 	want := (100.0-95.0)*200.0*(0.9*2.75/11500.0) + 0
 	if math.Abs(*got-want) > 1e-9 {
@@ -196,6 +203,7 @@ func TestComputeBattingWAR_BaserunningComponent(t *testing.T) {
 	got := service.ComputeBattingWAR(ptr(100.0), 600, 30, 5)
 	if got == nil {
 		t.Fatal("expected non-nil batting smbWAR")
+		return
 	}
 	battingPart := (100.0-95.0)*600.0*(0.9*2.75/11500.0)
 	runningPart := float64(30-5) * (500.0 / 11500.0)
@@ -212,6 +220,7 @@ func TestComputePitchingWAR_LeagueAverage(t *testing.T) {
 	got := service.ComputePitchingWAR(ptr(100.0), ptr(100.0), 540)
 	if got == nil {
 		t.Fatal("expected non-nil pitching smbWAR")
+		return
 	}
 	// FIPplus = 10000/100 = 100
 	// ((100+100)/2 - 95) * 180 * scale = 5 * 180 * scale

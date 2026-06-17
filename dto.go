@@ -1381,6 +1381,46 @@ func seasonAwardSummaryToDTO(m models.SeasonAwardSummary) SeasonAwardSummaryDTO 
 	}
 }
 
+// ── Export ────────────────────────────────────────────────────────────────────
+
+// FilterRowDTO is one filter condition applied to an export query.
+// Op is one of: "eq", "neq", "lt", "lte", "gt", "gte", "contains".
+// Value2 is reserved for future "between" support.
+type FilterRowDTO struct {
+	Column string `json:"column"`
+	Op     string `json:"op"`
+	Value  string `json:"value"`
+	Value2 string `json:"value2"`
+}
+
+// ExportOptionsDTO is the full export configuration sent from the frontend.
+// CareerStatType applies only to career_batting / career_pitching datasets:
+// "regular_season" (default when empty), "playoffs", "total_career".
+type ExportOptionsDTO struct {
+	DatasetID      string         `json:"datasetId"`
+	Columns        []string       `json:"columns"`
+	Filters        []FilterRowDTO `json:"filters"`
+	SortCol        string         `json:"sortCol"`
+	SortDir        string         `json:"sortDir"` // "asc" | "desc"
+	CareerStatType string         `json:"careerStatType"`
+}
+
+// ExportPreviewDTO is the preview response: up to 500 rows keyed by column key.
+// TotalCount is the full untruncated row count so the UI can show "Showing 500 of N".
+type ExportPreviewDTO struct {
+	Rows       []map[string]any `json:"rows"`
+	TotalCount int              `json:"totalCount"`
+}
+
+// ExportPresetDTO is one saved export configuration stored per-franchise.
+type ExportPresetDTO struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	DatasetID  string `json:"datasetId"`
+	ConfigJSON string `json:"configJson"`
+	CreatedAt  string `json:"createdAt"`
+}
+
 func awardToDTO(a models.Award) AwardDTO {
 	return AwardDTO{
 		ID:                a.ID,

@@ -203,6 +203,7 @@ func TestApplyCareerStats_SingleRegularSeason(t *testing.T) {
 	b := csReadCareerBatting(t, db, pid, models.CareerStatTypeRegularSeason)
 	if b == nil {
 		t.Fatal("expected regular_season career batting row")
+		return
 	}
 	if b.AtBats != 400 {
 		t.Errorf("AB: want 400, got %d", b.AtBats)
@@ -242,6 +243,7 @@ func TestApplyCareerStats_TwoSeasons_BAFromSummedCounts(t *testing.T) {
 	b := csReadCareerBatting(t, db, pid, models.CareerStatTypeRegularSeason)
 	if b == nil {
 		t.Fatal("expected regular_season career batting row")
+		return
 	}
 	if b.AtBats != 900 {
 		t.Errorf("career AB: want 900, got %d", b.AtBats)
@@ -283,6 +285,7 @@ func TestApplyCareerStats_RegularAndPlayoff_AllThreeRows(t *testing.T) {
 	reg := csReadCareerBatting(t, db, pid, models.CareerStatTypeRegularSeason)
 	if reg == nil {
 		t.Fatal("expected regular_season row")
+		return
 	}
 	if reg.AtBats != 400 {
 		t.Errorf("reg AB: want 400, got %d", reg.AtBats)
@@ -291,6 +294,7 @@ func TestApplyCareerStats_RegularAndPlayoff_AllThreeRows(t *testing.T) {
 	po := csReadCareerBatting(t, db, pid, models.CareerStatTypePlayoffs)
 	if po == nil {
 		t.Fatal("expected playoffs row")
+		return
 	}
 	if po.AtBats != 50 {
 		t.Errorf("playoff AB: want 50, got %d", po.AtBats)
@@ -299,6 +303,7 @@ func TestApplyCareerStats_RegularAndPlayoff_AllThreeRows(t *testing.T) {
 	tot := csReadCareerBatting(t, db, pid, models.CareerStatTypeTotalCareer)
 	if tot == nil {
 		t.Fatal("expected total_career row")
+		return
 	}
 	// total_career counts = sum of reg + playoffs
 	if tot.AtBats != 450 {
@@ -339,6 +344,7 @@ func TestApplyCareerStats_PlayerWithNoBattingRows_NoCareerRow(t *testing.T) {
 	p := csReadCareerPitching(t, db, pid, models.CareerStatTypeRegularSeason)
 	if p == nil {
 		t.Fatal("expected career pitching row")
+		return
 	}
 	if p.OutsPitched != 270 {
 		t.Errorf("outs pitched: want 270, got %d", p.OutsPitched)
@@ -370,6 +376,7 @@ func TestApplyCareerStats_OPSPlusNullWithoutLeagueData(t *testing.T) {
 	b := csReadCareerBatting(t, db, pid, models.CareerStatTypeRegularSeason)
 	if b == nil {
 		t.Fatal("expected career batting row")
+		return
 	}
 	if b.OPSPlus != nil {
 		t.Errorf("OPS+ should be nil without league data, got %v", *b.OPSPlus)
@@ -441,6 +448,7 @@ func TestApplyCareerStats_CareerSmbWARSumsSeasonValues(t *testing.T) {
 	b := csReadCareerBatting(t, db, pid, models.CareerStatTypeRegularSeason)
 	if b == nil {
 		t.Fatal("expected career batting row")
+		return
 	}
 	if b.SmbWAR == nil {
 		t.Fatal("career smbWAR should be non-nil")
@@ -468,6 +476,7 @@ func TestApplyCareerStats_PitcherSingleSeason(t *testing.T) {
 	p := csReadCareerPitching(t, db, pid, models.CareerStatTypeRegularSeason)
 	if p == nil {
 		t.Fatal("expected career pitching row")
+		return
 	}
 	if p.Wins != 15 {
 		t.Errorf("Wins: want 15, got %d", p.Wins)
