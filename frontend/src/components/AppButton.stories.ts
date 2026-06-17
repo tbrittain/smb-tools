@@ -9,6 +9,7 @@ const meta: Meta<typeof AppButton> = {
     variant: { control: 'select', options: ['primary', 'secondary', 'ghost'] },
     size: { control: 'select', options: ['sm', 'md'] },
     disabled: { control: 'boolean' },
+    loading: { control: 'boolean' },
   },
 }
 
@@ -60,6 +61,15 @@ export const Disabled: Story = {
   }),
 }
 
+export const Loading: Story = {
+  args: { variant: 'primary', size: 'md', loading: true },
+  render: (args) => ({
+    components: { AppButton },
+    setup: () => ({ args }),
+    template: '<AppButton v-bind="args">Exporting…</AppButton>',
+  }),
+}
+
 export const AllVariants: Story = {
   render: () => ({
     components: { AppButton },
@@ -70,6 +80,7 @@ export const AllVariants: Story = {
         <AppButton variant="ghost">Ghost</AppButton>
         <AppButton variant="primary" size="sm">Small primary</AppButton>
         <AppButton variant="primary" disabled>Disabled</AppButton>
+        <AppButton variant="primary" loading>Loading</AppButton>
       </div>
     `,
   }),

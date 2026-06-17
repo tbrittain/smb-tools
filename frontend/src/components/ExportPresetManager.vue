@@ -11,7 +11,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  load: [configJSON: string]
+  load: [datasetId: string, configJSON: string]
 }>()
 
 const toast = useToast()
@@ -54,7 +54,7 @@ async function deletePreset(preset: main.ExportPresetDTO) {
 }
 
 function loadPreset(preset: main.ExportPresetDTO) {
-  emit('load', preset.configJson)
+  emit('load', preset.datasetId, preset.configJson)
 }
 
 onMounted(loadPresets)

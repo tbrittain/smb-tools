@@ -4,12 +4,14 @@ withDefaults(
     variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
     size?: 'sm' | 'md'
     disabled?: boolean
+    loading?: boolean
     type?: 'button' | 'submit' | 'reset'
   }>(),
   {
     variant: 'primary',
     size: 'md',
     disabled: false,
+    loading: false,
     type: 'button',
   },
 )
@@ -21,10 +23,11 @@ withDefaults(
 <template>
   <button
     :type="type"
-    :disabled="disabled"
+    :disabled="disabled || loading"
     :class="['app-btn', `app-btn--${variant}`, `app-btn--${size}`]"
     v-bind="$attrs"
   >
+    <i v-if="loading" class="pi pi-spinner pi-spin" />
     <slot />
   </button>
 </template>

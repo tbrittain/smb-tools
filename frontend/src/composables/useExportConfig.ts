@@ -87,6 +87,7 @@ export function useExportConfig() {
     sortCol.value = ''
     sortDir.value = 'asc'
     selectAllColumns()
+    refreshPreview()
   }
 
   // ── Options builder ───────────────────────────────────────────────────────────
@@ -137,7 +138,7 @@ export function useExportConfig() {
     return JSON.stringify(cfg)
   }
 
-  function fromConfigJSON(json: string) {
+  function fromConfigJSON(json: string): boolean {
     try {
       const cfg = JSON.parse(json) as ExportPresetConfig
       selectedColumnKeys.value = cfg.columns ?? activeDataset.value.columns.map((c) => c.key)
@@ -147,8 +148,17 @@ export function useExportConfig() {
       careerStatType.value = cfg.careerStatType ?? 'regular_season'
       sortCol.value = cfg.sortCol ?? ''
       sortDir.value = cfg.sortDir ?? 'asc'
+      return true
     } catch {
       toast.add({ severity: 'error', summary: 'Failed to load preset', life: 4000 })
+      return false
+    }
+  }
+
+  function fromPreset(datasetId: string, configJSON: string) {
+    activeDatasetId.value = datasetId
+    if (fromConfigJSON(configJSON)) {
+      refreshPreview()
     }
   }
 
@@ -216,6 +226,6 @@ export function useExportConfig() {
     downloadCSV,
     // presets
     toConfigJSON,
-    fromConfigJSON,
+    fromPreset,
   }
 }

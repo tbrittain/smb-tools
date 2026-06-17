@@ -30,7 +30,7 @@ const {
   isExporting,
   downloadCSV,
   toConfigJSON,
-  fromConfigJSON,
+  fromPreset,
 } = useExportConfig()
 
 const { set } = useBreadcrumbs()
@@ -78,7 +78,7 @@ onMounted(() => set([{ label: 'Export' }]))
         <ExportPresetManager
           :current-config-j-s-o-n="toConfigJSON()"
           :dataset-id="activeDatasetId"
-          @load="fromConfigJSON"
+          @load="fromPreset"
         />
       </section>
 
@@ -90,6 +90,15 @@ onMounted(() => set([{ label: 'Export' }]))
           :disabled="selectedColumnKeys.length === 0"
           class="apply-btn"
           @click="refreshPreview"
+        />
+        <Button
+          label="Export CSV"
+          icon="pi pi-download"
+          severity="secondary"
+          :loading="isExporting"
+          :disabled="isExporting || selectedColumnKeys.length === 0"
+          class="apply-btn"
+          @click="downloadCSV"
         />
       </div>
     </div>
