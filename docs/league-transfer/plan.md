@@ -1,13 +1,16 @@
 # Plan: De-Risking League Transfer
 
-This is an investigation plan, not an implementation plan. Nothing here should be built until the
-"Pre-Implementation Investigation" tasks have actually answered the open questions — building the
-import side again without doing this is exactly how the POC ended up freezing the game.
+**The core hypothesis is now validated, not just theorized.** A live in-game test (full detail in
+`validation-results.md`) confirmed that a correctly-encoded `master.sav` registration — 16-byte
+blob GUID, zlib round-trip — lets a cloned league load with no freeze and no errors. This plan no
+longer needs to convince anyone the approach can work; what's left is scoping the remaining
+unknowns and the actual Go implementation.
 
 ## Pre-Implementation Investigation
 
-Two of the four original investigation tasks are now **done**, using a real `master_sav.sqlite`
-and a real SMB4 install on this machine (see `failure-analysis.md` for full detail):
+All four originally-planned investigation tasks are now **done**, using a real `master_sav.sqlite`,
+a real SMB4 install on this machine, and a live in-game test (see `failure-analysis.md` and
+`validation-results.md` for full detail):
 
 1. ~~Inspect the bundled/live `master.sqlite` schema~~ — **done**. `t_league_savedatas` has
    exactly two columns, `GUID BLOB PRIMARY KEY` and `isMissing BOOL`. No other table in
@@ -15,39 +18,24 @@ and a real SMB4 install on this machine (see `failure-analysis.md` for full deta
 2. ~~Determine `master.sav`'s real on-disk container format~~ — **done**. Confirmed zlib (`78 01`
    header on a live file), same as per-league `.sav` files — not a PKZIP container as the legacy
    code assumed.
-3. **Bonus finding, not originally planned**: comparing real `t_league_savedatas` rows against
-   real `league-{GUID}.sav` filenames revealed the legacy code's actual bug — it bound the GUID as
-   a 36-character uppercase string instead of the 16-byte blob every real row uses. This is now
-   the leading root-cause candidate for the freeze, ahead of anything related to schema
-   completeness.
+3. ~~Reverse-engineer the `.hash` file~~ — **partially done, deprioritized**. The stored 4-byte
+   value doesn't match CRC32/Adler32 of the `.sav` bytes (compressed or decompressed). The live
+   test copied it unmodified onto a clone with different GUID and content, and the game loaded the
+   clone fine regardless — strong evidence this file isn't validated against content on this load
+   path. Still not identified, but no longer blocking.
+4. ~~Reproduce with the fix applied~~ — **done**. See `validation-results.md`: cloned league
+   registered and loaded successfully in-game.
 
-Remaining tasks before writing any import code:
+**Bonus finding, not originally planned**: comparing real `t_league_savedatas` rows against real
+`league-{GUID}.sav` filenames revealed the legacy code's actual bug — it bound the GUID as a
+36-character uppercase string instead of the 16-byte blob every real row uses. This was the
+confirmed root cause of the original freeze, now fixed and validated.
 
-1. **Diff `master.sav` before/after the game itself creates a brand-new league.** Lower priority
-   than originally scoped (the FK analysis already shows no sibling-table dependency at the SQL
-   level), but still worth doing once, mainly to check for non-schema-enforced expectations (e.g.,
-   does the game care about insertion order, or about `isMissing` ever being set to anything but
-   0 for a freshly added league?).
-2. **Reverse-engineer the `.hash` file.** Try standard checksums (CRC32, MD5, SHA-1/256) of the raw
-   `.sav` bytes against a real `.hash` file's contents. If a league with no `.hash` file at all
-   loads fine in-game, that's evidence the file is optional — worth confirming directly by
-   temporarily renaming a `.hash` file aside (after a backup) and checking whether the game still
-   loads that league normally.
-3. **Confirm whether import even requires a `master.sav` mutation at all**, vs. whether the game
-   reconciles `master.sav` against whatever `league-*.sav` files it finds on disk at startup. Test
-   by manually copying a known-good `league-*.sav` triplet into the directory *without* touching
-   `master.sav` (using a **correctly-formed** triplet this time — same GUID across all three
-   files) and see what the game does with it on next launch.
-4. **Reproduce with the fix applied.** Given Bug #1 (GUID type) is now understood, the cheapest
-   next step toward confidence is simply trying the insert again with the GUID bound as a 16-byte
-   blob and seeing whether the league loads without freezing. This is the single most direct test
-   available and should happen before any deeper architectural work on the smb-tools side.
+## Remaining Open Question (non-blocking)
 
-If task 3 pans out (no `master.sav` edit needed at all), it would eliminate the riskiest part of
-this entire feature — hand-editing a SQLite table the game also reads — and reduce import to
-"place validated files in the right location," a much smaller blast radius. But given Bug #1 is a
-plausible complete explanation on its own, task 4 (just fix the type and retry) is the faster way
-to find out whether further investigation is even necessary.
+**Whether `master.sav` editing is strictly necessary**, vs. the game discovering `league-*.sav`
+files purely by directory scan. Not tested — the registered-via-`master.sav` path already works
+end-to-end, so this is a possible future simplification, not something blocking implementation.
 
 ## Shape of the Feature Within smb-tools
 
@@ -78,6 +66,12 @@ tracking. Rough shape, consistent with `user-docs/team-transfer.md`'s existing d
 - `modernc.org/sqlite` (already in use, no CGO) should be sufficient for read-write access to an
   extracted `master.sav`/`league-*.sav` — no need to reach for a different driver than what's
   already used for read-only access.
+- If import ever needs to assign a league a genuinely new identity (as opposed to re-registering
+  it under the GUID it already has, which is the more common real-world case), the validated test
+  shows that's a small, well-scoped operation: 6 GUID-bearing columns across 5 tables in a league
+  save (`t_leagues.GUID`/`originalGUID`, `t_conferences.leagueGUID`, `t_franchise.leagueGUID`,
+  `t_seasons.historicalLeagueGUID`, `t_league_local_ids.GUID`), confirmed exhaustive via
+  `PRAGMA foreign_key_list` against the real 91-table schema. See `validation-results.md`.
 
 ## Safety Requirements For Any Future Implementation
 
@@ -94,10 +88,9 @@ tracking. Rough shape, consistent with `user-docs/team-transfer.md`'s existing d
 
 ## Explicit Non-Goals For Now
 
-- No code should be written against `master.sav` for smb-tools until the GUID-type fix (Bug #1)
-  has actually been retried and confirmed to resolve the freeze, or until the remaining tasks
-  above have ruled it out. Guessing at the cause a second time is the exact mistake being
-  corrected here — this time there's a concrete, testable fix to verify first.
 - This plan does not address the compatibility constraint already documented in
   `user-docs/team-transfer.md` ("source snapshot and target save must be from the same game
   version") beyond noting it — that's a separate concern from the freeze investigation.
+- This plan does not cover the actual Wails/Go implementation, UX, or how export reads from a
+  franchise snapshot in detail — those are next steps now that the underlying mechanism is
+  validated, not something this research phase needed to settle.

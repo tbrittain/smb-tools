@@ -1,16 +1,20 @@
 # Failure Analysis: The Game Freeze
 
-What we know for certain: import completed without any reported error from the POC tool itself.
+**Status: root cause confirmed and fix validated end-to-end against a live game install.** What
+follows below is the investigation trail; see `validation-results.md` for the live test that
+proved the fix actually works in-game, not just on paper.
+
+What we knew at the start: import completed without any reported error from the POC tool itself.
 The freeze happened in the *game*, specifically when navigating into the newly-registered league
 from the SMB4 UI — not at the main menu/league-list level, and not during the import operation
 itself.
 
-**Update**: this is no longer pure speculation. Using a real `master_sav.sqlite` (decompressed
-from a live `master.sav`) and a real SMB4 install on this machine, two concrete bugs in the
-legacy tool's code were confirmed directly against ground truth. One of them is almost certainly
-the actual root cause.
+Using a real `master_sav.sqlite` (decompressed from a live `master.sav`) and a real SMB4 install
+on this machine, two concrete bugs in the legacy tool's code were identified directly against
+ground truth, and then a live in-game test confirmed that correcting both bugs produces a league
+that registers and loads with **no freeze, no errors, no observed problems at all**.
 
-## Confirmed Bug #1: GUID type mismatch in `t_league_savedatas` (root cause, high confidence)
+## Confirmed Bug #1: GUID type mismatch in `t_league_savedatas` (confirmed root cause)
 
 The real schema, dumped via `PRAGMA`/`sqlite_master` from a live `master.sav`:
 
@@ -49,8 +53,10 @@ undefined behavior — an out-of-bounds read, a comparison that never matches/te
 struct copy that overruns into adjacent memory — rather than a handled error path, since the game
 was never built to expect this column to contain anything but a well-formed 16-byte key.
 
-**Fix, if this code path is reused**: bind `league_id.as_bytes()` (16-byte array) instead of the
-stringified-and-uppercased GUID.
+**Fix, confirmed working**: bind the GUID as its raw 16-byte form, not the stringified-and-
+uppercased text (`league_id.as_bytes()` in Rust; `uuid.UUID(s).bytes` in Python; a `[16]byte` from
+`uuid.Parse()` in Go). A live test using exactly this encoding — see `validation-results.md` —
+registered a cloned league in `master.sav` and loaded it in-game with no freeze and no errors.
 
 ## Confirmed Bug #2: `master.sav` is zlib-compressed, not a PKZIP container
 
@@ -84,10 +90,12 @@ in-game freeze. Possible explanations, none confirmed:
 
 Regardless of how it was reached, **this is still a real bug** that must be fixed before this
 code can be reused as-is — it's just not certain it's the bug that caused the specific freeze the
-user observed. Bug #1 remains the stronger candidate for that.
+user originally observed with the legacy tool. Bug #1 remains the stronger candidate for that
+specific incident.
 
-**Fix, if this code path is reused**: decompress/recompress `master.sav` the same way per-league
-`.sav` files are handled (zlib inflate/deflate), not via the `zip` crate.
+**Fix, confirmed working**: decompress/recompress `master.sav` the same way per-league `.sav`
+files are handled (zlib inflate/deflate), not via the `zip` crate. The validated approach in
+`validation-results.md` does exactly this and round-trips `master.sav` without issue.
 
 ## Hypotheses Now Closed
 
@@ -101,19 +109,32 @@ user observed. Bug #1 remains the stronger candidate for that.
   anywhere else in `master.sav` for a league to register. (This doesn't rule out logic enforced in
   game code rather than the schema, but it removes the most direct way that would show up.)
 
+## Confirmed by Live Test
+
+A live in-game test (full procedure and script in `validation-results.md`) cloned a real league
+under a brand-new GUID, rewrote every internal GUID reference inside the clone, registered it in
+`master.sav` with the corrected 16-byte blob encoding, and recompressed `master.sav` as zlib (not
+zip). **Result: the cloned league appeared in the in-game league list and loaded with no freeze,
+no errors, no observed problems at all.** Both bugs above are now confirmed fixes, not just
+plausible theories.
+
 ## Still Open
 
 ### The `.hash` sidecar file
 
-Not yet reverse-engineered. The legacy tool only ever copies it byte-for-byte, never reads or
-regenerates it. Given that Bug #1 alone is a sufficient explanation for the freeze, and the legacy
-tool treats `.hash` as optional (some leagues don't have one), this is now a lower-priority
-unknown — but should still be understood before a real implementation ships, in case it does
-matter for some leagues/save configurations.
+Not reverse-engineered, but now has a concrete negative result: the stored 4-byte hash for the
+source league doesn't match CRC32 or Adler32 of either the compressed or decompressed `.sav`
+bytes (checked directly). The validation test copied this file **unmodified** onto a clone whose
+GUID and content both differ from the original, and the clone still loaded with no problem. That's
+solid evidence the `.hash` file is not validated against content on this load path — at least not
+in a way that blocks loading. Still unidentified: what it actually is (a version counter? a stat
+unrelated to content?) and whether some other path the test didn't exercise (e.g., online
+multiplayer/leaderboards) cares about it. Low priority given the test result, but worth keeping in
+mind.
 
 ### Whether `master.sav` needs editing at all
 
-Worth testing directly (see `plan.md`): drop a validated `league-*.sav` triplet into the save
-directory *without* touching `master.sav` and see whether the game discovers it on next launch by
-scanning the directory. If so, the entire `t_league_savedatas` mutation — and both bugs above —
-might be avoidable entirely.
+Not tested directly — the validation test did register via `master.sav`, so it confirms that path
+works, but doesn't rule out a simpler alternative (the game discovering `league-*.sav` files purely
+by scanning the directory, with no registry edit needed). Since the tested path already works
+end-to-end, this is now a nice-to-have simplification to explore later, not a blocker.
