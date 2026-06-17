@@ -79,6 +79,19 @@ tracking. Rough shape, consistent with `user-docs/team-transfer.md`'s existing d
   extracted `master.sav`/`league-*.sav` — no need to reach for a different driver than what's
   already used for read-only access.
 
+## Safety Requirements For Any Future Implementation
+
+- **`master.sav` must be backed up on its own, immediately before mutation, in addition to any
+  broader save-directory backup.** The legacy tool only covered it via a directory-wide zip taken
+  earlier in the flow (`backup_save_game.rs`); that's a reasonable general safety net, but it's not
+  a substitute for a dedicated, easily-restorable copy of `master.sav` taken right before it's
+  edited. `master.sav` is being hand-edited outside of anything the game itself validates on
+  write — of all the files this feature touches, it's the one where "restore the last known-good
+  copy" needs to be a one-step operation, not "find the right directory-wide zip and re-extract."
+- Whatever the eventual mutation path looks like, it should write to a new/temp file and swap it
+  into place atomically (rename) rather than truncating and rewriting `master.sav` in place — so a
+  failure mid-write can't leave a corrupt file with no good copy immediately at hand.
+
 ## Explicit Non-Goals For Now
 
 - No code should be written against `master.sav` for smb-tools until the GUID-type fix (Bug #1)

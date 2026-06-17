@@ -36,13 +36,15 @@ This matches smb-tools' own `internal/config/savegame_paths.go`, which independe
 the same `{steam_id}` layout and explicitly excludes `master.sav` from its `league-*.sav` file
 scan — i.e., smb-tools already treats `master.sav` as out of scope today.
 
-**Important wrinkle**: SMB4's per-league save files (`league-{GUID}.sav`) are zlib-compressed
-SQLite databases (per `docs/domain/save-game-format.md`). But the POC's `master.sav` handling
-(`zip_utils/master_save.rs`) treats `master.sav` as a **PKZIP archive containing exactly one
-entry**, not a raw zlib stream — it calls `zip::ZipArchive::new` directly on the file. Whether that
-assumption is actually correct for the live `master.sav` on disk, or whether the POC's prior
-author verified this against a real file, is not documented anywhere in the repo or its single-line
-README. This is one of the unverified assumptions called out in `failure-analysis.md`.
+**Confirmed bug**: SMB4's per-league save files (`league-{GUID}.sav`) are zlib-compressed SQLite
+databases (per `docs/domain/save-game-format.md`). The POC's `master.sav` handling
+(`zip_utils/master_save.rs`) instead treats `master.sav` as a **PKZIP archive containing exactly
+one entry** — it calls `zip::ZipArchive::new` directly on the file. Checking a live `master.sav`
+on disk confirms it is in fact zlib-compressed (`78 01` header), the same as every other `.sav`
+file, not a PKZIP container. There's no indication this was an intentional, considered choice —
+nothing in the repo or its single-line README documents a reason `master.sav` would be packaged
+differently from every other save file, and the simplest explanation is that it's simply wrong.
+See `failure-analysis.md` for the full confirmation and how it cross-checks against real bytes.
 
 ## Export Flow
 
@@ -99,7 +101,12 @@ Entry point: `commands/import_league.rs::import_league()`. Sequence:
    values the game itself would populate for those columns on a normal "new league" flow.
 7. Re-zip the mutated `master.sav.db` back into a new `master.sav` (`zip_master_save`),
    **overwriting the original** at its original path. No second backup is taken of the pre-edit
-   `master.sav` specifically (only the directory-wide backup from step 3 covers it).
+   `master.sav` specifically — only the directory-wide backup from step 3 covers it, and that
+   backup is a separate zip archive, not a same-directory file the user could quickly swap back in
+   by hand. A future smb-tools implementation should not repeat this: `master.sav` is being
+   hand-edited outside of anything the game itself validates on write, so it should get its own
+   explicit, easily-restorable backup immediately before mutation, not just rely on being covered
+   by a broader directory snapshot taken earlier in the flow. See `plan.md`'s safety requirements.
 8. Copy the three league files (`.sav`, `.sav.bak`, `.hash` if present) into the Steam directory
    under the canonical `{UPPERCASE-GUID}.*` naming the game expects.
 
