@@ -1,14 +1,12 @@
 import { useToast } from 'primevue/usetoast'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { ExportToCSV, GetTeamsForExport, PreviewExportData } from '../../wailsjs/go/main/App'
 import { main } from '../../wailsjs/go/models'
 import { EXPORT_DATASET_MAP, EXPORT_DATASETS, type ExportColumnDef } from '../lib/exportDatasets'
 
 export interface ExportPresetConfig {
   columns: string[]
-  seasonMin: number | null
-  seasonMax: number | null
-  selectedTeamName: string
+  filters: Array<{ column: string; op: string; value: string; value2: string }>
   careerStatType: string
   sortCol: string
   sortDir: 'asc' | 'desc'
@@ -36,16 +34,25 @@ export function useExportConfig() {
 
   // ── Filters ───────────────────────────────────────────────────────────────────
 
-  const seasonMin = ref<number | null>(null)
-  const seasonMax = ref<number | null>(null)
-  const selectedTeamName = ref<string>('')
+  const filterRows = ref<main.FilterRowDTO[]>([])
   const careerStatType = ref<string>('regular_season')
   const sortCol = ref<string>('')
   const sortDir = ref<'asc' | 'desc'>('asc')
 
-  // ── Teams list (loaded once on mount) ────────────────────────────────────────
+  // Drop filter rows whose column was deselected from the column picker.
+  watch(selectedColumnKeys, (keys) => {
+    filterRows.value = filterRows.value.filter((r) => keys.includes(r.column))
+  })
+
+  // ── Teams list + dynamic column options ──────────────────────────────────────
 
   const teams = ref<main.TeamPickerResultDTO[]>([])
+
+  const columnOptions = computed<Record<string, string[]>>(() => ({
+    team_name: teams.value.map((t) => t.teamName),
+    conference_name: [...new Set(teams.value.map((t) => t.conferenceName))].filter(Boolean).sort(),
+    division_name: [...new Set(teams.value.map((t) => t.divisionName))].filter(Boolean).sort(),
+  }))
 
   // ── Preview state ─────────────────────────────────────────────────────────────
 
@@ -80,9 +87,7 @@ export function useExportConfig() {
   // ── Dataset change ────────────────────────────────────────────────────────────
 
   function onDatasetChange() {
-    seasonMin.value = null
-    seasonMax.value = null
-    selectedTeamName.value = ''
+    filterRows.value = []
     careerStatType.value = 'regular_season'
     sortCol.value = ''
     sortDir.value = 'asc'
@@ -93,25 +98,10 @@ export function useExportConfig() {
   // ── Options builder ───────────────────────────────────────────────────────────
 
   function buildOptions(): main.ExportOptionsDTO {
-    const filters: main.FilterRowDTO[] = []
     const ds = activeDataset.value
-
-    if (ds.supportsSeasonFilter) {
-      if (seasonMin.value !== null) {
-        filters.push(
-          new main.FilterRowDTO({ column: 'season_num', op: 'gte', value: String(seasonMin.value), value2: '' }),
-        )
-      }
-      if (seasonMax.value !== null) {
-        filters.push(
-          new main.FilterRowDTO({ column: 'season_num', op: 'lte', value: String(seasonMax.value), value2: '' }),
-        )
-      }
-    }
-
-    if (ds.supportsTeamFilter && selectedTeamName.value) {
-      filters.push(new main.FilterRowDTO({ column: 'team_name', op: 'eq', value: selectedTeamName.value, value2: '' }))
-    }
+    const filters = filterRows.value
+      .filter((r) => r.value !== '')
+      .map((r) => new main.FilterRowDTO({ column: r.column, op: r.op, value: r.value, value2: '' }))
 
     return new main.ExportOptionsDTO({
       datasetId: activeDatasetId.value,
@@ -128,9 +118,12 @@ export function useExportConfig() {
   function toConfigJSON(): string {
     const cfg: ExportPresetConfig = {
       columns: selectedColumnKeys.value,
-      seasonMin: seasonMin.value,
-      seasonMax: seasonMax.value,
-      selectedTeamName: selectedTeamName.value,
+      filters: filterRows.value.map((r) => ({
+        column: r.column,
+        op: r.op,
+        value: r.value,
+        value2: r.value2,
+      })),
       careerStatType: careerStatType.value,
       sortCol: sortCol.value,
       sortDir: sortDir.value,
@@ -142,9 +135,9 @@ export function useExportConfig() {
     try {
       const cfg = JSON.parse(json) as ExportPresetConfig
       selectedColumnKeys.value = cfg.columns ?? activeDataset.value.columns.map((c) => c.key)
-      seasonMin.value = cfg.seasonMin ?? null
-      seasonMax.value = cfg.seasonMax ?? null
-      selectedTeamName.value = cfg.selectedTeamName ?? ''
+      filterRows.value = (cfg.filters ?? []).map(
+        (f) => new main.FilterRowDTO({ column: f.column, op: f.op, value: f.value, value2: f.value2 ?? '' }),
+      )
       careerStatType.value = cfg.careerStatType ?? 'regular_season'
       sortCol.value = cfg.sortCol ?? ''
       sortDir.value = cfg.sortDir ?? 'asc'
@@ -192,7 +185,7 @@ export function useExportConfig() {
     try {
       teams.value = await GetTeamsForExport()
     } catch {
-      // non-fatal — team filter just won't show options
+      // non-fatal — enum options for team/conference/division just won't populate
     }
     selectAllColumns()
     await refreshPreview()
@@ -208,14 +201,11 @@ export function useExportConfig() {
     selectedColumns,
     selectAllColumns,
     // filters
-    seasonMin,
-    seasonMax,
-    selectedTeamName,
+    filterRows,
     careerStatType,
+    columnOptions,
     sortCol,
     sortDir,
-    // teams
-    teams,
     // preview
     previewRows,
     totalCount,

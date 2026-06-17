@@ -19,7 +19,12 @@ func (a *App) GetTeamsForExport() ([]TeamPickerResultDTO, error) {
 	}
 	out := make([]TeamPickerResultDTO, len(teams))
 	for i, t := range teams {
-		out[i] = TeamPickerResultDTO{TeamID: t.TeamID, TeamName: t.TeamName}
+		out[i] = TeamPickerResultDTO{
+			TeamID:         t.TeamID,
+			TeamName:       t.TeamName,
+			ConferenceName: t.ConferenceName,
+			DivisionName:   t.DivisionName,
+		}
 	}
 	return out, nil
 }

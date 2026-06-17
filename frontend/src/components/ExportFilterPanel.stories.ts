@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/vue3'
-import { EXPORT_DATASET_MAP, EXPORT_DATASETS } from '../lib/exportDatasets'
+import { main } from '../../wailsjs/go/models'
+import { EXPORT_DATASET_MAP } from '../lib/exportDatasets'
 import ExportFilterPanel from './ExportFilterPanel.vue'
 
 const meta: Meta<typeof ExportFilterPanel> = {
@@ -11,30 +12,54 @@ const meta: Meta<typeof ExportFilterPanel> = {
 export default meta
 type Story = StoryObj<typeof ExportFilterPanel>
 
-const SAMPLE_TEAMS = [
-  { teamName: 'Bisons', teamId: 1 },
-  { teamName: 'Marshals', teamId: 2 },
-  { teamName: 'Vipers', teamId: 3 },
-]
+const BATTING_COLS = EXPORT_DATASET_MAP.batting_season.columns
+const CAREER_COLS = EXPORT_DATASET_MAP.career_batting.columns
+const STANDINGS_COLS = EXPORT_DATASET_MAP.standings.columns
 
-export const SeasonDataset: Story = {
+const SAMPLE_COLUMN_OPTIONS = {
+  team_name: ['Bisons', 'Marshals', 'Vipers', 'Hammers'],
+  conference_name: ['East', 'West'],
+  division_name: ['North', 'South'],
+}
+
+const makeRow = (column: string, op: string, value: string) => new main.FilterRowDTO({ column, op, value, value2: '' })
+
+export const EmptyFilterList: Story = {
   args: {
     dataset: EXPORT_DATASET_MAP.batting_season,
-    seasonMin: null,
-    seasonMax: null,
-    selectedTeamName: '',
-    teams: SAMPLE_TEAMS,
+    filterRows: [],
+    availableColumns: BATTING_COLS,
+    columnOptions: SAMPLE_COLUMN_OPTIONS,
     careerStatType: 'regular_season',
   },
 }
 
-export const SeasonDatasetWithFilters: Story = {
+export const WithSeasonFilter: Story = {
   args: {
     dataset: EXPORT_DATASET_MAP.batting_season,
-    seasonMin: 3,
-    seasonMax: 8,
-    selectedTeamName: 'Bisons',
-    teams: SAMPLE_TEAMS,
+    filterRows: [makeRow('season_num', 'gte', '3')],
+    availableColumns: BATTING_COLS,
+    columnOptions: SAMPLE_COLUMN_OPTIONS,
+    careerStatType: 'regular_season',
+  },
+}
+
+export const WithTeamFilter: Story = {
+  args: {
+    dataset: EXPORT_DATASET_MAP.batting_season,
+    filterRows: [makeRow('team_name', 'eq', 'Bisons')],
+    availableColumns: BATTING_COLS,
+    columnOptions: SAMPLE_COLUMN_OPTIONS,
+    careerStatType: 'regular_season',
+  },
+}
+
+export const WithMultipleRows: Story = {
+  args: {
+    dataset: EXPORT_DATASET_MAP.batting_season,
+    filterRows: [makeRow('season_num', 'gte', '3'), makeRow('home_runs', 'gt', '20')],
+    availableColumns: BATTING_COLS,
+    columnOptions: SAMPLE_COLUMN_OPTIONS,
     careerStatType: 'regular_season',
   },
 }
@@ -42,10 +67,9 @@ export const SeasonDatasetWithFilters: Story = {
 export const CareerDataset: Story = {
   args: {
     dataset: EXPORT_DATASET_MAP.career_batting,
-    seasonMin: null,
-    seasonMax: null,
-    selectedTeamName: '',
-    teams: SAMPLE_TEAMS,
+    filterRows: [],
+    availableColumns: CAREER_COLS,
+    columnOptions: {},
     careerStatType: 'regular_season',
   },
 }
@@ -53,11 +77,30 @@ export const CareerDataset: Story = {
 export const CareerDatasetPlayoffs: Story = {
   args: {
     dataset: EXPORT_DATASET_MAP.career_batting,
-    seasonMin: null,
-    seasonMax: null,
-    selectedTeamName: '',
-    teams: SAMPLE_TEAMS,
+    filterRows: [makeRow('smb_war', 'gt', '10')],
+    availableColumns: CAREER_COLS,
+    columnOptions: {},
     careerStatType: 'playoffs',
+  },
+}
+
+export const StandingsWithEnumFilters: Story = {
+  args: {
+    dataset: EXPORT_DATASET_MAP.standings,
+    filterRows: [makeRow('conference_name', 'eq', 'East'), makeRow('wins', 'gte', '50')],
+    availableColumns: STANDINGS_COLS,
+    columnOptions: SAMPLE_COLUMN_OPTIONS,
+    careerStatType: 'regular_season',
+  },
+}
+
+export const NoColumnsSelected: Story = {
+  args: {
+    dataset: EXPORT_DATASET_MAP.batting_season,
+    filterRows: [],
+    availableColumns: [],
+    columnOptions: SAMPLE_COLUMN_OPTIONS,
+    careerStatType: 'regular_season',
   },
 }
 
@@ -65,30 +108,55 @@ export const AllVariants: Story = {
   render: () => ({
     components: { ExportFilterPanel },
     setup() {
-      return { EXPORT_DATASET_MAP, SAMPLE_TEAMS, EXPORT_DATASETS }
+      const row1 = new main.FilterRowDTO({ column: 'season_num', op: 'gte', value: '3', value2: '' })
+      const row2 = new main.FilterRowDTO({ column: 'team_name', op: 'eq', value: 'Bisons', value2: '' })
+      const row3 = new main.FilterRowDTO({ column: 'smb_war', op: 'gt', value: '2', value2: '' })
+      return {
+        EXPORT_DATASET_MAP,
+        BATTING_COLS,
+        CAREER_COLS,
+        SAMPLE_COLUMN_OPTIONS,
+        row1,
+        row2,
+        row3,
+      }
     },
     template: `
       <div style="display:flex;flex-direction:column;gap:2rem;padding:1.5rem;background:#0d1117;width:300px">
         <div>
-          <p style="color:#8b949e;font-size:0.75rem;margin-bottom:0.75rem">Season dataset — no filters applied</p>
+          <p style="color:#8b949e;font-size:0.75rem;margin-bottom:0.75rem">Season — no filters</p>
           <ExportFilterPanel
             :dataset="EXPORT_DATASET_MAP['batting_season']"
-            :season-min="null"
-            :season-max="null"
-            selected-team-name=""
-            :teams="SAMPLE_TEAMS"
+            :filter-rows="[]"
+            :available-columns="BATTING_COLS"
+            :column-options="SAMPLE_COLUMN_OPTIONS"
             career-stat-type="regular_season"
+            @update:filter-rows="() => {}"
+            @update:career-stat-type="() => {}"
           />
         </div>
         <div>
-          <p style="color:#8b949e;font-size:0.75rem;margin-bottom:0.75rem">Career dataset — stat type toggle</p>
+          <p style="color:#8b949e;font-size:0.75rem;margin-bottom:0.75rem">Season — season + team filters</p>
+          <ExportFilterPanel
+            :dataset="EXPORT_DATASET_MAP['batting_season']"
+            :filter-rows="[row1, row2]"
+            :available-columns="BATTING_COLS"
+            :column-options="SAMPLE_COLUMN_OPTIONS"
+            career-stat-type="regular_season"
+            @update:filter-rows="() => {}"
+            @update:career-stat-type="() => {}"
+          />
+        </div>
+        <div>
+          <p style="color:#8b949e;font-size:0.75rem;margin-bottom:0.75rem">Career — playoffs + smbWAR filter</p>
           <ExportFilterPanel
             :dataset="EXPORT_DATASET_MAP['career_batting']"
-            :season-min="null"
-            :season-max="null"
-            selected-team-name=""
-            :teams="SAMPLE_TEAMS"
+            :filter-rows="[row3]"
+            :available-columns="CAREER_COLS"
+            :column-options="{}"
             career-stat-type="playoffs"
+            @update:filter-rows="() => {}"
+            @update:career-stat-type="() => {}"
           />
         </div>
       </div>

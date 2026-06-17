@@ -51,10 +51,12 @@ type MediaGalleryPageDTO struct {
 	PageSize   int            `json:"pageSize"`
 }
 
-// TeamPickerResultDTO is a lightweight team record for the media association picker.
+// TeamPickerResultDTO is a lightweight team record for the media association picker and export filters.
 type TeamPickerResultDTO struct {
-	TeamID   int64  `json:"teamId"`
-	TeamName string `json:"teamName"`
+	TeamID         int64  `json:"teamId"`
+	TeamName       string `json:"teamName"`
+	ConferenceName string `json:"conferenceName"`
+	DivisionName   string `json:"divisionName"`
 }
 
 // TeamSeasonPickerResultDTO is a lightweight team-season record for the media association picker.

@@ -2281,6 +2281,8 @@ export namespace main {
 	export class TeamPickerResultDTO {
 	    teamId: number;
 	    teamName: string;
+	    conferenceName: string;
+	    divisionName: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TeamPickerResultDTO(source);
@@ -2290,6 +2292,8 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.teamId = source["teamId"];
 	        this.teamName = source["teamName"];
+	        this.conferenceName = source["conferenceName"];
+	        this.divisionName = source["divisionName"];
 	    }
 	}
 	

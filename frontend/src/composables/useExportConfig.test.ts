@@ -1,7 +1,8 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
-import { EXPORT_DATASETS } from '../lib/exportDatasets'
+import { main } from '../../wailsjs/go/models'
+import { EXPORT_DATASET_MAP, EXPORT_DATASETS } from '../lib/exportDatasets'
 import { useExportConfig } from './useExportConfig'
 
 const mockPreviewExportData = vi.fn().mockResolvedValue({ rows: [], totalCount: 0 })
@@ -48,6 +49,16 @@ describe('useExportConfig', () => {
     expect(cfg.selectedColumnKeys.value).toEqual(expectedKeys)
   })
 
+  it('onDatasetChange clears filterRows', async () => {
+    const cfg = mountComposable()
+    await nextTick()
+
+    cfg.filterRows.value = [new main.FilterRowDTO({ column: 'season_num', op: 'gte', value: '3', value2: '' })]
+    cfg.onDatasetChange()
+
+    expect(cfg.filterRows.value).toEqual([])
+  })
+
   it('refreshPreview skips PreviewExportData call when no columns are selected', async () => {
     const cfg = mountComposable()
     await nextTick()
@@ -59,23 +70,79 @@ describe('useExportConfig', () => {
     expect(mockPreviewExportData).not.toHaveBeenCalled()
   })
 
-  it('buildOptions emits season range filter rows for seasonMin and seasonMax', async () => {
+  it('buildOptions passes non-empty filterRows to PreviewExportData', async () => {
     const cfg = mountComposable()
     await nextTick()
     mockPreviewExportData.mockClear()
 
-    cfg.seasonMin.value = 3
-    cfg.seasonMax.value = 8
+    cfg.filterRows.value = [new main.FilterRowDTO({ column: 'home_runs', op: 'gt', value: '20', value2: '' })]
     await cfg.refreshPreview()
 
     expect(mockPreviewExportData).toHaveBeenCalledOnce()
     const opts = mockPreviewExportData.mock.calls[0][0]
     expect(opts.filters).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ column: 'season_num', op: 'gte', value: '3' }),
-        expect.objectContaining({ column: 'season_num', op: 'lte', value: '8' }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ column: 'home_runs', op: 'gt', value: '20' })]),
     )
+  })
+
+  it('buildOptions skips filterRows with empty value field', async () => {
+    const cfg = mountComposable()
+    await nextTick()
+    mockPreviewExportData.mockClear()
+
+    cfg.filterRows.value = [
+      new main.FilterRowDTO({ column: 'team_name', op: 'eq', value: '', value2: '' }),
+      new main.FilterRowDTO({ column: 'home_runs', op: 'gt', value: '10', value2: '' }),
+    ]
+    await cfg.refreshPreview()
+
+    expect(mockPreviewExportData).toHaveBeenCalledOnce()
+    const opts = mockPreviewExportData.mock.calls[0][0]
+    expect(opts.filters).toHaveLength(1)
+    expect(opts.filters[0]).toMatchObject({ column: 'home_runs', op: 'gt', value: '10' })
+  })
+
+  it('orphaned filterRows are dropped when selectedColumnKeys shrinks', async () => {
+    const cfg = mountComposable()
+    await nextTick()
+
+    // Ensure both columns are selected
+    const battingDataset = EXPORT_DATASET_MAP.batting_season
+    const hrKey = battingDataset.columns.find((c) => c.key === 'home_runs')?.key ?? 'home_runs'
+    const abKey = battingDataset.columns.find((c) => c.key === 'at_bats')?.key ?? 'at_bats'
+    cfg.selectedColumnKeys.value = [hrKey, abKey]
+
+    cfg.filterRows.value = [
+      new main.FilterRowDTO({ column: hrKey, op: 'gt', value: '20', value2: '' }),
+      new main.FilterRowDTO({ column: abKey, op: 'gte', value: '100', value2: '' }),
+    ]
+
+    // Deselect the home_runs column
+    cfg.selectedColumnKeys.value = [abKey]
+    await nextTick()
+
+    // The home_runs filter row should be dropped; at_bats row survives
+    expect(cfg.filterRows.value).toHaveLength(1)
+    expect(cfg.filterRows.value[0].column).toBe(abKey)
+  })
+
+  it('fromConfigJSON with legacy preset (no filters field) defaults filterRows to []', async () => {
+    const cfg = mountComposable()
+    await nextTick()
+
+    cfg.filterRows.value = [new main.FilterRowDTO({ column: 'season_num', op: 'gte', value: '2', value2: '' })]
+
+    // Simulate a legacy preset JSON that has no filters field
+    const legacyJson = JSON.stringify({
+      columns: cfg.selectedColumnKeys.value,
+      careerStatType: 'regular_season',
+      sortCol: '',
+      sortDir: 'asc',
+    })
+
+    cfg.fromPreset('batting_season', legacyJson)
+
+    expect(cfg.filterRows.value).toEqual([])
   })
 
   it('buildOptions passes careerStatType only for career datasets, empty string otherwise', async () => {

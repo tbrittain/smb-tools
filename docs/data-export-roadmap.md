@@ -142,6 +142,11 @@ Following the pattern in `internal/store/export_store_test.go`:
 
 ---
 
+
+## Phase 4 — shorthand legacy SMB3Explorer export support
+
+Support exporting data in the exact format that CSV exports from SMB3Explorer exported (either by exposing default seeded preset things or equivalent)
+
 ## Summary
 
 | Phase | Scope | Go changes | Frontend changes | Blocking dependencies |
