@@ -11,8 +11,8 @@ function stubWails() {
         UploadMedia: () => Promise.resolve({}),
         SearchTeamsForMediaPicker: () =>
           Promise.resolve([
-            { teamId: 1, teamName: 'Heaters' },
-            { teamId: 2, teamName: 'Icebreakers' },
+            { teamId: 1, teamName: 'Heaters', conferenceName: 'East', divisionName: 'North' },
+            { teamId: 2, teamName: 'Icebreakers', conferenceName: 'West', divisionName: 'South' },
           ]),
         GetTeamSeasonsForMediaPicker: () =>
           Promise.resolve([

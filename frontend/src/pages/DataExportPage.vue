@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import Button from 'primevue/button'
 import { onMounted } from 'vue'
+import type { main } from '../../wailsjs/go/models'
 import ExportColumnSelector from '../components/ExportColumnSelector.vue'
 import ExportDatasetPicker from '../components/ExportDatasetPicker.vue'
 import ExportFilterPanel from '../components/ExportFilterPanel.vue'
@@ -16,13 +17,11 @@ const {
   onDatasetChange,
   selectedColumnKeys,
   selectedColumns,
-  seasonMin,
-  seasonMax,
-  selectedTeamName,
+  filterRows,
   careerStatType,
+  columnOptions,
   sortCol,
   sortDir,
-  teams,
   previewRows,
   totalCount,
   isPreviewLoading,
@@ -30,11 +29,18 @@ const {
   isExporting,
   downloadCSV,
   toConfigJSON,
-  fromConfigJSON,
+  fromPreset,
 } = useExportConfig()
 
 const { set } = useBreadcrumbs()
 onMounted(() => set([{ label: 'Export' }]))
+
+function setFilterRows(rows: main.FilterRowDTO[]) {
+  filterRows.value = rows
+}
+function setCareerStatType(v: string) {
+  careerStatType.value = v
+}
 </script>
 
 <template>
@@ -61,15 +67,12 @@ onMounted(() => set([{ label: 'Export' }]))
         <h3 class="section-title">Filters</h3>
         <ExportFilterPanel
           :dataset="activeDataset"
-          :season-min="seasonMin"
-          :season-max="seasonMax"
-          :selected-team-name="selectedTeamName"
-          :teams="teams"
+          :filter-rows="filterRows"
+          :available-columns="selectedColumns"
+          :column-options="columnOptions"
           :career-stat-type="careerStatType"
-          @update:season-min="(v) => { seasonMin = v }"
-          @update:season-max="(v) => { seasonMax = v }"
-          @update:selected-team-name="(v) => { selectedTeamName = v }"
-          @update:career-stat-type="(v) => { careerStatType = v }"
+          @update:filter-rows="setFilterRows"
+          @update:career-stat-type="setCareerStatType"
         />
       </section>
 
@@ -78,7 +81,7 @@ onMounted(() => set([{ label: 'Export' }]))
         <ExportPresetManager
           :current-config-j-s-o-n="toConfigJSON()"
           :dataset-id="activeDatasetId"
-          @load="fromConfigJSON"
+          @load="fromPreset"
         />
       </section>
 
@@ -90,6 +93,15 @@ onMounted(() => set([{ label: 'Export' }]))
           :disabled="selectedColumnKeys.length === 0"
           class="apply-btn"
           @click="refreshPreview"
+        />
+        <Button
+          label="Export CSV"
+          icon="pi pi-download"
+          severity="secondary"
+          :loading="isExporting"
+          :disabled="isExporting || selectedColumnKeys.length === 0"
+          class="apply-btn"
+          @click="downloadCSV"
         />
       </div>
     </div>
@@ -173,6 +185,9 @@ onMounted(() => set([{ label: 'Export' }]))
   margin-top: auto;
   border-top: 1px solid var(--color-border);
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .apply-btn {

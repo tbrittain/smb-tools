@@ -74,4 +74,25 @@ describe('AppButton', () => {
     })
     expect(wrapper.attributes('type')).toBe('submit')
   })
+
+  it('is disabled when loading is true', () => {
+    const wrapper = mount(AppButton, {
+      props: { loading: true },
+      slots: { default: 'Go' },
+    })
+    expect(wrapper.attributes('disabled')).toBeDefined()
+  })
+
+  it('renders spinner icon when loading', () => {
+    const wrapper = mount(AppButton, {
+      props: { loading: true },
+      slots: { default: 'Go' },
+    })
+    expect(wrapper.find('i.pi-spinner').exists()).toBe(true)
+  })
+
+  it('does not render spinner when not loading', () => {
+    const wrapper = mount(AppButton, { slots: { default: 'Go' } })
+    expect(wrapper.find('i.pi-spinner').exists()).toBe(false)
+  })
 })

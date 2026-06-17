@@ -75,6 +75,22 @@ SELECT
         ORDER BY s2.season_num DESC
         LIMIT 1
     ) AS current_name,
+    (
+        SELECT tsh2.conference_name
+        FROM team_season_history tsh2
+        JOIN seasons s2 ON s2.id = tsh2.season_id
+        WHERE tsh2.team_id = t.id
+        ORDER BY s2.season_num DESC
+        LIMIT 1
+    ) AS current_conference,
+    (
+        SELECT tsh2.division_name
+        FROM team_season_history tsh2
+        JOIN seasons s2 ON s2.id = tsh2.season_id
+        WHERE tsh2.team_id = t.id
+        ORDER BY s2.season_num DESC
+        LIMIT 1
+    ) AS current_division,
     COUNT(DISTINCT tsh.season_id) AS seasons,
     MIN(s.season_num)             AS first_season,
     MAX(s.season_num)             AS last_season
@@ -91,7 +107,7 @@ ORDER BY current_name`)
 	var out []models.TeamSearchResult
 	for rows.Next() {
 		var r models.TeamSearchResult
-		if err := rows.Scan(&r.TeamID, &r.TeamName, &r.Seasons, &r.FirstSeason, &r.LastSeason); err != nil {
+		if err := rows.Scan(&r.TeamID, &r.TeamName, &r.ConferenceName, &r.DivisionName, &r.Seasons, &r.FirstSeason, &r.LastSeason); err != nil {
 			return nil, fmt.Errorf("ListAllTeams scan: %w", err)
 		}
 		out = append(out, r)

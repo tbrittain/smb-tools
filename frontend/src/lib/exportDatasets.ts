@@ -2,20 +2,22 @@
 // Column keys MUST match the keys in internal/store/export_store.go datasetDef.cols maps.
 // When a column is added or renamed, update both files.
 
-export type ExportDataType = 'string' | 'int' | 'float'
+export type ExportDataType = 'string' | 'int' | 'float' | 'enum'
 
 export interface ExportColumnDef {
   key: string
   label: string
   dataType: ExportDataType
+  // Defined for static enum columns (position, hand, chemistry, role).
+  // Absent for dynamic enums (team_name, conference_name, division_name) whose options
+  // are populated at runtime via the columnOptions map in useExportConfig.
+  options?: readonly string[]
 }
 
 export interface ExportDatasetDef {
   id: string
   label: string
   columns: ExportColumnDef[]
-  supportsSeasonFilter: boolean
-  supportsTeamFilter: boolean
   supportsCareerStatType: boolean
 }
 
@@ -24,12 +26,22 @@ const battingSeasonColumns: ExportColumnDef[] = [
   { key: 'first_name', label: 'First Name', dataType: 'string' },
   { key: 'last_name', label: 'Last Name', dataType: 'string' },
   { key: 'season_num', label: 'Season', dataType: 'int' },
-  { key: 'team_name', label: 'Team', dataType: 'string' },
+  { key: 'team_name', label: 'Team', dataType: 'enum' },
   { key: 'age', label: 'Age', dataType: 'int' },
-  { key: 'primary_position', label: 'Position', dataType: 'string' },
-  { key: 'bat_hand', label: 'Bat Hand', dataType: 'string' },
-  { key: 'throw_hand', label: 'Throw Hand', dataType: 'string' },
-  { key: 'chemistry_type', label: 'Chemistry', dataType: 'string' },
+  {
+    key: 'primary_position',
+    label: 'Position',
+    dataType: 'enum',
+    options: ['P', 'C', '1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF'],
+  },
+  { key: 'bat_hand', label: 'Bat Hand', dataType: 'enum', options: ['L', 'R', 'S'] },
+  { key: 'throw_hand', label: 'Throw Hand', dataType: 'enum', options: ['L', 'R'] },
+  {
+    key: 'chemistry_type',
+    label: 'Chemistry',
+    dataType: 'enum',
+    options: ['Competitive', 'Spirited', 'Disciplined', 'Scholarly', 'Crafty'],
+  },
   { key: 'salary', label: 'Salary', dataType: 'int' },
   { key: 'games_played', label: 'G', dataType: 'int' },
   { key: 'games_batting', label: 'G Bat', dataType: 'int' },
@@ -67,11 +79,16 @@ const pitchingSeasonColumns: ExportColumnDef[] = [
   { key: 'first_name', label: 'First Name', dataType: 'string' },
   { key: 'last_name', label: 'Last Name', dataType: 'string' },
   { key: 'season_num', label: 'Season', dataType: 'int' },
-  { key: 'team_name', label: 'Team', dataType: 'string' },
+  { key: 'team_name', label: 'Team', dataType: 'enum' },
   { key: 'age', label: 'Age', dataType: 'int' },
-  { key: 'pitcher_role', label: 'Role', dataType: 'string' },
-  { key: 'throw_hand', label: 'Throw Hand', dataType: 'string' },
-  { key: 'chemistry_type', label: 'Chemistry', dataType: 'string' },
+  { key: 'pitcher_role', label: 'Role', dataType: 'enum', options: ['SP', 'RP', 'CL'] },
+  { key: 'throw_hand', label: 'Throw Hand', dataType: 'enum', options: ['L', 'R'] },
+  {
+    key: 'chemistry_type',
+    label: 'Chemistry',
+    dataType: 'enum',
+    options: ['Competitive', 'Spirited', 'Disciplined', 'Scholarly', 'Crafty'],
+  },
   { key: 'salary', label: 'Salary', dataType: 'int' },
   { key: 'wins', label: 'W', dataType: 'int' },
   { key: 'losses', label: 'L', dataType: 'int' },
@@ -109,10 +126,10 @@ const pitchingSeasonColumns: ExportColumnDef[] = [
 ]
 
 const standingsColumns: ExportColumnDef[] = [
-  { key: 'team_name', label: 'Team', dataType: 'string' },
+  { key: 'team_name', label: 'Team', dataType: 'enum' },
   { key: 'season_num', label: 'Season', dataType: 'int' },
-  { key: 'conference_name', label: 'Conference', dataType: 'string' },
-  { key: 'division_name', label: 'Division', dataType: 'string' },
+  { key: 'conference_name', label: 'Conference', dataType: 'enum' },
+  { key: 'division_name', label: 'Division', dataType: 'enum' },
   { key: 'wins', label: 'W', dataType: 'int' },
   { key: 'losses', label: 'L', dataType: 'int' },
   { key: 'win_pct', label: 'W%', dataType: 'float' },
@@ -210,40 +227,30 @@ export const EXPORT_DATASETS: ExportDatasetDef[] = [
     id: 'batting_season',
     label: 'Player Season Batting',
     columns: battingSeasonColumns,
-    supportsSeasonFilter: true,
-    supportsTeamFilter: true,
     supportsCareerStatType: false,
   },
   {
     id: 'pitching_season',
     label: 'Player Season Pitching',
     columns: pitchingSeasonColumns,
-    supportsSeasonFilter: true,
-    supportsTeamFilter: true,
     supportsCareerStatType: false,
   },
   {
     id: 'standings',
     label: 'Team Season Standings',
     columns: standingsColumns,
-    supportsSeasonFilter: true,
-    supportsTeamFilter: true,
     supportsCareerStatType: false,
   },
   {
     id: 'career_batting',
     label: 'Career Batting Stats',
     columns: careerBattingColumns,
-    supportsSeasonFilter: false,
-    supportsTeamFilter: false,
     supportsCareerStatType: true,
   },
   {
     id: 'career_pitching',
     label: 'Career Pitching Stats',
     columns: careerPitchingColumns,
-    supportsSeasonFilter: false,
-    supportsTeamFilter: false,
     supportsCareerStatType: true,
   },
 ]
