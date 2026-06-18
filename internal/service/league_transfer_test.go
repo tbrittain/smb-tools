@@ -110,6 +110,35 @@ func TestLeagueTransferService_DiscoverLeagues_NoneFound(t *testing.T) {
 	}
 }
 
+func TestLeagueTransferService_DiscoverLeaguesInDir(t *testing.T) {
+	svc, _ := newTestLeagueTransferService(t, false)
+	dir := t.TempDir()
+	testutil.WriteCompressedLeagueSaveFixture(t, filepath.Join(dir, "league-AA000000-0000-0000-0000-000000000000.sav"))
+	if err := os.WriteFile(filepath.Join(dir, "not-a-league.txt"), []byte("ignore me"), 0o600); err != nil {
+		t.Fatalf("writing non-league file: %v", err)
+	}
+
+	overviews := svc.DiscoverLeaguesInDir(context.Background(), dir)
+	if len(overviews) != 1 {
+		t.Fatalf("expected 1 league, got %d", len(overviews))
+	}
+	if overviews[0].Name != "League A" {
+		t.Errorf("Name = %q, want %q", overviews[0].Name, "League A")
+	}
+}
+
+func TestLeagueTransferService_DiscoverLeaguesInDir_Empty(t *testing.T) {
+	svc, _ := newTestLeagueTransferService(t, false)
+
+	overviews := svc.DiscoverLeaguesInDir(context.Background(), t.TempDir())
+	if overviews == nil {
+		t.Fatal("expected a non-nil slice")
+	}
+	if len(overviews) != 0 {
+		t.Errorf("expected 0 leagues, got %d", len(overviews))
+	}
+}
+
 func setUpSourceLeagueFiles(t *testing.T, dir string, guid uuid.UUID) string {
 	t.Helper()
 	upper := guid.String()
@@ -460,6 +489,118 @@ func TestLeagueTransferService_ConfirmImport_RefusesWhenGameRunning(t *testing.T
 	}
 
 	assertNoBackupFilesWritten(t, dirs)
+}
+
+// setUpSnapshotFixture builds a raw (uncompressed) single-league SQLite file
+// at the path a franchise snapshot would occupy on disk — unlike a live
+// .sav, it carries no GUID in its filename and is never zlib-compressed.
+// NewTestLeagueSaveDB/WriteCompressedLeagueSaveFixture seed two leagues (A
+// and B) for GUID-rewrite isolation testing; League B's rows are trimmed
+// here since ExportSnapshot's GetSoleLeagueGUID requires exactly one league,
+// matching the real single-league-per-file save shape.
+func setUpSnapshotFixture(t *testing.T) string {
+	t.Helper()
+	compressedPath := filepath.Join(t.TempDir(), "league-AA000000-0000-0000-0000-000000000000.sav")
+	testutil.WriteCompressedLeagueSaveFixture(t, compressedPath)
+
+	rawPath, err := db.DecompressToTempFile(compressedPath)
+	if err != nil {
+		t.Fatalf("decompressing fixture: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Remove(rawPath) })
+
+	conn, err := db.OpenForReadWrite(context.Background(), rawPath)
+	if err != nil {
+		t.Fatalf("opening raw fixture: %v", err)
+	}
+	for _, stmt := range []string{
+		`DELETE FROM t_leagues WHERE GUID != ?`,
+		`DELETE FROM t_conferences WHERE leagueGUID != ?`,
+		`DELETE FROM t_franchise WHERE leagueGUID != ?`,
+		`DELETE FROM t_seasons WHERE historicalLeagueGUID != ?`,
+		`DELETE FROM t_league_local_ids WHERE GUID != ?`,
+	} {
+		if _, err := conn.Exec(stmt, leagueAFixtureGUID[:]); err != nil {
+			_ = conn.Close()
+			t.Fatalf("trimming fixture to a single league (%q): %v", stmt, err)
+		}
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatalf("closing trimmed fixture: %v", err)
+	}
+	return rawPath
+}
+
+func TestLeagueTransferService_ExportSnapshot_HappyPath(t *testing.T) {
+	svc, _ := newTestLeagueTransferService(t, false)
+	snapshotPath := setUpSnapshotFixture(t)
+
+	outputPath, err := svc.ExportSnapshot(context.Background(), snapshotPath, "Snapshot League")
+	if err != nil {
+		t.Fatalf("ExportSnapshot: %v", err)
+	}
+
+	preview, err := svc.PreviewImport(context.Background(), outputPath)
+	if err != nil {
+		t.Fatalf("PreviewImport on snapshot export: %v", err)
+	}
+	if preview.Overview.Name != "Snapshot League" {
+		t.Errorf("Overview.Name = %q, want %q", preview.Overview.Name, "Snapshot League")
+	}
+	if preview.Overview.GUID == leagueAFixtureGUID {
+		t.Error("expected a freshly generated GUID, got the snapshot's original GUID")
+	}
+}
+
+func TestLeagueTransferService_ExportSnapshot_NeverMutatesSource(t *testing.T) {
+	svc, _ := newTestLeagueTransferService(t, false)
+	snapshotPath := setUpSnapshotFixture(t)
+
+	beforeBytes, err := os.ReadFile(snapshotPath)
+	if err != nil {
+		t.Fatalf("reading snapshot before export: %v", err)
+	}
+
+	if _, err := svc.ExportSnapshot(context.Background(), snapshotPath, "Snapshot League"); err != nil {
+		t.Fatalf("ExportSnapshot: %v", err)
+	}
+
+	afterBytes, err := os.ReadFile(snapshotPath)
+	if err != nil {
+		t.Fatalf("reading snapshot after export: %v", err)
+	}
+	if string(beforeBytes) != string(afterBytes) {
+		t.Error("snapshot file was modified — ExportSnapshot must never mutate its source")
+	}
+}
+
+func TestLeagueTransferService_ExportSnapshot_EmptyName(t *testing.T) {
+	svc, _ := newTestLeagueTransferService(t, false)
+	snapshotPath := setUpSnapshotFixture(t)
+
+	if _, err := svc.ExportSnapshot(context.Background(), snapshotPath, "   "); err == nil {
+		t.Error("expected an error for a blank new name, got nil")
+	}
+}
+
+func TestLeagueTransferService_ExportSnapshot_InvalidShape(t *testing.T) {
+	svc, _ := newTestLeagueTransferService(t, false)
+
+	badPath := filepath.Join(t.TempDir(), "snapshot.sqlite")
+	conn, err := db.OpenForReadWrite(context.Background(), badPath)
+	if err != nil {
+		t.Fatalf("creating malformed fixture: %v", err)
+	}
+	if _, err := conn.Exec(`CREATE TABLE not_a_league_table (id INTEGER)`); err != nil {
+		t.Fatalf("seeding malformed fixture: %v", err)
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatalf("closing malformed fixture: %v", err)
+	}
+
+	if _, err := svc.ExportSnapshot(context.Background(), badPath, "Doesn't Matter"); err == nil {
+		t.Error("expected an error for a save missing required tables, got nil")
+	}
 }
 
 // assertNoBackupFilesWritten checks that no backup file was written under

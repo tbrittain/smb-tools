@@ -2103,6 +2103,28 @@ export namespace main {
 	        this.fileExists = source["fileExists"];
 	    }
 	}
+	export class SnapshotExportCandidateDTO {
+	    franchiseId: string;
+	    franchiseName: string;
+	    snapshotId: number;
+	    seasonNum: number;
+	    capturedAt: string;
+	    fileSizeBytes: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SnapshotExportCandidateDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.franchiseId = source["franchiseId"];
+	        this.franchiseName = source["franchiseName"];
+	        this.snapshotId = source["snapshotId"];
+	        this.seasonNum = source["seasonNum"];
+	        this.capturedAt = source["capturedAt"];
+	        this.fileSizeBytes = source["fileSizeBytes"];
+	    }
+	}
 	export class StatHighlightsDTO {
 	    leagueLeadersBatting: Record<string, any>;
 	    leagueLeadersPitching: Record<string, any>;

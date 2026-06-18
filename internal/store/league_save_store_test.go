@@ -282,6 +282,46 @@ func TestLeagueSaveStore_RenameLeague_UnknownGUID(t *testing.T) {
 	}
 }
 
+func TestLeagueSaveStore_GetSoleLeagueGUID_HappyPath(t *testing.T) {
+	db := testutil.NewTestLeagueSaveDB(t)
+	ctx := context.Background()
+	if _, err := db.ExecContext(ctx, `DELETE FROM t_leagues WHERE GUID = ?`, leagueBGUID[:]); err != nil {
+		t.Fatalf("trimming fixture to a single league: %v", err)
+	}
+
+	s := store.NewLeagueSaveStore(db)
+	got, err := s.GetSoleLeagueGUID(ctx)
+	if err != nil {
+		t.Fatalf("GetSoleLeagueGUID: %v", err)
+	}
+	if got != leagueAGUID {
+		t.Errorf("GetSoleLeagueGUID = %s, want %s", got, leagueAGUID)
+	}
+}
+
+func TestLeagueSaveStore_GetSoleLeagueGUID_ZeroRows(t *testing.T) {
+	db := testutil.NewTestLeagueSaveDB(t)
+	ctx := context.Background()
+	if _, err := db.ExecContext(ctx, `DELETE FROM t_leagues`); err != nil {
+		t.Fatalf("clearing t_leagues: %v", err)
+	}
+
+	s := store.NewLeagueSaveStore(db)
+	if _, err := s.GetSoleLeagueGUID(ctx); err == nil {
+		t.Error("expected an error when t_leagues has zero rows, got nil")
+	}
+}
+
+func TestLeagueSaveStore_GetSoleLeagueGUID_MultipleRows(t *testing.T) {
+	// NewTestLeagueSaveDB seeds two leagues (League A and League B) by design.
+	db := testutil.NewTestLeagueSaveDB(t)
+	s := store.NewLeagueSaveStore(db)
+
+	if _, err := s.GetSoleLeagueGUID(context.Background()); err == nil {
+		t.Error("expected an error when t_leagues has more than one row, got nil")
+	}
+}
+
 func TestLeagueSaveStore_GetLeagueOverview_UnknownLeague(t *testing.T) {
 	db := testutil.NewTestLeagueSaveDB(t)
 	s := store.NewLeagueSaveStore(db)

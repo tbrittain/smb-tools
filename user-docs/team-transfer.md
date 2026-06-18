@@ -14,6 +14,8 @@ After import, the recipient's game treats it as a normal league save. They can s
 
 The Export tab scans your machine for every SMB4 league it can find and lists each one with its conference, division, and team counts. Upon picking a league and exporting it, smb-tools packages the league's save data into a single `.zip` file you can send to someone else.
 
+If your save files aren't in the usual Steam location, say you keep them on an external drive or a separate install, use the Browse Folder button to point smb-tools at that folder instead. It scans wherever you choose the same way it scans the default location, and whatever it finds gets added to the list.
+
 ::: warning Empty league shell and save game are not the same export
 SMB4 tracks a league as two separate pieces, and smb-tools lets you export either one on its own. The empty league shell is the teams, conferences, and divisions setup with no games played. It is what shows up under Customizations in SMB4. A save game, meaning a Franchise, Season, or Elimination run, is the actual in-progress game that was built from that shell.
 
@@ -21,6 +23,14 @@ Exporting a save game does not include the shell. If you send someone a Franchis
 
 If you only export the save game and skip the shell, the recipient can still get the shell back without you sending it separately, by using the "Export to League" option from inside SMB4 once they have the save game loaded. That in-game option recreates a league shell from the save game itself.
 :::
+
+## Exporting from a Franchise Snapshot
+
+If you're tracking a franchise in smb-tools, every season sync quietly captures a snapshot of that save behind the scenes. The From Snapshot tab lets you turn any of those snapshots into a shareable league export, which is handy if you want to send someone an earlier point in your franchise's history instead of whatever state it's in today.
+
+Snapshots are listed by franchise, with each one labeled by season number and the date it was captured. Pick the one you want and give it a name. Naming is required for this kind of export, since a snapshot doesn't carry a current league name the way a live save does. The export also gets a brand new league identity, so it won't collide with the franchise it came from, or with itself if you export the same snapshot more than once.
+
+Exporting a snapshot only reads from it; the franchise and its other snapshots are left exactly as they were. There's no shell to worry about here either, since a snapshot is always a franchise save in progress.
 
 ## Importing a League
 

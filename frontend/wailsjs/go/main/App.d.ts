@@ -6,6 +6,8 @@ export function AddFranchiseSource(arg1:string,arg2:string,arg3:string,arg4:numb
 
 export function AssignExistingTeamLogo(arg1:string,arg2:any,arg3:any):Promise<main.TeamLogoAssignmentDTO>;
 
+export function BrowseLeagueExportDirectory():Promise<Array<main.LeagueOverviewDTO>>;
+
 export function BrowseLeagueImportZip():Promise<string>;
 
 export function BrowseLegacyDB():Promise<string>;
@@ -43,6 +45,8 @@ export function DiscoverLeagues():Promise<Array<main.LeagueOverviewDTO>>;
 export function ExportLeague(arg1:string,arg2:string):Promise<string>;
 
 export function ExportLeagueWithRename(arg1:string,arg2:string,arg3:string):Promise<string>;
+
+export function ExportSnapshotAsLeague(arg1:string,arg2:number,arg3:string):Promise<string>;
 
 export function ExportToCSV(arg1:main.ExportOptionsDTO):Promise<string>;
 
@@ -127,6 +131,8 @@ export function ListFranchiseSources(arg1:string):Promise<Array<main.FranchiseSo
 export function ListFranchises():Promise<Array<main.FranchiseDTO>>;
 
 export function ListLegacyFranchises(arg1:string):Promise<Array<main.LegacyFranchiseDTO>>;
+
+export function ListSnapshotExportCandidates():Promise<Array<main.SnapshotExportCandidateDTO>>;
 
 export function ListSnapshots():Promise<Array<main.SnapshotDTO>>;
 
