@@ -82,6 +82,10 @@ export function ExportLeague(arg1, arg2) {
   return window['go']['main']['App']['ExportLeague'](arg1, arg2);
 }
 
+export function ExportLeagueWithRename(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ExportLeagueWithRename'](arg1, arg2, arg3);
+}
+
 export function ExportToCSV(arg1) {
   return window['go']['main']['App']['ExportToCSV'](arg1);
 }
@@ -268,6 +272,10 @@ export function OpenAppDataDir() {
 
 export function OpenBugReport() {
   return window['go']['main']['App']['OpenBugReport']();
+}
+
+export function OpenLeagueExportDir(arg1) {
+  return window['go']['main']['App']['OpenLeagueExportDir'](arg1);
 }
 
 export function PreviewExportData(arg1) {

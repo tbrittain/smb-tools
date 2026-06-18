@@ -137,6 +137,48 @@ func TestLeagueTransferService_ExportLeague(t *testing.T) {
 	}
 }
 
+func TestLeagueTransferService_ExportLeagueWithRename(t *testing.T) {
+	svc, _ := newTestLeagueTransferService(t, false)
+	sourceDir := t.TempDir()
+	savPath := setUpSourceLeagueFiles(t, sourceDir, leagueAFixtureGUID)
+
+	beforeBytes, err := os.ReadFile(savPath)
+	if err != nil {
+		t.Fatalf("reading source .sav before export: %v", err)
+	}
+
+	outputPath, err := svc.ExportLeagueWithRename(context.Background(), leagueAFixtureGUID, savPath, "  Renamed League  ")
+	if err != nil {
+		t.Fatalf("ExportLeagueWithRename: %v", err)
+	}
+
+	afterBytes, err := os.ReadFile(savPath)
+	if err != nil {
+		t.Fatalf("reading source .sav after export: %v", err)
+	}
+	if string(beforeBytes) != string(afterBytes) {
+		t.Error("source .sav was modified — ExportLeagueWithRename must leave it untouched")
+	}
+
+	preview, err := svc.PreviewImport(context.Background(), outputPath)
+	if err != nil {
+		t.Fatalf("PreviewImport on renamed export: %v", err)
+	}
+	if preview.Overview.Name != "Renamed League" {
+		t.Errorf("Overview.Name = %q, want %q (trimmed)", preview.Overview.Name, "Renamed League")
+	}
+}
+
+func TestLeagueTransferService_ExportLeagueWithRename_EmptyName(t *testing.T) {
+	svc, _ := newTestLeagueTransferService(t, false)
+	sourceDir := t.TempDir()
+	savPath := setUpSourceLeagueFiles(t, sourceDir, leagueAFixtureGUID)
+
+	if _, err := svc.ExportLeagueWithRename(context.Background(), leagueAFixtureGUID, savPath, "   "); err == nil {
+		t.Error("expected an error for a blank new name, got nil")
+	}
+}
+
 func TestLeagueTransferService_ExportLeague_GUIDMismatch(t *testing.T) {
 	svc, _ := newTestLeagueTransferService(t, false)
 	sourceDir := t.TempDir()

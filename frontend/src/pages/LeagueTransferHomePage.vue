@@ -3,7 +3,11 @@ import Accordion from 'primevue/accordion'
 import AccordionContent from 'primevue/accordioncontent'
 import AccordionHeader from 'primevue/accordionheader'
 import AccordionPanel from 'primevue/accordionpanel'
+import Dialog from 'primevue/dialog'
+import InputText from 'primevue/inputtext'
+import type { MenuItem } from 'primevue/menuitem'
 import RadioButton from 'primevue/radiobutton'
+import SplitButton from 'primevue/splitbutton'
 import TabPanel from 'primevue/tabpanel'
 import TabView from 'primevue/tabview'
 import Tag from 'primevue/tag'
@@ -14,6 +18,8 @@ import {
   ConfirmLeagueImport,
   DiscoverLeagues,
   ExportLeague,
+  ExportLeagueWithRename,
+  OpenLeagueExportDir,
   PreviewLeagueImport,
 } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
@@ -112,6 +118,52 @@ async function exportLeague(league: main.LeagueOverviewDTO) {
   try {
     const outputPath = await ExportLeague(league.guid, league.sourcePath)
     toast.add({ severity: 'success', summary: `Exported "${league.name}"`, detail: outputPath, life: 5000 })
+    await OpenLeagueExportDir(outputPath)
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Export failed', detail: String(e), life: 5000 })
+  } finally {
+    exportingGUID.value = null
+  }
+}
+
+// Renaming lets a user disambiguate an exported league before sharing it —
+// the export itself is unaffected, only the display name baked into the
+// copy that gets zipped up.
+const renameDialogVisible = ref(false)
+const renameTargetLeague = ref<main.LeagueOverviewDTO | null>(null)
+const renameValue = ref('')
+
+function openRenameDialog(league: main.LeagueOverviewDTO) {
+  renameTargetLeague.value = league
+  renameValue.value = league.name
+  renameDialogVisible.value = true
+}
+
+function exportMenuItems(league: main.LeagueOverviewDTO): MenuItem[] {
+  return [
+    {
+      label: 'Export with New Name…',
+      icon: 'pi pi-pencil',
+      command: () => openRenameDialog(league),
+    },
+  ]
+}
+
+async function confirmRenameExport() {
+  const league = renameTargetLeague.value
+  if (!league) return
+
+  exportingGUID.value = league.guid
+  try {
+    const outputPath = await ExportLeagueWithRename(league.guid, league.sourcePath, renameValue.value)
+    toast.add({
+      severity: 'success',
+      summary: `Exported as "${renameValue.value.trim()}"`,
+      detail: outputPath,
+      life: 5000,
+    })
+    renameDialogVisible.value = false
+    await OpenLeagueExportDir(outputPath)
   } catch (e) {
     toast.add({ severity: 'error', summary: 'Export failed', detail: String(e), life: 5000 })
   } finally {
@@ -205,29 +257,34 @@ function resetImport() {
                         <span class="league-name">{{ group.name }}</span>
                         <span class="league-stats">{{ statsSummary(group.shell) }}</span>
                       </div>
-                      <AppButton
-                        variant="secondary"
-                        size="sm"
-                        :disabled="exportingGUID === group.shell.guid"
-                        @click.stop="exportLeague(group.shell)"
-                      >
-                        {{ exportingGUID === group.shell.guid ? 'Exporting…' : 'Export Empty League' }}
-                      </AppButton>
+                      <div class="split-button-stop" @click.stop>
+                        <SplitButton
+                          :label="exportingGUID === group.shell.guid ? 'Exporting…' : 'Export Empty League'"
+                          size="small"
+                          :disabled="exportingGUID === group.shell.guid"
+                          :model="exportMenuItems(group.shell)"
+                          @click="exportLeague(group.shell)"
+                        />
+                      </div>
                     </div>
+                    <template #toggleicon>
+                      <span class="toggle-slot">
+                        <i class="pi pi-chevron-down" />
+                      </span>
+                    </template>
                   </AccordionHeader>
                   <AccordionContent>
                     <div v-for="save in group.realSaves" :key="save.guid" class="league-row">
                       <div class="league-info">
                         <Tag :value="modeLabel(save.mode)" :severity="modeSeverity(save.mode)" />
                       </div>
-                      <AppButton
-                        variant="secondary"
-                        size="sm"
+                      <SplitButton
+                        :label="exportingGUID === save.guid ? 'Exporting…' : 'Export League with Save Game'"
+                        size="small"
                         :disabled="exportingGUID === save.guid"
+                        :model="exportMenuItems(save)"
                         @click="exportLeague(save)"
-                      >
-                        {{ exportingGUID === save.guid ? 'Exporting…' : 'Export League with Save Game' }}
-                      </AppButton>
+                      />
                     </div>
                   </AccordionContent>
                 </AccordionPanel>
@@ -242,14 +299,14 @@ function resetImport() {
                     </span>
                     <span class="league-stats">{{ statsSummary(entry) }}</span>
                   </div>
-                  <AppButton
-                    variant="secondary"
-                    size="sm"
+                  <SplitButton
+                    :label="exportingGUID === entry.guid ? 'Exporting…' : exportButtonLabel(entry)"
+                    size="small"
                     :disabled="exportingGUID === entry.guid"
+                    :model="exportMenuItems(entry)"
                     @click="exportLeague(entry)"
-                  >
-                    {{ exportingGUID === entry.guid ? 'Exporting…' : exportButtonLabel(entry) }}
-                  </AppButton>
+                  />
+                  <span class="toggle-slot" />
                 </div>
               </template>
             </div>
@@ -329,6 +386,26 @@ function resetImport() {
         </div>
       </TabPanel>
     </TabView>
+
+    <Dialog v-model:visible="renameDialogVisible" modal header="Export with New Name" :style="{ width: '420px' }">
+      <div class="rename-dialog-body">
+        <label class="rename-label" for="rename-input">New league name</label>
+        <InputText id="rename-input" v-model="renameValue" autofocus class="rename-input" />
+      </div>
+
+      <template #footer>
+        <AppButton variant="secondary" :disabled="exportingGUID !== null" @click="renameDialogVisible = false">
+          Cancel
+        </AppButton>
+        <AppButton
+          variant="primary"
+          :disabled="exportingGUID !== null || !renameValue.trim()"
+          @click="confirmRenameExport"
+        >
+          {{ exportingGUID !== null ? 'Exporting…' : 'Export' }}
+        </AppButton>
+      </template>
+    </Dialog>
   </div>
 </template>
 
@@ -430,6 +507,35 @@ function resetImport() {
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
+}
+
+/* Wraps the shell row's SplitButton inside the accordion header so that a
+   click anywhere on it (including the dropdown toggle, which doesn't emit a
+   Vue 'click' event smb-tools can attach .stop to) never bubbles up to the
+   AccordionHeader's native click listener and toggles the panel. */
+.split-button-stop {
+  display: flex;
+}
+
+/* A fixed-size slot for the expand/collapse chevron, present on every row
+   (accordion header or flat) so Export buttons always land in the same
+   column. Accordion headers fill it via the #toggleicon slot; flat rows
+   (which have no nested content to expand) leave it empty. */
+.toggle-slot {
+  flex-shrink: 0;
+  width: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+}
+
+.toggle-slot i {
+  transition: transform 0.2s ease;
+}
+
+.league-group :deep(.p-accordionheader[aria-expanded='true']) .toggle-slot i {
+  transform: rotate(180deg);
 }
 
 /* In the nested real-save rows, .league-info's only child is the mode Tag —
@@ -541,6 +647,22 @@ function resetImport() {
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
   margin: 0;
+}
+
+.rename-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.rename-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.rename-input {
+  width: 100%;
 }
 
 .step-actions {

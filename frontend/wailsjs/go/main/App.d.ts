@@ -42,6 +42,8 @@ export function DiscoverLeagues():Promise<Array<main.LeagueOverviewDTO>>;
 
 export function ExportLeague(arg1:string,arg2:string):Promise<string>;
 
+export function ExportLeagueWithRename(arg1:string,arg2:string,arg3:string):Promise<string>;
+
 export function ExportToCSV(arg1:main.ExportOptionsDTO):Promise<string>;
 
 export function GetActiveFranchise():Promise<main.FranchiseDTO>;
@@ -135,6 +137,8 @@ export function MigrateLegacyFranchise(arg1:string,arg2:number,arg3:string,arg4:
 export function OpenAppDataDir():Promise<void>;
 
 export function OpenBugReport():Promise<void>;
+
+export function OpenLeagueExportDir(arg1:string):Promise<void>;
 
 export function PreviewExportData(arg1:main.ExportOptionsDTO):Promise<main.ExportPreviewDTO>;
 

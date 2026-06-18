@@ -113,18 +113,126 @@ func (s *LeagueTransferService) ExportLeague(ctx context.Context, guid uuid.UUID
 		hashPath = "" // optional — not every league has one, see legacy-tool-analysis.md
 	}
 
+	outputPath, err = s.packExport(guid, overview.Name, sourceSavePath, bakPath, hashPath)
+	if err != nil {
+		return "", err
+	}
+
+	slog.Info("LeagueTransferService.ExportLeague: exported", "league", overview.Name, "guid", guid, "output", outputPath)
+	return outputPath, nil
+}
+
+// ExportLeagueWithRename behaves like ExportLeague, except the exported copy
+// has its display name changed to newName first — letting a user
+// disambiguate a league before sharing it (e.g. two leagues that otherwise
+// share a name). sourceSavePath itself is never touched: the rename happens
+// against decompressed temp copies of the .sav and .sav.bak, which are then
+// repackaged in place of the originals.
+//
+// The .hash sidecar (if present) is still carried over unmodified, same as
+// ExportLeague — its format and purpose are unverified (see
+// legacy-tool-analysis.md), so mutating the save's content without
+// regenerating it is a known theoretical risk. In practice, this exact
+// rename-then-export path was exercised manually against real save files
+// with no load failures or other adverse effects observed.
+func (s *LeagueTransferService) ExportLeagueWithRename(ctx context.Context, guid uuid.UUID, sourceSavePath, newName string) (outputPath string, err error) {
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
+		return "", fmt.Errorf("new league name must not be empty")
+	}
+
+	fileGUID, err := leagueGUIDFromFileName(sourceSavePath)
+	if err != nil {
+		return "", err
+	}
+	if fileGUID != guid {
+		return "", fmt.Errorf("league GUID %s does not match the file name at %s", guid, sourceSavePath)
+	}
+
+	bakPath := sourceSavePath + ".bak"
+	if _, err := os.Stat(bakPath); err != nil {
+		return "", fmt.Errorf("missing %s — this league save looks incomplete", bakPath)
+	}
+
+	hashPath := strings.TrimSuffix(sourceSavePath, ".sav") + ".hash"
+	if _, err := os.Stat(hashPath); err != nil {
+		hashPath = "" // optional — not every league has one, see legacy-tool-analysis.md
+	}
+
+	renamedDir, err := os.MkdirTemp("", "smb-tools-league-renamed-*")
+	if err != nil {
+		return "", fmt.Errorf("creating temp directory: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(renamedDir) }()
+
+	// internalzip.Unpack/Pack key the package contents off each file's
+	// basename containing the league GUID — see leagueGUIDFromFileName and
+	// the GUID check in internal/zip.Unpack — so the renamed copies must
+	// keep the same "league-{GUID}.sav[.bak]" naming convention, not an
+	// arbitrary temp file name.
+	upper := strings.ToUpper(guid.String())
+	renamedSavPath := filepath.Join(renamedDir, "league-"+upper+".sav")
+	renamedBakPath := renamedSavPath + ".bak"
+
+	if err := s.renameLeagueToFile(ctx, guid, sourceSavePath, newName, renamedSavPath); err != nil {
+		return "", fmt.Errorf("renaming league save: %w", err)
+	}
+	if err := s.renameLeagueToFile(ctx, guid, bakPath, newName, renamedBakPath); err != nil {
+		return "", fmt.Errorf("renaming league backup save: %w", err)
+	}
+
+	outputPath, err = s.packExport(guid, newName, renamedSavPath, renamedBakPath, hashPath)
+	if err != nil {
+		return "", err
+	}
+
+	slog.Info("LeagueTransferService.ExportLeagueWithRename: exported", "league", newName, "guid", guid, "output", outputPath)
+	return outputPath, nil
+}
+
+// renameLeagueToFile decompresses srcPath, applies RenameLeague against it,
+// and recompresses the result to outPath (leaving srcPath completely
+// untouched).
+func (s *LeagueTransferService) renameLeagueToFile(ctx context.Context, guid uuid.UUID, srcPath, newName, outPath string) error {
+	tmpPath, err := internaldb.DecompressToTempFile(srcPath)
+	if err != nil {
+		return fmt.Errorf("decompressing %s: %w", srcPath, err)
+	}
+	defer func() { _ = os.Remove(tmpPath) }()
+
+	db, err := internaldb.OpenForReadWrite(ctx, tmpPath)
+	if err != nil {
+		return err
+	}
+	if err := store.NewLeagueSaveStore(db).RenameLeague(ctx, guid, newName); err != nil {
+		_ = db.Close()
+		return err
+	}
+	if err := db.Close(); err != nil {
+		return fmt.Errorf("closing renamed save: %w", err)
+	}
+
+	if err := internaldb.CompressFileAtomically(tmpPath, outPath); err != nil {
+		return fmt.Errorf("recompressing renamed save: %w", err)
+	}
+	return nil
+}
+
+// packExport prepares the exports directory and writes the zip package for
+// the given league files, returning the output path.
+func (s *LeagueTransferService) packExport(guid uuid.UUID, leagueName, savPath, bakPath, hashPath string) (string, error) {
 	if err := s.dirs.EnsureLeagueTransferDirs(); err != nil {
 		return "", fmt.Errorf("preparing exports directory: %w", err)
 	}
 
 	timestamp := time.Now().UTC().Format("20060102150405")
-	zipName := fmt.Sprintf("%s_%s.zip", sanitizeFileName(overview.Name), timestamp)
-	outputPath = filepath.Join(s.dirs.ExportsOutputDir(), zipName)
+	zipName := fmt.Sprintf("%s_%s.zip", sanitizeFileName(leagueName), timestamp)
+	outputPath := filepath.Join(s.dirs.ExportsOutputDir(), zipName)
 
-	err = internalzip.Pack(outputPath, internalzip.PackInput{
+	err := internalzip.Pack(outputPath, internalzip.PackInput{
 		GUID:            guid,
-		LeagueName:      overview.Name,
-		SavPath:         sourceSavePath,
+		LeagueName:      leagueName,
+		SavPath:         savPath,
 		BakPath:         bakPath,
 		HashPath:        hashPath,
 		ExportedAt:      time.Now().UTC().Format(time.RFC3339),
@@ -133,8 +241,6 @@ func (s *LeagueTransferService) ExportLeague(ctx context.Context, guid uuid.UUID
 	if err != nil {
 		return "", fmt.Errorf("packaging export: %w", err)
 	}
-
-	slog.Info("LeagueTransferService.ExportLeague: exported", "league", overview.Name, "guid", guid, "output", outputPath)
 	return outputPath, nil
 }
 

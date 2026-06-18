@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"path/filepath"
 
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -54,6 +55,35 @@ func (a *App) ExportLeague(leagueGUID, sourceSavePath string) (string, error) {
 		return "", err
 	}
 	return outputPath, nil
+}
+
+// ExportLeagueWithRename packages the league identified by leagueGUID (read
+// from sourceSavePath) into a zip file, with its display name changed to
+// newName first, returning the output path.
+func (a *App) ExportLeagueWithRename(leagueGUID, sourceSavePath, newName string) (string, error) {
+	slog.Info("ExportLeagueWithRename", "guid", leagueGUID, "path", sourceSavePath, "newName", newName)
+	if a.leagueTransferService == nil {
+		return "", fmt.Errorf("app not initialized")
+	}
+
+	guid, err := uuid.Parse(leagueGUID)
+	if err != nil {
+		return "", fmt.Errorf("invalid league GUID %q: %w", leagueGUID, err)
+	}
+
+	outputPath, err := a.leagueTransferService.ExportLeagueWithRename(a.ctx, guid, sourceSavePath, newName)
+	if err != nil {
+		slog.Error("ExportLeagueWithRename: failed", "err", err)
+		return "", err
+	}
+	return outputPath, nil
+}
+
+// OpenLeagueExportDir opens the folder containing exportedFilePath in the OS
+// file manager, so the user can immediately locate the file they just
+// exported.
+func (a *App) OpenLeagueExportDir(exportedFilePath string) error {
+	return openDirectory(filepath.Dir(exportedFilePath))
 }
 
 // BrowseLeagueImportZip opens the OS file picker filtered to .zip files and

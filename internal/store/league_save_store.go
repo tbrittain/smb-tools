@@ -175,6 +175,25 @@ func (s *LeagueSaveStore) resolveLeagueMode(ctx context.Context, guid uuid.UUID)
 	}
 }
 
+// RenameLeague updates a league's display name in place. It is the only
+// mutation League Transfer performs against league save content other than
+// GUID rewriting — used to let a user disambiguate an exported league before
+// sharing it, without altering its GUID or anything else about its data.
+func (s *LeagueSaveStore) RenameLeague(ctx context.Context, guid uuid.UUID, newName string) error {
+	result, err := s.db.ExecContext(ctx, `UPDATE t_leagues SET name = ? WHERE GUID = ?`, newName, guid[:])
+	if err != nil {
+		return fmt.Errorf("renaming league %s: %w", guid, err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("checking rename result for league %s: %w", guid, err)
+	}
+	if rowsAffected != 1 {
+		return fmt.Errorf("expected to rename exactly 1 league, affected %d rows", rowsAffected)
+	}
+	return nil
+}
+
 // guidNamePair is scanned from any of the GUID/name queries below. Each
 // level's rows are fully drained into a slice of these before any nested
 // query is issued for the next level down — issuing a nested query while

@@ -246,6 +246,42 @@ func TestLeagueSaveStore_GetLeagueOverview_Mode(t *testing.T) {
 	}
 }
 
+func TestLeagueSaveStore_RenameLeague(t *testing.T) {
+	db := testutil.NewTestLeagueSaveDB(t)
+	s := store.NewLeagueSaveStore(db)
+	ctx := context.Background()
+
+	if err := s.RenameLeague(ctx, leagueAGUID, "Renamed League A"); err != nil {
+		t.Fatalf("RenameLeague: %v", err)
+	}
+
+	var name string
+	if err := db.QueryRowContext(ctx, `SELECT name FROM t_leagues WHERE GUID = ?`, leagueAGUID[:]).Scan(&name); err != nil {
+		t.Fatalf("reading renamed league: %v", err)
+	}
+	if name != "Renamed League A" {
+		t.Errorf("name = %q, want %q", name, "Renamed League A")
+	}
+
+	// League B must be completely untouched.
+	var leagueBName string
+	if err := db.QueryRowContext(ctx, `SELECT name FROM t_leagues WHERE GUID = ?`, leagueBGUID[:]).Scan(&leagueBName); err != nil {
+		t.Fatalf("League B should still exist: %v", err)
+	}
+	if leagueBName != "League B" {
+		t.Errorf("League B name = %q, want %q", leagueBName, "League B")
+	}
+}
+
+func TestLeagueSaveStore_RenameLeague_UnknownGUID(t *testing.T) {
+	db := testutil.NewTestLeagueSaveDB(t)
+	s := store.NewLeagueSaveStore(db)
+
+	if err := s.RenameLeague(context.Background(), uuid.New(), "New Name"); err == nil {
+		t.Error("expected an error for an unknown league GUID, got nil")
+	}
+}
+
 func TestLeagueSaveStore_GetLeagueOverview_UnknownLeague(t *testing.T) {
 	db := testutil.NewTestLeagueSaveDB(t)
 	s := store.NewLeagueSaveStore(db)
