@@ -197,7 +197,7 @@ implementation, in dependency order.
       Why: Import UX, including the two-step preview/confirm split.
       Depends on: #10
 
-- [ ] **14. [Docs] Update user-docs/team-transfer.md**
+- [x] **14. [Docs] Update user-docs/team-transfer.md**
       What: Replace the "always writes to a copy" line with accurate wording per
       ux-flow.md's "Resolving the Writes to a Copy Promise" section.
       Why: Public-facing doc currently overpromises relative to what the
@@ -294,15 +294,18 @@ usual "needs reverse engineering" risk for this fixture.
       resolution timestamps collide when two imports complete within the same wall-clock second,
       silently overwriting the previous backup. Fixed by moving the backup timestamp (not the
       export filename timestamp, which is non-safety-critical) to nanosecond precision.
-- [ ] [vitest] Frontend composable for steam-dir picker selection state (if a composable is
+- [x] [vitest] Frontend composable for steam-dir picker selection state (if a composable is
       introduced rather than inline page state)
       Covers: UI state correctness for the multi-profile picker
-      File: `frontend/src/composables/*.test.ts` (only if a composable is actually extracted —
-      skip if the picker logic stays inline in the page)
-- [ ] [storybook] Any new reusable component (e.g., a "league overview card" showing
+      File: N/A — the target-directory picker logic stayed inline in
+      `LeagueTransferHomePage.vue` (a `ref` + `RadioButton`), no composable was extracted, per
+      this item's own stated skip condition.
+- [x] [storybook] Any new reusable component (e.g., a "league overview card" showing
       conferences/divisions/teams) gets a `.stories.ts` per `frontend/CLAUDE.md`'s non-optional
       requirement
-      Covers: default/empty/loading states
+      Covers: default state
+      File: `frontend/src/components/ModeChooser.stories.ts` — `LeagueTransferHomePage.vue` is a
+      page, not a reusable component, so it doesn't require one.
 
 ## Risk & Considerations
 
