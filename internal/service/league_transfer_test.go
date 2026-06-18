@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -320,7 +321,7 @@ func TestLeagueTransferService_ConfirmImport_HappyPath(t *testing.T) {
 		t.Fatalf("ConfirmImport: %v", err)
 	}
 
-	upper := leagueAFixtureGUID.String()
+	upper := strings.ToUpper(leagueAFixtureGUID.String())
 	for _, suffix := range []string{".sav", ".sav.bak"} {
 		p := filepath.Join(targetDir, "league-"+upper+suffix)
 		if _, err := os.Stat(p); err != nil {
@@ -422,7 +423,7 @@ func TestLeagueTransferService_ConfirmImport_RejectsCollision(t *testing.T) {
 		t.Error("master.sav was modified despite the collision — it must be left completely untouched")
 	}
 
-	upper := leagueAFixtureGUID.String()
+	upper := strings.ToUpper(leagueAFixtureGUID.String())
 	if _, err := os.Stat(filepath.Join(targetDir, "league-"+upper+".sav")); !os.IsNotExist(err) {
 		t.Error("expected no league files to have been copied into the target directory")
 	}
