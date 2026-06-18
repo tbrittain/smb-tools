@@ -98,7 +98,7 @@ function modeSeverity(mode: string): 'success' | 'info' | 'warn' | 'secondary' {
 }
 
 function exportButtonLabel(league: main.LeagueOverviewDTO): string {
-  return league.mode === 'none' ? 'Export Empty League' : 'Export League with Save Game'
+  return league.mode === 'none' ? 'Export Empty League' : 'Export Save Game Only'
 }
 
 async function loadLeagues() {
@@ -261,7 +261,17 @@ function resetImport() {
           <p class="tab-desc">
             Export a league from any save file on this machine so you can share it with someone else. You can
             export an empty league shell (just the teams/conferences/divisions setup, no games played) as well as
-            any actual save game — Franchise, Season, or Elimination — created from it.
+            any actual save game (Franchise, Season, or Elimination) created from it.
+          </p>
+          <p class="tab-desc">
+            <strong>These are not the same thing.</strong> The shell is what shows up under Customizations in
+            SMB4. Exporting a save game only shares the in-progress Franchise/Season/Elimination itself. It does
+            not include the shell, so the recipient won't see a Customizations entry for it unless you export and
+            send the shell too.
+          </p>
+          <p class="tab-desc">
+            If you export the save game, the recipient can re-create the league shell by using the "Export to League"
+            option in-game.
           </p>
 
           <p v-if="leaguesError" class="error-text">{{ leaguesError }}</p>
@@ -307,7 +317,7 @@ function resetImport() {
                         <Tag :value="modeLabel(save.mode)" :severity="modeSeverity(save.mode)" />
                       </div>
                       <SplitButton
-                        :label="exportingGUID === save.guid ? 'Exporting…' : 'Export League with Save Game'"
+                        :label="exportingGUID === save.guid ? 'Exporting…' : 'Export Save Game Only'"
                         size="small"
                         :disabled="exportingGUID === save.guid"
                         :model="exportMenuItems(save)"
@@ -372,6 +382,10 @@ function resetImport() {
                 {{ divisionCount(importPreview.overview) }} divisions ·
                 {{ teamCount(importPreview.overview) }} teams
               </span>
+              <p v-if="importPreview.overview.mode !== 'none'" class="save-only-note">
+                This is a save game export — it will not add a Customizations entry in SMB4, only the
+                {{ modeLabel(importPreview.overview.mode).toLowerCase() }} game itself.
+              </p>
             </div>
 
             <div class="target-picker">
@@ -596,6 +610,12 @@ function resetImport() {
 .league-stats {
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
+}
+
+.save-only-note {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
 }
 
 .progress-state {

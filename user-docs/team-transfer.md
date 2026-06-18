@@ -14,6 +14,14 @@ After import, the recipient's game treats it as a normal league save. They can s
 
 The Export tab scans your machine for every SMB4 league it can find and lists each one with its conference, division, and team counts. Upon picking a league and exporting it, smb-tools packages the league's save data into a single `.zip` file you can send to someone else.
 
+::: warning Empty league shell and save game are not the same export
+SMB4 tracks a league as two separate pieces, and smb-tools lets you export either one on its own. The empty league shell is the teams, conferences, and divisions setup with no games played. It is what shows up under Customizations in SMB4. A save game, meaning a Franchise, Season, or Elimination run, is the actual in-progress game that was built from that shell.
+
+Exporting a save game does not include the shell. If you send someone a Franchise, Season, or Elimination export, they will get that game, but they will not get a matching Customizations entry for it. smb-tools labels this kind of export "Export Save Game Only" wherever it appears alongside a save game for the same league. If you also want the recipient to have the league available under Customizations, export and send the empty shell separately, labeled "Export Empty League."
+
+If you only export the save game and skip the shell, the recipient can still get the shell back without you sending it separately, by using the "Export to League" option from inside SMB4 once they have the save game loaded. That in-game option recreates a league shell from the save game itself.
+:::
+
 ## Importing a League
 
 The Import tab takes an exported `.zip` file and lets you choose which of your SMB4 save profiles to import it into. Before anything is written, smb-tools shows you a preview of what's in the package and flags any target where that league is already registered.
