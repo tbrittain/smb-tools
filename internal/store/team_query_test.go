@@ -662,16 +662,6 @@ func setTopPlayerBattingWAR(t *testing.T, db *sql.DB, playerSeasonID int64, opsP
 	}
 }
 
-func setTopPlayerPitchingWAR(t *testing.T, db *sql.DB, playerSeasonID int64, eraPlus, smbWAR float64) {
-	t.Helper()
-	_, err := db.ExecContext(context.Background(),
-		`UPDATE player_season_pitching_stats SET era_plus=?, smb_war=? WHERE player_season_id=? AND is_regular_season=1`,
-		eraPlus, smbWAR, playerSeasonID)
-	if err != nil {
-		t.Fatalf("setTopPlayerPitchingWAR: %v", err)
-	}
-}
-
 func linkTopPlayerAward(t *testing.T, db *sql.DB, playerSeasonID int64, awardName string) {
 	t.Helper()
 	var awardID int64

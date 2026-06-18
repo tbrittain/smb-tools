@@ -11,6 +11,12 @@ linters:
     - staticcheck
     - ineffassign
     - gocognit
+    # Catches unexported dead code (unreferenced private functions/types).
+    # Does NOT catch exported functions whose only caller is a test —
+    # exported-is-used defaults to true, and the setting to disable it is
+    # deprecated/unstable upstream. See CLAUDE.md "Engineering Standards"
+    # for the process rule that actually covers that gap.
+    - unused
   settings:
     errcheck:
       check-type-assertions: true

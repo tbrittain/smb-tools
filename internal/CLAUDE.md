@@ -18,7 +18,7 @@ Standards for `internal/`. Read this before working on any Go code.
 
 **Interfaces only where they earn their keep** — primarily where you need to swap implementations for testing (e.g., `SaveGameReader`). Don't create interfaces speculatively.
 
-**No CQRS. No mediator pattern. No MediatR-style dispatch.** These were over-abstractions in the original C# apps. Go has functions; use them.
+**Favor idiomatic Go, simplicity, and the standard library.** CQRS and MediatR-style dispatch were over-abstractions in the original C# apps — Go has functions, use them.
 
 **SQL belongs in the store layer** — inline in store method bodies or in `.sql` files. Never in service or model files.
 
@@ -74,10 +74,3 @@ The runner lives in `internal/db/migrate.go` and reads from an `embed.FS`. There
 
 **Test DB applies all migrations.** `testutil.NewTestDB` runs every migration before each test. Add the migration file before writing tests that depend on the new schema, or the test DB will be missing the columns/tables your test expects.
 
-## What Not to Do
-
-- No CQRS / MediatR-style patterns — not idiomatic Go
-- No `mattn/go-sqlite3` — requires CGO, breaks cross-platform builds
-- No business logic in `app.go` — it delegates only
-- No SQL strings outside the store layer
-- No inventing save game column names — verify every name against the SMB3Explorer SQL files (https://github.com/tbrittain/SMB3Explorer, under `SMB3Explorer/Resources/Sql/`) or a real decompressed save. See "Save Game SQL — Real Schema Required" in the root `CLAUDE.md`.
