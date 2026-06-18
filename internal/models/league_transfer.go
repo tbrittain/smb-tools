@@ -52,3 +52,20 @@ type SteamSaveDirCandidate struct {
 	DirPath        string
 	MasterSavePath string
 }
+
+// ImportTargetOption is one candidate Steam profile a league import could
+// register into, annotated with whether that profile already has this
+// league's GUID registered (in which case import into it is refused — see
+// docs/league-transfer/implementation-plan.md's "hard stop" decision).
+type ImportTargetOption struct {
+	SteamSaveDirCandidate
+	AlreadyRegistered bool
+}
+
+// LeagueImportPreview is the read-only result of validating an import zip,
+// shown to the user before they confirm anything is written to disk.
+type LeagueImportPreview struct {
+	Overview   LeagueOverview
+	ExportedAt string // RFC 3339, from the package manifest
+	Targets    []ImportTargetOption
+}

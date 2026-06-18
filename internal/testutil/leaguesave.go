@@ -2,7 +2,10 @@ package testutil
 
 import (
 	"database/sql"
+	"os"
 	"testing"
+
+	internaldb "smb-tools/internal/db"
 )
 
 // NewTestLeagueSaveDB creates an in-memory SQLite database seeded with the
@@ -44,6 +47,34 @@ func NewTestLeagueSaveDB(t *testing.T) *sql.DB {
 		t.Fatalf("testutil.NewTestLeagueSaveDB: seed: %v", err)
 	}
 	return db
+}
+
+// WriteCompressedLeagueSaveFixture writes a real, zlib-compressed
+// league .sav file (the same schema/seed data as NewTestLeagueSaveDB) to
+// destPath — for tests exercising code that reads actual .sav files from
+// disk (decompression, zip packaging) rather than an in-memory connection.
+func WriteCompressedLeagueSaveFixture(t *testing.T, destPath string) {
+	t.Helper()
+	tmpSqlitePath := destPath + ".tmp-source.sqlite"
+	defer func() { _ = os.Remove(tmpSqlitePath) }()
+
+	db, err := sql.Open("sqlite", tmpSqlitePath)
+	if err != nil {
+		t.Fatalf("testutil.WriteCompressedLeagueSaveFixture: open: %v", err)
+	}
+	if err := createLeagueSaveSchema(db); err != nil {
+		t.Fatalf("testutil.WriteCompressedLeagueSaveFixture: schema: %v", err)
+	}
+	if err := seedLeagueSaveData(db); err != nil {
+		t.Fatalf("testutil.WriteCompressedLeagueSaveFixture: seed: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("testutil.WriteCompressedLeagueSaveFixture: close: %v", err)
+	}
+
+	if err := internaldb.CompressFileAtomically(tmpSqlitePath, destPath); err != nil {
+		t.Fatalf("testutil.WriteCompressedLeagueSaveFixture: compress: %v", err)
+	}
 }
 
 func createLeagueSaveSchema(db *sql.DB) error {

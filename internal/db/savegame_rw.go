@@ -2,11 +2,30 @@ package db
 
 import (
 	"compress/zlib"
+	"context"
+	"database/sql"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 )
+
+// OpenForReadWrite opens a decompressed save-game-shaped SQLite file
+// (typically one produced by DecompressToTempFile) for read-write access.
+// Unlike OpenSnapshot/DecompressAndOpen, this is never used against a live
+// .sav file directly — only against an already-decompressed temp copy that
+// CompressFileAtomically will later write back.
+func OpenForReadWrite(ctx context.Context, path string) (*sql.DB, error) {
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		return nil, fmt.Errorf("opening %s for read-write: %w", path, err)
+	}
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("pinging %s: %w", path, err)
+	}
+	return db, nil
+}
 
 // DecompressToTempFile decompresses a zlib-compressed SMB save file (a
 // per-league .sav or master.sav — both use the same format) to a new

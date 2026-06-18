@@ -151,7 +151,7 @@ implementation, in dependency order.
       Why: Export/import need a shared, validated container format.
       Depends on: none
 
-- [ ] **8. [Backend/service] Orchestration**
+- [x] **8. [Backend/service] Orchestration**
       What: internal/service/league_transfer.go wiring everything from #2-7:
       DiscoverLeagues, ExportLeague, PreviewImport (read-only: unzip to temp,
       validate shape, check GUID collision against ALL discovered Steam dirs,
@@ -265,16 +265,17 @@ usual "needs reverse engineering" risk for this fixture.
       zlib stream, manifest missing/malformed
       Covers: import-time shape validation, the "negative" cases
       File: `internal/zip/league_package_test.go`
-- [ ] [integration] `PreviewImport` end-to-end against a valid exported zip (using the real-schema
+- [x] [integration] `PreviewImport` end-to-end against a valid exported zip (using the real-schema
       fixture) returns the expected preview data without mutating anything
       Covers: read-only guarantee of the preview step
       File: `internal/service/league_transfer_test.go`
-- [ ] [integration] `ConfirmImport` end-to-end: backs up master.sav with a timestamped name,
+- [x] [integration] `ConfirmImport` end-to-end: backs up master.sav with a timestamped name,
       registers the new GUID, writes files, and a second call with the same zip is rejected by
       collision detection
       Covers: the full validated happy path as production code, plus idempotency-of-rejection
-      File: `internal/service/league_transfer_test.go`
-- [ ] [integration] `ConfirmImport` refuses to proceed when a fake `IsGameRunning` returns true —
+      File: `internal/service/league_transfer_test.go` (collision tested via a target whose
+      master.sav already has the GUID pre-registered, asserting zero mutation occurs)
+- [x] [integration] `ConfirmImport` refuses to proceed when a fake `IsGameRunning` returns true —
       no files written, no backup taken
       Covers: safety gate ordering (check happens before any mutation)
       File: `internal/service/league_transfer_test.go`
@@ -284,12 +285,15 @@ usual "needs reverse engineering" risk for this fixture.
       Covers: the Proton-specific correctness concern raised in discussion
       File: `internal/system/process_linux_test.go` (build-tagged `linux`; verified via
       `GOOS=linux go vet` from Windows dev machine, will actually execute on Linux CI)
-- [ ] [unit] Backup naming/retention: multiple `ConfirmImport` calls (across separate test
+- [x] [unit] Backup naming/retention: multiple `ConfirmImport` calls (across separate test
       runs/timestamps) each produce a new timestamped backup file under `MasterSaveBackupsDir()`,
       none overwritten
       Covers: Q4's "timestamped history" requirement, mirrored against the existing
       `SnapshotFileName` pattern
-      File: `internal/service/league_transfer_test.go`
+      File: `internal/service/league_transfer_test.go` — this test caught a real bug: second-
+      resolution timestamps collide when two imports complete within the same wall-clock second,
+      silently overwriting the previous backup. Fixed by moving the backup timestamp (not the
+      export filename timestamp, which is non-safety-critical) to nanosecond precision.
 - [ ] [vitest] Frontend composable for steam-dir picker selection state (if a composable is
       introduced rather than inline page state)
       Covers: UI state correctness for the multi-profile picker
