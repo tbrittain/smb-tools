@@ -41,10 +41,11 @@ func setSMB4RootForLeagueTransfer(t *testing.T) string {
 	switch runtime.GOOS {
 	case "windows":
 		t.Setenv("LOCALAPPDATA", tmp)
-	default:
-		t.Setenv("XDG_DATA_HOME", tmp)
+		return filepath.Join(tmp, "Metalhead", "Super Mega Baseball 4")
+	default: // linux and other unix-like — saveGameRoots' default branch reads $HOME, not XDG_DATA_HOME
+		t.Setenv("HOME", tmp)
+		return filepath.Join(tmp, ".local", "share", "Metalhead", "Super Mega Baseball 4")
 	}
-	return filepath.Join(tmp, "Metalhead", "Super Mega Baseball 4")
 }
 
 func newTestLeagueTransferService(t *testing.T, gameRunning bool) (*service.LeagueTransferService, *config.AppDirs) {
