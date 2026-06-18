@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/mod/semver"
@@ -108,7 +109,7 @@ func (a *App) startup(ctx context.Context) {
 	a.logoService = service.NewLogoService(a.logoStore, dirs)
 	a.mediaStore = store.NewMediaStore()
 	a.mediaService = service.NewMediaService(a.mediaStore, dirs)
-	a.leagueTransferService = service.NewLeagueTransferService(dirs, system.DefaultGameRunningChecker{}, a.version)
+	a.leagueTransferService = service.NewLeagueTransferService(dirs, system.DefaultGameRunningChecker{}, a.version, uuid.New)
 
 	a.setupMenu(ctx, nil)
 

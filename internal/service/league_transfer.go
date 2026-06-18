@@ -28,10 +28,14 @@ type LeagueTransferService struct {
 	dirs            *config.AppDirs
 	gameChecker     system.GameRunningChecker
 	smbToolsVersion string
+	newGUID         func() uuid.UUID
 }
 
-func NewLeagueTransferService(dirs *config.AppDirs, gameChecker system.GameRunningChecker, smbToolsVersion string) *LeagueTransferService {
-	return &LeagueTransferService{dirs: dirs, gameChecker: gameChecker, smbToolsVersion: smbToolsVersion}
+// newGUID is injected (rather than calling uuid.New directly) so tests can
+// force a deterministic GUID and exercise the already-registered collision
+// guard in ConfirmImport, which real random UUIDs can't realistically do.
+func NewLeagueTransferService(dirs *config.AppDirs, gameChecker system.GameRunningChecker, smbToolsVersion string, newGUID func() uuid.UUID) *LeagueTransferService {
+	return &LeagueTransferService{dirs: dirs, gameChecker: gameChecker, smbToolsVersion: smbToolsVersion, newGUID: newGUID}
 }
 
 // DiscoverLeagues returns the structure of every SMB4 league found on disk,
@@ -89,6 +93,12 @@ func (s *LeagueTransferService) readLeagueOverview(ctx context.Context, savPath 
 // directory) into a zip under the app's exports directory. Export is
 // read-only with respect to the game — see
 // docs/league-transfer/legacy-tool-analysis.md, "What the POC Got Right."
+//
+// In "dev" builds only, the exported copy is assigned a freshly generated
+// GUID before packaging — see devRegenerateExportGUID. This exists purely
+// to let local dev testing import the same exported league repeatedly
+// without colliding on a stale GUID; real (non-dev) exports always carry
+// the league's actual GUID, since the live save file is never touched.
 func (s *LeagueTransferService) ExportLeague(ctx context.Context, guid uuid.UUID, sourceSavePath string) (outputPath string, err error) {
 	fileGUID, err := leagueGUIDFromFileName(sourceSavePath)
 	if err != nil {
@@ -113,12 +123,22 @@ func (s *LeagueTransferService) ExportLeague(ctx context.Context, guid uuid.UUID
 		hashPath = "" // optional — not every league has one, see legacy-tool-analysis.md
 	}
 
-	outputPath, err = s.packExport(guid, overview.Name, sourceSavePath, bakPath, hashPath)
+	exportGUID, exportSavPath, exportBakPath := guid, sourceSavePath, bakPath
+	if s.smbToolsVersion == "dev" {
+		var cleanup func()
+		exportGUID, exportSavPath, exportBakPath, cleanup, err = s.devRegenerateExportGUID(ctx, guid, sourceSavePath, bakPath)
+		if err != nil {
+			return "", err
+		}
+		defer cleanup()
+	}
+
+	outputPath, err = s.packExport(exportGUID, overview.Name, exportSavPath, exportBakPath, hashPath)
 	if err != nil {
 		return "", err
 	}
 
-	slog.Info("LeagueTransferService.ExportLeague: exported", "league", overview.Name, "guid", guid, "output", outputPath)
+	slog.Info("LeagueTransferService.ExportLeague: exported", "league", overview.Name, "guid", exportGUID, "output", outputPath)
 	return outputPath, nil
 }
 
@@ -135,6 +155,10 @@ func (s *LeagueTransferService) ExportLeague(ctx context.Context, guid uuid.UUID
 // regenerating it is a known theoretical risk. In practice, this exact
 // rename-then-export path was exercised manually against real save files
 // with no load failures or other adverse effects observed.
+//
+// In "dev" builds only, the renamed copy is additionally assigned a freshly
+// generated GUID before packaging — see ExportLeague's doc comment and
+// devRegenerateExportGUID.
 func (s *LeagueTransferService) ExportLeagueWithRename(ctx context.Context, guid uuid.UUID, sourceSavePath, newName string) (outputPath string, err error) {
 	newName = strings.TrimSpace(newName)
 	if newName == "" {
@@ -181,12 +205,22 @@ func (s *LeagueTransferService) ExportLeagueWithRename(ctx context.Context, guid
 		return "", fmt.Errorf("renaming league backup save: %w", err)
 	}
 
-	outputPath, err = s.packExport(guid, newName, renamedSavPath, renamedBakPath, hashPath)
+	exportGUID, exportSavPath, exportBakPath := guid, renamedSavPath, renamedBakPath
+	if s.smbToolsVersion == "dev" {
+		var cleanup func()
+		exportGUID, exportSavPath, exportBakPath, cleanup, err = s.devRegenerateExportGUID(ctx, guid, renamedSavPath, renamedBakPath)
+		if err != nil {
+			return "", err
+		}
+		defer cleanup()
+	}
+
+	outputPath, err = s.packExport(exportGUID, newName, exportSavPath, exportBakPath, hashPath)
 	if err != nil {
 		return "", err
 	}
 
-	slog.Info("LeagueTransferService.ExportLeagueWithRename: exported", "league", newName, "guid", guid, "output", outputPath)
+	slog.Info("LeagueTransferService.ExportLeagueWithRename: exported", "league", newName, "guid", exportGUID, "output", outputPath)
 	return outputPath, nil
 }
 
@@ -216,6 +250,68 @@ func (s *LeagueTransferService) renameLeagueToFile(ctx context.Context, guid uui
 		return fmt.Errorf("recompressing renamed save: %w", err)
 	}
 	return nil
+}
+
+// rewriteLeagueGUIDToFile decompresses srcPath, replaces every occurrence of
+// oldGUID with newGUID across the save's 6 GUID-bearing columns, and
+// recompresses the result to outPath (leaving srcPath untouched).
+func (s *LeagueTransferService) rewriteLeagueGUIDToFile(ctx context.Context, oldGUID, newGUID uuid.UUID, srcPath, outPath string) error {
+	tmpPath, err := internaldb.DecompressToTempFile(srcPath)
+	if err != nil {
+		return fmt.Errorf("decompressing %s: %w", srcPath, err)
+	}
+	defer func() { _ = os.Remove(tmpPath) }()
+
+	db, err := internaldb.OpenForReadWrite(ctx, tmpPath)
+	if err != nil {
+		return err
+	}
+	if err := store.NewLeagueSaveStore(db).RewriteLeagueGUID(ctx, db, oldGUID, newGUID); err != nil {
+		_ = db.Close()
+		return err
+	}
+	if err := db.Close(); err != nil {
+		return fmt.Errorf("closing GUID-rewritten save: %w", err)
+	}
+
+	if err := internaldb.CompressFileAtomically(tmpPath, outPath); err != nil {
+		return fmt.Errorf("recompressing GUID-rewritten save: %w", err)
+	}
+	return nil
+}
+
+// devRegenerateExportGUID assigns savPath/bakPath a freshly generated GUID,
+// writing the result to new temp files under the "league-{GUID}.sav[.bak]"
+// naming convention internal/zip's Pack/Unpack require, and returns that
+// GUID plus the rewritten paths. The returned cleanup func removes the temp
+// directory; call it once packExport is done with the files.
+//
+// This exists solely so local dev testing can exercise importing the same
+// exported league repeatedly without colliding on a stale GUID — a real
+// user's export should always carry the league's real GUID. Callers must
+// only invoke this when s.smbToolsVersion == "dev"; see ExportLeague and
+// ExportLeagueWithRename.
+func (s *LeagueTransferService) devRegenerateExportGUID(ctx context.Context, guid uuid.UUID, savPath, bakPath string) (newGUID uuid.UUID, newSavPath, newBakPath string, cleanup func(), err error) {
+	dir, err := os.MkdirTemp("", "smb-tools-dev-export-guid-*")
+	if err != nil {
+		return uuid.UUID{}, "", "", func() {}, fmt.Errorf("creating temp directory: %w", err)
+	}
+	cleanup = func() { _ = os.RemoveAll(dir) }
+
+	newGUID = s.newGUID()
+	upper := strings.ToUpper(newGUID.String())
+	newSavPath = filepath.Join(dir, "league-"+upper+".sav")
+	newBakPath = newSavPath + ".bak"
+
+	if err := s.rewriteLeagueGUIDToFile(ctx, guid, newGUID, savPath, newSavPath); err != nil {
+		cleanup()
+		return uuid.UUID{}, "", "", func() {}, fmt.Errorf("regenerating dev export GUID: %w", err)
+	}
+	if err := s.rewriteLeagueGUIDToFile(ctx, guid, newGUID, bakPath, newBakPath); err != nil {
+		cleanup()
+		return uuid.UUID{}, "", "", func() {}, fmt.Errorf("regenerating dev export backup GUID: %w", err)
+	}
+	return newGUID, newSavPath, newBakPath, cleanup, nil
 }
 
 // packExport prepares the exports directory and writes the zip package for

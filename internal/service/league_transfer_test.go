@@ -22,10 +22,6 @@ import (
 // seeds as "League A" (see internal/testutil/leaguesave.go).
 var leagueAFixtureGUID = uuid.MustParse("AA000000-0000-0000-0000-000000000000")
 
-// masterSaveSeededGUID matches one of the two leagues NewTestMasterSaveDB
-// seeds as already registered (see internal/testutil/mastersave.go).
-var masterSaveSeededGUID = uuid.MustParse("99F30082-775B-4547-ADD8-8C7D2C94FCE5")
-
 type fakeGameRunningChecker struct {
 	running bool
 	err     error
@@ -54,7 +50,18 @@ func setSMB4RootForLeagueTransfer(t *testing.T) string {
 func newTestLeagueTransferService(t *testing.T, gameRunning bool) (*service.LeagueTransferService, *config.AppDirs) {
 	t.Helper()
 	dirs := &config.AppDirs{DataDir: filepath.Join(t.TempDir(), "appdata")}
-	svc := service.NewLeagueTransferService(dirs, fakeGameRunningChecker{running: gameRunning}, "test-version")
+	svc := service.NewLeagueTransferService(dirs, fakeGameRunningChecker{running: gameRunning}, "test-version", uuid.New)
+	return svc, dirs
+}
+
+// newTestDevLeagueTransferService behaves like newTestLeagueTransferService,
+// but reports its version as "dev" and always assigns regeneratedGUID rather
+// than a random one — used to deterministically exercise ExportLeague's and
+// ExportLeagueWithRename's dev-only GUID regeneration.
+func newTestDevLeagueTransferService(t *testing.T, regeneratedGUID uuid.UUID) (*service.LeagueTransferService, *config.AppDirs) {
+	t.Helper()
+	dirs := &config.AppDirs{DataDir: filepath.Join(t.TempDir(), "appdata")}
+	svc := service.NewLeagueTransferService(dirs, fakeGameRunningChecker{running: false}, "dev", func() uuid.UUID { return regeneratedGUID })
 	return svc, dirs
 }
 
@@ -176,6 +183,65 @@ func TestLeagueTransferService_ExportLeagueWithRename_EmptyName(t *testing.T) {
 
 	if _, err := svc.ExportLeagueWithRename(context.Background(), leagueAFixtureGUID, savPath, "   "); err == nil {
 		t.Error("expected an error for a blank new name, got nil")
+	}
+}
+
+func TestLeagueTransferService_ExportLeague_DevModeRegeneratesGUID(t *testing.T) {
+	regeneratedGUID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
+	svc, _ := newTestDevLeagueTransferService(t, regeneratedGUID)
+	sourceDir := t.TempDir()
+	savPath := setUpSourceLeagueFiles(t, sourceDir, leagueAFixtureGUID)
+
+	beforeBytes, err := os.ReadFile(savPath)
+	if err != nil {
+		t.Fatalf("reading source .sav before export: %v", err)
+	}
+
+	outputPath, err := svc.ExportLeague(context.Background(), leagueAFixtureGUID, savPath)
+	if err != nil {
+		t.Fatalf("ExportLeague: %v", err)
+	}
+
+	afterBytes, err := os.ReadFile(savPath)
+	if err != nil {
+		t.Fatalf("reading source .sav after export: %v", err)
+	}
+	if string(beforeBytes) != string(afterBytes) {
+		t.Error("source .sav was modified — dev-mode GUID regeneration must leave it untouched")
+	}
+
+	preview, err := svc.PreviewImport(context.Background(), outputPath)
+	if err != nil {
+		t.Fatalf("PreviewImport on dev export: %v", err)
+	}
+	if preview.Overview.GUID != regeneratedGUID {
+		t.Errorf("Overview.GUID = %s, want regenerated GUID %s", preview.Overview.GUID, regeneratedGUID)
+	}
+	if preview.Overview.Name != "League A" {
+		t.Errorf("Overview.Name = %q, want %q", preview.Overview.Name, "League A")
+	}
+}
+
+func TestLeagueTransferService_ExportLeagueWithRename_DevModeRegeneratesGUID(t *testing.T) {
+	regeneratedGUID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
+	svc, _ := newTestDevLeagueTransferService(t, regeneratedGUID)
+	sourceDir := t.TempDir()
+	savPath := setUpSourceLeagueFiles(t, sourceDir, leagueAFixtureGUID)
+
+	outputPath, err := svc.ExportLeagueWithRename(context.Background(), leagueAFixtureGUID, savPath, "Renamed Dev League")
+	if err != nil {
+		t.Fatalf("ExportLeagueWithRename: %v", err)
+	}
+
+	preview, err := svc.PreviewImport(context.Background(), outputPath)
+	if err != nil {
+		t.Fatalf("PreviewImport on dev export: %v", err)
+	}
+	if preview.Overview.GUID != regeneratedGUID {
+		t.Errorf("Overview.GUID = %s, want regenerated GUID %s", preview.Overview.GUID, regeneratedGUID)
+	}
+	if preview.Overview.Name != "Renamed Dev League" {
+		t.Errorf("Overview.Name = %q, want %q", preview.Overview.Name, "Renamed Dev League")
 	}
 }
 
@@ -365,9 +431,9 @@ func TestLeagueTransferService_ConfirmImport_RejectsCollision(t *testing.T) {
 
 func TestLeagueTransferService_ConfirmImport_RefusesWhenGameRunning(t *testing.T) {
 	dirs := &config.AppDirs{DataDir: filepath.Join(t.TempDir(), "appdata")}
-	svc := service.NewLeagueTransferService(dirs, fakeGameRunningChecker{running: true}, "test-version")
+	svc := service.NewLeagueTransferService(dirs, fakeGameRunningChecker{running: true}, "test-version", uuid.New)
 
-	exportSvc := service.NewLeagueTransferService(dirs, fakeGameRunningChecker{running: false}, "test-version")
+	exportSvc := service.NewLeagueTransferService(dirs, fakeGameRunningChecker{running: false}, "test-version", uuid.New)
 	zipPath := exportSampleLeague(t, exportSvc)
 
 	targetDir := t.TempDir()
