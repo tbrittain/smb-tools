@@ -61,6 +61,11 @@ const router = createRouter({
       path: '/migrate-legacy',
       component: () => import('./pages/LegacyMigrationPage.vue'),
     },
+    {
+      path: '/league-transfer',
+      component: () => import('./pages/LeagueTransferHomePage.vue'),
+      meta: { fullWidth: true },
+    },
   ],
 })
 
