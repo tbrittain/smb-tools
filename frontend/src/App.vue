@@ -26,9 +26,13 @@ const error = ref<string | null>(null)
 // Reset to null (showing the chooser) on every launch, not just the first.
 const appMode = ref<'franchise' | 'league-transfer' | null>(null)
 
-function selectMode(mode: 'franchise' | 'league-transfer') {
+// Navigate first, then reveal <router-view> — otherwise, since
+// '/league-transfer' is a lazy-loaded chunk, router-view mounts for the
+// first time before that navigation resolves and briefly renders the
+// router's still-current default route ('/', DashboardPage) instead.
+async function selectMode(mode: 'franchise' | 'league-transfer') {
+  await router.push(mode === 'league-transfer' ? '/league-transfer' : '/')
   appMode.value = mode
-  router.push(mode === 'league-transfer' ? '/league-transfer' : '/')
 }
 
 function switchMode() {
