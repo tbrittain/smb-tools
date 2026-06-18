@@ -6,6 +6,8 @@ export function AddFranchiseSource(arg1:string,arg2:string,arg3:string,arg4:numb
 
 export function AssignExistingTeamLogo(arg1:string,arg2:any,arg3:any):Promise<main.TeamLogoAssignmentDTO>;
 
+export function BrowseLeagueImportZip():Promise<string>;
+
 export function BrowseLegacyDB():Promise<string>;
 
 export function BrowseLogoFile():Promise<string>;

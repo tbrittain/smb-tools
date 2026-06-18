@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // ---- League Transfer Wails bindings ----------------------------------------
@@ -53,6 +54,21 @@ func (a *App) ExportLeague(leagueGUID, sourceSavePath string) (string, error) {
 		return "", err
 	}
 	return outputPath, nil
+}
+
+// BrowseLeagueImportZip opens the OS file picker filtered to .zip files and
+// returns the selected path. Returns "" if the user cancels.
+func (a *App) BrowseLeagueImportZip() (string, error) {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select League Export File",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "League Export Files (*.zip)", Pattern: "*.zip"},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("file dialog: %w", err)
+	}
+	return path, nil
 }
 
 // PreviewLeagueImport validates an import package and reports what it

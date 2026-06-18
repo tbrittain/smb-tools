@@ -10,6 +10,10 @@ export function AssignExistingTeamLogo(arg1, arg2, arg3) {
   return window['go']['main']['App']['AssignExistingTeamLogo'](arg1, arg2, arg3);
 }
 
+export function BrowseLeagueImportZip() {
+  return window['go']['main']['App']['BrowseLeagueImportZip']();
+}
+
 export function BrowseLegacyDB() {
   return window['go']['main']['App']['BrowseLegacyDB']();
 }

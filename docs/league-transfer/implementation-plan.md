@@ -174,14 +174,14 @@ implementation, in dependency order.
       Why: internal/CLAUDE.md requirement — never hand-edit generated bindings.
       Depends on: #9
 
-- [ ] **11. [Frontend] Top-level mode chooser**
+- [x] **11. [Frontend] Top-level mode chooser**
       What: Modify App.vue's root-path logic to offer Franchise Tracker vs.
       League Transfer when no franchise is active; add league-transfer routes
       to router.ts and ROOT_PATHS.
       Why: The structural UX change from ux-flow.md.
       Depends on: #10
 
-- [ ] **12. [Frontend] Discovery + Export page**
+- [x] **12. [Frontend] Discovery + Export page**
       What: LeagueTransferHomePage.vue (list via DiscoverLeagues, showing
       name/conferences/divisions/teams) + export action calling ExportLeague,
       success state showing output path (mirroring ExportPage.tsx's pattern from
@@ -189,7 +189,7 @@ implementation, in dependency order.
       Why: Export UX.
       Depends on: #10
 
-- [ ] **13. [Frontend] Import page**
+- [x] **13. [Frontend] Import page**
       What: File picker -> PreviewImport -> show league name/manifest details +
       safety disclaimer (no virus scanning, trust your source) -> if multiple
       Steam dirs, a picker (reusing SaveFilePicker's list pattern) -> confirm
