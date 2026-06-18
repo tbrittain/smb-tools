@@ -23,9 +23,7 @@ const showCreate = ref(false)
 const error = ref<string | null>(null)
 
 // ── Top-level mode: Franchise Tracker vs. League Transfer ──────────────────────
-// League Transfer is a separate top-level mode, independent of franchise
-// tracking — see docs/league-transfer/ux-flow.md. Reset to null (showing the
-// chooser) on every launch, not just the first.
+// Reset to null (showing the chooser) on every launch, not just the first.
 const appMode = ref<'franchise' | 'league-transfer' | null>(null)
 
 function selectMode(mode: 'franchise' | 'league-transfer') {

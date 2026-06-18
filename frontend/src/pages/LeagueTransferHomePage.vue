@@ -16,13 +16,10 @@ import {
 import type { main } from '../../wailsjs/go/models'
 import AppButton from '../components/AppButton.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
-import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 
 const toast = useToast()
-const { set: setCrumbs } = useBreadcrumbs()
 
 onMounted(() => {
-  setCrumbs([{ label: 'League Transfer' }])
   loadLeagues()
 })
 
@@ -239,6 +236,7 @@ function resetImport() {
   padding: 1.5rem 2rem;
   max-width: 960px;
   width: 100%;
+  margin: 0 auto;
 }
 
 .tab-content {

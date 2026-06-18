@@ -23,7 +23,6 @@ const ROOT_PATHS = new Set([
   '/export',
   '/setup',
   '/migrate-legacy',
-  '/league-transfer',
 ])
 
 const MAX_VISIBLE_TRAIL = 5
