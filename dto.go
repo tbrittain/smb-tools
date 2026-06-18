@@ -1463,3 +1463,110 @@ func hofCandidateToDTO(c models.HoFCandidate) HoFCandidateDTO {
 		SmbWAR:        c.SmbWAR,
 	}
 }
+
+// ── League Transfer ───────────────────────────────────────────────────────────
+//
+// DTOs for the League Transfer feature (docs/league-transfer/). This is a
+// top-level mode independent of franchise tracking — see
+// docs/league-transfer/ux-flow.md.
+
+// TeamOverviewDTO is a team's identity within a league's structure.
+type TeamOverviewDTO struct {
+	GUID string `json:"guid"`
+	Name string `json:"name"`
+}
+
+// DivisionOverviewDTO is one division and its teams.
+type DivisionOverviewDTO struct {
+	GUID  string            `json:"guid"`
+	Name  string            `json:"name"`
+	Teams []TeamOverviewDTO `json:"teams"`
+}
+
+// ConferenceOverviewDTO is one conference and its divisions. Divisions may
+// be empty — a conference can legitimately have zero divisions.
+type ConferenceOverviewDTO struct {
+	GUID      string                `json:"guid"`
+	Name      string                `json:"name"`
+	Divisions []DivisionOverviewDTO `json:"divisions"`
+}
+
+// LeagueOverviewDTO describes a league's structure for the discovery list
+// and import preview. SourcePath is non-empty only when this came from
+// DiscoverLeagues (the file this league was read from) — it's what the
+// frontend passes back to ExportLeague.
+type LeagueOverviewDTO struct {
+	GUID        string                  `json:"guid"`
+	Name        string                  `json:"name"`
+	SourcePath  string                  `json:"sourcePath"`
+	Conferences []ConferenceOverviewDTO `json:"conferences"`
+}
+
+// ImportTargetOptionDTO is one Steam profile directory a league import
+// could register into.
+type ImportTargetOptionDTO struct {
+	SteamID           string `json:"steamId"`
+	DirPath           string `json:"dirPath"`
+	AlreadyRegistered bool   `json:"alreadyRegistered"`
+}
+
+// LeagueImportPreviewDTO is the read-only result of validating an import
+// package, shown to the user before ConfirmLeagueImport writes anything.
+type LeagueImportPreviewDTO struct {
+	Overview   LeagueOverviewDTO        `json:"overview"`
+	ExportedAt string                   `json:"exportedAt"`
+	Targets    []ImportTargetOptionDTO  `json:"targets"`
+}
+
+func teamOverviewToDTO(t models.TeamOverview) TeamOverviewDTO {
+	return TeamOverviewDTO{GUID: t.GUID.String(), Name: t.Name}
+}
+
+func divisionOverviewToDTO(d models.DivisionOverview) DivisionOverviewDTO {
+	teams := make([]TeamOverviewDTO, len(d.Teams))
+	for i, t := range d.Teams {
+		teams[i] = teamOverviewToDTO(t)
+	}
+	return DivisionOverviewDTO{GUID: d.GUID.String(), Name: d.Name, Teams: teams}
+}
+
+func conferenceOverviewToDTO(c models.ConferenceOverview) ConferenceOverviewDTO {
+	divisions := make([]DivisionOverviewDTO, len(c.Divisions))
+	for i, d := range c.Divisions {
+		divisions[i] = divisionOverviewToDTO(d)
+	}
+	return ConferenceOverviewDTO{GUID: c.GUID.String(), Name: c.Name, Divisions: divisions}
+}
+
+func leagueOverviewToDTO(l models.LeagueOverview) LeagueOverviewDTO {
+	conferences := make([]ConferenceOverviewDTO, len(l.Conferences))
+	for i, c := range l.Conferences {
+		conferences[i] = conferenceOverviewToDTO(c)
+	}
+	return LeagueOverviewDTO{
+		GUID:        l.GUID.String(),
+		Name:        l.Name,
+		SourcePath:  l.SourcePath,
+		Conferences: conferences,
+	}
+}
+
+func importTargetOptionToDTO(t models.ImportTargetOption) ImportTargetOptionDTO {
+	return ImportTargetOptionDTO{
+		SteamID:           t.SteamID,
+		DirPath:           t.DirPath,
+		AlreadyRegistered: t.AlreadyRegistered,
+	}
+}
+
+func leagueImportPreviewToDTO(p models.LeagueImportPreview) LeagueImportPreviewDTO {
+	targets := make([]ImportTargetOptionDTO, len(p.Targets))
+	for i, target := range p.Targets {
+		targets[i] = importTargetOptionToDTO(target)
+	}
+	return LeagueImportPreviewDTO{
+		Overview:   leagueOverviewToDTO(p.Overview),
+		ExportedAt: p.ExportedAt,
+		Targets:    targets,
+	}
+}

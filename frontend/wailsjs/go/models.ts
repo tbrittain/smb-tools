@@ -532,6 +532,89 @@ export namespace main {
 	        this.smbWar = source["smbWar"];
 	    }
 	}
+	export class TeamOverviewDTO {
+	    guid: string;
+	    name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TeamOverviewDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.guid = source["guid"];
+	        this.name = source["name"];
+	    }
+	}
+	export class DivisionOverviewDTO {
+	    guid: string;
+	    name: string;
+	    teams: TeamOverviewDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new DivisionOverviewDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.guid = source["guid"];
+	        this.name = source["name"];
+	        this.teams = this.convertValues(source["teams"], TeamOverviewDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ConferenceOverviewDTO {
+	    guid: string;
+	    name: string;
+	    divisions: DivisionOverviewDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ConferenceOverviewDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.guid = source["guid"];
+	        this.name = source["name"];
+	        this.divisions = this.convertValues(source["divisions"], DivisionOverviewDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class FilterRowDTO {
 	    column: string;
 	    op: string;
@@ -817,6 +900,22 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class ImportTargetOptionDTO {
+	    steamId: string;
+	    dirPath: string;
+	    alreadyRegistered: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportTargetOptionDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.steamId = source["steamId"];
+	        this.dirPath = source["dirPath"];
+	        this.alreadyRegistered = source["alreadyRegistered"];
+	    }
+	}
 	export class LeaderboardFiltersDTO {
 	    gameType: string;
 	    onlyHallOfFamers: boolean;
@@ -855,6 +954,77 @@ export namespace main {
 	        this.pageSize = source["pageSize"];
 	    }
 	}
+	export class LeagueOverviewDTO {
+	    guid: string;
+	    name: string;
+	    sourcePath: string;
+	    conferences: ConferenceOverviewDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new LeagueOverviewDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.guid = source["guid"];
+	        this.name = source["name"];
+	        this.sourcePath = source["sourcePath"];
+	        this.conferences = this.convertValues(source["conferences"], ConferenceOverviewDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class LeagueImportPreviewDTO {
+	    overview: LeagueOverviewDTO;
+	    exportedAt: string;
+	    targets: ImportTargetOptionDTO[];
+	
+	    static createFrom(source: any = {}) {
+	        return new LeagueImportPreviewDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.overview = this.convertValues(source["overview"], LeagueOverviewDTO);
+	        this.exportedAt = source["exportedAt"];
+	        this.targets = this.convertValues(source["targets"], ImportTargetOptionDTO);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class LegacyFranchiseDTO {
 	    id: number;
 	    name: string;
@@ -2280,6 +2450,7 @@ export namespace main {
 		    return a;
 		}
 	}
+	
 	export class TeamPickerResultDTO {
 	    teamId: number;
 	    teamName: string;

@@ -38,6 +38,10 @@ export function ComputeSeasonStatLeaderAwards(arg1) {
   return window['go']['main']['App']['ComputeSeasonStatLeaderAwards'](arg1);
 }
 
+export function ConfirmLeagueImport(arg1, arg2) {
+  return window['go']['main']['App']['ConfirmLeagueImport'](arg1, arg2);
+}
+
 export function CreateCustomAward(arg1) {
   return window['go']['main']['App']['CreateCustomAward'](arg1);
 }
@@ -64,6 +68,14 @@ export function DeleteTeamLogoAssignment(arg1) {
 
 export function DetectLegacyDB() {
   return window['go']['main']['App']['DetectLegacyDB']();
+}
+
+export function DiscoverLeagues() {
+  return window['go']['main']['App']['DiscoverLeagues']();
+}
+
+export function ExportLeague(arg1, arg2) {
+  return window['go']['main']['App']['ExportLeague'](arg1, arg2);
 }
 
 export function ExportToCSV(arg1) {
@@ -256,6 +268,10 @@ export function OpenBugReport() {
 
 export function PreviewExportData(arg1) {
   return window['go']['main']['App']['PreviewExportData'](arg1);
+}
+
+export function PreviewLeagueImport(arg1) {
+  return window['go']['main']['App']['PreviewLeagueImport'](arg1);
 }
 
 export function ProbeFranchiseSaveFile(arg1) {

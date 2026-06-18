@@ -20,6 +20,8 @@ export function CheckForUpdate():Promise<main.UpdateInfo>;
 
 export function ComputeSeasonStatLeaderAwards(arg1:number):Promise<void>;
 
+export function ConfirmLeagueImport(arg1:string,arg2:string):Promise<void>;
+
 export function CreateCustomAward(arg1:main.AwardDTO):Promise<main.AwardDTO>;
 
 export function CreateFranchise(arg1:string,arg2:string,arg3:string,arg4:string):Promise<main.FranchiseDTO>;
@@ -33,6 +35,10 @@ export function DeleteMediaEverywhere(arg1:string):Promise<void>;
 export function DeleteTeamLogoAssignment(arg1:string):Promise<void>;
 
 export function DetectLegacyDB():Promise<string>;
+
+export function DiscoverLeagues():Promise<Array<main.LeagueOverviewDTO>>;
+
+export function ExportLeague(arg1:string,arg2:string):Promise<string>;
 
 export function ExportToCSV(arg1:main.ExportOptionsDTO):Promise<string>;
 
@@ -129,6 +135,8 @@ export function OpenAppDataDir():Promise<void>;
 export function OpenBugReport():Promise<void>;
 
 export function PreviewExportData(arg1:main.ExportOptionsDTO):Promise<main.ExportPreviewDTO>;
+
+export function PreviewLeagueImport(arg1:string):Promise<main.LeagueImportPreviewDTO>;
 
 export function ProbeFranchiseSaveFile(arg1:string):Promise<main.SaveFileCandidateDTO>;
 

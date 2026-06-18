@@ -14,8 +14,13 @@ import "github.com/google/uuid"
 // docs/league-transfer/failure-analysis.md (a GUID accidentally stored as
 // text instead of a 16-byte blob).
 type LeagueOverview struct {
-	GUID        uuid.UUID
-	Name        string
+	GUID uuid.UUID
+	Name string
+	// SourcePath is the league-*.sav file this overview was read from.
+	// Populated by discovery (LeagueTransferService.DiscoverLeagues); empty
+	// when an overview is read in a context with no single source file
+	// (e.g. from inside an import package, see PreviewImport).
+	SourcePath  string
 	Conferences []ConferenceOverview
 }
 

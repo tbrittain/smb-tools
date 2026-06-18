@@ -162,14 +162,14 @@ implementation, in dependency order.
       becomes the production code path.
       Depends on: #3, #4, #5, #6, #7
 
-- [ ] **9. [Backend/bindings] Wails bindings**
+- [x] **9. [Backend/bindings] Wails bindings**
       What: app_league_transfer.go — thin delegation to the service, following
       app_franchise.go's exact shape (logging, nil-check, error wrapping, DTO
       mapping). Add DTOs to dto.go.
       Why: Frontend surface.
       Depends on: #8
 
-- [ ] **10. [Backend/build] wails build**
+- [x] **10. [Backend/build] wails build**
       What: Regenerate wailsjs/ bindings after the new App methods/DTOs land.
       Why: internal/CLAUDE.md requirement — never hand-edit generated bindings.
       Depends on: #9

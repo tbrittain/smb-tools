@@ -76,7 +76,12 @@ func (s *LeagueTransferService) readLeagueOverview(ctx context.Context, savPath 
 		_ = os.Remove(tmpPath)
 	}()
 
-	return store.NewLeagueSaveStore(db).GetLeagueOverview(ctx, guid)
+	overview, err := store.NewLeagueSaveStore(db).GetLeagueOverview(ctx, guid)
+	if err != nil {
+		return models.LeagueOverview{}, err
+	}
+	overview.SourcePath = savPath
+	return overview, nil
 }
 
 // ExportLeague packages the league identified by guid (read from
