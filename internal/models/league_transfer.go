@@ -22,6 +22,15 @@ type LeagueOverview struct {
 	// (e.g. from inside an import package, see PreviewImport).
 	SourcePath  string
 	Conferences []ConferenceOverview
+	// Mode is the game mode this league save represents — derived from
+	// t_franchise/t_seasons presence, never stored directly in the save.
+	// SMB4 leaves an empty, never-played "shell" league-*.sav file behind
+	// alongside the league the player actually started — both share the
+	// same display Name, which is why the same league name can appear more
+	// than once in DiscoverLeagues' results. LeagueModeNone identifies the
+	// shell so the UI can group it with its real save(s) instead of
+	// presenting it as an unexplained duplicate. See LeagueMode (types.go).
+	Mode LeagueMode
 }
 
 // ConferenceOverview describes one conference and its divisions. Divisions

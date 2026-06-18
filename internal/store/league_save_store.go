@@ -124,7 +124,55 @@ func (s *LeagueSaveStore) GetLeagueOverview(ctx context.Context, guid uuid.UUID)
 	}
 	overview.Conferences = conferences
 
+	mode, err := s.resolveLeagueMode(ctx, guid)
+	if err != nil {
+		return models.LeagueOverview{}, err
+	}
+	overview.Mode = mode
+
 	return overview, nil
+}
+
+// resolveLeagueMode derives a league's game mode from t_franchise/t_seasons
+// presence — the anti-corruption-layer translation required by the root
+// CLAUDE.md: the raw franchise-row and elimination signals are only ever
+// compared in Go, never via a SQL CASE. Mirrors the same mode logic used
+// against the franchise-tracking save game in
+// SqliteSaveGameReader.GetLeagues (and, in turn, SMB3Explorer's
+// LeagueModeExtensions.Parse): franchise wins regardless of elimination;
+// otherwise any season with elimination=true makes it Elimination, any
+// season at all makes it Season, and no franchise + no seasons is an empty
+// shell (LeagueModeNone).
+func (s *LeagueSaveStore) resolveLeagueMode(ctx context.Context, guid uuid.UUID) (models.LeagueMode, error) {
+	var (
+		franchiseGUID sql.NullString
+		elimination   int
+		numSeasons    int
+	)
+	err := s.db.QueryRowContext(ctx, `
+		SELECT
+			hex(f.GUID)                      AS franchiseGUID,
+			MAX(COALESCE(ts.elimination, 0)) AS elimination,
+			COUNT(DISTINCT ts.id)             AS numSeasons
+		FROM t_leagues l
+		LEFT JOIN t_franchise f ON f.leagueGUID = l.GUID
+		LEFT JOIN t_seasons ts ON ts.historicalLeagueGUID = l.GUID
+		WHERE l.GUID = ?
+	`, guid[:]).Scan(&franchiseGUID, &elimination, &numSeasons)
+	if err != nil {
+		return "", fmt.Errorf("resolving league mode for %s: %w", guid, err)
+	}
+
+	switch {
+	case franchiseGUID.Valid && franchiseGUID.String != "":
+		return models.LeagueModeFranchise, nil
+	case elimination == 1:
+		return models.LeagueModeElimination, nil
+	case numSeasons > 0:
+		return models.LeagueModeSeason, nil
+	default:
+		return models.LeagueModeNone, nil
+	}
 }
 
 // guidNamePair is scanned from any of the GUID/name queries below. Each

@@ -1500,6 +1500,11 @@ type LeagueOverviewDTO struct {
 	Name        string                  `json:"name"`
 	SourcePath  string                  `json:"sourcePath"`
 	Conferences []ConferenceOverviewDTO `json:"conferences"`
+	// Mode is the league's derived game mode (Franchise/Season/Elimination/
+	// None) — see models.LeagueMode. None marks an empty, never-played
+	// shell save, which the frontend groups with its same-named real
+	// save(s) rather than showing as an unexplained duplicate.
+	Mode string `json:"mode"`
 }
 
 // ImportTargetOptionDTO is one Steam profile directory a league import
@@ -1548,6 +1553,7 @@ func leagueOverviewToDTO(l models.LeagueOverview) LeagueOverviewDTO {
 		Name:        l.Name,
 		SourcePath:  l.SourcePath,
 		Conferences: conferences,
+		Mode:        l.Mode.String(),
 	}
 }
 

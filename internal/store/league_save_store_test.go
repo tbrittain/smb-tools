@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"smb-tools/internal/models"
 	"smb-tools/internal/store"
 	"smb-tools/internal/testutil"
 )
@@ -176,6 +177,72 @@ func TestLeagueSaveStore_GetLeagueOverview_WithDivisions(t *testing.T) {
 	}
 	if !foundWest {
 		t.Error("expected a 'West' conference")
+	}
+	if overview.Mode != models.LeagueModeFranchise {
+		t.Errorf("Mode = %q, want %q (League A has a t_franchise row)", overview.Mode, models.LeagueModeFranchise)
+	}
+}
+
+func TestLeagueSaveStore_GetLeagueOverview_Mode(t *testing.T) {
+	tests := []struct {
+		name     string
+		mutate   func(t *testing.T, db *sql.DB)
+		wantMode models.LeagueMode
+	}{
+		{
+			name:     "franchise present",
+			mutate:   func(t *testing.T, db *sql.DB) {},
+			wantMode: models.LeagueModeFranchise,
+		},
+		{
+			name: "no franchise, elimination season",
+			mutate: func(t *testing.T, db *sql.DB) {
+				if _, err := db.Exec(`DELETE FROM t_franchise WHERE leagueGUID = ?`, leagueAGUID[:]); err != nil {
+					t.Fatalf("clearing franchise: %v", err)
+				}
+				if _, err := db.Exec(`UPDATE t_seasons SET elimination = 1 WHERE historicalLeagueGUID = ?`, leagueAGUID[:]); err != nil {
+					t.Fatalf("marking season as elimination: %v", err)
+				}
+			},
+			wantMode: models.LeagueModeElimination,
+		},
+		{
+			name: "no franchise, regular season",
+			mutate: func(t *testing.T, db *sql.DB) {
+				if _, err := db.Exec(`DELETE FROM t_franchise WHERE leagueGUID = ?`, leagueAGUID[:]); err != nil {
+					t.Fatalf("clearing franchise: %v", err)
+				}
+			},
+			wantMode: models.LeagueModeSeason,
+		},
+		{
+			name: "no franchise, no seasons - empty shell",
+			mutate: func(t *testing.T, db *sql.DB) {
+				if _, err := db.Exec(`DELETE FROM t_franchise WHERE leagueGUID = ?`, leagueAGUID[:]); err != nil {
+					t.Fatalf("clearing franchise: %v", err)
+				}
+				if _, err := db.Exec(`DELETE FROM t_seasons WHERE historicalLeagueGUID = ?`, leagueAGUID[:]); err != nil {
+					t.Fatalf("clearing seasons: %v", err)
+				}
+			},
+			wantMode: models.LeagueModeNone,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := testutil.NewTestLeagueSaveDB(t)
+			tt.mutate(t, db)
+
+			s := store.NewLeagueSaveStore(db)
+			overview, err := s.GetLeagueOverview(context.Background(), leagueAGUID)
+			if err != nil {
+				t.Fatalf("GetLeagueOverview: %v", err)
+			}
+			if overview.Mode != tt.wantMode {
+				t.Errorf("Mode = %q, want %q", overview.Mode, tt.wantMode)
+			}
+		})
 	}
 }
 

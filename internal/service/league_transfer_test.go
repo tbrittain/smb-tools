@@ -11,6 +11,7 @@ import (
 
 	"smb-tools/internal/config"
 	"smb-tools/internal/db"
+	"smb-tools/internal/models"
 	"smb-tools/internal/service"
 	"smb-tools/internal/store"
 	"smb-tools/internal/system"
@@ -78,6 +79,9 @@ func TestLeagueTransferService_DiscoverLeagues(t *testing.T) {
 	}
 	if len(overviews[0].Conferences) != 2 {
 		t.Errorf("expected 2 conferences, got %d", len(overviews[0].Conferences))
+	}
+	if overviews[0].Mode != models.LeagueModeFranchise {
+		t.Errorf("Mode = %q, want %q", overviews[0].Mode, models.LeagueModeFranchise)
 	}
 }
 

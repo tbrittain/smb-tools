@@ -959,6 +959,7 @@ export namespace main {
 	    name: string;
 	    sourcePath: string;
 	    conferences: ConferenceOverviewDTO[];
+	    mode: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new LeagueOverviewDTO(source);
@@ -970,6 +971,7 @@ export namespace main {
 	        this.name = source["name"];
 	        this.sourcePath = source["sourcePath"];
 	        this.conferences = this.convertValues(source["conferences"], ConferenceOverviewDTO);
+	        this.mode = source["mode"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

@@ -1,11 +1,14 @@
 <script lang="ts" setup>
-import Column from 'primevue/column'
-import DataTable from 'primevue/datatable'
+import Accordion from 'primevue/accordion'
+import AccordionContent from 'primevue/accordioncontent'
+import AccordionHeader from 'primevue/accordionheader'
+import AccordionPanel from 'primevue/accordionpanel'
 import RadioButton from 'primevue/radiobutton'
 import TabPanel from 'primevue/tabpanel'
 import TabView from 'primevue/tabview'
+import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import {
   BrowseLeagueImportZip,
   ConfirmLeagueImport,
@@ -25,17 +28,71 @@ onMounted(() => {
 
 // ── Export tab ───────────────────────────────────────────────────────────────
 
+// SMB4 leaves an empty, never-played "shell" league-*.sav file behind
+// alongside the league the player actually started, both sharing the same
+// display name — so DiscoverLeagues' flat list is grouped by name here and
+// presented as: the shell's Export button by default, with any real
+// save(s) (Franchise/Season/Elimination) tucked behind an expand action.
+interface LeagueGroup {
+  name: string
+  shell: main.LeagueOverviewDTO | null
+  realSaves: main.LeagueOverviewDTO[]
+  entries: main.LeagueOverviewDTO[]
+}
+
 const leagues = ref<main.LeagueOverviewDTO[]>([])
 const loadingLeagues = ref(false)
 const leaguesError = ref<string | null>(null)
 const exportingGUID = ref<string | null>(null)
 
+const leagueGroups = computed<LeagueGroup[]>(() => {
+  const byName = new Map<string, main.LeagueOverviewDTO[]>()
+  for (const league of leagues.value) {
+    const entries = byName.get(league.name) ?? []
+    entries.push(league)
+    byName.set(league.name, entries)
+  }
+  return Array.from(byName.entries())
+    .map(([name, entries]) => ({
+      name,
+      shell: entries.find((e) => e.mode === 'none') ?? null,
+      realSaves: entries.filter((e) => e.mode !== 'none'),
+      entries,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+})
+
+function teamCount(league: main.LeagueOverviewDTO): number {
+  return league.conferences.reduce((sum, c) => sum + c.divisions.reduce((dSum, d) => dSum + d.teams.length, 0), 0)
+}
+
 function divisionCount(league: main.LeagueOverviewDTO): number {
   return league.conferences.reduce((sum, c) => sum + c.divisions.length, 0)
 }
 
-function teamCount(league: main.LeagueOverviewDTO): number {
-  return league.conferences.reduce((sum, c) => sum + c.divisions.reduce((dSum, d) => dSum + d.teams.length, 0), 0)
+function statsSummary(league: main.LeagueOverviewDTO): string {
+  return `${league.conferences.length} conferences · ${divisionCount(league)} divisions · ${teamCount(league)} teams`
+}
+
+function modeLabel(mode: string): string {
+  return mode.charAt(0).toUpperCase() + mode.slice(1)
+}
+
+function modeSeverity(mode: string): 'success' | 'info' | 'warn' | 'secondary' {
+  switch (mode) {
+    case 'franchise':
+      return 'success'
+    case 'season':
+      return 'info'
+    case 'elimination':
+      return 'warn'
+    default:
+      return 'secondary'
+  }
+}
+
+function exportButtonLabel(league: main.LeagueOverviewDTO): string {
+  return league.mode === 'none' ? 'Export Empty League' : 'Export League with Save Game'
 }
 
 async function loadLeagues() {
@@ -122,7 +179,9 @@ function resetImport() {
       <TabPanel value="0" header="Export">
         <div class="tab-content">
           <p class="tab-desc">
-            Export a league from any save file on this machine so you can share it with someone else.
+            Export a league from any save file on this machine so you can share it with someone else. You can
+            export an empty league shell (just the teams/conferences/divisions setup, no games played) as well as
+            any actual save game — Franchise, Season, or Elimination — created from it.
           </p>
 
           <p v-if="leaguesError" class="error-text">{{ leaguesError }}</p>
@@ -136,30 +195,65 @@ function resetImport() {
             <p>No leagues found on this machine.</p>
           </div>
 
-          <DataTable v-else :value="leagues" data-key="guid">
-            <Column field="name" header="League" style="min-width: 200px" />
-            <Column header="Conferences" style="min-width: 110px">
-              <template #body="{ data }">{{ data.conferences.length }}</template>
-            </Column>
-            <Column header="Divisions" style="min-width: 100px">
-              <template #body="{ data }">{{ divisionCount(data) }}</template>
-            </Column>
-            <Column header="Teams" style="min-width: 90px">
-              <template #body="{ data }">{{ teamCount(data) }}</template>
-            </Column>
-            <Column header="" style="min-width: 120px">
-              <template #body="{ data }">
-                <AppButton
-                  variant="secondary"
-                  size="sm"
-                  :disabled="exportingGUID === data.guid"
-                  @click="exportLeague(data)"
-                >
-                  {{ exportingGUID === data.guid ? 'Exporting…' : 'Export' }}
-                </AppButton>
+          <div v-else class="league-groups">
+            <div v-for="group in leagueGroups" :key="group.name" class="league-group">
+              <Accordion v-if="group.shell && group.realSaves.length > 0" multiple>
+                <AccordionPanel value="shell">
+                  <AccordionHeader as="div">
+                    <div class="league-row league-row--in-header">
+                      <div class="league-info">
+                        <span class="league-name">{{ group.name }}</span>
+                        <span class="league-stats">{{ statsSummary(group.shell) }}</span>
+                      </div>
+                      <AppButton
+                        variant="secondary"
+                        size="sm"
+                        :disabled="exportingGUID === group.shell.guid"
+                        @click.stop="exportLeague(group.shell)"
+                      >
+                        {{ exportingGUID === group.shell.guid ? 'Exporting…' : 'Export Empty League' }}
+                      </AppButton>
+                    </div>
+                  </AccordionHeader>
+                  <AccordionContent>
+                    <div v-for="save in group.realSaves" :key="save.guid" class="league-row">
+                      <div class="league-info">
+                        <Tag :value="modeLabel(save.mode)" :severity="modeSeverity(save.mode)" />
+                      </div>
+                      <AppButton
+                        variant="secondary"
+                        size="sm"
+                        :disabled="exportingGUID === save.guid"
+                        @click="exportLeague(save)"
+                      >
+                        {{ exportingGUID === save.guid ? 'Exporting…' : 'Export League with Save Game' }}
+                      </AppButton>
+                    </div>
+                  </AccordionContent>
+                </AccordionPanel>
+              </Accordion>
+
+              <template v-else>
+                <div v-for="entry in group.entries" :key="entry.guid" class="league-row">
+                  <div class="league-info">
+                    <span class="league-info-top">
+                      <span class="league-name">{{ entry.name }}</span>
+                      <Tag v-if="entry.mode !== 'none'" :value="modeLabel(entry.mode)" :severity="modeSeverity(entry.mode)" />
+                    </span>
+                    <span class="league-stats">{{ statsSummary(entry) }}</span>
+                  </div>
+                  <AppButton
+                    variant="secondary"
+                    size="sm"
+                    :disabled="exportingGUID === entry.guid"
+                    @click="exportLeague(entry)"
+                  >
+                    {{ exportingGUID === entry.guid ? 'Exporting…' : exportButtonLabel(entry) }}
+                  </AppButton>
+                </div>
               </template>
-            </Column>
-          </DataTable>
+            </div>
+          </div>
         </div>
       </TabPanel>
 
@@ -182,7 +276,14 @@ function resetImport() {
           <!-- Preview step -->
           <div v-else-if="importStep === 'preview' && importPreview" class="import-preview">
             <div class="preview-summary">
-              <h3>{{ importPreview.overview.name }}</h3>
+              <h3>
+                {{ importPreview.overview.name }}
+                <Tag
+                  v-if="importPreview.overview.mode !== 'none'"
+                  :value="modeLabel(importPreview.overview.mode)"
+                  :severity="modeSeverity(importPreview.overview.mode)"
+                />
+              </h3>
               <span class="preview-stats">
                 {{ importPreview.overview.conferences.length }} conferences ·
                 {{ divisionCount(importPreview.overview) }} divisions ·
@@ -261,6 +362,101 @@ function resetImport() {
 .empty-state {
   text-align: center;
   padding: 2rem 0;
+  color: var(--color-text-secondary);
+}
+
+.league-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.league-group :deep(.p-accordion),
+.league-group :deep(.p-accordionpanel) {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* The box styling (border/background/radius/padding) lives on the header
+   itself, not the row inside it, so the expand/collapse caret sits inside
+   the same bordered bar as the league name and Export button rather than
+   floating outside it. min-width: 0 on the row lets its text shrink/wrap
+   instead of forcing the header wider than its container. */
+.league-group :deep(.p-accordionheader) {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.league-group :deep(.p-accordioncontent-content) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem 0 0;
+}
+
+.league-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+/* Inside the accordion header, the box styling above already applies to
+   the header itself — this row just needs to lay out its own children and
+   push the Export button to the far right. */
+.league-row--in-header {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+}
+
+.league-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+/* In the nested real-save rows, .league-info's only child is the mode Tag —
+   without this it stretches to the column's full cross-axis width instead
+   of sizing to its own content. */
+.league-info :deep(.p-tag) {
+  align-self: flex-start;
+}
+
+.league-info-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.league-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9375rem;
+  color: var(--color-text-primary);
+}
+
+.league-stats {
+  font-size: 0.8125rem;
   color: var(--color-text-secondary);
 }
 
