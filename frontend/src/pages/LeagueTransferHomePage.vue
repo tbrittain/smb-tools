@@ -178,13 +178,42 @@ type ImportStep = 'choose' | 'preview' | 'importing'
 const importStep = ref<ImportStep>('choose')
 const importZipPath = ref<string | null>(null)
 const importPreview = ref<main.LeagueImportPreviewDTO | null>(null)
-const importError = ref<string | null>(null)
 const selectedTargetDir = ref<string | null>(null)
 const loadingPreview = ref(false)
 const confirmingImport = ref(false)
 
+// Backend errors are written for logs, not players — translate the ones a
+// user can actually hit by picking the wrong file into plain language before
+// they reach a toast. Anything unrecognized falls back to the raw message.
+function describeImportError(e: unknown): string {
+  const message = e instanceof Error ? e.message : String(e)
+
+  if (message.includes('missing manifest.json') || message.includes('opening zip')) {
+    return "That doesn't look like a league export. Choose the .zip file created by smb-tools' Export tab."
+  }
+  if (
+    message.includes('missing the league .sav file') ||
+    message.includes('missing the league .sav.bak file') ||
+    message.includes('does not look like a zlib-compressed save file') ||
+    message.includes('manifest is malformed') ||
+    message.includes('manifest is missing leagueName') ||
+    message.includes("does not match the manifest's league GUID")
+  ) {
+    return 'This export package looks incomplete or corrupted.'
+  }
+  if (message.includes('SMB4 is currently running')) {
+    return 'Close Super Mega Baseball 4 before importing a league.'
+  }
+  if (message.includes('already registered')) {
+    return 'This league has already been imported into that save directory.'
+  }
+  if (message.includes('master.sav changed during import')) {
+    return 'The save file changed during import (the game may have been running), please try again.'
+  }
+  return message
+}
+
 async function chooseImportFile() {
-  importError.value = null
   const path = await BrowseLeagueImportZip()
   if (!path) return
 
@@ -194,8 +223,9 @@ async function chooseImportFile() {
     importPreview.value = await PreviewLeagueImport(path)
     selectedTargetDir.value = importPreview.value.targets.find((t) => !t.alreadyRegistered)?.dirPath ?? null
     importStep.value = 'preview'
+    toast.add({ severity: 'success', summary: `Loaded "${importPreview.value.overview.name}"`, life: 3000 })
   } catch (e) {
-    importError.value = String(e)
+    toast.add({ severity: 'error', summary: 'Could not read league file', detail: describeImportError(e), life: 6000 })
   } finally {
     loadingPreview.value = false
   }
@@ -204,13 +234,12 @@ async function chooseImportFile() {
 async function confirmImport() {
   if (!importZipPath.value || !selectedTargetDir.value) return
   confirmingImport.value = true
-  importError.value = null
   try {
     await ConfirmLeagueImport(importZipPath.value, selectedTargetDir.value)
     toast.add({ severity: 'success', summary: 'League imported', life: 4000 })
     resetImport()
   } catch (e) {
-    importError.value = String(e)
+    toast.add({ severity: 'error', summary: 'Import failed', detail: describeImportError(e), life: 6000 })
   } finally {
     confirmingImport.value = false
   }
@@ -221,7 +250,6 @@ function resetImport() {
   importZipPath.value = null
   importPreview.value = null
   selectedTargetDir.value = null
-  importError.value = null
 }
 </script>
 
@@ -317,11 +345,9 @@ function resetImport() {
       <TabPanel value="1" header="Import">
         <div class="tab-content">
           <p class="tab-desc">
-            Import a league someone exported for you. smb-tools does not scan league files for malware —
-            only import files from people you trust.
+            Import a league someone exported for you. smb-tools does not scan league files for malware.
+            Only import files from sources you trust.
           </p>
-
-          <p v-if="importError" class="error-text">{{ importError }}</p>
 
           <!-- Choose step -->
           <div v-if="importStep === 'choose'" class="import-choose">
@@ -366,7 +392,13 @@ function resetImport() {
                   name="target-dir"
                 />
                 <span class="target-path">{{ target.dirPath }}</span>
-                <span v-if="target.alreadyRegistered" class="target-warning">Already registered</span>
+                <span
+                  v-if="target.alreadyRegistered"
+                  class="target-warning"
+                  title="This league has already been imported into this save directory."
+                >
+                  Already imported here
+                </span>
               </label>
             </div>
 
