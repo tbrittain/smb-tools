@@ -131,7 +131,7 @@ implementation, in dependency order.
       query needed by both discovery and import preview.
       Depends on: #2
 
-- [ ] **5. [Backend/config] Multi-Steam-ID discovery + app dirs**
+- [x] **5. [Backend/config] Multi-Steam-ID discovery + app dirs**
       What: internal/config/league_transfer_paths.go — DiscoverSteamSaveDirs,
       AppDirs.LeagueTransferDir/MasterSaveBackupsDir/ExportsOutputDir.
       Why: Needed before import can know which master.sav to target, and before
@@ -139,13 +139,13 @@ implementation, in dependency order.
       assumption without changing its existing behavior for franchise tracking.
       Depends on: none
 
-- [ ] **6. [Backend/system] Game-running detection**
+- [x] **6. [Backend/system] Game-running detection**
       What: internal/system/ with IsGameRunning() behind an interface, three
       build-tagged implementations (windows/linux/other).
       Why: Primary safety gate before any master.sav mutation.
       Depends on: none
 
-- [ ] **7. [Backend/zip] League package format**
+- [x] **7. [Backend/zip] League package format**
       What: internal/zip/league_package.go — manifest.json schema (league name,
       GUID, export timestamp, smb-tools version), Pack/Unpack functions.
       Why: Export/import need a shared, validated container format.
@@ -257,11 +257,11 @@ usual "needs reverse engineering" risk for this fixture.
       byte-identical decompressed content
       Covers: regression test for Bug #2 (zip vs. zlib)
       File: `internal/db/savegame_rw_test.go`
-- [ ] [unit] Zip packaging: pack then unpack a league + manifest, assert all files and manifest
+- [x] [unit] Zip packaging: pack then unpack a league + manifest, assert all files and manifest
       fields survive
       Covers: export/import container format
       File: `internal/zip/league_package_test.go`
-- [ ] [unit] Zip validation rejects: missing file, GUID mismatch across the three files, corrupt
+- [x] [unit] Zip validation rejects: missing file, GUID mismatch across the three files, corrupt
       zlib stream, manifest missing/malformed
       Covers: import-time shape validation, the "negative" cases
       File: `internal/zip/league_package_test.go`
@@ -278,11 +278,12 @@ usual "needs reverse engineering" risk for this fixture.
       no files written, no backup taken
       Covers: safety gate ordering (check happens before any mutation)
       File: `internal/service/league_transfer_test.go`
-- [ ] [unit] Process detection on Linux: a fake `/proc` tree (temp dir with synthetic `cmdline`
+- [x] [unit] Process detection on Linux: a fake `/proc` tree (temp dir with synthetic `cmdline`
       files) correctly matches/rejects based on substring, including a case where `comm` would be
       truncated but `cmdline` is checked instead
       Covers: the Proton-specific correctness concern raised in discussion
-      File: `internal/system/process_linux_test.go`
+      File: `internal/system/process_linux_test.go` (build-tagged `linux`; verified via
+      `GOOS=linux go vet` from Windows dev machine, will actually execute on Linux CI)
 - [ ] [unit] Backup naming/retention: multiple `ConfirmImport` calls (across separate test
       runs/timestamps) each produce a new timestamped backup file under `MasterSaveBackupsDir()`,
       none overwritten

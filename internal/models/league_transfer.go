@@ -42,3 +42,13 @@ type TeamOverview struct {
 	GUID uuid.UUID
 	Name string
 }
+
+// SteamSaveDirCandidate is one Steam-profile save directory found on disk
+// that has a master.sav — i.e., one account that has played SMB4 on this
+// machine. When more than one is found, the user picks which to import
+// into (see docs/league-transfer/ux-flow.md).
+type SteamSaveDirCandidate struct {
+	SteamID        string // the directory name, a numeric Steam ID
+	DirPath        string
+	MasterSavePath string
+}
