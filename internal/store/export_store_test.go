@@ -272,6 +272,114 @@ VALUES (?,?,3,50,20,70,68,5,2,0,540,200,80,10,60,300,5,270,2,90,3,1800)
 	}
 }
 
+// ── Prior team tests (sort_order=1 — most recent team before a mid-season trade) ──
+
+func TestPreviewExportData_PriorTeamName_TradedPlayer(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	fromTeam := seedTeam(t, db, "team-traded-from")
+	toTeam := seedTeam(t, db, "team-traded-to")
+	hFrom := seedTeamHistory(t, db, fromTeam, s1, "Origin Squad", "East", "NL", 15, 25)
+	hTo := seedTeamHistory(t, db, toTeam, s1, "Landing Squad", "West", "NL", 25, 15)
+	p := seedPlayer(t, db, "guid-traded", "Traded", "Player")
+	// seedPlayerSeason inserts sort_order=0 for hTo (the current/final team).
+	ps := seedPlayerSeason(t, db, p, s1, &hTo)
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO player_season_teams (player_season_id, team_history_id, sort_order) VALUES (?, ?, 1)`,
+		ps, hFrom,
+	); err != nil {
+		t.Fatalf("seed prior team: %v", err)
+	}
+	seedBatting(t, db, ps, true, 400, 120, 20, 80)
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID: "batting_season",
+		Columns:   []string{"player_name", "team_name", "prior_team_name"},
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData: %v", err)
+	}
+	if preview.TotalCount != 1 {
+		t.Fatalf("TotalCount: want 1, got %d", preview.TotalCount)
+	}
+	row := preview.Rows[0]
+	if name, _ := row["team_name"].(string); name != "Landing Squad" {
+		t.Errorf("team_name: want %q, got %v", "Landing Squad", row["team_name"])
+	}
+	if name, _ := row["prior_team_name"].(string); name != "Origin Squad" {
+		t.Errorf("prior_team_name: want %q, got %v", "Origin Squad", row["prior_team_name"])
+	}
+	if tid, _ := row["_prior_team_id"].(int64); tid != fromTeam {
+		t.Errorf("_prior_team_id: want %d, got %v", fromTeam, row["_prior_team_id"])
+	}
+	if thid, _ := row["_prior_team_history_id"].(int64); thid != hFrom {
+		t.Errorf("_prior_team_history_id: want %d, got %v", hFrom, row["_prior_team_history_id"])
+	}
+}
+
+func TestPreviewExportData_PriorTeamName_EmptyForSingleTeamPlayer(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	teamID := seedTeam(t, db, "team-single")
+	h1 := seedTeamHistory(t, db, teamID, s1, "Only Team", "East", "NL", 20, 20)
+	p := seedPlayer(t, db, "guid-single", "Single", "Team")
+	ps := seedPlayerSeason(t, db, p, s1, &h1)
+	seedBatting(t, db, ps, true, 400, 120, 20, 80)
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID: "batting_season",
+		Columns:   []string{"player_name", "prior_team_name"},
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData: %v", err)
+	}
+	if name, _ := preview.Rows[0]["prior_team_name"].(string); name != "" {
+		t.Errorf("prior_team_name: want empty string, got %v", preview.Rows[0]["prior_team_name"])
+	}
+	if v := preview.Rows[0]["_prior_team_id"]; v != nil {
+		t.Errorf("_prior_team_id: want nil (NULL) for a single-team player, got %v", v)
+	}
+}
+
+func TestExportToCSV_PriorTeamNameColumn(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	fromTeam := seedTeam(t, db, "team-csv-from")
+	toTeam := seedTeam(t, db, "team-csv-to")
+	hFrom := seedTeamHistory(t, db, fromTeam, s1, "CSV Origin", "East", "NL", 15, 25)
+	hTo := seedTeamHistory(t, db, toTeam, s1, "CSV Landing", "West", "NL", 25, 15)
+	p := seedPlayer(t, db, "guid-csv-traded", "CSV", "Traded")
+	ps := seedPlayerSeason(t, db, p, s1, &hTo)
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO player_season_teams (player_season_id, team_history_id, sort_order) VALUES (?, ?, 1)`,
+		ps, hFrom,
+	); err != nil {
+		t.Fatalf("seed prior team: %v", err)
+	}
+	seedBatting(t, db, ps, true, 300, 90, 15, 50)
+
+	data, err := store.NewExportStore(db).ExportToCSV(ctx, store.ExportOptions{
+		DatasetID: "batting_season",
+		Columns:   []string{"player_name", "team_name", "prior_team_name"},
+	})
+	if err != nil {
+		t.Fatalf("ExportToCSV: %v", err)
+	}
+	records, err := csv.NewReader(strings.NewReader(string(data))).ReadAll()
+	if err != nil {
+		t.Fatalf("parse CSV: %v", err)
+	}
+	if records[1][1] != "CSV Landing" || records[1][2] != "CSV Origin" {
+		t.Errorf("row: want [.., CSV Landing, CSV Origin], got %v", records[1])
+	}
+}
+
 // ── Link column tests (AppLink navigation IDs) ────────────────────────────────
 
 func TestPreviewExportData_IncludesLinkColumns(t *testing.T) {

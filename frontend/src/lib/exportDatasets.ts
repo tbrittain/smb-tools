@@ -52,6 +52,12 @@ const battingSeasonColumns: ExportColumnDef[] = [
     dataType: 'enum',
     link: { type: 'teamSeason', idKeys: { teamId: '_team_id', teamHistoryId: '_team_history_id' } },
   },
+  {
+    key: 'prior_team_name',
+    label: 'Prior Team',
+    dataType: 'enum',
+    link: { type: 'teamSeason', idKeys: { teamId: '_prior_team_id', teamHistoryId: '_prior_team_history_id' } },
+  },
   { key: 'age', label: 'Age', dataType: 'int' },
   {
     key: 'primary_position',
@@ -114,6 +120,12 @@ const pitchingSeasonColumns: ExportColumnDef[] = [
     label: 'Team',
     dataType: 'enum',
     link: { type: 'teamSeason', idKeys: { teamId: '_team_id', teamHistoryId: '_team_history_id' } },
+  },
+  {
+    key: 'prior_team_name',
+    label: 'Prior Team',
+    dataType: 'enum',
+    link: { type: 'teamSeason', idKeys: { teamId: '_prior_team_id', teamHistoryId: '_prior_team_history_id' } },
   },
   { key: 'age', label: 'Age', dataType: 'int' },
   { key: 'pitcher_role', label: 'Role', dataType: 'enum', options: ['SP', 'RP', 'CL'] },
@@ -288,6 +300,12 @@ const playerSeasonAttributesColumns: ExportColumnDef[] = [
     dataType: 'enum',
     link: { type: 'teamSeason', idKeys: { teamId: '_team_id', teamHistoryId: '_team_history_id' } },
   },
+  {
+    key: 'prior_team_name',
+    label: 'Prior Team',
+    dataType: 'enum',
+    link: { type: 'teamSeason', idKeys: { teamId: '_prior_team_id', teamHistoryId: '_prior_team_history_id' } },
+  },
   { key: 'age', label: 'Age', dataType: 'int' },
   {
     key: 'primary_position',
@@ -330,6 +348,12 @@ const awardWinnersColumns: ExportColumnDef[] = [
     label: 'Team',
     dataType: 'enum',
     link: { type: 'teamSeason', idKeys: { teamId: '_team_id', teamHistoryId: '_team_history_id' } },
+  },
+  {
+    key: 'prior_team_name',
+    label: 'Prior Team',
+    dataType: 'enum',
+    link: { type: 'teamSeason', idKeys: { teamId: '_prior_team_id', teamHistoryId: '_prior_team_history_id' } },
   },
   { key: 'award_name', label: 'Award', dataType: 'string' },
   { key: 'award_original_name', label: 'Award (Original)', dataType: 'string' },

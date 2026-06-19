@@ -35,6 +35,7 @@ const SAMPLE_ROWS = [
     last_name: 'Ramirez',
     season_num: 8,
     team_name: 'Marshals',
+    prior_team_name: 'Hammers',
     age: 30,
     primary_position: '3B',
     bat_hand: 'L',
@@ -43,6 +44,8 @@ const SAMPLE_ROWS = [
     _player_id: 102,
     _team_id: 6,
     _team_history_id: 56,
+    _prior_team_id: 9,
+    _prior_team_history_id: 59,
   },
   {
     player_name: 'Freddie Freeman',
