@@ -25,6 +25,9 @@ const SAMPLE_ROWS = [
     bat_hand: 'R',
     throw_hand: 'R',
     chemistry_type: 'Competitive',
+    _player_id: 101,
+    _team_id: 5,
+    _team_history_id: 55,
   },
   {
     player_name: 'Jose Ramirez',
@@ -37,6 +40,9 @@ const SAMPLE_ROWS = [
     bat_hand: 'L',
     throw_hand: 'R',
     chemistry_type: 'Fun',
+    _player_id: 102,
+    _team_id: 6,
+    _team_history_id: 56,
   },
   {
     player_name: 'Freddie Freeman',
@@ -49,6 +55,9 @@ const SAMPLE_ROWS = [
     bat_hand: 'L',
     throw_hand: 'R',
     chemistry_type: 'Competitive',
+    _player_id: 103,
+    _team_id: 7,
+    _team_history_id: 57,
   },
 ]
 
@@ -85,6 +94,30 @@ export const EmptyNoResults: Story = {
     rows: [],
     loading: false,
     totalCount: 0,
+  },
+}
+
+export const FreeAgentMissingTeamLink: Story = {
+  args: {
+    selectedColumns: BATTING_COLS,
+    rows: [
+      {
+        player_name: 'Free Agent',
+        first_name: 'Free',
+        last_name: 'Agent',
+        season_num: 8,
+        team_name: '',
+        age: 25,
+        primary_position: 'SS',
+        bat_hand: 'R',
+        throw_hand: 'R',
+        chemistry_type: 'Competitive',
+        _player_id: 104,
+        // No _team_id/_team_history_id — team_name renders as plain text, not a link.
+      },
+    ],
+    loading: false,
+    totalCount: 1,
   },
 }
 

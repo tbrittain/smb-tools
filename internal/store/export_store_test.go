@@ -271,6 +271,105 @@ VALUES (?,?,3,50,20,70,68,5,2,0,540,200,80,10,60,300,5,270,2,90,3,1800)
 	}
 }
 
+// ── Link column tests (AppLink navigation IDs) ────────────────────────────────
+
+func TestPreviewExportData_IncludesLinkColumns(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	teamID := seedTeam(t, db, "team-link")
+	h1 := seedTeamHistory(t, db, teamID, s1, "Link Team", "East", "NL", 30, 10)
+	p := seedPlayer(t, db, "guid-link", "Link", "Player")
+	ps := seedPlayerSeason(t, db, p, s1, &h1)
+	seedBatting(t, db, ps, true, 400, 120, 20, 80)
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID: "batting_season",
+		// Caller did not request the link IDs as a column — they should still
+		// be attached automatically since this is the preview path.
+		Columns: []string{"player_name", "team_name"},
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData: %v", err)
+	}
+	if len(preview.Rows) != 1 {
+		t.Fatalf("rows: want 1, got %d", len(preview.Rows))
+	}
+	row := preview.Rows[0]
+	if pid, _ := row["_player_id"].(int64); pid != p {
+		t.Errorf("_player_id: want %d, got %v", p, row["_player_id"])
+	}
+	if tid, _ := row["_team_id"].(int64); tid != teamID {
+		t.Errorf("_team_id: want %d, got %v", teamID, row["_team_id"])
+	}
+	if thid, _ := row["_team_history_id"].(int64); thid != h1 {
+		t.Errorf("_team_history_id: want %d, got %v", h1, row["_team_history_id"])
+	}
+}
+
+func TestPreviewExportData_LinkColumnsAbsentWhenDatasetHasNone(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	p := seedPlayer(t, db, "guid-link-cb", "Carol", "Career")
+	_, err := db.ExecContext(ctx, `
+INSERT INTO player_career_batting_stats
+    (player_id, stat_type, seasons_played, games_played, games_batting, at_bats,
+     runs, hits, doubles, triples, home_runs, rbi, stolen_bases, caught_stealing,
+     walks, strikeouts, hit_by_pitch, sac_hits, sac_flies, errors, passed_balls)
+VALUES (?,?,2,100,100,350,0,100,0,0,30,90,0,0,0,0,0,0,0,0,0)
+`, p, "regular_season")
+	if err != nil {
+		t.Fatalf("seed career batting: %v", err)
+	}
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:      "career_batting",
+		Columns:        []string{"player_name"},
+		CareerStatType: "regular_season",
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData: %v", err)
+	}
+	row := preview.Rows[0]
+	if pid, _ := row["_player_id"].(int64); pid != p {
+		t.Errorf("_player_id: want %d, got %v", p, row["_player_id"])
+	}
+	if _, ok := row["_team_id"]; ok {
+		t.Error("career_batting has no team join — _team_id should not be present")
+	}
+}
+
+func TestExportToCSV_NeverIncludesLinkColumns(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	teamID := seedTeam(t, db, "team-csvlink")
+	h1 := seedTeamHistory(t, db, teamID, s1, "CSV Link Team", "East", "NL", 30, 10)
+	p := seedPlayer(t, db, "guid-csvlink", "CSV", "Link")
+	ps := seedPlayerSeason(t, db, p, s1, &h1)
+	seedBatting(t, db, ps, true, 400, 120, 20, 80)
+
+	data, err := store.NewExportStore(db).ExportToCSV(ctx, store.ExportOptions{
+		DatasetID: "batting_season",
+		Columns:   []string{"player_name", "team_name", "home_runs"},
+	})
+	if err != nil {
+		t.Fatalf("ExportToCSV: %v", err)
+	}
+
+	records, err := csv.NewReader(strings.NewReader(string(data))).ReadAll()
+	if err != nil {
+		t.Fatalf("parse CSV: %v", err)
+	}
+	want := []string{"Player", "Team", "HR"}
+	if len(records[0]) != len(want) {
+		t.Fatalf("header length: want %d cols (no link IDs), got %d: %v", len(want), len(records[0]), records[0])
+	}
+}
+
 // ── Filter tests ──────────────────────────────────────────────────────────────
 
 func TestPreviewExportData_SeasonRangeFilter(t *testing.T) {

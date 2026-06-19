@@ -4,6 +4,15 @@
 
 export type ExportDataType = 'string' | 'int' | 'float' | 'enum'
 
+// Describes how to turn this column's cell into an AppLink in the preview table.
+// idKeys name the row keys (set server-side, see export_store.go's linkCols) that
+// hold the raw IDs needed to build the route — never rendered as their own column
+// and never present in the CSV export query.
+export interface ExportColumnLinkDef {
+  type: 'player' | 'teamSeason'
+  idKeys: { playerId?: string; teamId?: string; teamHistoryId?: string }
+}
+
 export interface ExportColumnDef {
   key: string
   label: string
@@ -12,6 +21,7 @@ export interface ExportColumnDef {
   // Absent for dynamic enums (team_name, conference_name, division_name) whose options
   // are populated at runtime via the columnOptions map in useExportConfig.
   options?: readonly string[]
+  link?: ExportColumnLinkDef
 }
 
 export interface ExportDatasetDef {
@@ -24,11 +34,21 @@ export interface ExportDatasetDef {
 }
 
 const battingSeasonColumns: ExportColumnDef[] = [
-  { key: 'player_name', label: 'Player', dataType: 'string' },
+  {
+    key: 'player_name',
+    label: 'Player',
+    dataType: 'string',
+    link: { type: 'player', idKeys: { playerId: '_player_id' } },
+  },
   { key: 'first_name', label: 'First Name', dataType: 'string' },
   { key: 'last_name', label: 'Last Name', dataType: 'string' },
   { key: 'season_num', label: 'Season', dataType: 'int' },
-  { key: 'team_name', label: 'Team', dataType: 'enum' },
+  {
+    key: 'team_name',
+    label: 'Team',
+    dataType: 'enum',
+    link: { type: 'teamSeason', idKeys: { teamId: '_team_id', teamHistoryId: '_team_history_id' } },
+  },
   { key: 'age', label: 'Age', dataType: 'int' },
   {
     key: 'primary_position',
@@ -77,11 +97,21 @@ const battingSeasonColumns: ExportColumnDef[] = [
 ]
 
 const pitchingSeasonColumns: ExportColumnDef[] = [
-  { key: 'player_name', label: 'Player', dataType: 'string' },
+  {
+    key: 'player_name',
+    label: 'Player',
+    dataType: 'string',
+    link: { type: 'player', idKeys: { playerId: '_player_id' } },
+  },
   { key: 'first_name', label: 'First Name', dataType: 'string' },
   { key: 'last_name', label: 'Last Name', dataType: 'string' },
   { key: 'season_num', label: 'Season', dataType: 'int' },
-  { key: 'team_name', label: 'Team', dataType: 'enum' },
+  {
+    key: 'team_name',
+    label: 'Team',
+    dataType: 'enum',
+    link: { type: 'teamSeason', idKeys: { teamId: '_team_id', teamHistoryId: '_team_history_id' } },
+  },
   { key: 'age', label: 'Age', dataType: 'int' },
   { key: 'pitcher_role', label: 'Role', dataType: 'enum', options: ['SP', 'RP', 'CL'] },
   { key: 'throw_hand', label: 'Throw Hand', dataType: 'enum', options: ['L', 'R'] },
@@ -128,7 +158,12 @@ const pitchingSeasonColumns: ExportColumnDef[] = [
 ]
 
 const standingsColumns: ExportColumnDef[] = [
-  { key: 'team_name', label: 'Team', dataType: 'enum' },
+  {
+    key: 'team_name',
+    label: 'Team',
+    dataType: 'enum',
+    link: { type: 'teamSeason', idKeys: { teamId: '_team_id', teamHistoryId: '_team_history_id' } },
+  },
   { key: 'season_num', label: 'Season', dataType: 'int' },
   { key: 'conference_name', label: 'Conference', dataType: 'enum' },
   { key: 'division_name', label: 'Division', dataType: 'enum' },
@@ -149,7 +184,12 @@ const standingsColumns: ExportColumnDef[] = [
 ]
 
 const careerBattingColumns: ExportColumnDef[] = [
-  { key: 'player_name', label: 'Player', dataType: 'string' },
+  {
+    key: 'player_name',
+    label: 'Player',
+    dataType: 'string',
+    link: { type: 'player', idKeys: { playerId: '_player_id' } },
+  },
   { key: 'first_name', label: 'First Name', dataType: 'string' },
   { key: 'last_name', label: 'Last Name', dataType: 'string' },
   { key: 'seasons_played', label: 'Seasons', dataType: 'int' },
@@ -185,7 +225,12 @@ const careerBattingColumns: ExportColumnDef[] = [
 ]
 
 const careerPitchingColumns: ExportColumnDef[] = [
-  { key: 'player_name', label: 'Player', dataType: 'string' },
+  {
+    key: 'player_name',
+    label: 'Player',
+    dataType: 'string',
+    link: { type: 'player', idKeys: { playerId: '_player_id' } },
+  },
   { key: 'first_name', label: 'First Name', dataType: 'string' },
   { key: 'last_name', label: 'Last Name', dataType: 'string' },
   { key: 'seasons_played', label: 'Seasons', dataType: 'int' },
@@ -225,11 +270,21 @@ const careerPitchingColumns: ExportColumnDef[] = [
 ]
 
 const playerSeasonAttributesColumns: ExportColumnDef[] = [
-  { key: 'player_name', label: 'Player', dataType: 'string' },
+  {
+    key: 'player_name',
+    label: 'Player',
+    dataType: 'string',
+    link: { type: 'player', idKeys: { playerId: '_player_id' } },
+  },
   { key: 'first_name', label: 'First Name', dataType: 'string' },
   { key: 'last_name', label: 'Last Name', dataType: 'string' },
   { key: 'season_num', label: 'Season', dataType: 'int' },
-  { key: 'team_name', label: 'Team', dataType: 'enum' },
+  {
+    key: 'team_name',
+    label: 'Team',
+    dataType: 'enum',
+    link: { type: 'teamSeason', idKeys: { teamId: '_team_id', teamHistoryId: '_team_history_id' } },
+  },
   { key: 'age', label: 'Age', dataType: 'int' },
   {
     key: 'primary_position',
@@ -258,11 +313,21 @@ const playerSeasonAttributesColumns: ExportColumnDef[] = [
 ]
 
 const awardWinnersColumns: ExportColumnDef[] = [
-  { key: 'player_name', label: 'Player', dataType: 'string' },
+  {
+    key: 'player_name',
+    label: 'Player',
+    dataType: 'string',
+    link: { type: 'player', idKeys: { playerId: '_player_id' } },
+  },
   { key: 'first_name', label: 'First Name', dataType: 'string' },
   { key: 'last_name', label: 'Last Name', dataType: 'string' },
   { key: 'season_num', label: 'Season', dataType: 'int' },
-  { key: 'team_name', label: 'Team', dataType: 'enum' },
+  {
+    key: 'team_name',
+    label: 'Team',
+    dataType: 'enum',
+    link: { type: 'teamSeason', idKeys: { teamId: '_team_id', teamHistoryId: '_team_history_id' } },
+  },
   { key: 'award_name', label: 'Award', dataType: 'string' },
   { key: 'award_original_name', label: 'Award (Original)', dataType: 'string' },
   { key: 'award_type', label: 'Type', dataType: 'enum', options: ['Winner', 'Runner-Up'] },
@@ -272,8 +337,18 @@ const regularSeasonScheduleColumns: ExportColumnDef[] = [
   { key: 'season_num', label: 'Season', dataType: 'int' },
   { key: 'game_number', label: 'Game #', dataType: 'int' },
   { key: 'day', label: 'Day', dataType: 'int' },
-  { key: 'home_team_name', label: 'Home Team', dataType: 'enum' },
-  { key: 'away_team_name', label: 'Away Team', dataType: 'enum' },
+  {
+    key: 'home_team_name',
+    label: 'Home Team',
+    dataType: 'enum',
+    link: { type: 'teamSeason', idKeys: { teamId: '_home_team_id', teamHistoryId: '_home_team_history_id' } },
+  },
+  {
+    key: 'away_team_name',
+    label: 'Away Team',
+    dataType: 'enum',
+    link: { type: 'teamSeason', idKeys: { teamId: '_away_team_id', teamHistoryId: '_away_team_history_id' } },
+  },
   { key: 'home_score', label: 'Home Score', dataType: 'int' },
   { key: 'away_score', label: 'Away Score', dataType: 'int' },
 ]
@@ -282,8 +357,18 @@ const playoffScheduleColumns: ExportColumnDef[] = [
   { key: 'season_num', label: 'Season', dataType: 'int' },
   { key: 'series_number', label: 'Series #', dataType: 'int' },
   { key: 'game_number', label: 'Game #', dataType: 'int' },
-  { key: 'home_team_name', label: 'Home Team', dataType: 'enum' },
-  { key: 'away_team_name', label: 'Away Team', dataType: 'enum' },
+  {
+    key: 'home_team_name',
+    label: 'Home Team',
+    dataType: 'enum',
+    link: { type: 'teamSeason', idKeys: { teamId: '_home_team_id', teamHistoryId: '_home_team_history_id' } },
+  },
+  {
+    key: 'away_team_name',
+    label: 'Away Team',
+    dataType: 'enum',
+    link: { type: 'teamSeason', idKeys: { teamId: '_away_team_id', teamHistoryId: '_away_team_history_id' } },
+  },
   { key: 'home_score', label: 'Home Score', dataType: 'int' },
   { key: 'away_score', label: 'Away Score', dataType: 'int' },
 ]

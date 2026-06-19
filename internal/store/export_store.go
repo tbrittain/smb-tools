@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -26,6 +27,11 @@ type datasetDef struct {
 	label   string
 	fromSQL string            // everything after SELECT ... (FROM + JOINs + fixed WHERE conditions)
 	cols    map[string]exportColumn
+	// linkCols are extra SQL expressions (keyed by row key) selected only by
+	// PreviewExportData, never by ExportToCSV. They give the frontend the raw
+	// IDs needed to render AppLink navigation (player/team detail pages)
+	// without those IDs ever leaking into the CSV export.
+	linkCols map[string]string
 }
 
 // validFilterOps is the set of filter operators accepted in FilterRow.Op.
@@ -92,6 +98,11 @@ LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
 		"ops_plus":        {`bs.ops_plus`, "OPS+", "float"},
 		"smb_war":         {`bs.smb_war`, "smbWAR", "float"},
 	},
+	linkCols: map[string]string{
+		"_player_id":       "p.id",
+		"_team_id":         "tsh.team_id",
+		"_team_history_id": "tsh.id",
+	},
 }
 
 var pitchingSeasonDataset = datasetDef{
@@ -148,6 +159,11 @@ LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
 		"fip_minus":       {`pit.fip_minus`, "FIP-", "float"},
 		"smb_war":         {`pit.smb_war`, "smbWAR", "float"},
 	},
+	linkCols: map[string]string{
+		"_player_id":       "p.id",
+		"_team_id":         "tsh.team_id",
+		"_team_history_id": "tsh.id",
+	},
 }
 
 var standingsDataset = datasetDef{
@@ -174,6 +190,10 @@ JOIN seasons s ON s.id = tsh.season_id`,
 		"playoff_runs_against": {`tsh.playoff_runs_against`, "PO RA", "int"},
 		"budget":              {`tsh.budget`, "Budget", "int"},
 		"payroll":             {`tsh.payroll`, "Payroll", "int"},
+	},
+	linkCols: map[string]string{
+		"_team_id":         "tsh.team_id",
+		"_team_history_id": "tsh.id",
 	},
 }
 
@@ -216,6 +236,9 @@ JOIN players p ON p.id = cbs.player_id`,
 		"ab_per_hr":       {`cbs.ab_per_hr`, "AB/HR", "float"},
 		"ops_plus":        {`cbs.ops_plus`, "OPS+", "float"},
 		"smb_war":         {`cbs.smb_war`, "smbWAR", "float"},
+	},
+	linkCols: map[string]string{
+		"_player_id": "p.id",
 	},
 }
 
@@ -263,6 +286,9 @@ JOIN players p ON p.id = cps.player_id`,
 		"fip_minus":         {`cps.fip_minus`, "FIP-", "float"},
 		"smb_war":           {`cps.smb_war`, "smbWAR", "float"},
 	},
+	linkCols: map[string]string{
+		"_player_id": "p.id",
+	},
 }
 
 var playerSeasonAttributesDataset = datasetDef{
@@ -296,6 +322,11 @@ LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
 		"junk":             {`psg.junk`, "Junk", "int"},
 		"accuracy":         {`psg.accuracy`, "Accuracy", "int"},
 	},
+	linkCols: map[string]string{
+		"_player_id":       "p.id",
+		"_team_id":         "tsh.team_id",
+		"_team_history_id": "tsh.id",
+	},
 }
 
 var awardWinnersDataset = datasetDef{
@@ -318,6 +349,11 @@ LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
 		"award_original_name": {`a.original_name`, "Award (Original)", "string"},
 		"award_type":          {`CASE WHEN a.omit_from_groupings = 1 THEN 'Runner-Up' ELSE 'Winner' END`, "Type", "string"},
 	},
+	linkCols: map[string]string{
+		"_player_id":       "p.id",
+		"_team_id":         "tsh.team_id",
+		"_team_history_id": "tsh.id",
+	},
 }
 
 var regularSeasonScheduleDataset = datasetDef{
@@ -336,6 +372,12 @@ JOIN team_season_history away_tsh ON away_tsh.id = tss.away_team_history_id`,
 		"home_score":     {`tss.home_score`, "Home Score", "int"},
 		"away_score":     {`tss.away_score`, "Away Score", "int"},
 	},
+	linkCols: map[string]string{
+		"_home_team_id":         "home_tsh.team_id",
+		"_home_team_history_id": "home_tsh.id",
+		"_away_team_id":         "away_tsh.team_id",
+		"_away_team_history_id": "away_tsh.id",
+	},
 }
 
 var playoffScheduleDataset = datasetDef{
@@ -353,6 +395,12 @@ JOIN team_season_history away_tsh ON away_tsh.id = tps.away_team_history_id`,
 		"away_team_name": {`away_tsh.team_name`, "Away Team", "string"},
 		"home_score":     {`tps.home_score`, "Home Score", "int"},
 		"away_score":     {`tps.away_score`, "Away Score", "int"},
+	},
+	linkCols: map[string]string{
+		"_home_team_id":         "home_tsh.team_id",
+		"_home_team_history_id": "home_tsh.id",
+		"_away_team_id":         "away_tsh.team_id",
+		"_away_team_history_id": "away_tsh.id",
 	},
 }
 
@@ -425,21 +473,34 @@ type ExportPreview struct {
 // unknown key returns an error so the caller surfaces bad state clearly rather
 // than silently producing wrong SQL.
 // limit=0 means no LIMIT/OFFSET clause (used by ExportToCSV).
+// extraSelects are additional raw SQL expressions appended to the SELECT list,
+// keyed by their output column name. PreviewExportData uses this to attach
+// def.linkCols (AppLink navigation IDs); ExportToCSV always passes nil so those
+// IDs never appear in the downloaded file.
 //
 //nolint:gocognit // large switch-style allowlist validation — splitting would obscure the mapping
-func buildExportQuery(def datasetDef, opts ExportOptions, limit int) (string, []any, error) {
+func buildExportQuery(def datasetDef, opts ExportOptions, limit int, extraSelects map[string]string) (string, []any, error) {
 	if len(opts.Columns) == 0 {
 		return "", nil, fmt.Errorf("no columns selected for export")
 	}
 
 	// Validate and collect SELECT expressions.
-	selects := make([]string, 0, len(opts.Columns))
+	selects := make([]string, 0, len(opts.Columns)+len(extraSelects))
 	for _, key := range opts.Columns {
 		col, ok := def.cols[key]
 		if !ok {
 			return "", nil, fmt.Errorf("unknown column key %q for dataset %q", key, def.id)
 		}
 		selects = append(selects, col.sqlExpr+" AS "+key)
+	}
+	// Sorted for deterministic SQL output — map iteration order is otherwise random.
+	extraKeys := make([]string, 0, len(extraSelects))
+	for key := range extraSelects {
+		extraKeys = append(extraKeys, key)
+	}
+	sort.Strings(extraKeys)
+	for _, key := range extraKeys {
+		selects = append(selects, extraSelects[key]+" AS "+key)
 	}
 
 	// Build extra WHERE conditions from the filter rows.
@@ -552,7 +613,9 @@ func (s *ExportStore) PreviewExportData(ctx context.Context, opts ExportOptions)
 	}
 
 	// Build the data query (one page) and a count query sharing the same WHERE.
-	dataQ, dataArgs, err := buildExportQuery(def, opts, previewPageSize)
+	// Link columns are attached here only — they give the frontend the raw IDs
+	// needed for AppLink navigation without ever reaching the CSV export query.
+	dataQ, dataArgs, err := buildExportQuery(def, opts, previewPageSize, def.linkCols)
 	if err != nil {
 		return ExportPreview{}, err
 	}
@@ -562,7 +625,7 @@ func (s *ExportStore) PreviewExportData(ctx context.Context, opts ExportOptions)
 	countOpts := opts
 	countOpts.Columns = []string{opts.Columns[0]}
 	countOpts.SortCol = ""
-	baseQ, baseArgs, err := buildExportQuery(def, countOpts, 0)
+	baseQ, baseArgs, err := buildExportQuery(def, countOpts, 0, nil)
 	if err != nil {
 		return ExportPreview{}, err
 	}
@@ -643,7 +706,7 @@ func (s *ExportStore) ExportToCSV(ctx context.Context, opts ExportOptions) ([]by
 		return nil, fmt.Errorf("unknown dataset %q", opts.DatasetID)
 	}
 
-	q, args, err := buildExportQuery(def, opts, 0)
+	q, args, err := buildExportQuery(def, opts, 0, nil)
 	if err != nil {
 		return nil, err
 	}
