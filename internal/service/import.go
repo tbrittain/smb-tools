@@ -200,22 +200,25 @@ func (svc *ImportService) importInTx(
 		slog.Error("import: step 12 failed", "step", "clear old schedule", "err", err)
 		return result, fmt.Errorf("clearing old schedule: %w", err)
 	}
-	gameCount, err := svc.importRegularSeasonSchedule(ctx, scheduleStore, reader, saveGameSeasonID, companionSeasonID, teamGUIDToHistoryID, playerGUIDToSeasonID)
+	gameCount, gamesPerTeam, err := svc.importRegularSeasonSchedule(ctx, scheduleStore, reader, saveGameSeasonID, companionSeasonID, teamGUIDToHistoryID, playerGUIDToSeasonID)
 	if err != nil {
 		slog.Error("import: step 12 failed", "step", "regular season schedule", "err", err)
 		return result, err
 	}
 	result.Games = gameCount
-	slog.Debug("import: step 12 complete", "step", "regular season schedule", "games", gameCount)
+	slog.Debug("import: step 12 complete", "step", "regular season schedule", "games", gameCount, "gamesPerTeam", gamesPerTeam)
 
-	// Backfill the season's scheduled game count now that it's known. This is required
+	// Backfill the season's per-team game count now that it's known. This is required
 	// for qualified-player thresholds (PA/IP gating) computed elsewhere from num_games —
 	// without it, num_games stays 0 and every player incorrectly qualifies as a leader.
+	// Must be the per-team count, not the total league-wide matchup count (gameCount):
+	// the schedule stores one row per matchup, so gameCount overstates the threshold
+	// by roughly half the number of teams in any league with more than two teams.
 	if _, err := seasonStore.Upsert(ctx, store.Season{
 		LeagueGUID:       leagueGUID,
 		SaveGameSeasonID: saveGameSeasonID,
 		SeasonNum:        displaySeasonNum,
-		NumGames:         gameCount,
+		NumGames:         gamesPerTeam,
 	}); err != nil {
 		slog.Error("import: step 12 failed", "step", "backfill season game count", "err", err)
 		return result, fmt.Errorf("backfilling season game count: %w", err)
@@ -389,7 +392,9 @@ func (svc *ImportService) importPlayers(
 }
 
 // importRegularSeasonSchedule writes regular-season games for the season.
-// Returns the number of games written.
+// Returns the total number of matchups written (for display) and the number
+// of games an individual team plays in the season (for qualified-player
+// thresholds — see scheduledGamesPerTeam).
 func (svc *ImportService) importRegularSeasonSchedule(
 	ctx context.Context,
 	sched *store.ScheduleStore,
@@ -398,10 +403,10 @@ func (svc *ImportService) importRegularSeasonSchedule(
 	companionSeasonID int64,
 	teamGUIDToHistoryID map[string]int64,
 	playerGUIDToSeasonID map[string]int64,
-) (int, error) {
+) (gameCount int, gamesPerTeam int, err error) {
 	games, err := reader.GetSeasonSchedule(ctx, saveGameSeasonID)
 	if err != nil {
-		return 0, fmt.Errorf("reading season schedule: %w", err)
+		return 0, 0, fmt.Errorf("reading season schedule: %w", err)
 	}
 	for _, g := range games {
 		homeHistID := teamGUIDToHistoryID[g.HomeTeamGUID]
@@ -431,10 +436,34 @@ func (svc *ImportService) importRegularSeasonSchedule(
 			HomeScore:           g.HomeScore,
 			AwayScore:           g.AwayScore,
 		}); err != nil {
-			return 0, fmt.Errorf("upserting game %d: %w", g.GameNumber, err)
+			return 0, 0, fmt.Errorf("upserting game %d: %w", g.GameNumber, err)
 		}
 	}
-	return len(games), nil
+	return len(games), scheduledGamesPerTeam(games), nil
+}
+
+// scheduledGamesPerTeam returns how many games a single team plays across the
+// season schedule. The schedule stores one row per matchup (not per team), so
+// len(games) is the league-wide total — using it directly as a per-team season
+// length wildly overstates qualified-player thresholds in leagues with more
+// than two teams. Returns the most common per-team count (mode) so a lone
+// bye-week game doesn't skew the result.
+func scheduledGamesPerTeam(games []models.SaveGameGame) int {
+	countsByTeam := make(map[string]int)
+	for _, g := range games {
+		countsByTeam[g.HomeTeamGUID]++
+		countsByTeam[g.AwayTeamGUID]++
+	}
+	freqOfCount := make(map[int]int)
+	mode, modeFreq := 0, 0
+	for _, c := range countsByTeam {
+		freqOfCount[c]++
+		if freqOfCount[c] > modeFreq {
+			modeFreq = freqOfCount[c]
+			mode = c
+		}
+	}
+	return mode
 }
 
 // importPlayoffScheduleAndSeeds writes playoff games for the season and records
