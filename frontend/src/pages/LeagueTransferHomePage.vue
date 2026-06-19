@@ -14,11 +14,14 @@ import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
 import { computed, onMounted, ref } from 'vue'
 import {
+  BrowseLeagueExportDirectory,
   BrowseLeagueImportZip,
   ConfirmLeagueImport,
   DiscoverLeagues,
   ExportLeague,
   ExportLeagueWithRename,
+  ExportSnapshotAsLeague,
+  ListSnapshotExportCandidates,
   OpenLeagueExportDir,
   PreviewLeagueImport,
 } from '../../wailsjs/go/main/App'
@@ -30,6 +33,7 @@ const toast = useToast()
 
 onMounted(() => {
   loadLeagues()
+  loadSnapshotCandidates()
 })
 
 // ── Export tab ───────────────────────────────────────────────────────────────
@@ -113,6 +117,32 @@ async function loadLeagues() {
   }
 }
 
+// Lets a user point export discovery at a folder outside the default Steam
+// save locations — results are merged into the same discovered-leagues
+// list, deduplicated by GUID, rather than replacing it.
+const browsingFolder = ref(false)
+
+async function browseExportFolder() {
+  browsingFolder.value = true
+  try {
+    const found = await BrowseLeagueExportDirectory()
+    if (found.length === 0) return
+
+    const existingGUIDs = new Set(leagues.value.map((l) => l.guid))
+    const newLeagues = found.filter((l) => !existingGUIDs.has(l.guid))
+    leagues.value = [...leagues.value, ...newLeagues]
+    toast.add({
+      severity: 'success',
+      summary: newLeagues.length > 0 ? `Found ${newLeagues.length} league(s)` : 'No new leagues found in that folder',
+      life: 3000,
+    })
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Could not scan folder', detail: String(e), life: 5000 })
+  } finally {
+    browsingFolder.value = false
+  }
+}
+
 async function exportLeague(league: main.LeagueOverviewDTO) {
   exportingGUID.value = league.guid
   try {
@@ -128,14 +158,28 @@ async function exportLeague(league: main.LeagueOverviewDTO) {
 
 // Renaming lets a user disambiguate an exported league before sharing it —
 // the export itself is unaffected, only the display name baked into the
-// copy that gets zipped up.
+// copy that gets zipped up. The same dialog is reused for snapshot export
+// (renameMode 'snapshot'), where supplying a name is mandatory rather than
+// an optional disambiguation step — a snapshot has no reliable "current"
+// name to default to.
+type RenameMode = 'discovered' | 'snapshot'
 const renameDialogVisible = ref(false)
+const renameMode = ref<RenameMode>('discovered')
 const renameTargetLeague = ref<main.LeagueOverviewDTO | null>(null)
+const renameTargetSnapshot = ref<main.SnapshotExportCandidateDTO | null>(null)
 const renameValue = ref('')
 
 function openRenameDialog(league: main.LeagueOverviewDTO) {
+  renameMode.value = 'discovered'
   renameTargetLeague.value = league
   renameValue.value = league.name
+  renameDialogVisible.value = true
+}
+
+function openSnapshotExportDialog(candidate: main.SnapshotExportCandidateDTO) {
+  renameMode.value = 'snapshot'
+  renameTargetSnapshot.value = candidate
+  renameValue.value = ''
   renameDialogVisible.value = true
 }
 
@@ -150,6 +194,11 @@ function exportMenuItems(league: main.LeagueOverviewDTO): MenuItem[] {
 }
 
 async function confirmRenameExport() {
+  if (renameMode.value === 'snapshot') {
+    await confirmSnapshotExport()
+    return
+  }
+
   const league = renameTargetLeague.value
   if (!league) return
 
@@ -168,6 +217,87 @@ async function confirmRenameExport() {
     toast.add({ severity: 'error', summary: 'Export failed', detail: String(e), life: 5000 })
   } finally {
     exportingGUID.value = null
+  }
+}
+
+// ── From Snapshot tab ────────────────────────────────────────────────────────
+
+const snapshotCandidates = ref<main.SnapshotExportCandidateDTO[]>([])
+const loadingSnapshots = ref(false)
+const snapshotsError = ref<string | null>(null)
+const exportingSnapshotId = ref<number | null>(null)
+
+interface SnapshotGroup {
+  franchiseId: string
+  franchiseName: string
+  snapshots: main.SnapshotExportCandidateDTO[]
+}
+
+const snapshotGroups = computed<SnapshotGroup[]>(() => {
+  const byFranchise = new Map<string, SnapshotGroup>()
+  for (const candidate of snapshotCandidates.value) {
+    const group = byFranchise.get(candidate.franchiseId) ?? {
+      franchiseId: candidate.franchiseId,
+      franchiseName: candidate.franchiseName,
+      snapshots: [],
+    }
+    group.snapshots.push(candidate)
+    byFranchise.set(candidate.franchiseId, group)
+  }
+  for (const group of byFranchise.values()) {
+    group.snapshots.sort((a, b) => b.seasonNum - a.seasonNum)
+  }
+  return Array.from(byFranchise.values()).sort((a, b) => a.franchiseName.localeCompare(b.franchiseName))
+})
+
+function formatSnapshotCapturedAt(iso: string): string {
+  if (!iso) return ''
+  return new Date(iso).toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
+function formatSnapshotSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+async function loadSnapshotCandidates() {
+  loadingSnapshots.value = true
+  snapshotsError.value = null
+  try {
+    snapshotCandidates.value = (await ListSnapshotExportCandidates()) ?? []
+  } catch (e) {
+    snapshotsError.value = String(e)
+  } finally {
+    loadingSnapshots.value = false
+  }
+}
+
+async function confirmSnapshotExport() {
+  const candidate = renameTargetSnapshot.value
+  if (!candidate || !renameValue.value.trim()) return
+
+  exportingSnapshotId.value = candidate.snapshotId
+  try {
+    const outputPath = await ExportSnapshotAsLeague(candidate.franchiseId, candidate.snapshotId, renameValue.value)
+    toast.add({
+      severity: 'success',
+      summary: `Exported as "${renameValue.value.trim()}"`,
+      detail: outputPath,
+      life: 5000,
+    })
+    renameDialogVisible.value = false
+    await OpenLeagueExportDir(outputPath)
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Export failed', detail: String(e), life: 5000 })
+  } finally {
+    exportingSnapshotId.value = null
   }
 }
 
@@ -257,99 +387,156 @@ function resetImport() {
   <div class="lt-page">
     <TabView>
       <TabPanel value="0" header="Export">
-        <div class="tab-content">
-          <p class="tab-desc">
-            Export a league from any save file on this machine so you can share it with someone else. You can
-            export an empty league shell (just the teams/conferences/divisions setup, no games played) as well as
-            any actual save game (Franchise, Season, or Elimination) created from it.
-          </p>
-          <p class="tab-desc">
-            <strong>These are not the same thing.</strong> The shell is what shows up under Customizations in
-            SMB4. Exporting a save game only shares the in-progress Franchise/Season/Elimination itself. It does
-            not include the shell, so the recipient won't see a Customizations entry for it unless you export and
-            send the shell too.
-          </p>
-          <p class="tab-desc">
-            If you export the save game, the recipient can re-create the league shell by using the "Export to League"
-            option in-game.
-          </p>
+        <TabView class="export-subtabs">
+          <TabPanel value="0" header="From Save File">
+            <div class="tab-content">
+              <p class="tab-desc">
+                Export a league from any save file on this machine so you can share it with someone else. You can
+                export an empty league shell (just the teams/conferences/divisions setup, no games played) as well
+                as any actual save game (Franchise, Season, or Elimination) created from it.
+              </p>
+              <p class="tab-desc">
+                <strong>These are not the same thing.</strong> The shell is what shows up under Customizations in
+                SMB4. Exporting a save game only shares the in-progress Franchise/Season/Elimination itself. It does
+                not include the shell, so the recipient won't see a Customizations entry for it unless you export
+                and send the shell too.
+              </p>
+              <p class="tab-desc">
+                If you export the save game, the recipient can re-create the league shell by using the "Export to
+                League" option in-game.
+              </p>
 
-          <p v-if="leaguesError" class="error-text">{{ leaguesError }}</p>
+              <div class="browse-folder-row">
+                <AppButton variant="secondary" :disabled="browsingFolder" @click="browseExportFolder">
+                  {{ browsingFolder ? 'Scanning…' : 'Browse Folder…' }}
+                </AppButton>
+              </div>
 
-          <div v-if="loadingLeagues" class="progress-state">
-            <LoadingSpinner />
-            <p>Scanning save files…</p>
-          </div>
+              <p v-if="leaguesError" class="error-text">{{ leaguesError }}</p>
 
-          <div v-else-if="leagues.length === 0" class="empty-state">
-            <p>No leagues found on this machine.</p>
-          </div>
+              <div v-if="loadingLeagues" class="progress-state">
+                <LoadingSpinner />
+                <p>Scanning save files…</p>
+              </div>
 
-          <div v-else class="league-groups">
-            <div v-for="group in leagueGroups" :key="group.name" class="league-group">
-              <Accordion v-if="group.shell && group.realSaves.length > 0" multiple>
-                <AccordionPanel value="shell">
-                  <AccordionHeader as="div">
-                    <div class="league-row league-row--in-header">
+              <div v-else-if="leagues.length === 0" class="empty-state">
+                <p>No leagues found on this machine.</p>
+              </div>
+
+              <div v-else class="league-groups">
+                <div v-for="group in leagueGroups" :key="group.name" class="league-group">
+                  <Accordion v-if="group.shell && group.realSaves.length > 0" multiple>
+                    <AccordionPanel value="shell">
+                      <AccordionHeader as="div">
+                        <div class="league-row league-row--in-header">
+                          <div class="league-info">
+                            <span class="league-name">{{ group.name }}</span>
+                            <span class="league-stats">{{ statsSummary(group.shell) }}</span>
+                          </div>
+                          <div class="split-button-stop" @click.stop>
+                            <SplitButton
+                              :label="exportingGUID === group.shell.guid ? 'Exporting…' : 'Export Empty League'"
+                              size="small"
+                              :disabled="exportingGUID === group.shell.guid"
+                              :model="exportMenuItems(group.shell)"
+                              @click="exportLeague(group.shell)"
+                            />
+                          </div>
+                        </div>
+                        <template #toggleicon>
+                          <span class="toggle-slot">
+                            <i class="pi pi-chevron-down" />
+                          </span>
+                        </template>
+                      </AccordionHeader>
+                      <AccordionContent>
+                        <div v-for="save in group.realSaves" :key="save.guid" class="league-row">
+                          <div class="league-info">
+                            <Tag :value="modeLabel(save.mode)" :severity="modeSeverity(save.mode)" />
+                          </div>
+                          <SplitButton
+                            :label="exportingGUID === save.guid ? 'Exporting…' : 'Export Save Game Only'"
+                            size="small"
+                            :disabled="exportingGUID === save.guid"
+                            :model="exportMenuItems(save)"
+                            @click="exportLeague(save)"
+                          />
+                        </div>
+                      </AccordionContent>
+                    </AccordionPanel>
+                  </Accordion>
+
+                  <template v-else>
+                    <div v-for="entry in group.entries" :key="entry.guid" class="league-row">
                       <div class="league-info">
-                        <span class="league-name">{{ group.name }}</span>
-                        <span class="league-stats">{{ statsSummary(group.shell) }}</span>
-                      </div>
-                      <div class="split-button-stop" @click.stop>
-                        <SplitButton
-                          :label="exportingGUID === group.shell.guid ? 'Exporting…' : 'Export Empty League'"
-                          size="small"
-                          :disabled="exportingGUID === group.shell.guid"
-                          :model="exportMenuItems(group.shell)"
-                          @click="exportLeague(group.shell)"
-                        />
-                      </div>
-                    </div>
-                    <template #toggleicon>
-                      <span class="toggle-slot">
-                        <i class="pi pi-chevron-down" />
-                      </span>
-                    </template>
-                  </AccordionHeader>
-                  <AccordionContent>
-                    <div v-for="save in group.realSaves" :key="save.guid" class="league-row">
-                      <div class="league-info">
-                        <Tag :value="modeLabel(save.mode)" :severity="modeSeverity(save.mode)" />
+                        <span class="league-info-top">
+                          <span class="league-name">{{ entry.name }}</span>
+                          <Tag
+                            v-if="entry.mode !== 'none'"
+                            :value="modeLabel(entry.mode)"
+                            :severity="modeSeverity(entry.mode)"
+                          />
+                        </span>
+                        <span class="league-stats">{{ statsSummary(entry) }}</span>
                       </div>
                       <SplitButton
-                        :label="exportingGUID === save.guid ? 'Exporting…' : 'Export Save Game Only'"
+                        :label="exportingGUID === entry.guid ? 'Exporting…' : exportButtonLabel(entry)"
                         size="small"
-                        :disabled="exportingGUID === save.guid"
-                        :model="exportMenuItems(save)"
-                        @click="exportLeague(save)"
+                        :disabled="exportingGUID === entry.guid"
+                        :model="exportMenuItems(entry)"
+                        @click="exportLeague(entry)"
                       />
+                      <span class="toggle-slot" />
                     </div>
-                  </AccordionContent>
-                </AccordionPanel>
-              </Accordion>
-
-              <template v-else>
-                <div v-for="entry in group.entries" :key="entry.guid" class="league-row">
-                  <div class="league-info">
-                    <span class="league-info-top">
-                      <span class="league-name">{{ entry.name }}</span>
-                      <Tag v-if="entry.mode !== 'none'" :value="modeLabel(entry.mode)" :severity="modeSeverity(entry.mode)" />
-                    </span>
-                    <span class="league-stats">{{ statsSummary(entry) }}</span>
-                  </div>
-                  <SplitButton
-                    :label="exportingGUID === entry.guid ? 'Exporting…' : exportButtonLabel(entry)"
-                    size="small"
-                    :disabled="exportingGUID === entry.guid"
-                    :model="exportMenuItems(entry)"
-                    @click="exportLeague(entry)"
-                  />
-                  <span class="toggle-slot" />
+                  </template>
                 </div>
-              </template>
+              </div>
             </div>
-          </div>
-        </div>
+          </TabPanel>
+
+          <TabPanel value="1" header="From Franchise Snapshot">
+            <div class="tab-content">
+              <p class="tab-desc">
+                Export a franchise snapshot — a point-in-time save captured automatically while tracking a
+                franchise — as a shareable league save game. The export gets a freshly generated league identity
+                and a name you choose; it does not affect the franchise or its snapshots in any way.
+              </p>
+
+              <p v-if="snapshotsError" class="error-text">{{ snapshotsError }}</p>
+
+              <div v-if="loadingSnapshots" class="progress-state">
+                <LoadingSpinner />
+                <p>Loading franchise snapshots…</p>
+              </div>
+
+              <div v-else-if="snapshotGroups.length === 0" class="empty-state">
+                <p>No franchise snapshots found.</p>
+              </div>
+
+              <div v-else class="snapshot-groups">
+                <div v-for="group in snapshotGroups" :key="group.franchiseId" class="snapshot-group">
+                  <h3 class="snapshot-group-name">{{ group.franchiseName }}</h3>
+                  <div v-for="snap in group.snapshots" :key="snap.snapshotId" class="league-row">
+                    <div class="league-info">
+                      <span class="league-name">Season {{ snap.seasonNum }}</span>
+                      <span class="league-stats">
+                        {{ formatSnapshotCapturedAt(snap.capturedAt) }} · {{ formatSnapshotSize(snap.fileSizeBytes) }}
+                      </span>
+                    </div>
+                    <AppButton
+                      variant="primary"
+                      size="sm"
+                      :disabled="exportingSnapshotId === snap.snapshotId"
+                      @click="openSnapshotExportDialog(snap)"
+                    >
+                      {{ exportingSnapshotId === snap.snapshotId ? 'Exporting…' : 'Export Save Game Only' }}
+                    </AppButton>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </TabPanel>
+        </TabView>
       </TabPanel>
 
       <TabPanel value="1" header="Import">
@@ -433,22 +620,31 @@ function resetImport() {
       </TabPanel>
     </TabView>
 
-    <Dialog v-model:visible="renameDialogVisible" modal header="Export with New Name" :style="{ width: '420px' }">
+    <Dialog
+      v-model:visible="renameDialogVisible"
+      modal
+      :header="renameMode === 'snapshot' ? 'Export Snapshot' : 'Export with New Name'"
+      :style="{ width: '420px' }"
+    >
       <div class="rename-dialog-body">
         <label class="rename-label" for="rename-input">New league name</label>
         <InputText id="rename-input" v-model="renameValue" autofocus class="rename-input" />
       </div>
 
       <template #footer>
-        <AppButton variant="secondary" :disabled="exportingGUID !== null" @click="renameDialogVisible = false">
+        <AppButton
+          variant="secondary"
+          :disabled="exportingGUID !== null || exportingSnapshotId !== null"
+          @click="renameDialogVisible = false"
+        >
           Cancel
         </AppButton>
         <AppButton
           variant="primary"
-          :disabled="exportingGUID !== null || !renameValue.trim()"
+          :disabled="exportingGUID !== null || exportingSnapshotId !== null || !renameValue.trim()"
           @click="confirmRenameExport"
         >
-          {{ exportingGUID !== null ? 'Exporting…' : 'Export' }}
+          {{ exportingGUID !== null || exportingSnapshotId !== null ? 'Exporting…' : 'Export' }}
         </AppButton>
       </template>
     </Dialog>
@@ -468,6 +664,10 @@ function resetImport() {
   flex-direction: column;
   gap: 1.25rem;
   padding-top: 0.5rem;
+}
+
+.export-subtabs :deep(.p-tabview-nav) {
+  margin-top: -0.5rem;
 }
 
 .tab-desc {
@@ -492,6 +692,30 @@ function resetImport() {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.browse-folder-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.snapshot-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.snapshot-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.snapshot-group-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
 }
 
 .league-group :deep(.p-accordion),

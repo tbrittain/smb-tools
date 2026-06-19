@@ -48,7 +48,24 @@ func (s *LeagueTransferService) DiscoverLeagues(ctx context.Context) ([]models.L
 	if err != nil {
 		return nil, fmt.Errorf("discovering save files: %w", err)
 	}
+	return s.overviewsFromCandidates(ctx, candidates), nil
+}
 
+// DiscoverLeaguesInDir behaves like DiscoverLeagues, except it scans a single
+// caller-supplied directory (and its immediate subdirectories) instead of the
+// default Steam/Metalhead locations — the League Transfer equivalent of
+// franchise creation's BrowseSaveDirectory, for users whose save files live
+// somewhere non-standard.
+func (s *LeagueTransferService) DiscoverLeaguesInDir(ctx context.Context, dir string) []models.LeagueOverview {
+	candidates := config.ScanDirShallow(dir, models.GameVersionSMB4)
+	return s.overviewsFromCandidates(ctx, candidates)
+}
+
+// overviewsFromCandidates reads every SMB4 candidate's league overview,
+// logging and skipping (rather than failing outright) any save that can't be
+// read or doesn't validate — one bad file shouldn't hide every other league
+// from the list.
+func (s *LeagueTransferService) overviewsFromCandidates(ctx context.Context, candidates []config.SaveGameCandidate) []models.LeagueOverview {
 	overviews := []models.LeagueOverview{}
 	for _, c := range candidates {
 		if c.GameVersion != models.GameVersionSMB4 {
@@ -57,12 +74,12 @@ func (s *LeagueTransferService) DiscoverLeagues(ctx context.Context) ([]models.L
 
 		overview, err := s.readLeagueOverview(ctx, c.Path)
 		if err != nil {
-			slog.Warn("LeagueTransferService.DiscoverLeagues: skipping unreadable league save", "path", c.Path, "err", err)
+			slog.Warn("LeagueTransferService: skipping unreadable league save", "path", c.Path, "err", err)
 			continue
 		}
 		overviews = append(overviews, overview)
 	}
-	return overviews, nil
+	return overviews
 }
 
 func (s *LeagueTransferService) readLeagueOverview(ctx context.Context, savPath string) (models.LeagueOverview, error) {
@@ -221,6 +238,88 @@ func (s *LeagueTransferService) ExportLeagueWithRename(ctx context.Context, guid
 	}
 
 	slog.Info("LeagueTransferService.ExportLeagueWithRename: exported", "league", newName, "guid", exportGUID, "output", outputPath)
+	return outputPath, nil
+}
+
+// ExportSnapshot packages a franchise snapshot — an already-decompressed,
+// league-shaped SQLite file with no GUID-bearing filename and no .sav.bak —
+// into a league export zip. Unlike ExportLeague/ExportLeagueWithRename, the
+// source is never a live save: it's read into a temp working copy, the
+// snapshot file at snapshotSqlitePath itself is never opened read-write or
+// otherwise mutated, since it's the franchise's immutable historical record.
+//
+// newName is mandatory (unlike ExportLeague, there is no "export as-is"
+// option for a snapshot — a snapshot has no reliable "current" league name
+// to default to). A fresh GUID is always minted for the export: a snapshot
+// carries no GUID identity worth preserving, since it's a point-in-time
+// artifact, not the live league as it exists today.
+//
+// The synthesized .sav.bak is a byte-identical copy of the synthesized .sav
+// — snapshots have no real game-produced backup to carry over.
+func (s *LeagueTransferService) ExportSnapshot(ctx context.Context, snapshotSqlitePath, newName string) (outputPath string, err error) {
+	newName = strings.TrimSpace(newName)
+	if newName == "" {
+		return "", fmt.Errorf("new league name must not be empty")
+	}
+
+	workDir, err := os.MkdirTemp("", "smb-tools-snapshot-export-*")
+	if err != nil {
+		return "", fmt.Errorf("creating temp directory: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(workDir) }()
+
+	rawPath := filepath.Join(workDir, "snapshot.sqlite")
+	if err := copyFile(snapshotSqlitePath, rawPath); err != nil {
+		return "", fmt.Errorf("copying snapshot: %w", err)
+	}
+
+	db, err := internaldb.OpenForReadWrite(ctx, rawPath)
+	if err != nil {
+		return "", err
+	}
+
+	saveStore := store.NewLeagueSaveStore(db)
+	if err := saveStore.ValidateLeagueSaveShape(ctx); err != nil {
+		_ = db.Close()
+		return "", fmt.Errorf("snapshot failed validation: %w", err)
+	}
+
+	oldGUID, err := saveStore.GetSoleLeagueGUID(ctx)
+	if err != nil {
+		_ = db.Close()
+		return "", fmt.Errorf("reading league GUID from snapshot: %w", err)
+	}
+
+	newGUID := s.newGUID()
+	if err := saveStore.RewriteLeagueGUID(ctx, db, oldGUID, newGUID); err != nil {
+		_ = db.Close()
+		return "", err
+	}
+	if err := saveStore.RenameLeague(ctx, newGUID, newName); err != nil {
+		_ = db.Close()
+		return "", err
+	}
+	if err := db.Close(); err != nil {
+		return "", fmt.Errorf("closing exported snapshot: %w", err)
+	}
+
+	upper := strings.ToUpper(newGUID.String())
+	savPath := filepath.Join(workDir, "league-"+upper+".sav")
+	if err := internaldb.CompressFileAtomically(rawPath, savPath); err != nil {
+		return "", fmt.Errorf("compressing snapshot export: %w", err)
+	}
+
+	bakPath := savPath + ".bak"
+	if err := copyFile(savPath, bakPath); err != nil {
+		return "", fmt.Errorf("creating .bak copy: %w", err)
+	}
+
+	outputPath, err = s.packExport(newGUID, newName, savPath, bakPath, "")
+	if err != nil {
+		return "", err
+	}
+
+	slog.Info("LeagueTransferService.ExportSnapshot: exported", "league", newName, "guid", newGUID, "output", outputPath)
 	return outputPath, nil
 }
 

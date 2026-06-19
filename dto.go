@@ -1507,6 +1507,19 @@ type LeagueOverviewDTO struct {
 	Mode string `json:"mode"`
 }
 
+// SnapshotExportCandidateDTO is one franchise snapshot offered for export as
+// a league save via App.ExportSnapshotAsLeague. Unlike LeagueOverviewDTO,
+// there is no league name or GUID to show — a snapshot is identified by
+// which franchise captured it, the season number, and when.
+type SnapshotExportCandidateDTO struct {
+	FranchiseID   string `json:"franchiseId"`
+	FranchiseName string `json:"franchiseName"`
+	SnapshotID    int64  `json:"snapshotId"`
+	SeasonNum     int    `json:"seasonNum"`
+	CapturedAt    string `json:"capturedAt"` // ISO-8601
+	FileSizeBytes int64  `json:"fileSizeBytes"`
+}
+
 // ImportTargetOptionDTO is one Steam profile directory a league import
 // could register into.
 type ImportTargetOptionDTO struct {

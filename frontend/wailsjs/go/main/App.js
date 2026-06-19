@@ -10,6 +10,10 @@ export function AssignExistingTeamLogo(arg1, arg2, arg3) {
   return window['go']['main']['App']['AssignExistingTeamLogo'](arg1, arg2, arg3);
 }
 
+export function BrowseLeagueExportDirectory() {
+  return window['go']['main']['App']['BrowseLeagueExportDirectory']();
+}
+
 export function BrowseLeagueImportZip() {
   return window['go']['main']['App']['BrowseLeagueImportZip']();
 }
@@ -84,6 +88,10 @@ export function ExportLeague(arg1, arg2) {
 
 export function ExportLeagueWithRename(arg1, arg2, arg3) {
   return window['go']['main']['App']['ExportLeagueWithRename'](arg1, arg2, arg3);
+}
+
+export function ExportSnapshotAsLeague(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ExportSnapshotAsLeague'](arg1, arg2, arg3);
 }
 
 export function ExportToCSV(arg1) {
@@ -252,6 +260,10 @@ export function ListFranchises() {
 
 export function ListLegacyFranchises(arg1) {
   return window['go']['main']['App']['ListLegacyFranchises'](arg1);
+}
+
+export function ListSnapshotExportCandidates() {
+  return window['go']['main']['App']['ListSnapshotExportCandidates']();
 }
 
 export function ListSnapshots() {

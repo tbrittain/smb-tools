@@ -194,6 +194,42 @@ func (s *LeagueSaveStore) RenameLeague(ctx context.Context, guid uuid.UUID, newN
 	return nil
 }
 
+// GetSoleLeagueGUID returns the GUID of the single league a save is expected
+// to contain. Unlike a live league-{GUID}.sav file, a franchise snapshot
+// carries no GUID in its filename, so the GUID has to be read out of the
+// database content itself before it can be rewritten (see
+// LeagueTransferService.ExportSnapshot). Errors if t_leagues doesn't have
+// exactly one row — a league save is single-league by design.
+func (s *LeagueSaveStore) GetSoleLeagueGUID(ctx context.Context) (uuid.UUID, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT GUID FROM t_leagues`)
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("querying t_leagues: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var guids [][]byte
+	for rows.Next() {
+		var guidBytes []byte
+		if err := rows.Scan(&guidBytes); err != nil {
+			return uuid.UUID{}, fmt.Errorf("scanning league GUID: %w", err)
+		}
+		guids = append(guids, guidBytes)
+	}
+	if err := rows.Err(); err != nil {
+		return uuid.UUID{}, fmt.Errorf("iterating t_leagues: %w", err)
+	}
+
+	if len(guids) != 1 {
+		return uuid.UUID{}, fmt.Errorf("expected exactly one league in t_leagues, found %d", len(guids))
+	}
+
+	guid, err := uuid.FromBytes(guids[0])
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("parsing league GUID: %w", err)
+	}
+	return guid, nil
+}
+
 // guidNamePair is scanned from any of the GUID/name queries below. Each
 // level's rows are fully drained into a slice of these before any nested
 // query is issued for the next level down — issuing a nested query while
