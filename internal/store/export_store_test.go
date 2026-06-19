@@ -2,6 +2,7 @@ package store_test
 
 import (
 	"context"
+	"database/sql"
 	"encoding/csv"
 	"fmt"
 	"strings"
@@ -268,6 +269,435 @@ VALUES (?,?,3,50,20,70,68,5,2,0,540,200,80,10,60,300,5,270,2,90,3,1800)
 	}
 	if w, _ := preview.Rows[0]["wins"].(int64); w != 50 {
 		t.Errorf("wins: want 50, got %v", preview.Rows[0]["wins"])
+	}
+}
+
+// ── Prior team tests (sort_order=1 — most recent team before a mid-season trade) ──
+
+func TestPreviewExportData_PriorTeamName_TradedPlayer(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	fromTeam := seedTeam(t, db, "team-traded-from")
+	toTeam := seedTeam(t, db, "team-traded-to")
+	hFrom := seedTeamHistory(t, db, fromTeam, s1, "Origin Squad", "East", "NL", 15, 25)
+	hTo := seedTeamHistory(t, db, toTeam, s1, "Landing Squad", "West", "NL", 25, 15)
+	p := seedPlayer(t, db, "guid-traded", "Traded", "Player")
+	// seedPlayerSeason inserts sort_order=0 for hTo (the current/final team).
+	ps := seedPlayerSeason(t, db, p, s1, &hTo)
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO player_season_teams (player_season_id, team_history_id, sort_order) VALUES (?, ?, 1)`,
+		ps, hFrom,
+	); err != nil {
+		t.Fatalf("seed prior team: %v", err)
+	}
+	seedBatting(t, db, ps, true, 400, 120, 20, 80)
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID: "batting_season",
+		Columns:   []string{"player_name", "team_name", "prior_team_name"},
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData: %v", err)
+	}
+	if preview.TotalCount != 1 {
+		t.Fatalf("TotalCount: want 1, got %d", preview.TotalCount)
+	}
+	row := preview.Rows[0]
+	if name, _ := row["team_name"].(string); name != "Landing Squad" {
+		t.Errorf("team_name: want %q, got %v", "Landing Squad", row["team_name"])
+	}
+	if name, _ := row["prior_team_name"].(string); name != "Origin Squad" {
+		t.Errorf("prior_team_name: want %q, got %v", "Origin Squad", row["prior_team_name"])
+	}
+	if tid, _ := row["_prior_team_id"].(int64); tid != fromTeam {
+		t.Errorf("_prior_team_id: want %d, got %v", fromTeam, row["_prior_team_id"])
+	}
+	if thid, _ := row["_prior_team_history_id"].(int64); thid != hFrom {
+		t.Errorf("_prior_team_history_id: want %d, got %v", hFrom, row["_prior_team_history_id"])
+	}
+}
+
+func TestPreviewExportData_PriorTeamName_EmptyForSingleTeamPlayer(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	teamID := seedTeam(t, db, "team-single")
+	h1 := seedTeamHistory(t, db, teamID, s1, "Only Team", "East", "NL", 20, 20)
+	p := seedPlayer(t, db, "guid-single", "Single", "Team")
+	ps := seedPlayerSeason(t, db, p, s1, &h1)
+	seedBatting(t, db, ps, true, 400, 120, 20, 80)
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID: "batting_season",
+		Columns:   []string{"player_name", "prior_team_name"},
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData: %v", err)
+	}
+	if name, _ := preview.Rows[0]["prior_team_name"].(string); name != "" {
+		t.Errorf("prior_team_name: want empty string, got %v", preview.Rows[0]["prior_team_name"])
+	}
+	if v := preview.Rows[0]["_prior_team_id"]; v != nil {
+		t.Errorf("_prior_team_id: want nil (NULL) for a single-team player, got %v", v)
+	}
+}
+
+func TestExportToCSV_PriorTeamNameColumn(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	fromTeam := seedTeam(t, db, "team-csv-from")
+	toTeam := seedTeam(t, db, "team-csv-to")
+	hFrom := seedTeamHistory(t, db, fromTeam, s1, "CSV Origin", "East", "NL", 15, 25)
+	hTo := seedTeamHistory(t, db, toTeam, s1, "CSV Landing", "West", "NL", 25, 15)
+	p := seedPlayer(t, db, "guid-csv-traded", "CSV", "Traded")
+	ps := seedPlayerSeason(t, db, p, s1, &hTo)
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO player_season_teams (player_season_id, team_history_id, sort_order) VALUES (?, ?, 1)`,
+		ps, hFrom,
+	); err != nil {
+		t.Fatalf("seed prior team: %v", err)
+	}
+	seedBatting(t, db, ps, true, 300, 90, 15, 50)
+
+	data, err := store.NewExportStore(db).ExportToCSV(ctx, store.ExportOptions{
+		DatasetID: "batting_season",
+		Columns:   []string{"player_name", "team_name", "prior_team_name"},
+	})
+	if err != nil {
+		t.Fatalf("ExportToCSV: %v", err)
+	}
+	records, err := csv.NewReader(strings.NewReader(string(data))).ReadAll()
+	if err != nil {
+		t.Fatalf("parse CSV: %v", err)
+	}
+	if records[1][1] != "CSV Landing" || records[1][2] != "CSV Origin" {
+		t.Errorf("row: want [.., CSV Landing, CSV Origin], got %v", records[1])
+	}
+}
+
+// ── Link column tests (AppLink navigation IDs) ────────────────────────────────
+
+func TestPreviewExportData_IncludesLinkColumns(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	teamID := seedTeam(t, db, "team-link")
+	h1 := seedTeamHistory(t, db, teamID, s1, "Link Team", "East", "NL", 30, 10)
+	p := seedPlayer(t, db, "guid-link", "Link", "Player")
+	ps := seedPlayerSeason(t, db, p, s1, &h1)
+	seedBatting(t, db, ps, true, 400, 120, 20, 80)
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID: "batting_season",
+		// Caller did not request the link IDs as a column — they should still
+		// be attached automatically since this is the preview path.
+		Columns: []string{"player_name", "team_name"},
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData: %v", err)
+	}
+	if len(preview.Rows) != 1 {
+		t.Fatalf("rows: want 1, got %d", len(preview.Rows))
+	}
+	row := preview.Rows[0]
+	if pid, _ := row["_player_id"].(int64); pid != p {
+		t.Errorf("_player_id: want %d, got %v", p, row["_player_id"])
+	}
+	if tid, _ := row["_team_id"].(int64); tid != teamID {
+		t.Errorf("_team_id: want %d, got %v", teamID, row["_team_id"])
+	}
+	if thid, _ := row["_team_history_id"].(int64); thid != h1 {
+		t.Errorf("_team_history_id: want %d, got %v", h1, row["_team_history_id"])
+	}
+}
+
+func TestPreviewExportData_LinkColumnsAbsentWhenDatasetHasNone(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	p := seedPlayer(t, db, "guid-link-cb", "Carol", "Career")
+	_, err := db.ExecContext(ctx, `
+INSERT INTO player_career_batting_stats
+    (player_id, stat_type, seasons_played, games_played, games_batting, at_bats,
+     runs, hits, doubles, triples, home_runs, rbi, stolen_bases, caught_stealing,
+     walks, strikeouts, hit_by_pitch, sac_hits, sac_flies, errors, passed_balls)
+VALUES (?,?,2,100,100,350,0,100,0,0,30,90,0,0,0,0,0,0,0,0,0)
+`, p, "regular_season")
+	if err != nil {
+		t.Fatalf("seed career batting: %v", err)
+	}
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:      "career_batting",
+		Columns:        []string{"player_name"},
+		CareerStatType: "regular_season",
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData: %v", err)
+	}
+	row := preview.Rows[0]
+	if pid, _ := row["_player_id"].(int64); pid != p {
+		t.Errorf("_player_id: want %d, got %v", p, row["_player_id"])
+	}
+	if _, ok := row["_team_id"]; ok {
+		t.Error("career_batting has no team join — _team_id should not be present")
+	}
+}
+
+func TestExportToCSV_NeverIncludesLinkColumns(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	teamID := seedTeam(t, db, "team-csvlink")
+	h1 := seedTeamHistory(t, db, teamID, s1, "CSV Link Team", "East", "NL", 30, 10)
+	p := seedPlayer(t, db, "guid-csvlink", "CSV", "Link")
+	ps := seedPlayerSeason(t, db, p, s1, &h1)
+	seedBatting(t, db, ps, true, 400, 120, 20, 80)
+
+	data, err := store.NewExportStore(db).ExportToCSV(ctx, store.ExportOptions{
+		DatasetID: "batting_season",
+		Columns:   []string{"player_name", "team_name", "home_runs"},
+	})
+	if err != nil {
+		t.Fatalf("ExportToCSV: %v", err)
+	}
+
+	records, err := csv.NewReader(strings.NewReader(string(data))).ReadAll()
+	if err != nil {
+		t.Fatalf("parse CSV: %v", err)
+	}
+	want := []string{"Player", "Team", "HR"}
+	if len(records[0]) != len(want) {
+		t.Fatalf("header length: want %d cols (no link IDs), got %d: %v", len(want), len(records[0]), records[0])
+	}
+}
+
+// ── Qualified-players toggle tests ─────────────────────────────────────────────
+
+func TestPreviewExportData_QualifiedOnly_BattingSeason(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	teamID := seedTeam(t, db, "team-qual-bat")
+	h1 := seedTeamHistory(t, db, teamID, s1, "Qual Team", "East", "NL", 30, 10)
+	qualified := seedPlayer(t, db, "guid-qual-bat", "Qualified", "Batter")
+	unqualified := seedPlayer(t, db, "guid-unqual-bat", "Unqualified", "Batter")
+	psQ := seedPlayerSeason(t, db, qualified, s1, &h1)
+	psU := seedPlayerSeason(t, db, unqualified, s1, &h1)
+
+	// Both played a full 40-game season (max_gp=40, threshold = 40*3.1 = 124 PA).
+	insertBattingPA(t, db, psQ, 40, 150)
+	insertBattingPA(t, db, psU, 40, 100)
+
+	unfiltered, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID: "batting_season",
+		Columns:   []string{"player_name"},
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData (unfiltered): %v", err)
+	}
+	if unfiltered.TotalCount != 2 {
+		t.Fatalf("unfiltered TotalCount: want 2, got %d", unfiltered.TotalCount)
+	}
+
+	qualifiedOnly, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:     "batting_season",
+		Columns:       []string{"player_name"},
+		QualifiedOnly: true,
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData (qualified only): %v", err)
+	}
+	if qualifiedOnly.TotalCount != 1 {
+		t.Fatalf("qualified-only TotalCount: want 1, got %d", qualifiedOnly.TotalCount)
+	}
+	if name, _ := qualifiedOnly.Rows[0]["player_name"].(string); name != "Qualified Batter" {
+		t.Errorf("player_name: want %q, got %v", "Qualified Batter", qualifiedOnly.Rows[0]["player_name"])
+	}
+}
+
+func TestPreviewExportData_QualifiedOnly_PitchingSeason(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	teamID := seedTeam(t, db, "team-qual-pit")
+	h1 := seedTeamHistory(t, db, teamID, s1, "Qual Pit Team", "East", "NL", 30, 10)
+	batter := seedPlayer(t, db, "guid-qual-pit-bat", "Some", "Batter")
+	psB := seedPlayerSeason(t, db, batter, s1, &h1)
+	// Establishes max_gp=40 for this season — pitching qualifying borrows the
+	// batting table's games-played max, same as leaderboard_query.go.
+	insertBattingPA(t, db, psB, 40, 130)
+
+	qualified := seedPlayer(t, db, "guid-qual-pit", "Qualified", "Pitcher")
+	unqualified := seedPlayer(t, db, "guid-unqual-pit", "Unqualified", "Pitcher")
+	psQ := seedPlayerSeason(t, db, qualified, s1, &h1)
+	psU := seedPlayerSeason(t, db, unqualified, s1, &h1)
+	seedPitching(t, db, psQ, true, 10, 5, 130, 50, 100) // outs=130 >= 40*3=120
+	seedPitching(t, db, psU, true, 5, 10, 100, 50, 80)  // outs=100 < 120
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:     "pitching_season",
+		Columns:       []string{"player_name"},
+		QualifiedOnly: true,
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData: %v", err)
+	}
+	if preview.TotalCount != 1 {
+		t.Fatalf("TotalCount: want 1, got %d", preview.TotalCount)
+	}
+	if name, _ := preview.Rows[0]["player_name"].(string); name != "Qualified Pitcher" {
+		t.Errorf("player_name: want %q, got %v", "Qualified Pitcher", preview.Rows[0]["player_name"])
+	}
+}
+
+func TestPreviewExportData_QualifiedOnly_CareerBatting(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	// num_games=162 → threshold = 162 * 3000/162 = 3000 plate appearances.
+	seedSeason(t, db, 1, 1, 162)
+
+	qualified := seedPlayer(t, db, "guid-qual-cb", "Qualified", "Career")
+	unqualified := seedPlayer(t, db, "guid-unqual-cb", "Unqualified", "Career")
+	insertCareerBatting(t, db, qualified, 3100, 0)
+	insertCareerBatting(t, db, unqualified, 2000, 0)
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:     "career_batting",
+		Columns:       []string{"player_name"},
+		QualifiedOnly: true,
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData: %v", err)
+	}
+	if preview.TotalCount != 1 {
+		t.Fatalf("TotalCount: want 1, got %d", preview.TotalCount)
+	}
+	if name, _ := preview.Rows[0]["player_name"].(string); name != "Qualified Career" {
+		t.Errorf("player_name: want %q, got %v", "Qualified Career", preview.Rows[0]["player_name"])
+	}
+}
+
+func TestPreviewExportData_QualifiedOnly_CareerPitching(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	// num_games=162 → threshold = 3000 outs pitched.
+	seedSeason(t, db, 1, 1, 162)
+
+	qualified := seedPlayer(t, db, "guid-qual-cp", "Qualified", "Pitcher")
+	unqualified := seedPlayer(t, db, "guid-unqual-cp", "Unqualified", "Pitcher")
+	insertCareerPitching(t, db, qualified, 3100)
+	insertCareerPitching(t, db, unqualified, 2000)
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:     "career_pitching",
+		Columns:       []string{"player_name"},
+		QualifiedOnly: true,
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData: %v", err)
+	}
+	if preview.TotalCount != 1 {
+		t.Fatalf("TotalCount: want 1, got %d", preview.TotalCount)
+	}
+	if name, _ := preview.Rows[0]["player_name"].(string); name != "Qualified Pitcher" {
+		t.Errorf("player_name: want %q, got %v", "Qualified Pitcher", preview.Rows[0]["player_name"])
+	}
+}
+
+func TestExportToCSV_QualifiedOnlyApplied(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	s1 := seedSeason(t, db, 1, 1, 40)
+	teamID := seedTeam(t, db, "team-qual-csv")
+	h1 := seedTeamHistory(t, db, teamID, s1, "Qual CSV Team", "East", "NL", 30, 10)
+	qualified := seedPlayer(t, db, "guid-qual-csv", "Qualified", "Hitter")
+	unqualified := seedPlayer(t, db, "guid-unqual-csv", "Unqualified", "Hitter")
+	psQ := seedPlayerSeason(t, db, qualified, s1, &h1)
+	psU := seedPlayerSeason(t, db, unqualified, s1, &h1)
+	insertBattingPA(t, db, psQ, 40, 150)
+	insertBattingPA(t, db, psU, 40, 100)
+
+	data, err := store.NewExportStore(db).ExportToCSV(ctx, store.ExportOptions{
+		DatasetID:     "batting_season",
+		Columns:       []string{"player_name"},
+		QualifiedOnly: true,
+	})
+	if err != nil {
+		t.Fatalf("ExportToCSV: %v", err)
+	}
+	records, err := csv.NewReader(strings.NewReader(string(data))).ReadAll()
+	if err != nil {
+		t.Fatalf("parse CSV: %v", err)
+	}
+	if got := len(records) - 1; got != 1 {
+		t.Fatalf("data rows: want 1, got %d", got)
+	}
+	if records[1][0] != "Qualified Hitter" {
+		t.Errorf("row: want %q, got %q", "Qualified Hitter", records[1][0])
+	}
+}
+
+// insertBattingPA seeds a regular-season batting row with independently
+// controllable games_played and plate_appearances — seedBatting ties both
+// (and at_bats) to the same value, which can't express the qualifying-threshold
+// scenarios these tests need.
+func insertBattingPA(t *testing.T, db *sql.DB, playerSeasonID int64, gamesPlayed, plateAppearances int) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(), `
+INSERT INTO player_season_batting_stats
+    (player_season_id, is_regular_season, games_played, games_batting,
+     at_bats, plate_appearances, runs, hits, doubles, triples, home_runs, rbi,
+     stolen_bases, caught_stealing, walks, strikeouts, hit_by_pitch,
+     sac_hits, sac_flies, errors, passed_balls)
+VALUES (?,1,?,?,?,?,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
+`, playerSeasonID, gamesPlayed, gamesPlayed, plateAppearances, plateAppearances)
+	if err != nil {
+		t.Fatalf("insertBattingPA: %v", err)
+	}
+}
+
+// insertCareerBatting seeds a player_career_batting_stats row whose plate
+// appearances equal exactly atBats (no walks/HBP/sac), for qualifying-threshold tests.
+func insertCareerBatting(t *testing.T, db *sql.DB, playerID int64, atBats, homeRuns int) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(), `
+INSERT INTO player_career_batting_stats
+    (player_id, stat_type, seasons_played, games_played, games_batting, at_bats,
+     runs, hits, doubles, triples, home_runs, rbi, stolen_bases, caught_stealing,
+     walks, strikeouts, hit_by_pitch, sac_hits, sac_flies, errors, passed_balls)
+VALUES (?,'regular_season',1,?,?,?,0,0,0,0,?,0,0,0,0,0,0,0,0,0,0)
+`, playerID, atBats, atBats, atBats, homeRuns)
+	if err != nil {
+		t.Fatalf("insertCareerBatting: %v", err)
+	}
+}
+
+// insertCareerPitching seeds a player_career_pitching_stats row with the given outs_pitched.
+func insertCareerPitching(t *testing.T, db *sql.DB, playerID int64, outsPitched int) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(), `
+INSERT INTO player_career_pitching_stats
+    (player_id, stat_type, seasons_played, wins, losses, games, games_started,
+     complete_games, shutouts, saves, outs_pitched, hits_allowed, earned_runs,
+     home_runs_allowed, walks, strikeouts, hit_batters, batters_faced,
+     games_finished, runs_allowed, wild_pitches, total_pitches)
+VALUES (?,'regular_season',1,0,0,0,0,0,0,0,?,0,0,0,0,0,0,0,0,0,0,0)
+`, playerID, outsPitched)
+	if err != nil {
+		t.Fatalf("insertCareerPitching: %v", err)
 	}
 }
 

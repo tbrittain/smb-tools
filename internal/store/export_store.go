@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/csv"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -24,8 +25,13 @@ type exportColumn struct {
 type datasetDef struct {
 	id      string
 	label   string
-	fromSQL string            // everything after SELECT ... (FROM + JOINs + fixed WHERE conditions)
+	fromSQL string // everything after SELECT ... (FROM + JOINs + fixed WHERE conditions)
 	cols    map[string]exportColumn
+	// linkCols are extra SQL expressions (keyed by row key) selected only by
+	// PreviewExportData, never by ExportToCSV. They give the frontend the raw
+	// IDs needed to render AppLink navigation (player/team detail pages)
+	// without those IDs ever leaking into the CSV export.
+	linkCols map[string]string
 }
 
 // validFilterOps is the set of filter operators accepted in FilterRow.Op.
@@ -49,48 +55,58 @@ JOIN player_seasons ps ON ps.id = bs.player_season_id
 JOIN players p         ON p.id  = ps.player_id
 JOIN seasons s         ON s.id  = ps.season_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
-LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
+LEFT JOIN player_season_teams pst1 ON pst1.player_season_id = ps.id AND pst1.sort_order = 1
+LEFT JOIN team_season_history tsh1 ON tsh1.id = pst1.team_history_id`,
 	cols: map[string]exportColumn{
-		"player_name":     {`p.first_name || ' ' || p.last_name`, "Player", "string"},
-		"first_name":      {`p.first_name`, "First Name", "string"},
-		"last_name":       {`p.last_name`, "Last Name", "string"},
-		"season_num":      {`s.season_num`, "Season", "int"},
-		"team_name":       {`COALESCE(tsh.team_name, '')`, "Team", "string"},
-		"age":             {`ps.age`, "Age", "int"},
+		"player_name":      {`p.first_name || ' ' || p.last_name`, "Player", "string"},
+		"first_name":       {`p.first_name`, "First Name", "string"},
+		"last_name":        {`p.last_name`, "Last Name", "string"},
+		"season_num":       {`s.season_num`, "Season", "int"},
+		"team_name":        {`COALESCE(tsh.team_name, '')`, "Team", "string"},
+		"prior_team_name":  {`COALESCE(tsh1.team_name, '')`, "Prior Team", "string"},
+		"age":              {`ps.age`, "Age", "int"},
 		"primary_position": {`ps.primary_position`, "Position", "string"},
-		"bat_hand":        {`ps.bat_hand`, "Bat Hand", "string"},
-		"throw_hand":      {`ps.throw_hand`, "Throw Hand", "string"},
-		"chemistry_type":  {`ps.chemistry_type`, "Chemistry", "string"},
-		"salary":          {`ps.salary`, "Salary", "int"},
-		"games_played":    {`bs.games_played`, "G", "int"},
-		"games_batting":   {`bs.games_batting`, "G Bat", "int"},
-		"at_bats":         {`bs.at_bats`, "AB", "int"},
-		"runs":            {`bs.runs`, "R", "int"},
-		"hits":            {`bs.hits`, "H", "int"},
-		"doubles":         {`bs.doubles`, "2B", "int"},
-		"triples":         {`bs.triples`, "3B", "int"},
-		"home_runs":       {`bs.home_runs`, "HR", "int"},
-		"rbi":             {`bs.rbi`, "RBI", "int"},
-		"stolen_bases":    {`bs.stolen_bases`, "SB", "int"},
-		"caught_stealing": {`bs.caught_stealing`, "CS", "int"},
-		"walks":           {`bs.walks`, "BB", "int"},
-		"strikeouts":      {`bs.strikeouts`, "K", "int"},
-		"hit_by_pitch":    {`bs.hit_by_pitch`, "HBP", "int"},
-		"sac_hits":        {`bs.sac_hits`, "SH", "int"},
-		"sac_flies":       {`bs.sac_flies`, "SF", "int"},
-		"errors":          {`bs.errors`, "E", "int"},
-		"passed_balls":    {`bs.passed_balls`, "PB", "int"},
-		"ba":              {`bs.ba`, "BA", "float"},
-		"obp":             {`bs.obp`, "OBP", "float"},
-		"slg":             {`bs.slg`, "SLG", "float"},
-		"ops":             {`bs.ops`, "OPS", "float"},
-		"iso":             {`bs.iso`, "ISO", "float"},
-		"babip":           {`bs.babip`, "BABIP", "float"},
-		"k_pct":           {`bs.k_pct`, "K%", "float"},
-		"bb_pct":          {`bs.bb_pct`, "BB%", "float"},
-		"ab_per_hr":       {`bs.ab_per_hr`, "AB/HR", "float"},
-		"ops_plus":        {`bs.ops_plus`, "OPS+", "float"},
-		"smb_war":         {`bs.smb_war`, "smbWAR", "float"},
+		"bat_hand":         {`ps.bat_hand`, "Bat Hand", "string"},
+		"throw_hand":       {`ps.throw_hand`, "Throw Hand", "string"},
+		"chemistry_type":   {`ps.chemistry_type`, "Chemistry", "string"},
+		"salary":           {`ps.salary`, "Salary", "int"},
+		"games_played":     {`bs.games_played`, "G", "int"},
+		"games_batting":    {`bs.games_batting`, "G Bat", "int"},
+		"at_bats":          {`bs.at_bats`, "AB", "int"},
+		"runs":             {`bs.runs`, "R", "int"},
+		"hits":             {`bs.hits`, "H", "int"},
+		"doubles":          {`bs.doubles`, "2B", "int"},
+		"triples":          {`bs.triples`, "3B", "int"},
+		"home_runs":        {`bs.home_runs`, "HR", "int"},
+		"rbi":              {`bs.rbi`, "RBI", "int"},
+		"stolen_bases":     {`bs.stolen_bases`, "SB", "int"},
+		"caught_stealing":  {`bs.caught_stealing`, "CS", "int"},
+		"walks":            {`bs.walks`, "BB", "int"},
+		"strikeouts":       {`bs.strikeouts`, "K", "int"},
+		"hit_by_pitch":     {`bs.hit_by_pitch`, "HBP", "int"},
+		"sac_hits":         {`bs.sac_hits`, "SH", "int"},
+		"sac_flies":        {`bs.sac_flies`, "SF", "int"},
+		"errors":           {`bs.errors`, "E", "int"},
+		"passed_balls":     {`bs.passed_balls`, "PB", "int"},
+		"ba":               {`bs.ba`, "BA", "float"},
+		"obp":              {`bs.obp`, "OBP", "float"},
+		"slg":              {`bs.slg`, "SLG", "float"},
+		"ops":              {`bs.ops`, "OPS", "float"},
+		"iso":              {`bs.iso`, "ISO", "float"},
+		"babip":            {`bs.babip`, "BABIP", "float"},
+		"k_pct":            {`bs.k_pct`, "K%", "float"},
+		"bb_pct":           {`bs.bb_pct`, "BB%", "float"},
+		"ab_per_hr":        {`bs.ab_per_hr`, "AB/HR", "float"},
+		"ops_plus":         {`bs.ops_plus`, "OPS+", "float"},
+		"smb_war":          {`bs.smb_war`, "smbWAR", "float"},
+	},
+	linkCols: map[string]string{
+		"_player_id":             "p.id",
+		"_team_id":               "tsh.team_id",
+		"_team_history_id":       "tsh.id",
+		"_prior_team_id":         "tsh1.team_id",
+		"_prior_team_history_id": "tsh1.id",
 	},
 }
 
@@ -102,51 +118,61 @@ JOIN player_seasons ps ON ps.id = pit.player_season_id
 JOIN players p         ON p.id  = ps.player_id
 JOIN seasons s         ON s.id  = ps.season_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
-LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
+LEFT JOIN player_season_teams pst1 ON pst1.player_season_id = ps.id AND pst1.sort_order = 1
+LEFT JOIN team_season_history tsh1 ON tsh1.id = pst1.team_history_id`,
 	cols: map[string]exportColumn{
-		"player_name":     {`p.first_name || ' ' || p.last_name`, "Player", "string"},
-		"first_name":      {`p.first_name`, "First Name", "string"},
-		"last_name":       {`p.last_name`, "Last Name", "string"},
-		"season_num":      {`s.season_num`, "Season", "int"},
-		"team_name":       {`COALESCE(tsh.team_name, '')`, "Team", "string"},
-		"age":             {`ps.age`, "Age", "int"},
-		"pitcher_role":    {`ps.pitcher_role`, "Role", "string"},
-		"throw_hand":      {`ps.throw_hand`, "Throw Hand", "string"},
-		"chemistry_type":  {`ps.chemistry_type`, "Chemistry", "string"},
-		"salary":          {`ps.salary`, "Salary", "int"},
-		"wins":            {`pit.wins`, "W", "int"},
-		"losses":          {`pit.losses`, "L", "int"},
-		"games":           {`pit.games`, "G", "int"},
-		"games_started":   {`pit.games_started`, "GS", "int"},
-		"complete_games":  {`pit.complete_games`, "CG", "int"},
-		"shutouts":        {`pit.shutouts`, "SHO", "int"},
-		"saves":           {`pit.saves`, "SV", "int"},
-		"outs_pitched":    {`pit.outs_pitched`, "Outs", "int"},
-		"hits_allowed":    {`pit.hits_allowed`, "H", "int"},
-		"earned_runs":     {`pit.earned_runs`, "ER", "int"},
+		"player_name":       {`p.first_name || ' ' || p.last_name`, "Player", "string"},
+		"first_name":        {`p.first_name`, "First Name", "string"},
+		"last_name":         {`p.last_name`, "Last Name", "string"},
+		"season_num":        {`s.season_num`, "Season", "int"},
+		"team_name":         {`COALESCE(tsh.team_name, '')`, "Team", "string"},
+		"prior_team_name":   {`COALESCE(tsh1.team_name, '')`, "Prior Team", "string"},
+		"age":               {`ps.age`, "Age", "int"},
+		"pitcher_role":      {`ps.pitcher_role`, "Role", "string"},
+		"throw_hand":        {`ps.throw_hand`, "Throw Hand", "string"},
+		"chemistry_type":    {`ps.chemistry_type`, "Chemistry", "string"},
+		"salary":            {`ps.salary`, "Salary", "int"},
+		"wins":              {`pit.wins`, "W", "int"},
+		"losses":            {`pit.losses`, "L", "int"},
+		"games":             {`pit.games`, "G", "int"},
+		"games_started":     {`pit.games_started`, "GS", "int"},
+		"complete_games":    {`pit.complete_games`, "CG", "int"},
+		"shutouts":          {`pit.shutouts`, "SHO", "int"},
+		"saves":             {`pit.saves`, "SV", "int"},
+		"outs_pitched":      {`pit.outs_pitched`, "Outs", "int"},
+		"hits_allowed":      {`pit.hits_allowed`, "H", "int"},
+		"earned_runs":       {`pit.earned_runs`, "ER", "int"},
 		"home_runs_allowed": {`pit.home_runs_allowed`, "HR", "int"},
-		"walks":           {`pit.walks`, "BB", "int"},
-		"strikeouts":      {`pit.strikeouts`, "K", "int"},
-		"hit_batters":     {`pit.hit_batters`, "HBP", "int"},
-		"batters_faced":   {`pit.batters_faced`, "BF", "int"},
-		"games_finished":  {`pit.games_finished`, "GF", "int"},
-		"runs_allowed":    {`pit.runs_allowed`, "R", "int"},
-		"wild_pitches":    {`pit.wild_pitches`, "WP", "int"},
-		"total_pitches":   {`pit.total_pitches`, "Pitches", "int"},
-		"era":             {`pit.era`, "ERA", "float"},
-		"whip":            {`pit.whip`, "WHIP", "float"},
-		"k_per_9":         {`pit.k_per_9`, "K/9", "float"},
-		"bb_per_9":        {`pit.bb_per_9`, "BB/9", "float"},
-		"h_per_9":         {`pit.h_per_9`, "H/9", "float"},
-		"hr_per_9":        {`pit.hr_per_9`, "HR/9", "float"},
-		"k_per_bb":        {`pit.k_per_bb`, "K/BB", "float"},
-		"k_pct":           {`pit.k_pct`, "K%", "float"},
-		"win_pct":         {`pit.win_pct`, "W%", "float"},
-		"p_per_ip":        {`pit.p_per_ip`, "P/IP", "float"},
-		"era_plus":        {`pit.era_plus`, "ERA+", "float"},
-		"fip":             {`pit.fip`, "FIP", "float"},
-		"fip_minus":       {`pit.fip_minus`, "FIP-", "float"},
-		"smb_war":         {`pit.smb_war`, "smbWAR", "float"},
+		"walks":             {`pit.walks`, "BB", "int"},
+		"strikeouts":        {`pit.strikeouts`, "K", "int"},
+		"hit_batters":       {`pit.hit_batters`, "HBP", "int"},
+		"batters_faced":     {`pit.batters_faced`, "BF", "int"},
+		"games_finished":    {`pit.games_finished`, "GF", "int"},
+		"runs_allowed":      {`pit.runs_allowed`, "R", "int"},
+		"wild_pitches":      {`pit.wild_pitches`, "WP", "int"},
+		"total_pitches":     {`pit.total_pitches`, "Pitches", "int"},
+		"era":               {`pit.era`, "ERA", "float"},
+		"whip":              {`pit.whip`, "WHIP", "float"},
+		"k_per_9":           {`pit.k_per_9`, "K/9", "float"},
+		"bb_per_9":          {`pit.bb_per_9`, "BB/9", "float"},
+		"h_per_9":           {`pit.h_per_9`, "H/9", "float"},
+		"hr_per_9":          {`pit.hr_per_9`, "HR/9", "float"},
+		"k_per_bb":          {`pit.k_per_bb`, "K/BB", "float"},
+		"k_pct":             {`pit.k_pct`, "K%", "float"},
+		"win_pct":           {`pit.win_pct`, "W%", "float"},
+		"p_per_ip":          {`pit.p_per_ip`, "P/IP", "float"},
+		"era_plus":          {`pit.era_plus`, "ERA+", "float"},
+		"fip":               {`pit.fip`, "FIP", "float"},
+		"fip_minus":         {`pit.fip_minus`, "FIP-", "float"},
+		"smb_war":           {`pit.smb_war`, "smbWAR", "float"},
+	},
+	linkCols: map[string]string{
+		"_player_id":             "p.id",
+		"_team_id":               "tsh.team_id",
+		"_team_history_id":       "tsh.id",
+		"_prior_team_id":         "tsh1.team_id",
+		"_prior_team_history_id": "tsh1.id",
 	},
 }
 
@@ -156,24 +182,28 @@ var standingsDataset = datasetDef{
 	fromSQL: `FROM team_season_history tsh
 JOIN seasons s ON s.id = tsh.season_id`,
 	cols: map[string]exportColumn{
-		"team_name":           {`tsh.team_name`, "Team", "string"},
-		"season_num":          {`s.season_num`, "Season", "int"},
-		"conference_name":     {`tsh.conference_name`, "Conference", "string"},
-		"division_name":       {`tsh.division_name`, "Division", "string"},
-		"wins":                {`tsh.wins`, "W", "int"},
-		"losses":              {`tsh.losses`, "L", "int"},
-		"win_pct":             {`CAST(tsh.wins AS REAL) / NULLIF(tsh.wins + tsh.losses, 0)`, "W%", "float"},
-		"games_back":          {`tsh.games_back`, "GB", "float"},
-		"runs_for":            {`tsh.runs_for`, "RF", "int"},
-		"runs_against":        {`tsh.runs_against`, "RA", "int"},
-		"run_diff":            {`tsh.runs_for - tsh.runs_against`, "RD", "int"},
-		"playoff_seed":        {`tsh.playoff_seed`, "Playoff Seed", "int"},
-		"playoff_wins":        {`tsh.playoff_wins`, "PO W", "int"},
-		"playoff_losses":      {`tsh.playoff_losses`, "PO L", "int"},
-		"playoff_runs_for":    {`tsh.playoff_runs_for`, "PO RF", "int"},
+		"team_name":            {`tsh.team_name`, "Team", "string"},
+		"season_num":           {`s.season_num`, "Season", "int"},
+		"conference_name":      {`tsh.conference_name`, "Conference", "string"},
+		"division_name":        {`tsh.division_name`, "Division", "string"},
+		"wins":                 {`tsh.wins`, "W", "int"},
+		"losses":               {`tsh.losses`, "L", "int"},
+		"win_pct":              {`CAST(tsh.wins AS REAL) / NULLIF(tsh.wins + tsh.losses, 0)`, "W%", "float"},
+		"games_back":           {`tsh.games_back`, "GB", "float"},
+		"runs_for":             {`tsh.runs_for`, "RF", "int"},
+		"runs_against":         {`tsh.runs_against`, "RA", "int"},
+		"run_diff":             {`tsh.runs_for - tsh.runs_against`, "RD", "int"},
+		"playoff_seed":         {`tsh.playoff_seed`, "Playoff Seed", "int"},
+		"playoff_wins":         {`tsh.playoff_wins`, "PO W", "int"},
+		"playoff_losses":       {`tsh.playoff_losses`, "PO L", "int"},
+		"playoff_runs_for":     {`tsh.playoff_runs_for`, "PO RF", "int"},
 		"playoff_runs_against": {`tsh.playoff_runs_against`, "PO RA", "int"},
-		"budget":              {`tsh.budget`, "Budget", "int"},
-		"payroll":             {`tsh.payroll`, "Payroll", "int"},
+		"budget":               {`tsh.budget`, "Budget", "int"},
+		"payroll":              {`tsh.payroll`, "Payroll", "int"},
+	},
+	linkCols: map[string]string{
+		"_team_id":         "tsh.team_id",
+		"_team_history_id": "tsh.id",
 	},
 }
 
@@ -216,6 +246,9 @@ JOIN players p ON p.id = cbs.player_id`,
 		"ab_per_hr":       {`cbs.ab_per_hr`, "AB/HR", "float"},
 		"ops_plus":        {`cbs.ops_plus`, "OPS+", "float"},
 		"smb_war":         {`cbs.smb_war`, "smbWAR", "float"},
+	},
+	linkCols: map[string]string{
+		"_player_id": "p.id",
 	},
 }
 
@@ -263,6 +296,9 @@ JOIN players p ON p.id = cps.player_id`,
 		"fip_minus":         {`cps.fip_minus`, "FIP-", "float"},
 		"smb_war":           {`cps.smb_war`, "smbWAR", "float"},
 	},
+	linkCols: map[string]string{
+		"_player_id": "p.id",
+	},
 }
 
 var playerSeasonAttributesDataset = datasetDef{
@@ -273,13 +309,16 @@ JOIN player_seasons ps ON ps.id = psg.player_season_id
 JOIN players p         ON p.id  = ps.player_id
 JOIN seasons s         ON s.id  = ps.season_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
-LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
+LEFT JOIN player_season_teams pst1 ON pst1.player_season_id = ps.id AND pst1.sort_order = 1
+LEFT JOIN team_season_history tsh1 ON tsh1.id = pst1.team_history_id`,
 	cols: map[string]exportColumn{
 		"player_name":      {`p.first_name || ' ' || p.last_name`, "Player", "string"},
 		"first_name":       {`p.first_name`, "First Name", "string"},
 		"last_name":        {`p.last_name`, "Last Name", "string"},
 		"season_num":       {`s.season_num`, "Season", "int"},
 		"team_name":        {`COALESCE(tsh.team_name, '')`, "Team", "string"},
+		"prior_team_name":  {`COALESCE(tsh1.team_name, '')`, "Prior Team", "string"},
 		"age":              {`ps.age`, "Age", "int"},
 		"primary_position": {`ps.primary_position`, "Position", "string"},
 		"pitcher_role":     {`ps.pitcher_role`, "Role", "string"},
@@ -296,6 +335,13 @@ LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
 		"junk":             {`psg.junk`, "Junk", "int"},
 		"accuracy":         {`psg.accuracy`, "Accuracy", "int"},
 	},
+	linkCols: map[string]string{
+		"_player_id":             "p.id",
+		"_team_id":               "tsh.team_id",
+		"_team_history_id":       "tsh.id",
+		"_prior_team_id":         "tsh1.team_id",
+		"_prior_team_history_id": "tsh1.id",
+	},
 }
 
 var awardWinnersDataset = datasetDef{
@@ -307,16 +353,26 @@ JOIN player_seasons ps ON ps.id = psa.player_season_id
 JOIN players p         ON p.id  = ps.player_id
 JOIN seasons s         ON s.id  = ps.season_id
 LEFT JOIN player_season_teams pst ON pst.player_season_id = ps.id AND pst.sort_order = 0
-LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id`,
+LEFT JOIN team_season_history tsh ON tsh.id = pst.team_history_id
+LEFT JOIN player_season_teams pst1 ON pst1.player_season_id = ps.id AND pst1.sort_order = 1
+LEFT JOIN team_season_history tsh1 ON tsh1.id = pst1.team_history_id`,
 	cols: map[string]exportColumn{
 		"player_name":         {`p.first_name || ' ' || p.last_name`, "Player", "string"},
 		"first_name":          {`p.first_name`, "First Name", "string"},
 		"last_name":           {`p.last_name`, "Last Name", "string"},
 		"season_num":          {`s.season_num`, "Season", "int"},
 		"team_name":           {`COALESCE(tsh.team_name, '')`, "Team", "string"},
+		"prior_team_name":     {`COALESCE(tsh1.team_name, '')`, "Prior Team", "string"},
 		"award_name":          {`a.name`, "Award", "string"},
 		"award_original_name": {`a.original_name`, "Award (Original)", "string"},
 		"award_type":          {`CASE WHEN a.omit_from_groupings = 1 THEN 'Runner-Up' ELSE 'Winner' END`, "Type", "string"},
+	},
+	linkCols: map[string]string{
+		"_player_id":             "p.id",
+		"_team_id":               "tsh.team_id",
+		"_team_history_id":       "tsh.id",
+		"_prior_team_id":         "tsh1.team_id",
+		"_prior_team_history_id": "tsh1.id",
 	},
 }
 
@@ -336,6 +392,12 @@ JOIN team_season_history away_tsh ON away_tsh.id = tss.away_team_history_id`,
 		"home_score":     {`tss.home_score`, "Home Score", "int"},
 		"away_score":     {`tss.away_score`, "Away Score", "int"},
 	},
+	linkCols: map[string]string{
+		"_home_team_id":         "home_tsh.team_id",
+		"_home_team_history_id": "home_tsh.id",
+		"_away_team_id":         "away_tsh.team_id",
+		"_away_team_history_id": "away_tsh.id",
+	},
 }
 
 var playoffScheduleDataset = datasetDef{
@@ -353,6 +415,12 @@ JOIN team_season_history away_tsh ON away_tsh.id = tps.away_team_history_id`,
 		"away_team_name": {`away_tsh.team_name`, "Away Team", "string"},
 		"home_score":     {`tps.home_score`, "Home Score", "int"},
 		"away_score":     {`tps.away_score`, "Away Score", "int"},
+	},
+	linkCols: map[string]string{
+		"_home_team_id":         "home_tsh.team_id",
+		"_home_team_history_id": "home_tsh.id",
+		"_away_team_id":         "away_tsh.team_id",
+		"_away_team_history_id": "away_tsh.id",
 	},
 }
 
@@ -399,6 +467,7 @@ type ExportOptions struct {
 	SortCol        string
 	SortDir        string
 	CareerStatType string
+	QualifiedOnly  bool
 	Offset         int
 }
 
@@ -425,15 +494,19 @@ type ExportPreview struct {
 // unknown key returns an error so the caller surfaces bad state clearly rather
 // than silently producing wrong SQL.
 // limit=0 means no LIMIT/OFFSET clause (used by ExportToCSV).
+// extraSelects are additional raw SQL expressions appended to the SELECT list,
+// keyed by their output column name. PreviewExportData uses this to attach
+// def.linkCols (AppLink navigation IDs); ExportToCSV always passes nil so those
+// IDs never appear in the downloaded file.
 //
 //nolint:gocognit // large switch-style allowlist validation — splitting would obscure the mapping
-func buildExportQuery(def datasetDef, opts ExportOptions, limit int) (string, []any, error) {
+func buildExportQuery(def datasetDef, opts ExportOptions, limit int, extraSelects map[string]string) (string, []any, error) {
 	if len(opts.Columns) == 0 {
 		return "", nil, fmt.Errorf("no columns selected for export")
 	}
 
 	// Validate and collect SELECT expressions.
-	selects := make([]string, 0, len(opts.Columns))
+	selects := make([]string, 0, len(opts.Columns)+len(extraSelects))
 	for _, key := range opts.Columns {
 		col, ok := def.cols[key]
 		if !ok {
@@ -441,10 +514,62 @@ func buildExportQuery(def datasetDef, opts ExportOptions, limit int) (string, []
 		}
 		selects = append(selects, col.sqlExpr+" AS "+key)
 	}
+	// Sorted for deterministic SQL output — map iteration order is otherwise random.
+	extraKeys := make([]string, 0, len(extraSelects))
+	for key := range extraSelects {
+		extraKeys = append(extraKeys, key)
+	}
+	sort.Strings(extraKeys)
+	for _, key := range extraKeys {
+		selects = append(selects, extraSelects[key]+" AS "+key)
+	}
 
 	// Build extra WHERE conditions from the filter rows.
 	var extraConds []string
+	var extraJoins []string
 	var args []any
+
+	// Qualified-players threshold, reusing the formulas from leaderboard_query.go.
+	// Season datasets need a join to find the per-season max games played; career
+	// datasets already store one aggregated row per player, so a plain WHERE suffices.
+	if opts.QualifiedOnly {
+		switch def.id {
+		case "batting_season":
+			extraJoins = append(extraJoins, `
+JOIN (
+    SELECT ps2.season_id, b2.is_regular_season, COALESCE(MAX(b2.games_played), 1) AS max_gp
+    FROM player_season_batting_stats b2
+    JOIN player_seasons ps2 ON ps2.id = b2.player_season_id
+    GROUP BY ps2.season_id, b2.is_regular_season
+) qual_gp ON qual_gp.season_id = ps.season_id AND qual_gp.is_regular_season = bs.is_regular_season`)
+			extraConds = append(extraConds, "CAST(bs.plate_appearances AS REAL) >= qual_gp.max_gp * 3.1")
+		case "pitching_season":
+			extraJoins = append(extraJoins, `
+JOIN (
+    SELECT ps2.season_id, b2.is_regular_season, COALESCE(MAX(b2.games_played), 1) AS max_gp
+    FROM player_season_batting_stats b2
+    JOIN player_seasons ps2 ON ps2.id = b2.player_season_id
+    GROUP BY ps2.season_id, b2.is_regular_season
+) qual_gp ON qual_gp.season_id = ps.season_id AND qual_gp.is_regular_season = pit.is_regular_season`)
+			extraConds = append(extraConds, "pit.outs_pitched >= qual_gp.max_gp * 3")
+		// TODO: this threshold (3000 PA/outs scaled off a 162-game regular season)
+		// is calibrated for regular-season career totals. Applied unchanged to
+		// CareerStatType "playoffs" (and to "total_career" franchises with heavy
+		// playoff weighting), it's far too high — a career's worth of playoff PA/outs
+		// is tiny by comparison — and silently returns zero rows. Same root cause as
+		// the identical formula in leaderboard_query.go's GetBattingCareerLeaders /
+		// GetPitchingCareerLeaders for GameType=="playoffs". Tracked as a separate
+		// bug-fix work item; both call sites need a shared fix.
+		case "career_batting":
+			extraConds = append(extraConds, `CAST(cbs.at_bats + cbs.walks + cbs.hit_by_pitch + cbs.sac_hits + cbs.sac_flies AS REAL) >= (
+    SELECT CAST(COALESCE(num_games, 162) AS REAL) * 3000.0 / 162.0 FROM seasons ORDER BY season_num LIMIT 1
+)`)
+		case "career_pitching":
+			extraConds = append(extraConds, `cps.outs_pitched >= (
+    SELECT CAST(COALESCE(num_games, 162) AS REAL) * 3000.0 / 162.0 FROM seasons ORDER BY season_num LIMIT 1
+)`)
+		}
+	}
 
 	// career_batting / career_pitching: apply stat_type filter.
 	if def.id == "career_batting" || def.id == "career_pitching" {
@@ -522,7 +647,7 @@ func buildExportQuery(def datasetDef, opts ExportOptions, limit int) (string, []
 	// is no existing WHERE, otherwise AND — this matters for datasets that end
 	// with a LEFT JOIN, where tacking an AND onto the ON clause is semantically
 	// wrong (non-matching rows would still be returned with NULLs).
-	fromClause := def.fromSQL
+	fromClause := def.fromSQL + strings.Join(extraJoins, "")
 	if len(extraConds) > 0 {
 		cond := strings.Join(extraConds, "\n  AND ")
 		if strings.Contains(def.fromSQL, "WHERE") {
@@ -552,7 +677,9 @@ func (s *ExportStore) PreviewExportData(ctx context.Context, opts ExportOptions)
 	}
 
 	// Build the data query (one page) and a count query sharing the same WHERE.
-	dataQ, dataArgs, err := buildExportQuery(def, opts, previewPageSize)
+	// Link columns are attached here only — they give the frontend the raw IDs
+	// needed for AppLink navigation without ever reaching the CSV export query.
+	dataQ, dataArgs, err := buildExportQuery(def, opts, previewPageSize, def.linkCols)
 	if err != nil {
 		return ExportPreview{}, err
 	}
@@ -562,7 +689,7 @@ func (s *ExportStore) PreviewExportData(ctx context.Context, opts ExportOptions)
 	countOpts := opts
 	countOpts.Columns = []string{opts.Columns[0]}
 	countOpts.SortCol = ""
-	baseQ, baseArgs, err := buildExportQuery(def, countOpts, 0)
+	baseQ, baseArgs, err := buildExportQuery(def, countOpts, 0, nil)
 	if err != nil {
 		return ExportPreview{}, err
 	}
@@ -643,7 +770,7 @@ func (s *ExportStore) ExportToCSV(ctx context.Context, opts ExportOptions) ([]by
 		return nil, fmt.Errorf("unknown dataset %q", opts.DatasetID)
 	}
 
-	q, args, err := buildExportQuery(def, opts, 0)
+	q, args, err := buildExportQuery(def, opts, 0, nil)
 	if err != nil {
 		return nil, err
 	}

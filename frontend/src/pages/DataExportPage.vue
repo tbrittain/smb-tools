@@ -19,6 +19,7 @@ const {
   selectedColumns,
   filterRows,
   careerStatType,
+  qualifiedOnly,
   columnOptions,
   sortCol,
   sortDir,
@@ -43,6 +44,9 @@ function setFilterRows(rows: main.FilterRowDTO[]) {
 }
 function setCareerStatType(v: string) {
   careerStatType.value = v
+}
+function setQualifiedOnly(v: boolean) {
+  qualifiedOnly.value = v
 }
 </script>
 
@@ -74,8 +78,10 @@ function setCareerStatType(v: string) {
           :available-columns="selectedColumns"
           :column-options="columnOptions"
           :career-stat-type="careerStatType"
+          :qualified-only="qualifiedOnly"
           @update:filter-rows="setFilterRows"
           @update:career-stat-type="setCareerStatType"
+          @update:qualified-only="setQualifiedOnly"
         />
       </section>
 

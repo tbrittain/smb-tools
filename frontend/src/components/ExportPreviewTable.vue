@@ -1,7 +1,9 @@
 <script lang="ts" setup>
 import Column from 'primevue/column'
 import DataTable, { type DataTablePageEvent } from 'primevue/datatable'
+import type { RouteLocationRaw } from 'vue-router'
 import type { ExportColumnDef } from '../lib/exportDatasets'
+import AppLink from './AppLink.vue'
 
 defineProps<{
   selectedColumns: ExportColumnDef[]
@@ -26,6 +28,19 @@ function formatCell(value: unknown, col: ExportColumnDef): string {
     return Number.isNaN(n) ? String(value) : n.toFixed(3)
   }
   return String(value)
+}
+
+// Resolves the AppLink route for a linked column, or undefined when the row is
+// missing the IDs the link needs (e.g. a free agent with no team history).
+function linkTarget(col: ExportColumnDef, row: Record<string, unknown>): RouteLocationRaw | undefined {
+  if (!col.link) return undefined
+  if (col.link.type === 'player') {
+    const playerId = row[col.link.idKeys.playerId ?? '']
+    return playerId == null ? undefined : `/players/${playerId}`
+  }
+  const teamId = row[col.link.idKeys.teamId ?? '']
+  const teamHistoryId = row[col.link.idKeys.teamHistoryId ?? '']
+  return teamId == null || teamHistoryId == null ? undefined : `/teams/${teamId}/seasons/${teamHistoryId}`
 }
 </script>
 
@@ -60,7 +75,10 @@ function formatCell(value: unknown, col: ExportColumnDef): string {
           <span :title="col.label">{{ col.label }}</span>
         </template>
         <template #body="{ data }">
-          {{ formatCell(data[col.key], col) }}
+          <AppLink v-if="col.link && linkTarget(col, data)" :to="linkTarget(col, data)!">
+            {{ formatCell(data[col.key], col) }}
+          </AppLink>
+          <template v-else>{{ formatCell(data[col.key], col) }}</template>
         </template>
       </Column>
     </DataTable>

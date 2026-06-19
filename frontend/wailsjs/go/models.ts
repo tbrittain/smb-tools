@@ -640,6 +640,7 @@ export namespace main {
 	    sortCol: string;
 	    sortDir: string;
 	    careerStatType: string;
+	    qualifiedOnly: boolean;
 	    offset: number;
 	
 	    static createFrom(source: any = {}) {
@@ -654,6 +655,7 @@ export namespace main {
 	        this.sortCol = source["sortCol"];
 	        this.sortDir = source["sortDir"];
 	        this.careerStatType = source["careerStatType"];
+	        this.qualifiedOnly = source["qualifiedOnly"];
 	        this.offset = source["offset"];
 	    }
 	
