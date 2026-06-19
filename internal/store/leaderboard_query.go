@@ -139,6 +139,13 @@ LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
 
 	// The CTE aggregates counting stats and computes rate fields inline so that
 	// the outer SELECT can ORDER BY any column (including rates) without a subquery.
+	// TODO: this threshold (3000 PA scaled off a 162-game regular season) is
+	// calibrated for regular-season career totals. Applied unchanged when
+	// f.GameType=="playoffs", it's far too high — a career's worth of playoff PA
+	// is tiny by comparison — and silently returns zero rows. Same root cause as
+	// the identical formula in export_store.go's QualifiedOnly handling for
+	// career_batting/career_pitching. Tracked as a separate bug-fix work item;
+	// both call sites need a shared fix.
 	qualHaving := ""
 	if f.QualifiedOnly {
 		qualHaving = `
@@ -581,6 +588,8 @@ LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
     END`
 	}
 
+	// TODO: see the matching TODO in GetBattingCareerLeaders above — this threshold
+	// has the same regular-season-calibrated-formula-applied-to-playoffs bug.
 	qualHaving := ""
 	if f.QualifiedOnly {
 		qualHaving = `

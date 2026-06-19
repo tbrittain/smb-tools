@@ -532,6 +532,14 @@ JOIN (
     GROUP BY ps2.season_id, b2.is_regular_season
 ) qual_gp ON qual_gp.season_id = ps.season_id AND qual_gp.is_regular_season = pit.is_regular_season`)
 			extraConds = append(extraConds, "pit.outs_pitched >= qual_gp.max_gp * 3")
+		// TODO: this threshold (3000 PA/outs scaled off a 162-game regular season)
+		// is calibrated for regular-season career totals. Applied unchanged to
+		// CareerStatType "playoffs" (and to "total_career" franchises with heavy
+		// playoff weighting), it's far too high — a career's worth of playoff PA/outs
+		// is tiny by comparison — and silently returns zero rows. Same root cause as
+		// the identical formula in leaderboard_query.go's GetBattingCareerLeaders /
+		// GetPitchingCareerLeaders for GameType=="playoffs". Tracked as a separate
+		// bug-fix work item; both call sites need a shared fix.
 		case "career_batting":
 			extraConds = append(extraConds, `CAST(cbs.at_bats + cbs.walks + cbs.hit_by_pitch + cbs.sac_hits + cbs.sac_flies AS REAL) >= (
     SELECT CAST(COALESCE(num_games, 162) AS REAL) * 3000.0 / 162.0 FROM seasons ORDER BY season_num LIMIT 1
