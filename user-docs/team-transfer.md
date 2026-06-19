@@ -26,11 +26,15 @@ If you only export the save game and skip the shell, the recipient can still get
 
 ## Exporting from a Franchise Snapshot
 
-If you're tracking a franchise in smb-tools, every season sync quietly captures a snapshot of that save behind the scenes. The From Snapshot tab lets you turn any of those snapshots into a shareable league export, which is handy if you want to send someone an earlier point in your franchise's history instead of whatever state it's in today.
+The Export tab has two sub-tabs: From Save File, which is everything described above, and From Franchise Snapshot. If you're tracking a franchise in smb-tools, every season sync quietly captures a snapshot of that save behind the scenes, and the From Franchise Snapshot sub-tab lets you turn any of those into a shareable league export. That's handy if you want to send someone an earlier point in your franchise's history instead of whatever state it's in today.
 
-Snapshots are listed by franchise, with each one labeled by season number and the date it was captured. Pick the one you want and give it a name. Naming is required for this kind of export, since a snapshot doesn't carry a current league name the way a live save does. The export also gets a brand new league identity, so it won't collide with the franchise it came from, or with itself if you export the same snapshot more than once.
+Snapshots are listed by franchise, with each one labeled by season number and the date it was captured. Pick the one you want and give it a name. Naming is required for this kind of export, since a snapshot doesn't carry a current league name the way a live save does. The export also gets a brand new league identity, so it won't collide with the franchise it came from, or with itself if you export the same snapshot more than once. Since a snapshot is always a franchise save in progress, its export button reads "Export Save Game Only" too, and the same shell caveat above applies: send the empty league shell separately if you want the recipient to have a matching Customizations entry.
 
-Exporting a snapshot only reads from it; the franchise and its other snapshots are left exactly as they were. There's no shell to worry about here either, since a snapshot is always a franchise save in progress.
+Exporting a snapshot only reads from it so the franchise and its other snapshots are left exactly as they were.
+
+::: info Snapshots provide point-in-time restore capability
+Every time you sync a season means a new snapshot is created. This means that for every snapshot you have, you can create and share a league with the exact progress of that franchise from when it was synced.
+:::
 
 ## Importing a League
 
