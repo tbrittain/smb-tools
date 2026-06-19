@@ -31,6 +31,9 @@ export interface ExportDatasetDef {
   // 'none': no stat-type toggle. 'season': Reg Season / Playoffs toggle.
   // 'career': Reg Season / Playoffs / Total toggle.
   statTypeOptions: 'none' | 'season' | 'career'
+  // Whether the "Qualified Players Only" toggle applies to this dataset
+  // (batting/pitching season and career datasets only — see export_store.go).
+  supportsQualifiedFilter: boolean
 }
 
 const battingSeasonColumns: ExportColumnDef[] = [
@@ -379,54 +382,63 @@ export const EXPORT_DATASETS: ExportDatasetDef[] = [
     label: 'Player Season Batting',
     columns: battingSeasonColumns,
     statTypeOptions: 'season',
+    supportsQualifiedFilter: true,
   },
   {
     id: 'pitching_season',
     label: 'Player Season Pitching',
     columns: pitchingSeasonColumns,
     statTypeOptions: 'season',
+    supportsQualifiedFilter: true,
   },
   {
     id: 'standings',
     label: 'Team Season Standings',
     columns: standingsColumns,
     statTypeOptions: 'none',
+    supportsQualifiedFilter: false,
   },
   {
     id: 'career_batting',
     label: 'Career Batting Stats',
     columns: careerBattingColumns,
     statTypeOptions: 'career',
+    supportsQualifiedFilter: true,
   },
   {
     id: 'career_pitching',
     label: 'Career Pitching Stats',
     columns: careerPitchingColumns,
     statTypeOptions: 'career',
+    supportsQualifiedFilter: true,
   },
   {
     id: 'player_season_attributes',
     label: 'Player Season Attributes',
     columns: playerSeasonAttributesColumns,
     statTypeOptions: 'none',
+    supportsQualifiedFilter: false,
   },
   {
     id: 'award_winners',
     label: 'Season Award Winners',
     columns: awardWinnersColumns,
     statTypeOptions: 'none',
+    supportsQualifiedFilter: false,
   },
   {
     id: 'regular_season_schedule',
     label: 'Regular Season Schedule',
     columns: regularSeasonScheduleColumns,
     statTypeOptions: 'none',
+    supportsQualifiedFilter: false,
   },
   {
     id: 'playoff_schedule',
     label: 'Playoff Schedule',
     columns: playoffScheduleColumns,
     statTypeOptions: 'none',
+    supportsQualifiedFilter: false,
   },
 ]
 

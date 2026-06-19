@@ -31,6 +31,7 @@ export const EmptyFilterList: Story = {
     availableColumns: BATTING_COLS,
     columnOptions: SAMPLE_COLUMN_OPTIONS,
     careerStatType: 'regular_season',
+    qualifiedOnly: false,
   },
 }
 
@@ -41,6 +42,7 @@ export const WithSeasonFilter: Story = {
     availableColumns: BATTING_COLS,
     columnOptions: SAMPLE_COLUMN_OPTIONS,
     careerStatType: 'regular_season',
+    qualifiedOnly: false,
   },
 }
 
@@ -51,6 +53,7 @@ export const WithTeamFilter: Story = {
     availableColumns: BATTING_COLS,
     columnOptions: SAMPLE_COLUMN_OPTIONS,
     careerStatType: 'regular_season',
+    qualifiedOnly: false,
   },
 }
 
@@ -61,6 +64,7 @@ export const WithMultipleRows: Story = {
     availableColumns: BATTING_COLS,
     columnOptions: SAMPLE_COLUMN_OPTIONS,
     careerStatType: 'regular_season',
+    qualifiedOnly: false,
   },
 }
 
@@ -71,6 +75,7 @@ export const CareerDataset: Story = {
     availableColumns: CAREER_COLS,
     columnOptions: {},
     careerStatType: 'regular_season',
+    qualifiedOnly: false,
   },
 }
 
@@ -81,6 +86,18 @@ export const CareerDatasetPlayoffs: Story = {
     availableColumns: CAREER_COLS,
     columnOptions: {},
     careerStatType: 'playoffs',
+    qualifiedOnly: false,
+  },
+}
+
+export const QualifiedOnlyActive: Story = {
+  args: {
+    dataset: EXPORT_DATASET_MAP.batting_season,
+    filterRows: [],
+    availableColumns: BATTING_COLS,
+    columnOptions: SAMPLE_COLUMN_OPTIONS,
+    careerStatType: 'regular_season',
+    qualifiedOnly: true,
   },
 }
 
@@ -91,6 +108,7 @@ export const StandingsWithEnumFilters: Story = {
     availableColumns: STANDINGS_COLS,
     columnOptions: SAMPLE_COLUMN_OPTIONS,
     careerStatType: 'regular_season',
+    qualifiedOnly: false,
   },
 }
 
@@ -101,6 +119,7 @@ export const NoColumnsSelected: Story = {
     availableColumns: [],
     columnOptions: SAMPLE_COLUMN_OPTIONS,
     careerStatType: 'regular_season',
+    qualifiedOnly: false,
   },
 }
 
@@ -131,20 +150,24 @@ export const AllVariants: Story = {
             :available-columns="BATTING_COLS"
             :column-options="SAMPLE_COLUMN_OPTIONS"
             career-stat-type="regular_season"
+            :qualified-only="false"
             @update:filter-rows="() => {}"
             @update:career-stat-type="() => {}"
+            @update:qualified-only="() => {}"
           />
         </div>
         <div>
-          <p style="color:#8b949e;font-size:0.75rem;margin-bottom:0.75rem">Season — season + team filters</p>
+          <p style="color:#8b949e;font-size:0.75rem;margin-bottom:0.75rem">Season — season + team filters + qualified only</p>
           <ExportFilterPanel
             :dataset="EXPORT_DATASET_MAP['batting_season']"
             :filter-rows="[row1, row2]"
             :available-columns="BATTING_COLS"
             :column-options="SAMPLE_COLUMN_OPTIONS"
             career-stat-type="regular_season"
+            :qualified-only="true"
             @update:filter-rows="() => {}"
             @update:career-stat-type="() => {}"
+            @update:qualified-only="() => {}"
           />
         </div>
         <div>
@@ -155,8 +178,10 @@ export const AllVariants: Story = {
             :available-columns="CAREER_COLS"
             :column-options="{}"
             career-stat-type="playoffs"
+            :qualified-only="false"
             @update:filter-rows="() => {}"
             @update:career-stat-type="() => {}"
+            @update:qualified-only="() => {}"
           />
         </div>
       </div>

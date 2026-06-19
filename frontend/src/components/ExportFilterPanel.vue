@@ -9,11 +9,13 @@ const props = defineProps<{
   availableColumns: ExportColumnDef[]
   columnOptions: Record<string, string[]>
   careerStatType: string
+  qualifiedOnly: boolean
 }>()
 
 const emit = defineEmits<{
   'update:filterRows': [rows: main.FilterRowDTO[]]
   'update:careerStatType': [value: string]
+  'update:qualifiedOnly': [value: boolean]
 }>()
 
 // ── Op metadata ───────────────────────────────────────────────────────────────
@@ -133,6 +135,18 @@ function updateValue(index: number, value: string) {
           Total
         </button>
       </div>
+    </div>
+
+    <!-- Qualified players toggle — dedicated control, not a generic filter row -->
+    <div v-if="dataset.supportsQualifiedFilter" class="filter-section">
+      <span class="filter-label">Qualified</span>
+      <button
+        class="toggle-btn qualified-btn"
+        :class="{ active: qualifiedOnly }"
+        @click="$emit('update:qualifiedOnly', !qualifiedOnly)"
+      >
+        Qualified Players Only
+      </button>
     </div>
 
     <!-- Dynamic filter rows -->
@@ -288,6 +302,11 @@ function updateValue(index: number, value: string) {
   color: var(--color-accent);
   position: relative;
   z-index: 1;
+}
+
+/* qualifiedOnly toggle — standalone button, not part of a .toggle-group */
+.qualified-btn {
+  border-radius: 4px;
 }
 
 /* Filter rows */

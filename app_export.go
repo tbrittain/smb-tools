@@ -46,6 +46,7 @@ func (a *App) PreviewExportData(opts ExportOptionsDTO) (ExportPreviewDTO, error)
 		SortCol:        opts.SortCol,
 		SortDir:        opts.SortDir,
 		CareerStatType: opts.CareerStatType,
+		QualifiedOnly:  opts.QualifiedOnly,
 		Offset:         opts.Offset,
 	})
 	if err != nil {
@@ -76,6 +77,7 @@ func (a *App) ExportToCSV(opts ExportOptionsDTO) (string, error) {
 		SortCol:        opts.SortCol,
 		SortDir:        opts.SortDir,
 		CareerStatType: opts.CareerStatType,
+		QualifiedOnly:  opts.QualifiedOnly,
 	})
 	if err != nil {
 		slog.Error("ExportToCSV", "dataset", opts.DatasetID, "err", err)

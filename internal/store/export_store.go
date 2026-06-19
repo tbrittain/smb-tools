@@ -447,6 +447,7 @@ type ExportOptions struct {
 	SortCol        string
 	SortDir        string
 	CareerStatType string
+	QualifiedOnly  bool
 	Offset         int
 }
 
@@ -505,7 +506,42 @@ func buildExportQuery(def datasetDef, opts ExportOptions, limit int, extraSelect
 
 	// Build extra WHERE conditions from the filter rows.
 	var extraConds []string
+	var extraJoins []string
 	var args []any
+
+	// Qualified-players threshold, reusing the formulas from leaderboard_query.go.
+	// Season datasets need a join to find the per-season max games played; career
+	// datasets already store one aggregated row per player, so a plain WHERE suffices.
+	if opts.QualifiedOnly {
+		switch def.id {
+		case "batting_season":
+			extraJoins = append(extraJoins, `
+JOIN (
+    SELECT ps2.season_id, b2.is_regular_season, COALESCE(MAX(b2.games_played), 1) AS max_gp
+    FROM player_season_batting_stats b2
+    JOIN player_seasons ps2 ON ps2.id = b2.player_season_id
+    GROUP BY ps2.season_id, b2.is_regular_season
+) qual_gp ON qual_gp.season_id = ps.season_id AND qual_gp.is_regular_season = bs.is_regular_season`)
+			extraConds = append(extraConds, "CAST(bs.plate_appearances AS REAL) >= qual_gp.max_gp * 3.1")
+		case "pitching_season":
+			extraJoins = append(extraJoins, `
+JOIN (
+    SELECT ps2.season_id, b2.is_regular_season, COALESCE(MAX(b2.games_played), 1) AS max_gp
+    FROM player_season_batting_stats b2
+    JOIN player_seasons ps2 ON ps2.id = b2.player_season_id
+    GROUP BY ps2.season_id, b2.is_regular_season
+) qual_gp ON qual_gp.season_id = ps.season_id AND qual_gp.is_regular_season = pit.is_regular_season`)
+			extraConds = append(extraConds, "pit.outs_pitched >= qual_gp.max_gp * 3")
+		case "career_batting":
+			extraConds = append(extraConds, `CAST(cbs.at_bats + cbs.walks + cbs.hit_by_pitch + cbs.sac_hits + cbs.sac_flies AS REAL) >= (
+    SELECT CAST(COALESCE(num_games, 162) AS REAL) * 3000.0 / 162.0 FROM seasons ORDER BY season_num LIMIT 1
+)`)
+		case "career_pitching":
+			extraConds = append(extraConds, `cps.outs_pitched >= (
+    SELECT CAST(COALESCE(num_games, 162) AS REAL) * 3000.0 / 162.0 FROM seasons ORDER BY season_num LIMIT 1
+)`)
+		}
+	}
 
 	// career_batting / career_pitching: apply stat_type filter.
 	if def.id == "career_batting" || def.id == "career_pitching" {
@@ -583,7 +619,7 @@ func buildExportQuery(def datasetDef, opts ExportOptions, limit int, extraSelect
 	// is no existing WHERE, otherwise AND — this matters for datasets that end
 	// with a LEFT JOIN, where tacking an AND onto the ON clause is semantically
 	// wrong (non-matching rows would still be returned with NULLs).
-	fromClause := def.fromSQL
+	fromClause := def.fromSQL + strings.Join(extraJoins, "")
 	if len(extraConds) > 0 {
 		cond := strings.Join(extraConds, "\n  AND ")
 		if strings.Contains(def.fromSQL, "WHERE") {

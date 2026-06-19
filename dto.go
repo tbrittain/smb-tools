@@ -1405,7 +1405,11 @@ type ExportOptionsDTO struct {
 	SortCol        string         `json:"sortCol"`
 	SortDir        string         `json:"sortDir"` // "asc" | "desc"
 	CareerStatType string         `json:"careerStatType"`
-	Offset         int            `json:"offset"` // row offset for preview pagination; ignored by ExportToCSV
+	// QualifiedOnly restricts batting_season/pitching_season/career_batting/career_pitching
+	// to players meeting the standard plate-appearance / outs-pitched qualifying threshold
+	// (same formulas as the leaderboards page). Ignored by other datasets.
+	QualifiedOnly bool `json:"qualifiedOnly"`
+	Offset        int  `json:"offset"` // row offset for preview pagination; ignored by ExportToCSV
 }
 
 // ExportPreviewDTO is one page of preview results keyed by column key.

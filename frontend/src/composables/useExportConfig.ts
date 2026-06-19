@@ -8,6 +8,7 @@ export interface ExportPresetConfig {
   columns: string[]
   filters: Array<{ column: string; op: string; value: string; value2: string }>
   careerStatType: string
+  qualifiedOnly: boolean
   sortCol: string
   sortDir: 'asc' | 'desc'
 }
@@ -36,6 +37,7 @@ export function useExportConfig() {
 
   const filterRows = ref<main.FilterRowDTO[]>([])
   const careerStatType = ref<string>('regular_season')
+  const qualifiedOnly = ref<boolean>(false)
   const sortCol = ref<string>('')
   const sortDir = ref<'asc' | 'desc'>('asc')
 
@@ -108,6 +110,7 @@ export function useExportConfig() {
   function onDatasetChange() {
     filterRows.value = []
     careerStatType.value = 'regular_season'
+    qualifiedOnly.value = false
     sortCol.value = ''
     sortDir.value = 'asc'
     previewFirst.value = 0
@@ -130,6 +133,7 @@ export function useExportConfig() {
       sortCol: sortCol.value,
       sortDir: sortDir.value,
       careerStatType: ds.statTypeOptions !== 'none' ? careerStatType.value : '',
+      qualifiedOnly: ds.supportsQualifiedFilter ? qualifiedOnly.value : false,
       offset: previewFirst.value,
     })
   }
@@ -146,6 +150,7 @@ export function useExportConfig() {
         value2: r.value2,
       })),
       careerStatType: careerStatType.value,
+      qualifiedOnly: qualifiedOnly.value,
       sortCol: sortCol.value,
       sortDir: sortDir.value,
     }
@@ -160,6 +165,7 @@ export function useExportConfig() {
         (f) => new main.FilterRowDTO({ column: f.column, op: f.op, value: f.value, value2: f.value2 ?? '' }),
       )
       careerStatType.value = cfg.careerStatType ?? 'regular_season'
+      qualifiedOnly.value = cfg.qualifiedOnly ?? false
       sortCol.value = cfg.sortCol ?? ''
       sortDir.value = cfg.sortDir ?? 'asc'
       return true
@@ -225,6 +231,7 @@ export function useExportConfig() {
     // filters
     filterRows,
     careerStatType,
+    qualifiedOnly,
     columnOptions,
     sortCol,
     sortDir,
