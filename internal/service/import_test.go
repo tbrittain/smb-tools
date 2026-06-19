@@ -75,6 +75,12 @@ func TestImportSeason_SeasonRecordCreated(t *testing.T) {
 	if season.LeagueGUID != testLeagueGUID {
 		t.Errorf("league_guid: got %q, want %q", season.LeagueGUID, testLeagueGUID)
 	}
+	if season.NumGames != result.Games {
+		t.Errorf("num_games: got %d, want %d (result.Games) — qualified-player thresholds break when this is 0", season.NumGames, result.Games)
+	}
+	if season.NumGames == 0 {
+		t.Error("num_games: got 0, want > 0")
+	}
 }
 
 func TestImportSeason_LeagueAvgAttributesPopulated(t *testing.T) {

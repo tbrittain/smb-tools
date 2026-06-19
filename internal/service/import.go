@@ -208,6 +208,19 @@ func (svc *ImportService) importInTx(
 	result.Games = gameCount
 	slog.Debug("import: step 12 complete", "step", "regular season schedule", "games", gameCount)
 
+	// Backfill the season's scheduled game count now that it's known. This is required
+	// for qualified-player thresholds (PA/IP gating) computed elsewhere from num_games —
+	// without it, num_games stays 0 and every player incorrectly qualifies as a leader.
+	if _, err := seasonStore.Upsert(ctx, store.Season{
+		LeagueGUID:       leagueGUID,
+		SaveGameSeasonID: saveGameSeasonID,
+		SeasonNum:        displaySeasonNum,
+		NumGames:         gameCount,
+	}); err != nil {
+		slog.Error("import: step 12 failed", "step", "backfill season game count", "err", err)
+		return result, fmt.Errorf("backfilling season game count: %w", err)
+	}
+
 	// ── 13. Playoff schedule + seeds ─────────────────────────────────────────
 	playoffCount, err := svc.importPlayoffScheduleAndSeeds(ctx, scheduleStore, teamStore, reader, saveGameSeasonID, companionSeasonID, teamGUIDToHistoryID, playerGUIDToSeasonID)
 	if err != nil {
