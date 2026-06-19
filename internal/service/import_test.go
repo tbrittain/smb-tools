@@ -75,6 +75,15 @@ func TestImportSeason_SeasonRecordCreated(t *testing.T) {
 	if season.LeagueGUID != testLeagueGUID {
 		t.Errorf("league_guid: got %q, want %q", season.LeagueGUID, testLeagueGUID)
 	}
+	// The fixture's league has exactly 2 teams, where per-team games and total
+	// league matchups happen to be equal — see TestScheduledGamesPerTeam_* in
+	// import_internal_test.go for the multi-team case where they diverge.
+	if season.NumGames != result.Games {
+		t.Errorf("num_games: got %d, want %d (result.Games)", season.NumGames, result.Games)
+	}
+	if season.NumGames == 0 {
+		t.Error("num_games: got 0, want > 0 — qualified-player thresholds break when this is 0")
+	}
 }
 
 func TestImportSeason_LeagueAvgAttributesPopulated(t *testing.T) {
