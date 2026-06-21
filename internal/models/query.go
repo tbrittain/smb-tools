@@ -228,13 +228,15 @@ type PlayerSeasonLogRow struct {
 
 // ── Team ──────────────────────────────────────────────────────────────────────
 
-// TeamSearchResult is returned by TeamQueryStore.SearchTeams.
+// TeamSearchResult is returned by TeamQueryStore.SearchTeams and ListAllTeams.
 type TeamSearchResult struct {
-	TeamID      int64
-	TeamName    string
-	Seasons     int
-	FirstSeason int
-	LastSeason  int
+	TeamID         int64
+	TeamName       string
+	ConferenceName string
+	DivisionName   string
+	Seasons        int
+	FirstSeason    int
+	LastSeason     int
 }
 
 // TeamSeasonSummary is one season entry in a team's history.

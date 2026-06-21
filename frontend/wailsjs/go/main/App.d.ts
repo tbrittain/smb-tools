@@ -6,6 +6,10 @@ export function AddFranchiseSource(arg1:string,arg2:string,arg3:string,arg4:numb
 
 export function AssignExistingTeamLogo(arg1:string,arg2:any,arg3:any):Promise<main.TeamLogoAssignmentDTO>;
 
+export function BrowseLeagueExportDirectory():Promise<Array<main.LeagueOverviewDTO>>;
+
+export function BrowseLeagueImportZip():Promise<string>;
+
 export function BrowseLegacyDB():Promise<string>;
 
 export function BrowseLogoFile():Promise<string>;
@@ -20,9 +24,13 @@ export function CheckForUpdate():Promise<main.UpdateInfo>;
 
 export function ComputeSeasonStatLeaderAwards(arg1:number):Promise<void>;
 
+export function ConfirmLeagueImport(arg1:string,arg2:string):Promise<void>;
+
 export function CreateCustomAward(arg1:main.AwardDTO):Promise<main.AwardDTO>;
 
 export function CreateFranchise(arg1:string,arg2:string,arg3:string,arg4:string):Promise<main.FranchiseDTO>;
+
+export function DeleteExportPreset(arg1:string):Promise<void>;
 
 export function DeleteFranchise(arg1:string):Promise<void>;
 
@@ -31,6 +39,16 @@ export function DeleteMediaEverywhere(arg1:string):Promise<void>;
 export function DeleteTeamLogoAssignment(arg1:string):Promise<void>;
 
 export function DetectLegacyDB():Promise<string>;
+
+export function DiscoverLeagues():Promise<Array<main.LeagueOverviewDTO>>;
+
+export function ExportLeague(arg1:string,arg2:string):Promise<string>;
+
+export function ExportLeagueWithRename(arg1:string,arg2:string,arg3:string):Promise<string>;
+
+export function ExportSnapshotAsLeague(arg1:string,arg2:number,arg3:string):Promise<string>;
+
+export function ExportToCSV(arg1:main.ExportOptionsDTO):Promise<string>;
 
 export function GetActiveFranchise():Promise<main.FranchiseDTO>;
 
@@ -41,6 +59,8 @@ export function GetBattingCareerLeaders(arg1:main.LeaderboardFiltersDTO):Promise
 export function GetBattingSeasonLeaders(arg1:main.LeaderboardFiltersDTO):Promise<main.BattingLeaderPageDTO>;
 
 export function GetCareerLeaders():Promise<main.CareerLeadersDTO>;
+
+export function GetExportPresets():Promise<Array<main.ExportPresetDTO>>;
 
 export function GetHistoricalTeams(arg1:number,arg2:number):Promise<Array<main.HistoricalTeamDTO>>;
 
@@ -96,6 +116,8 @@ export function GetTeamSeasonsForMediaPicker(arg1:number):Promise<Array<main.Tea
 
 export function GetTeamTopPlayers(arg1:number):Promise<Array<main.TeamTopPlayerDTO>>;
 
+export function GetTeamsForExport():Promise<Array<main.TeamPickerResultDTO>>;
+
 export function GetVersion():Promise<string>;
 
 export function ListAllAwards():Promise<Array<main.AwardDTO>>;
@@ -110,6 +132,8 @@ export function ListFranchises():Promise<Array<main.FranchiseDTO>>;
 
 export function ListLegacyFranchises(arg1:string):Promise<Array<main.LegacyFranchiseDTO>>;
 
+export function ListSnapshotExportCandidates():Promise<Array<main.SnapshotExportCandidateDTO>>;
+
 export function ListSnapshots():Promise<Array<main.SnapshotDTO>>;
 
 export function LogFrontendError(arg1:string,arg2:string,arg3:string):Promise<void>;
@@ -119,6 +143,12 @@ export function MigrateLegacyFranchise(arg1:string,arg2:number,arg3:string,arg4:
 export function OpenAppDataDir():Promise<void>;
 
 export function OpenBugReport():Promise<void>;
+
+export function OpenLeagueExportDir(arg1:string):Promise<void>;
+
+export function PreviewExportData(arg1:main.ExportOptionsDTO):Promise<main.ExportPreviewDTO>;
+
+export function PreviewLeagueImport(arg1:string):Promise<main.LeagueImportPreviewDTO>;
 
 export function ProbeFranchiseSaveFile(arg1:string):Promise<main.SaveFileCandidateDTO>;
 
@@ -131,6 +161,8 @@ export function RemoveMediaAssociation(arg1:string,arg2:string,arg3:number):Prom
 export function RenameFranchise(arg1:string,arg2:string):Promise<void>;
 
 export function ReplaceActiveFranchiseSource(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function SaveExportPreset(arg1:string,arg2:string,arg3:string):Promise<main.ExportPresetDTO>;
 
 export function SearchPlayers(arg1:string):Promise<Array<main.PlayerSearchResultDTO>>;
 

@@ -39,6 +39,7 @@ func TestApplyPlayerAttributePercentiles_MultiPlayer(t *testing.T) {
 	pctA := fetchPowerPct(t, db, psA)
 	if pctA == nil {
 		t.Fatal("power_pct for lowest player is nil, want 0")
+		return
 	}
 	if *pctA > 5 {
 		t.Errorf("power_pct for lowest player = %.2f, want ≈0", *pctA)
@@ -48,6 +49,7 @@ func TestApplyPlayerAttributePercentiles_MultiPlayer(t *testing.T) {
 	pctC := fetchPowerPct(t, db, psC)
 	if pctC == nil {
 		t.Fatal("power_pct for highest player is nil, want ~100")
+		return
 	}
 	if *pctC < 95 {
 		t.Errorf("power_pct for highest player = %.2f, want ≈100", *pctC)
@@ -57,6 +59,7 @@ func TestApplyPlayerAttributePercentiles_MultiPlayer(t *testing.T) {
 	pctB := fetchPowerPct(t, db, psB)
 	if pctB == nil {
 		t.Fatal("power_pct for middle player is nil, want ~50")
+		return
 	}
 	if *pctB < 40 || *pctB > 60 {
 		t.Errorf("power_pct for middle player = %.2f, want [40, 60]", *pctB)
@@ -143,6 +146,7 @@ func TestApplyPlayerAttributePercentiles_RoleSplit(t *testing.T) {
 	pctBatMidRole := fetchPowerPctRole(t, db, psBatMid)
 	if pctBatMidRole == nil {
 		t.Fatal("power_pct_role for mid batter is nil")
+		return
 	}
 	if *pctBatMidRole < 40 || *pctBatMidRole > 60 {
 		t.Errorf("power_pct_role for mid batter = %.2f, want ≈50", *pctBatMidRole)
@@ -153,6 +157,7 @@ func TestApplyPlayerAttributePercentiles_RoleSplit(t *testing.T) {
 	pctPitSlowRole := fetchPowerPctRole(t, db, psPitSlow)
 	if pctPitSlowRole == nil {
 		t.Fatal("power_pct_role for slow pitcher is nil")
+		return
 	}
 	if *pctPitSlowRole > 5 {
 		t.Errorf("power_pct_role for slow pitcher = %.2f, want ≈0 (lowest in pitcher group)", *pctPitSlowRole)
@@ -163,6 +168,7 @@ func TestApplyPlayerAttributePercentiles_RoleSplit(t *testing.T) {
 	pctBatMidLeague := fetchPowerPct(t, db, psBatMid)
 	if pctBatMidLeague == nil {
 		t.Fatal("power_pct for mid batter is nil")
+		return
 	}
 	if *pctBatMidLeague < 40 || *pctBatMidLeague > 60 {
 		t.Errorf("power_pct for mid batter = %.2f, want ≈50", *pctBatMidLeague)
@@ -172,6 +178,7 @@ func TestApplyPlayerAttributePercentiles_RoleSplit(t *testing.T) {
 	pctVelSlow := fetchVelocityPct(t, db, psPitSlow)
 	if pctVelSlow == nil {
 		t.Fatal("velocity_pct for slow pitcher is nil")
+		return
 	}
 	if *pctVelSlow > 5 {
 		t.Errorf("velocity_pct for slow pitcher = %.2f, want ≈0", *pctVelSlow)
@@ -182,6 +189,7 @@ func TestApplyPlayerAttributePercentiles_RoleSplit(t *testing.T) {
 	pctArmMid := fetchArmPct(t, db, psBatMid)
 	if pctArmMid == nil {
 		t.Fatal("arm_pct for mid batter is nil")
+		return
 	}
 	if *pctArmMid < 40 || *pctArmMid > 60 {
 		t.Errorf("arm_pct for mid batter = %.2f, want ≈50", *pctArmMid)

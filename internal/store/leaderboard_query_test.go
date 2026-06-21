@@ -1372,6 +1372,7 @@ func TestGetBattingSeasonLeaders_MultiTeamPlayer(t *testing.T) {
 	}
 	if tradedRow == nil {
 		t.Fatal("traded player row not found")
+		return
 	}
 	if len(tradedRow.Teams) != 2 {
 		t.Fatalf("traded player: want 2 teams, got %d", len(tradedRow.Teams))
@@ -1393,6 +1394,7 @@ func TestGetBattingSeasonLeaders_MultiTeamPlayer(t *testing.T) {
 	}
 	if singleRow == nil {
 		t.Fatal("single-team player row not found")
+		return
 	}
 	if len(singleRow.Teams) != 1 {
 		t.Fatalf("single-team player: want 1 team, got %d", len(singleRow.Teams))

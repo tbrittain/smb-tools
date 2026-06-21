@@ -49,12 +49,22 @@ const router = createRouter({
       component: () => import('./pages/HallOfFamePage.vue'),
     },
     {
+      path: '/export',
+      component: () => import('./pages/DataExportPage.vue'),
+      meta: { fullWidth: true },
+    },
+    {
       path: '/setup',
       component: () => import('./pages/SetupPage.vue'),
     },
     {
       path: '/migrate-legacy',
       component: () => import('./pages/LegacyMigrationPage.vue'),
+    },
+    {
+      path: '/league-transfer',
+      component: () => import('./pages/LeagueTransferHomePage.vue'),
+      meta: { fullWidth: true },
     },
   ],
 })

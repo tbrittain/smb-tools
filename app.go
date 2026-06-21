@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/mod/semver"
@@ -19,6 +20,7 @@ import (
 	"smb-tools/internal/models"
 	"smb-tools/internal/service"
 	"smb-tools/internal/store"
+	"smb-tools/internal/system"
 )
 
 // legacyMigrationSourcePath is the placeholder path stored in franchise_source
@@ -60,6 +62,12 @@ type App struct {
 	logoService           *service.LogoService
 	mediaStore            *store.MediaStore
 	mediaService          *service.MediaService
+	exportStore           *store.ExportStore
+	exportPresetStore     *store.ExportPresetStore
+	// leagueTransferService is independent of franchise selection — League
+	// Transfer is a top-level mode, not scoped to any franchise (see
+	// docs/league-transfer/ux-flow.md).
+	leagueTransferService *service.LeagueTransferService
 }
 
 func NewApp(version string) *App {
@@ -101,6 +109,7 @@ func (a *App) startup(ctx context.Context) {
 	a.logoService = service.NewLogoService(a.logoStore, dirs)
 	a.mediaStore = store.NewMediaStore()
 	a.mediaService = service.NewMediaService(a.mediaStore, dirs)
+	a.leagueTransferService = service.NewLeagueTransferService(dirs, system.DefaultGameRunningChecker{}, a.version, uuid.New)
 
 	a.setupMenu(ctx, nil)
 

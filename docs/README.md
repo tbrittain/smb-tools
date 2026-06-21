@@ -62,6 +62,7 @@ Why we're rewriting and what we're building toward.
 | File | Contents |
 |------|----------|
 | [companion-issues.md](companion-issues.md) | All open GitHub issues from SmbExplorerCompanion with space for rewrite notes |
+| [data-export-roadmap.md](data-export-roadmap.md) | Three-phase plan for the Data Export feature: MVP (done), flexible user filters, full 8-dataset catalog |
 
 ## Reading Order
 

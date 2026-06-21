@@ -134,6 +134,8 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 		a.leaderboardQueryStore = nil
 		a.awardStore = nil
 		a.statRecordsService = nil
+		a.exportStore = nil
+		a.exportPresetStore = nil
 	}
 
 	companionDB, f, err := a.franchiseService.OpenFranchise(a.ctx, id)
@@ -157,6 +159,8 @@ func (a *App) SelectFranchise(id string) (FranchiseDTO, error) {
 	a.leaderboardQueryStore = store.NewLeaderboardQueryStore(companionDB)
 	a.awardStore = store.NewAwardStore(companionDB)
 	a.statRecordsService = service.NewStatRecordsService(store.NewStatRecordQueryStore(companionDB))
+	a.exportStore = store.NewExportStore(companionDB)
+	a.exportPresetStore = store.NewExportPresetStore(companionDB)
 
 	src, _ := a.franchiseSourceStore.GetActive(a.ctx, id)
 	return franchiseToDTO(f, src), nil

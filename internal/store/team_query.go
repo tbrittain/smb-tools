@@ -61,6 +61,63 @@ LIMIT 50
 	return out, rows.Err()
 }
 
+// ListAllTeams returns all teams with their most recent name, ordered by name.
+// Used to populate the team filter picker on the Export page.
+func (s *TeamQueryStore) ListAllTeams(ctx context.Context) ([]models.TeamSearchResult, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT
+    t.id AS team_id,
+    (
+        SELECT tsh2.team_name
+        FROM team_season_history tsh2
+        JOIN seasons s2 ON s2.id = tsh2.season_id
+        WHERE tsh2.team_id = t.id
+        ORDER BY s2.season_num DESC
+        LIMIT 1
+    ) AS current_name,
+    (
+        SELECT tsh2.conference_name
+        FROM team_season_history tsh2
+        JOIN seasons s2 ON s2.id = tsh2.season_id
+        WHERE tsh2.team_id = t.id
+        ORDER BY s2.season_num DESC
+        LIMIT 1
+    ) AS current_conference,
+    (
+        SELECT tsh2.division_name
+        FROM team_season_history tsh2
+        JOIN seasons s2 ON s2.id = tsh2.season_id
+        WHERE tsh2.team_id = t.id
+        ORDER BY s2.season_num DESC
+        LIMIT 1
+    ) AS current_division,
+    COUNT(DISTINCT tsh.season_id) AS seasons,
+    MIN(s.season_num)             AS first_season,
+    MAX(s.season_num)             AS last_season
+FROM teams t
+JOIN team_season_history tsh ON tsh.team_id = t.id
+JOIN seasons s               ON s.id = tsh.season_id
+GROUP BY t.id
+ORDER BY current_name`)
+	if err != nil {
+		return nil, fmt.Errorf("ListAllTeams: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []models.TeamSearchResult
+	for rows.Next() {
+		var r models.TeamSearchResult
+		if err := rows.Scan(&r.TeamID, &r.TeamName, &r.ConferenceName, &r.DivisionName, &r.Seasons, &r.FirstSeason, &r.LastSeason); err != nil {
+			return nil, fmt.Errorf("ListAllTeams scan: %w", err)
+		}
+		out = append(out, r)
+	}
+	if out == nil {
+		out = []models.TeamSearchResult{}
+	}
+	return out, rows.Err()
+}
+
 // ListAllTeamSeasons returns every team-season row ordered by season descending,
 // then team name ascending. Each row includes a champion flag.
 func (s *TeamQueryStore) ListAllTeamSeasons(ctx context.Context) ([]models.TeamSeasonListRow, error) {

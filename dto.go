@@ -51,10 +51,12 @@ type MediaGalleryPageDTO struct {
 	PageSize   int            `json:"pageSize"`
 }
 
-// TeamPickerResultDTO is a lightweight team record for the media association picker.
+// TeamPickerResultDTO is a lightweight team record for the media association picker and export filters.
 type TeamPickerResultDTO struct {
-	TeamID   int64  `json:"teamId"`
-	TeamName string `json:"teamName"`
+	TeamID         int64  `json:"teamId"`
+	TeamName       string `json:"teamName"`
+	ConferenceName string `json:"conferenceName"`
+	DivisionName   string `json:"divisionName"`
 }
 
 // TeamSeasonPickerResultDTO is a lightweight team-season record for the media association picker.
@@ -1381,6 +1383,51 @@ func seasonAwardSummaryToDTO(m models.SeasonAwardSummary) SeasonAwardSummaryDTO 
 	}
 }
 
+// ── Export ────────────────────────────────────────────────────────────────────
+
+// FilterRowDTO is one filter condition applied to an export query.
+// Op is one of: "eq", "neq", "lt", "lte", "gt", "gte", "contains".
+// Value2 is reserved for future "between" support.
+type FilterRowDTO struct {
+	Column string `json:"column"`
+	Op     string `json:"op"`
+	Value  string `json:"value"`
+	Value2 string `json:"value2"`
+}
+
+// ExportOptionsDTO is the full export configuration sent from the frontend.
+// CareerStatType applies only to career_batting / career_pitching datasets:
+// "regular_season" (default when empty), "playoffs", "total_career".
+type ExportOptionsDTO struct {
+	DatasetID      string         `json:"datasetId"`
+	Columns        []string       `json:"columns"`
+	Filters        []FilterRowDTO `json:"filters"`
+	SortCol        string         `json:"sortCol"`
+	SortDir        string         `json:"sortDir"` // "asc" | "desc"
+	CareerStatType string         `json:"careerStatType"`
+	// QualifiedOnly restricts batting_season/pitching_season/career_batting/career_pitching
+	// to players meeting the standard plate-appearance / outs-pitched qualifying threshold
+	// (same formulas as the leaderboards page). Ignored by other datasets.
+	QualifiedOnly bool `json:"qualifiedOnly"`
+	Offset        int  `json:"offset"` // row offset for preview pagination; ignored by ExportToCSV
+}
+
+// ExportPreviewDTO is one page of preview results keyed by column key.
+// TotalCount is the full untruncated row count so the UI can paginate.
+type ExportPreviewDTO struct {
+	Rows       []map[string]any `json:"rows"`
+	TotalCount int              `json:"totalCount"`
+}
+
+// ExportPresetDTO is one saved export configuration stored per-franchise.
+type ExportPresetDTO struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	DatasetID  string `json:"datasetId"`
+	ConfigJSON string `json:"configJson"`
+	CreatedAt  string `json:"createdAt"`
+}
+
 func awardToDTO(a models.Award) AwardDTO {
 	return AwardDTO{
 		ID:                a.ID,
@@ -1418,5 +1465,131 @@ func hofCandidateToDTO(c models.HoFCandidate) HoFCandidateDTO {
 		Strikeouts:    c.Strikeouts,
 		EarnedRuns:    c.EarnedRuns,
 		SmbWAR:        c.SmbWAR,
+	}
+}
+
+// ── League Transfer ───────────────────────────────────────────────────────────
+//
+// DTOs for the League Transfer feature (docs/league-transfer/). This is a
+// top-level mode independent of franchise tracking — see
+// docs/league-transfer/ux-flow.md.
+
+// TeamOverviewDTO is a team's identity within a league's structure.
+type TeamOverviewDTO struct {
+	GUID string `json:"guid"`
+	Name string `json:"name"`
+}
+
+// DivisionOverviewDTO is one division and its teams.
+type DivisionOverviewDTO struct {
+	GUID  string            `json:"guid"`
+	Name  string            `json:"name"`
+	Teams []TeamOverviewDTO `json:"teams"`
+}
+
+// ConferenceOverviewDTO is one conference and its divisions. Divisions may
+// be empty — a conference can legitimately have zero divisions.
+type ConferenceOverviewDTO struct {
+	GUID      string                `json:"guid"`
+	Name      string                `json:"name"`
+	Divisions []DivisionOverviewDTO `json:"divisions"`
+}
+
+// LeagueOverviewDTO describes a league's structure for the discovery list
+// and import preview. SourcePath is non-empty only when this came from
+// DiscoverLeagues (the file this league was read from) — it's what the
+// frontend passes back to ExportLeague.
+type LeagueOverviewDTO struct {
+	GUID        string                  `json:"guid"`
+	Name        string                  `json:"name"`
+	SourcePath  string                  `json:"sourcePath"`
+	Conferences []ConferenceOverviewDTO `json:"conferences"`
+	// Mode is the league's derived game mode (Franchise/Season/Elimination/
+	// None) — see models.LeagueMode. None marks an empty, never-played
+	// shell save, which the frontend groups with its same-named real
+	// save(s) rather than showing as an unexplained duplicate.
+	Mode string `json:"mode"`
+}
+
+// SnapshotExportCandidateDTO is one franchise snapshot offered for export as
+// a league save via App.ExportSnapshotAsLeague. Unlike LeagueOverviewDTO,
+// there is no league name or GUID to show — a snapshot is identified by
+// which franchise captured it, the season number, and when.
+type SnapshotExportCandidateDTO struct {
+	FranchiseID   string `json:"franchiseId"`
+	FranchiseName string `json:"franchiseName"`
+	SnapshotID    int64  `json:"snapshotId"`
+	SeasonNum     int    `json:"seasonNum"`
+	CapturedAt    string `json:"capturedAt"` // ISO-8601
+	FileSizeBytes int64  `json:"fileSizeBytes"`
+}
+
+// ImportTargetOptionDTO is one Steam profile directory a league import
+// could register into.
+type ImportTargetOptionDTO struct {
+	SteamID           string `json:"steamId"`
+	DirPath           string `json:"dirPath"`
+	AlreadyRegistered bool   `json:"alreadyRegistered"`
+}
+
+// LeagueImportPreviewDTO is the read-only result of validating an import
+// package, shown to the user before ConfirmLeagueImport writes anything.
+type LeagueImportPreviewDTO struct {
+	Overview   LeagueOverviewDTO        `json:"overview"`
+	ExportedAt string                   `json:"exportedAt"`
+	Targets    []ImportTargetOptionDTO  `json:"targets"`
+}
+
+func teamOverviewToDTO(t models.TeamOverview) TeamOverviewDTO {
+	return TeamOverviewDTO{GUID: t.GUID.String(), Name: t.Name}
+}
+
+func divisionOverviewToDTO(d models.DivisionOverview) DivisionOverviewDTO {
+	teams := make([]TeamOverviewDTO, len(d.Teams))
+	for i, t := range d.Teams {
+		teams[i] = teamOverviewToDTO(t)
+	}
+	return DivisionOverviewDTO{GUID: d.GUID.String(), Name: d.Name, Teams: teams}
+}
+
+func conferenceOverviewToDTO(c models.ConferenceOverview) ConferenceOverviewDTO {
+	divisions := make([]DivisionOverviewDTO, len(c.Divisions))
+	for i, d := range c.Divisions {
+		divisions[i] = divisionOverviewToDTO(d)
+	}
+	return ConferenceOverviewDTO{GUID: c.GUID.String(), Name: c.Name, Divisions: divisions}
+}
+
+func leagueOverviewToDTO(l models.LeagueOverview) LeagueOverviewDTO {
+	conferences := make([]ConferenceOverviewDTO, len(l.Conferences))
+	for i, c := range l.Conferences {
+		conferences[i] = conferenceOverviewToDTO(c)
+	}
+	return LeagueOverviewDTO{
+		GUID:        l.GUID.String(),
+		Name:        l.Name,
+		SourcePath:  l.SourcePath,
+		Conferences: conferences,
+		Mode:        l.Mode.String(),
+	}
+}
+
+func importTargetOptionToDTO(t models.ImportTargetOption) ImportTargetOptionDTO {
+	return ImportTargetOptionDTO{
+		SteamID:           t.SteamID,
+		DirPath:           t.DirPath,
+		AlreadyRegistered: t.AlreadyRegistered,
+	}
+}
+
+func leagueImportPreviewToDTO(p models.LeagueImportPreview) LeagueImportPreviewDTO {
+	targets := make([]ImportTargetOptionDTO, len(p.Targets))
+	for i, target := range p.Targets {
+		targets[i] = importTargetOptionToDTO(target)
+	}
+	return LeagueImportPreviewDTO{
+		Overview:   leagueOverviewToDTO(p.Overview),
+		ExportedAt: p.ExportedAt,
+		Targets:    targets,
 	}
 }

@@ -10,6 +10,7 @@ import AppButton from './components/AppButton.vue'
 import FranchiseCreate from './components/FranchiseCreate.vue'
 import FranchiseSelector from './components/FranchiseSelector.vue'
 import GlobalSearch from './components/GlobalSearch.vue'
+import ModeChooser from './components/ModeChooser.vue'
 import { useBreadcrumbs } from './composables/useBreadcrumbs'
 import { useFranchiseStore } from './stores/franchise'
 
@@ -20,6 +21,24 @@ const { crumbs, clear: clearCrumbs } = useBreadcrumbs()
 const toast = useToast()
 const showCreate = ref(false)
 const error = ref<string | null>(null)
+
+// ── Top-level mode: Franchise Tracker vs. League Transfer ──────────────────────
+// Reset to null (showing the chooser) on every launch, not just the first.
+const appMode = ref<'franchise' | 'league-transfer' | null>(null)
+
+// Navigate first, then reveal <router-view> — otherwise, since
+// '/league-transfer' is a lazy-loaded chunk, router-view mounts for the
+// first time before that navigation resolves and briefly renders the
+// router's still-current default route ('/', DashboardPage) instead.
+async function selectMode(mode: 'franchise' | 'league-transfer') {
+  await router.push(mode === 'league-transfer' ? '/league-transfer' : '/')
+  appMode.value = mode
+}
+
+function switchMode() {
+  appMode.value = null
+  router.push('/')
+}
 
 const appVersion = ref('')
 const updateTag = ref('')
@@ -90,8 +109,25 @@ function goToCrumb(historyPosition: number) {
   <div id="app-root">
     <ConfirmDialog />
     <Toast position="bottom-center" />
+
+    <!-- Top-level mode chooser -->
+    <div v-if="appMode === null" class="fullscreen-center">
+      <ModeChooser @select="selectMode" />
+    </div>
+
+    <!-- League Transfer — independent of franchise tracking -->
+    <div v-else-if="appMode === 'league-transfer'" class="league-transfer-shell">
+      <header class="lt-header">
+        <span class="lt-title">League Transfer</span>
+        <AppButton variant="ghost" size="sm" @click="switchMode">&#8592; Switch Mode</AppButton>
+      </header>
+      <div class="lt-content">
+        <router-view />
+      </div>
+    </div>
+
     <!-- Loading state -->
-    <div v-if="franchiseStore.loading" class="fullscreen-center">
+    <div v-else-if="franchiseStore.loading" class="fullscreen-center">
       <span class="loading-text">Loading…</span>
     </div>
 
@@ -104,7 +140,10 @@ function goToCrumb(historyPosition: number) {
     <div v-else-if="!franchiseStore.active" class="fullscreen-center">
       <div class="franchise-setup-panel">
         <div class="app-brand">
-          <h1>smb-tools</h1>
+          <div class="app-brand-row">
+            <h1>smb-tools</h1>
+            <AppButton variant="ghost" size="sm" @click="switchMode">&#8592; Switch Mode</AppButton>
+          </div>
           <p>Super Mega Baseball franchise history tracker</p>
           <p v-if="appVersion" class="app-version-line">
             <span class="app-version">{{ appVersion }}</span>
@@ -146,11 +185,15 @@ function goToCrumb(historyPosition: number) {
           <router-link to="/leaderboards">Leaderboards</router-link>
           <router-link to="/awards">Awards</router-link>
           <router-link to="/hall-of-fame">Hall of Fame</router-link>
+          <router-link to="/export">Stat Explorer</router-link>
           <router-link to="/setup">Setup</router-link>
         </nav>
         <div class="sidebar-footer">
           <span class="active-franchise-name">{{ franchiseStore.active.name }}</span>
-          <AppButton variant="ghost" size="sm" @click="franchiseStore.active = null">Switch</AppButton>
+          <div class="sidebar-footer-actions">
+            <AppButton variant="ghost" size="sm" @click="franchiseStore.active = null">Switch Franchise</AppButton>
+            <AppButton variant="ghost" size="sm" @click="switchMode">Switch Mode</AppButton>
+          </div>
           <div v-if="appVersion" class="sidebar-version">
             <span>{{ appVersion }}</span>
             <template v-if="updateURL">
@@ -210,6 +253,13 @@ function goToCrumb(historyPosition: number) {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+}
+
+.app-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
 }
 
 .app-brand h1 {
@@ -302,6 +352,43 @@ function goToCrumb(historyPosition: number) {
   text-overflow: ellipsis;
 }
 
+.sidebar-footer-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+/* League Transfer shell — independent of the franchise app-shell layout */
+.league-transfer-shell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lt-header {
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.lt-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.lt-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .btn-link {
   background: none;
   border: none;
@@ -314,7 +401,7 @@ function goToCrumb(historyPosition: number) {
 
 .main-content {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   background: var(--color-bg);
   display: flex;
   flex-direction: column;
@@ -322,6 +409,8 @@ function goToCrumb(historyPosition: number) {
 
 .page-view {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   width: 100%;

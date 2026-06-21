@@ -10,6 +10,14 @@ export function AssignExistingTeamLogo(arg1, arg2, arg3) {
   return window['go']['main']['App']['AssignExistingTeamLogo'](arg1, arg2, arg3);
 }
 
+export function BrowseLeagueExportDirectory() {
+  return window['go']['main']['App']['BrowseLeagueExportDirectory']();
+}
+
+export function BrowseLeagueImportZip() {
+  return window['go']['main']['App']['BrowseLeagueImportZip']();
+}
+
 export function BrowseLegacyDB() {
   return window['go']['main']['App']['BrowseLegacyDB']();
 }
@@ -38,12 +46,20 @@ export function ComputeSeasonStatLeaderAwards(arg1) {
   return window['go']['main']['App']['ComputeSeasonStatLeaderAwards'](arg1);
 }
 
+export function ConfirmLeagueImport(arg1, arg2) {
+  return window['go']['main']['App']['ConfirmLeagueImport'](arg1, arg2);
+}
+
 export function CreateCustomAward(arg1) {
   return window['go']['main']['App']['CreateCustomAward'](arg1);
 }
 
 export function CreateFranchise(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['CreateFranchise'](arg1, arg2, arg3, arg4);
+}
+
+export function DeleteExportPreset(arg1) {
+  return window['go']['main']['App']['DeleteExportPreset'](arg1);
 }
 
 export function DeleteFranchise(arg1) {
@@ -60,6 +76,26 @@ export function DeleteTeamLogoAssignment(arg1) {
 
 export function DetectLegacyDB() {
   return window['go']['main']['App']['DetectLegacyDB']();
+}
+
+export function DiscoverLeagues() {
+  return window['go']['main']['App']['DiscoverLeagues']();
+}
+
+export function ExportLeague(arg1, arg2) {
+  return window['go']['main']['App']['ExportLeague'](arg1, arg2);
+}
+
+export function ExportLeagueWithRename(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ExportLeagueWithRename'](arg1, arg2, arg3);
+}
+
+export function ExportSnapshotAsLeague(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ExportSnapshotAsLeague'](arg1, arg2, arg3);
+}
+
+export function ExportToCSV(arg1) {
+  return window['go']['main']['App']['ExportToCSV'](arg1);
 }
 
 export function GetActiveFranchise() {
@@ -80,6 +116,10 @@ export function GetBattingSeasonLeaders(arg1) {
 
 export function GetCareerLeaders() {
   return window['go']['main']['App']['GetCareerLeaders']();
+}
+
+export function GetExportPresets() {
+  return window['go']['main']['App']['GetExportPresets']();
 }
 
 export function GetHistoricalTeams(arg1, arg2) {
@@ -190,6 +230,10 @@ export function GetTeamTopPlayers(arg1) {
   return window['go']['main']['App']['GetTeamTopPlayers'](arg1);
 }
 
+export function GetTeamsForExport() {
+  return window['go']['main']['App']['GetTeamsForExport']();
+}
+
 export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
 }
@@ -218,6 +262,10 @@ export function ListLegacyFranchises(arg1) {
   return window['go']['main']['App']['ListLegacyFranchises'](arg1);
 }
 
+export function ListSnapshotExportCandidates() {
+  return window['go']['main']['App']['ListSnapshotExportCandidates']();
+}
+
 export function ListSnapshots() {
   return window['go']['main']['App']['ListSnapshots']();
 }
@@ -236,6 +284,18 @@ export function OpenAppDataDir() {
 
 export function OpenBugReport() {
   return window['go']['main']['App']['OpenBugReport']();
+}
+
+export function OpenLeagueExportDir(arg1) {
+  return window['go']['main']['App']['OpenLeagueExportDir'](arg1);
+}
+
+export function PreviewExportData(arg1) {
+  return window['go']['main']['App']['PreviewExportData'](arg1);
+}
+
+export function PreviewLeagueImport(arg1) {
+  return window['go']['main']['App']['PreviewLeagueImport'](arg1);
 }
 
 export function ProbeFranchiseSaveFile(arg1) {
@@ -260,6 +320,10 @@ export function RenameFranchise(arg1, arg2) {
 
 export function ReplaceActiveFranchiseSource(arg1, arg2, arg3) {
   return window['go']['main']['App']['ReplaceActiveFranchiseSource'](arg1, arg2, arg3);
+}
+
+export function SaveExportPreset(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveExportPreset'](arg1, arg2, arg3);
 }
 
 export function SearchPlayers(arg1) {
