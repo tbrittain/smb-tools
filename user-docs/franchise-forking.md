@@ -45,4 +45,4 @@ If your franchise was originally imported from SmbExplorerCompanion and you are 
 
 ## Known Limitations
 
-Career batting/pitching qualification thresholds (the minimums used to decide who counts as a "qualified" career leader or record holder) are calibrated to your franchise's **first season's** games-per-season and innings-per-game. If you fork into a save with a different season length or a different number of innings per game, smb-tools does not re-scale these thresholds — they stay fixed at whatever your first season used. This is a known, accepted limitation rather than a bug.
+Career batting/pitching qualification thresholds (the minimums used to decide who counts as a "qualified" career leader or record holder) are calibrated to your franchise's **first season's** games-per-season and innings-per-game. If you fork into a save with a different season length or a different number of innings per game, smb-tools does not re-scale these thresholds, they stay fixed at whatever your first season used. This is a known, accepted limitation rather than a bug.
