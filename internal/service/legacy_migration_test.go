@@ -39,7 +39,7 @@ func TestMigrateLegacy_Full(t *testing.T) {
 	legacyDB := testutil.NewLegacyCompanionDB(t)
 	companionDB := testutil.NewTestDB(t)
 
-	result, err := newLegacyMigrationSvc().Migrate(ctx, legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy)
+	result, err := newLegacyMigrationSvc().Migrate(ctx, legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy, 9)
 	if err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
@@ -101,7 +101,7 @@ func TestMigrateLegacy_Minimal(t *testing.T) {
 	companionDB := testutil.NewTestDB(t)
 
 	result, err := newLegacyMigrationSvc().Migrate(context.Background(),
-		legacyDB, legacyFranchiseB, companionDB, "legacy-test-0000-0000-000000000002")
+		legacyDB, legacyFranchiseB, companionDB, "legacy-test-0000-0000-000000000002", 9)
 	if err != nil {
 		t.Fatalf("Migrate franchise B: %v", err)
 	}
@@ -118,21 +118,70 @@ func TestMigrateLegacy_Minimal(t *testing.T) {
 	assertRowCount(t, companionDB, "team_playoff_schedules", 0)
 }
 
+// TestMigrateLegacy_InningsPerGame verifies the caller-supplied inningsPerGame
+// is persisted to every migrated season, since the legacy schema has no
+// source data for it.
+func TestMigrateLegacy_InningsPerGame(t *testing.T) {
+	legacyDB := testutil.NewLegacyCompanionDB(t)
+	companionDB := testutil.NewTestDB(t)
+
+	if _, err := newLegacyMigrationSvc().Migrate(context.Background(),
+		legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy, 7); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	rows, err := companionDB.QueryContext(context.Background(), `SELECT innings_per_game FROM seasons`)
+	if err != nil {
+		t.Fatalf("querying innings_per_game: %v", err)
+	}
+	defer func() { _ = rows.Close() }()
+	count := 0
+	for rows.Next() {
+		var got int
+		if err := rows.Scan(&got); err != nil {
+			t.Fatalf("scanning innings_per_game: %v", err)
+		}
+		if got != 7 {
+			t.Errorf("innings_per_game = %d, want 7", got)
+		}
+		count++
+	}
+	if count != 2 {
+		t.Fatalf("want 2 seasons, got %d", count)
+	}
+}
+
+// TestMigrateLegacy_InningsPerGameRequired verifies there is no implicit
+// default: an unset (zero) or out-of-range inningsPerGame is rejected rather
+// than silently coerced to some assumed value.
+func TestMigrateLegacy_InningsPerGameRequired(t *testing.T) {
+	for _, innings := range []int{0, -1, 10, 99} {
+		legacyDB := testutil.NewLegacyCompanionDB(t)
+		companionDB := testutil.NewTestDB(t)
+
+		_, err := newLegacyMigrationSvc().Migrate(context.Background(),
+			legacyDB, legacyFranchiseB, companionDB, "legacy-test-0000-0000-000000000002", innings)
+		if err == nil {
+			t.Errorf("Migrate(inningsPerGame=%d): want error, got nil", innings)
+		}
+	}
+}
+
 // TestMigrateLegacy_IPConversion verifies the InningsPitched→outs_pitched transform.
 func TestMigrateLegacy_IPConversion(t *testing.T) {
 	legacyDB := testutil.NewLegacyCompanionDB(t)
 	companionDB := testutil.NewTestDB(t)
 
 	if _, err := newLegacyMigrationSvc().Migrate(context.Background(),
-		legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy); err != nil {
+		legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy, 9); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
 
 	cases := []struct {
-		firstName  string
-		seasonNum  int
-		wantOuts   int
-		desc       string
+		firstName string
+		seasonNum int
+		wantOuts  int
+		desc      string
 	}{
 		{"Sam", 1, 540, "180.0 IP → 540 outs"},
 		{"Riley", 1, 137, "45.2 IP → 137 outs"},
@@ -164,7 +213,7 @@ func TestMigrateLegacy_TraitsAndPitches(t *testing.T) {
 	companionDB := testutil.NewTestDB(t)
 
 	if _, err := newLegacyMigrationSvc().Migrate(context.Background(),
-		legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy); err != nil {
+		legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy, 9); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
 
@@ -204,7 +253,7 @@ func TestMigrateLegacy_UserDefinedAward(t *testing.T) {
 	companionDB := testutil.NewTestDB(t)
 
 	if _, err := newLegacyMigrationSvc().Migrate(context.Background(),
-		legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy); err != nil {
+		legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy, 9); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
 
@@ -239,7 +288,7 @@ func TestMigrateLegacy_Idempotent(t *testing.T) {
 
 	for i := range 2 {
 		if _, err := svc.Migrate(context.Background(),
-			legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy); err != nil {
+			legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy, 9); err != nil {
 			t.Fatalf("Migrate run %d: %v", i+1, err)
 		}
 	}
@@ -260,12 +309,12 @@ func TestMigrateLegacy_TwoFranchises(t *testing.T) {
 	svc := newLegacyMigrationSvc()
 
 	resultA, err := svc.Migrate(context.Background(), legacyDB, legacyFranchiseA,
-		companionDBA, "legacy-test-0000-0000-aaaaaaaaaaaa")
+		companionDBA, "legacy-test-0000-0000-aaaaaaaaaaaa", 9)
 	if err != nil {
 		t.Fatalf("Migrate franchise A: %v", err)
 	}
 	resultB, err := svc.Migrate(context.Background(), legacyDB, legacyFranchiseB,
-		companionDBB, "legacy-test-0000-0000-bbbbbbbbbbbb")
+		companionDBB, "legacy-test-0000-0000-bbbbbbbbbbbb", 9)
 	if err != nil {
 		t.Fatalf("Migrate franchise B: %v", err)
 	}
@@ -313,7 +362,7 @@ func TestMigrateLegacy_TeamAssociations(t *testing.T) {
 	legacyDB := testutil.NewLegacyCompanionDB(t)
 	companionDB := testutil.NewTestDB(t)
 
-	if _, err := newLegacyMigrationSvc().Migrate(ctx, legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy); err != nil {
+	if _, err := newLegacyMigrationSvc().Migrate(ctx, legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy, 9); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
 
@@ -417,7 +466,7 @@ func TestMigrateLegacy_OrphanedPlayerNoGUID(t *testing.T) {
 	}
 
 	companionDB := testutil.NewTestDB(t)
-	result, err := newLegacyMigrationSvc().Migrate(ctx, legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy)
+	result, err := newLegacyMigrationSvc().Migrate(ctx, legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy, 9)
 	if err != nil {
 		t.Fatalf("Migrate with orphaned player: %v", err)
 	}
@@ -460,7 +509,7 @@ func TestMigrateLegacy_OrphanedSeasonTeamHistory(t *testing.T) {
 	}
 
 	companionDB := testutil.NewTestDB(t)
-	_, err := newLegacyMigrationSvc().Migrate(ctx, legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy)
+	_, err := newLegacyMigrationSvc().Migrate(ctx, legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy, 9)
 	if err != nil {
 		t.Fatalf("Migrate with orphaned STH: %v", err)
 	}
@@ -476,7 +525,7 @@ func TestMigrateLegacy_GameStatsNullCoalesce(t *testing.T) {
 	companionDB := testutil.NewTestDB(t)
 
 	if _, err := newLegacyMigrationSvc().Migrate(context.Background(),
-		legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy); err != nil {
+		legacyDB, legacyFranchiseA, companionDB, testLeagueGUIDLegacy, 9); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
 

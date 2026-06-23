@@ -701,6 +701,104 @@ VALUES (?,'regular_season',1,0,0,0,0,0,0,0,?,0,0,0,0,0,0,0,0,0,0,0)
 	}
 }
 
+// TestPreviewExportData_QualifiedOnly_CareerBatting_Playoffs verifies playoff
+// career qualification uses the fixed, unscaled MLB postseason minimum
+// (40 PA OR 18 BB+H) rather than the regular-season-scaled threshold, which
+// would be unreachable by any playoff career total (fixed in issue #171).
+func TestPreviewExportData_QualifiedOnly_CareerBatting_Playoffs(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	// 162-game season → RS-scaled threshold would be 3000 PA.
+	seedSeason(t, db, 1, 1, 162)
+
+	qualByPA := seedPlayer(t, db, "guid-qual-cb-po-pa", "QualPA", "Career")
+	qualByBBH := seedPlayer(t, db, "guid-qual-cb-po-bbh", "QualBBH", "Career")
+	unqualified := seedPlayer(t, db, "guid-unqual-cb-po", "Unqual", "Career")
+
+	insertCareerBattingPlayoffs(t, db, qualByPA, 45, 10, 5)   // 45 PA ≥ 40 → qualifies
+	insertCareerBattingPlayoffs(t, db, qualByBBH, 30, 10, 8)  // 30 PA < 40, hits+walks=18 ≥ 18 → qualifies
+	insertCareerBattingPlayoffs(t, db, unqualified, 15, 3, 2) // 15 PA < 40, hits+walks=5 < 18 → excluded
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:      "career_batting",
+		Columns:        []string{"player_name"},
+		QualifiedOnly:  true,
+		CareerStatType: "playoffs",
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData: %v", err)
+	}
+	if preview.TotalCount != 2 {
+		t.Fatalf("TotalCount: want 2 (PA-qualified + BB+H-qualified), got %d", preview.TotalCount)
+	}
+}
+
+// TestPreviewExportData_QualifiedOnly_CareerPitching_Playoffs mirrors the
+// batting test above for pitching: outs>=90 (30 IP) OR decisions (W+L)>=6.
+func TestPreviewExportData_QualifiedOnly_CareerPitching_Playoffs(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	// 162-game season → RS-scaled threshold would be 3000 outs.
+	seedSeason(t, db, 1, 1, 162)
+
+	qualByOuts := seedPlayer(t, db, "guid-qual-cp-po-outs", "QualOuts", "Pitcher")
+	qualByDec := seedPlayer(t, db, "guid-qual-cp-po-dec", "QualDec", "Pitcher")
+	unqualified := seedPlayer(t, db, "guid-unqual-cp-po", "Unqual", "Pitcher")
+
+	insertCareerPitchingPlayoffs(t, db, qualByOuts, 95, 1, 1)  // 95 outs ≥ 90 → qualifies
+	insertCareerPitchingPlayoffs(t, db, qualByDec, 60, 4, 2)   // 60 outs < 90, 4+2=6 decisions ≥ 6 → qualifies
+	insertCareerPitchingPlayoffs(t, db, unqualified, 50, 1, 0) // 50 outs < 90, 1 decision < 6 → excluded
+
+	preview, err := store.NewExportStore(db).PreviewExportData(ctx, store.ExportOptions{
+		DatasetID:      "career_pitching",
+		Columns:        []string{"player_name"},
+		QualifiedOnly:  true,
+		CareerStatType: "playoffs",
+	})
+	if err != nil {
+		t.Fatalf("PreviewExportData: %v", err)
+	}
+	if preview.TotalCount != 2 {
+		t.Fatalf("TotalCount: want 2 (outs-qualified + decisions-qualified), got %d", preview.TotalCount)
+	}
+}
+
+// insertCareerBattingPlayoffs seeds a player_career_batting_stats row with
+// stat_type='playoffs' and explicit PA/hits/walks for the BB+H OR-qualifier.
+func insertCareerBattingPlayoffs(t *testing.T, db *sql.DB, playerID int64, pa, hits, walks int) {
+	t.Helper()
+	atBats := pa - walks
+	_, err := db.ExecContext(context.Background(), `
+INSERT INTO player_career_batting_stats
+    (player_id, stat_type, seasons_played, games_played, games_batting, at_bats,
+     runs, hits, doubles, triples, home_runs, rbi, stolen_bases, caught_stealing,
+     walks, strikeouts, hit_by_pitch, sac_hits, sac_flies, errors, passed_balls)
+VALUES (?,'playoffs',1,1,1,?,0,?,0,0,0,0,0,0,?,0,0,0,0,0,0)
+`, playerID, atBats, hits, walks)
+	if err != nil {
+		t.Fatalf("insertCareerBattingPlayoffs: %v", err)
+	}
+}
+
+// insertCareerPitchingPlayoffs seeds a player_career_pitching_stats row with
+// stat_type='playoffs' and explicit outs/wins/losses for the decisions OR-qualifier.
+func insertCareerPitchingPlayoffs(t *testing.T, db *sql.DB, playerID int64, outsPitched, wins, losses int) {
+	t.Helper()
+	_, err := db.ExecContext(context.Background(), `
+INSERT INTO player_career_pitching_stats
+    (player_id, stat_type, seasons_played, wins, losses, games, games_started,
+     complete_games, shutouts, saves, outs_pitched, hits_allowed, earned_runs,
+     home_runs_allowed, walks, strikeouts, hit_batters, batters_faced,
+     games_finished, runs_allowed, wild_pitches, total_pitches)
+VALUES (?,'playoffs',1,?,?,?,0,0,0,0,?,0,0,0,0,0,0,0,0,0,0,0)
+`, playerID, wins, losses, wins+losses, outsPitched)
+	if err != nil {
+		t.Fatalf("insertCareerPitchingPlayoffs: %v", err)
+	}
+}
+
 // ── Filter tests ──────────────────────────────────────────────────────────────
 
 func TestPreviewExportData_SeasonRangeFilter(t *testing.T) {

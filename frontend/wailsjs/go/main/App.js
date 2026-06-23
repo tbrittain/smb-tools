@@ -10,6 +10,10 @@ export function AssignExistingTeamLogo(arg1, arg2, arg3) {
   return window['go']['main']['App']['AssignExistingTeamLogo'](arg1, arg2, arg3);
 }
 
+export function BackfillInningsPerGame(arg1) {
+  return window['go']['main']['App']['BackfillInningsPerGame'](arg1);
+}
+
 export function BrowseLeagueExportDirectory() {
   return window['go']['main']['App']['BrowseLeagueExportDirectory']();
 }
@@ -238,6 +242,10 @@ export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
 }
 
+export function HasSeasonsMissingInningsPerGame() {
+  return window['go']['main']['App']['HasSeasonsMissingInningsPerGame']();
+}
+
 export function ListAllAwards() {
   return window['go']['main']['App']['ListAllAwards']();
 }
@@ -274,8 +282,8 @@ export function LogFrontendError(arg1, arg2, arg3) {
   return window['go']['main']['App']['LogFrontendError'](arg1, arg2, arg3);
 }
 
-export function MigrateLegacyFranchise(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['MigrateLegacyFranchise'](arg1, arg2, arg3, arg4);
+export function MigrateLegacyFranchise(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['MigrateLegacyFranchise'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function OpenAppDataDir() {

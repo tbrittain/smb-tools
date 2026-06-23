@@ -84,6 +84,11 @@ func TestImportSeason_SeasonRecordCreated(t *testing.T) {
 	if season.NumGames == 0 {
 		t.Error("num_games: got 0, want > 0 — qualified-player thresholds break when this is 0")
 	}
+	// The fixture's season 100 sets t_seasons.innings = 7 (non-default) so this
+	// assertion can't pass by coincidentally seeing some hardcoded value.
+	if season.InningsPerGame == nil || *season.InningsPerGame != 7 {
+		t.Errorf("innings_per_game: got %v, want 7 (from t_seasons.innings)", season.InningsPerGame)
+	}
 }
 
 func TestImportSeason_LeagueAvgAttributesPopulated(t *testing.T) {
@@ -784,4 +789,7 @@ func (r *erroringReader) GetCurrentSeason(ctx context.Context, leagueGUID string
 }
 func (r *erroringReader) GetSeasonPlayoffConfig(ctx context.Context, seasonID int) (*models.SaveGamePlayoffConfig, error) {
 	return r.inner.GetSeasonPlayoffConfig(ctx, seasonID)
+}
+func (r *erroringReader) GetSeasonInningsPerGame(ctx context.Context, seasonID int) (int, error) {
+	return r.inner.GetSeasonInningsPerGame(ctx, seasonID)
 }

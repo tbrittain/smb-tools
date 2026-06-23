@@ -71,6 +71,11 @@ type SaveGameReader interface {
 	// saves), returns the latest season across all franchise seasons.
 	GetCurrentSeason(ctx context.Context, leagueGUID string) (models.SaveGameSeasonInfo, error)
 
+	// GetSeasonInningsPerGame returns t_seasons.innings for the given season —
+	// the number of innings per regulation game, which SMB4 allows to vary
+	// from the standard 9.
+	GetSeasonInningsPerGame(ctx context.Context, seasonID int) (int, error)
+
 	// Close releases the underlying database connection.
 	Close() error
 }

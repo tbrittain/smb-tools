@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { BrowseLegacyDB, DetectLegacyDB, ListLegacyFranchises, MigrateLegacyFranchise } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
@@ -7,7 +7,7 @@ import AppButton from '../components/AppButton.vue'
 import AppHelpButton from '../components/AppHelpButton.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
-type Step = 'source' | 'select' | 'names' | 'confirm' | 'progress' | 'done'
+type Step = 'source' | 'select' | 'names' | 'innings' | 'confirm' | 'progress' | 'done'
 
 const router = useRouter()
 
@@ -20,8 +20,29 @@ const loading = ref(false)
 const franchises = ref<main.LegacyFranchiseDTO[]>([])
 const selected = ref<Set<number>>(new Set())
 const customNames = ref<Record<number, string>>({})
+// No default: SMB4 supports variable game lengths (1–9 innings), so the user
+// must explicitly enter the value each franchise actually used.
+const customInnings = ref<Record<number, number | null>>({})
 
-type MigrationEntry = { legacyID: number; legacyName: string; newName: string; gameVersion: string }
+const MIN_INNINGS = 1
+const MAX_INNINGS = 9
+
+const inningsValid = computed(() =>
+  franchises.value
+    .filter((f) => selected.value.has(f.id))
+    .every((f) => {
+      const v = customInnings.value[f.id]
+      return v != null && Number.isInteger(v) && v >= MIN_INNINGS && v <= MAX_INNINGS
+    }),
+)
+
+type MigrationEntry = {
+  legacyID: number
+  legacyName: string
+  newName: string
+  gameVersion: string
+  inningsPerGame: number
+}
 const pendingMigrations = ref<MigrationEntry[]>([])
 
 type ResultEntry = { result: main.MigrateLegacyResult; error: string | null }
@@ -54,7 +75,11 @@ async function loadFranchises() {
     franchises.value = list ?? []
     selected.value = new Set()
     customNames.value = {}
-    for (const f of franchises.value) customNames.value[f.id] = f.name
+    customInnings.value = {}
+    for (const f of franchises.value) {
+      customNames.value[f.id] = f.name
+      customInnings.value[f.id] = null
+    }
     step.value = 'select'
   } catch (e) {
     error.value = String(e)
@@ -73,7 +98,12 @@ function proceedToNames() {
   step.value = 'names'
 }
 
+function proceedToInnings() {
+  step.value = 'innings'
+}
+
 function proceedToConfirm() {
+  if (!inningsValid.value) return
   pendingMigrations.value = franchises.value
     .filter((f) => selected.value.has(f.id))
     .map((f) => ({
@@ -81,6 +111,8 @@ function proceedToConfirm() {
       legacyName: f.name,
       newName: customNames.value[f.id] ?? f.name,
       gameVersion: f.isSmb3 ? 'smb3' : 'smb4',
+      // Validated by inningsValid before this runs — never null here.
+      inningsPerGame: customInnings.value[f.id] as number,
     }))
   step.value = 'confirm'
 }
@@ -90,7 +122,13 @@ async function runMigrations() {
   results.value = []
   for (const entry of pendingMigrations.value) {
     try {
-      const r = await MigrateLegacyFranchise(chosenPath.value, entry.legacyID, entry.newName, entry.gameVersion)
+      const r = await MigrateLegacyFranchise(
+        chosenPath.value,
+        entry.legacyID,
+        entry.newName,
+        entry.gameVersion,
+        entry.inningsPerGame,
+      )
       results.value.push({ result: r, error: null })
     } catch (e) {
       results.value.push({
@@ -206,7 +244,43 @@ function backToSelector() {
 
       <div class="step-actions">
         <AppButton variant="secondary" @click="step = 'select'">Back</AppButton>
-        <AppButton variant="primary" @click="proceedToConfirm">Review & Import</AppButton>
+        <AppButton variant="primary" @click="proceedToInnings">Next</AppButton>
+      </div>
+    </div>
+
+    <!-- ── Innings-per-game step ──────────────────────────────────── -->
+    <div v-else-if="step === 'innings'" class="step">
+      <p class="step-desc">
+        SmbExplorerCompanion doesn't record innings per game. Enter the game length each
+        franchise actually used in SMB4 (1–9 innings) — this can't be guessed or defaulted.
+      </p>
+
+      <div class="names-form">
+        <div
+          v-for="f in franchises.filter((x) => selected.has(x.id))"
+          :key="f.id"
+          class="field"
+        >
+          <label :for="`innings-${f.id}`">{{ customNames[f.id] ?? f.name }}</label>
+          <input
+            :id="`innings-${f.id}`"
+            v-model.number="customInnings[f.id]"
+            type="number"
+            :min="MIN_INNINGS"
+            :max="MAX_INNINGS"
+            placeholder="1–9"
+            required
+          />
+        </div>
+      </div>
+
+      <p v-if="!inningsValid" class="notice-text">Enter a value from 1 to 9 for every franchise.</p>
+
+      <div class="step-actions">
+        <AppButton variant="secondary" @click="step = 'names'">Back</AppButton>
+        <AppButton variant="primary" :disabled="!inningsValid" @click="proceedToConfirm">
+          Review & Import
+        </AppButton>
       </div>
     </div>
 
@@ -464,7 +538,8 @@ label {
   color: var(--color-text-secondary);
 }
 
-input[type='text'] {
+input[type='text'],
+input[type='number'] {
   width: 100%;
   padding: 0.5rem 0.75rem;
   background: var(--color-surface-2);
@@ -477,7 +552,8 @@ input[type='text'] {
   box-sizing: border-box;
 }
 
-input[type='text']:focus {
+input[type='text']:focus,
+input[type='number']:focus {
   border-color: var(--color-accent);
 }
 

@@ -88,14 +88,10 @@ func (s *StatRecordsService) Get(ctx context.Context) (*statHighlightsCache, err
 		return nil, err
 	}
 
-	seasonLength, err := s.store.GetFranchiseSeasonLength(ctx)
+	thresholds, err := s.store.GetCareerQualificationThresholds(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// Scale Baseball Reference's 3000 PA / 1000 IP career thresholds by season length.
-	// When no seasons exist yet seasonLength is 0; thresholds stay 0 so no one qualifies.
-	careerBattingPAThreshold := int(3000 * float64(seasonLength) / 162)
-	careerPitchingOutsThreshold := int(3000 * float64(seasonLength) / 162)
 
 	rsBattingRate, err := s.store.GetBattingRateRows(ctx, true)
 	if err != nil {
@@ -128,19 +124,19 @@ func (s *StatRecordsService) Get(ctx context.Context) (*statHighlightsCache, err
 		LeagueLeadersPitching: computePitchingLeagueLeaders(rsPitching),
 		SingleSeasonBatting:   computeBattingSingleSeasonRecords(rsBatting),
 		SingleSeasonPitching:  computePitchingSingleSeasonRecords(rsPitching),
-		CareerBattingRS:       computeBattingCareerRecords(rsBatting, careerBattingPAThreshold),
-		CareerBattingPO:       computeBattingCareerRecords(poBatting, careerBattingPAThreshold),
-		CareerPitchingRS:      computePitchingCareerRecords(rsPitching, careerPitchingOutsThreshold),
-		CareerPitchingPO:      computePitchingCareerRecords(poPitching, careerPitchingOutsThreshold),
+		CareerBattingRS: computeBattingCareerRecords(rsBatting, thresholds.BattingPAThresholdRS, 0),
+		CareerBattingPO: computeBattingCareerRecords(poBatting, thresholds.BattingPAThresholdPO, thresholds.BattingBBHThresholdPO),
+		CareerPitchingRS: computePitchingCareerRecords(rsPitching, thresholds.PitchingOutsThresholdRS, 0),
+		CareerPitchingPO: computePitchingCareerRecords(poPitching, thresholds.PitchingOutsThresholdPO, thresholds.PitchingDecisionsThresholdPO),
 
 		LeagueLeadersBattingRate:  computeBattingRateLeagueLeaders(rsBattingRate),
 		LeagueLeadersPitchingRate: computePitchingRateLeagueLeaders(rsPitchingRate),
 		SingleSeasonBattingRate:   computeBattingRateSingleSeasonRecords(rsBattingRate),
 		SingleSeasonPitchingRate:  computePitchingRateSingleSeasonRecords(rsPitchingRate),
-		CareerBattingRSRate:       computeBattingCareerRateRecords(careerBattingRS, careerBattingPAThreshold),
-		CareerBattingPORate:       computeBattingCareerRateRecords(careerBattingPO, careerBattingPAThreshold),
-		CareerPitchingRSRate:      computePitchingCareerRateRecords(careerPitchingRS, careerPitchingOutsThreshold),
-		CareerPitchingPORate:      computePitchingCareerRateRecords(careerPitchingPO, careerPitchingOutsThreshold),
+		CareerBattingRSRate:  computeBattingCareerRateRecords(careerBattingRS, thresholds.BattingPAThresholdRS, 0),
+		CareerBattingPORate:  computeBattingCareerRateRecords(careerBattingPO, thresholds.BattingPAThresholdPO, thresholds.BattingBBHThresholdPO),
+		CareerPitchingRSRate: computePitchingCareerRateRecords(careerPitchingRS, thresholds.PitchingOutsThresholdRS, 0),
+		CareerPitchingPORate: computePitchingCareerRateRecords(careerPitchingPO, thresholds.PitchingOutsThresholdPO, thresholds.PitchingDecisionsThresholdPO),
 	}
 	return s.cached, nil
 }
@@ -264,7 +260,11 @@ func computeBattingSingleSeasonRecords(rows []store.BattingCountRow) map[string]
 	return out
 }
 
-func computeBattingCareerRecords(rows []store.BattingCountRow, paThreshold int) map[string][]int64 {
+// computeBattingCareerRecords aggregates career batting totals and gates lower-
+// is-better stats on a PA-based qualification. bbHThreshold is the unscaled
+// career playoff BB+H OR-qualifier; pass 0 to disable it (regular season case,
+// which uses only the PA threshold).
+func computeBattingCareerRecords(rows []store.BattingCountRow, paThreshold, bbHThreshold int) map[string][]int64 {
 	totals := make(map[int64]map[string]int)
 	paByPlayer := make(map[int64]int)
 	for _, r := range rows {
@@ -278,7 +278,14 @@ func computeBattingCareerRecords(rows []store.BattingCountRow, paThreshold int) 
 	}
 	// For lower-is-better stats, require career PA >= threshold so that players with
 	// only a handful of career appearances cannot hold the record for fewest strikeouts.
-	qualifies := func(pid int64, _ map[string]int) bool { return paByPlayer[pid] >= paThreshold }
+	// bbHThreshold > 0 (playoffs only) allows qualifying via BB+H instead, matching the
+	// unscaled MLB postseason minimums.
+	qualifies := func(pid int64, t map[string]int) bool {
+		if paByPlayer[pid] >= paThreshold {
+			return true
+		}
+		return bbHThreshold > 0 && t["hits"]+t["walks"] >= bbHThreshold
+	}
 	return careerRecordsFromTotals(totals, battingCountHigherIsBetter, qualifies)
 }
 
@@ -324,7 +331,11 @@ func computePitchingSingleSeasonRecords(rows []store.PitchingCountRow) map[strin
 	return out
 }
 
-func computePitchingCareerRecords(rows []store.PitchingCountRow, outsThreshold int) map[string][]int64 {
+// computePitchingCareerRecords aggregates career pitching totals and gates
+// lower-is-better stats on an outs-pitched-based qualification.
+// decisionsThreshold is the unscaled career playoff decisions (W+L) OR-qualifier;
+// pass 0 to disable it (regular season case, which uses only the outs threshold).
+func computePitchingCareerRecords(rows []store.PitchingCountRow, outsThreshold, decisionsThreshold int) map[string][]int64 {
 	totals := make(map[int64]map[string]int)
 	for _, r := range rows {
 		if totals[r.PlayerID] == nil {
@@ -336,7 +347,12 @@ func computePitchingCareerRecords(rows []store.PitchingCountRow, outsThreshold i
 	}
 	// For lower-is-better stats, require career IP >= threshold. outsPitched is already
 	// summed in totals so it's available via the qualifies closure.
-	qualifies := func(_ int64, t map[string]int) bool { return t["outsPitched"] >= outsThreshold }
+	qualifies := func(_ int64, t map[string]int) bool {
+		if t["outsPitched"] >= outsThreshold {
+			return true
+		}
+		return decisionsThreshold > 0 && t["wins"]+t["losses"] >= decisionsThreshold
+	}
 	return careerRecordsFromTotals(totals, pitchingCountHigherIsBetter, qualifies)
 }
 
@@ -533,10 +549,12 @@ func computePitchingRateSingleSeasonRecords(rows []store.PitchingRateRow) map[st
 
 // ── Rate career records ───────────────────────────────────────────────────────
 
-func computeBattingCareerRateRecords(rows []store.BattingCareerRateRow, paThreshold int) map[string][]int64 {
+// bbHThreshold is the unscaled career playoff BB+H OR-qualifier; pass 0 to
+// disable it (regular season case, which uses only the PA threshold).
+func computeBattingCareerRateRecords(rows []store.BattingCareerRateRow, paThreshold, bbHThreshold int) map[string][]int64 {
 	qualified := make([]store.BattingCareerRateRow, 0, len(rows))
 	for _, r := range rows {
-		if r.CareerPA >= paThreshold {
+		if r.CareerPA >= paThreshold || (bbHThreshold > 0 && r.Hits+r.Walks >= bbHThreshold) {
 			qualified = append(qualified, r)
 		}
 	}
@@ -552,10 +570,12 @@ func computeBattingCareerRateRecords(rows []store.BattingCareerRateRow, paThresh
 	return records
 }
 
-func computePitchingCareerRateRecords(rows []store.PitchingCareerRateRow, outsThreshold int) map[string][]int64 {
+// decisionsThreshold is the unscaled career playoff decisions (W+L) OR-qualifier;
+// pass 0 to disable it (regular season case, which uses only the outs threshold).
+func computePitchingCareerRateRecords(rows []store.PitchingCareerRateRow, outsThreshold, decisionsThreshold int) map[string][]int64 {
 	qualified := make([]store.PitchingCareerRateRow, 0, len(rows))
 	for _, r := range rows {
-		if r.OutsPitched >= outsThreshold {
+		if r.OutsPitched >= outsThreshold || (decisionsThreshold > 0 && r.Wins+r.Losses >= decisionsThreshold) {
 			qualified = append(qualified, r)
 		}
 	}

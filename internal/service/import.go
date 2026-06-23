@@ -103,11 +103,18 @@ func (svc *ImportService) importInTx(
 	result := ImportResult{SeasonNum: displaySeasonNum}
 	slog.Info("import: starting", "seasonNum", displaySeasonNum)
 
+	inningsPerGame, err := reader.GetSeasonInningsPerGame(ctx, saveGameSeasonID)
+	if err != nil {
+		slog.Error("import: step 1 failed", "step", "read innings per game", "err", err)
+		return result, fmt.Errorf("reading innings per game: %w", err)
+	}
+
 	// ── 1. Season record ────────────────────────────────────────────────────
 	companionSeasonID, err := seasonStore.Upsert(ctx, store.Season{
 		LeagueGUID:       leagueGUID,
 		SaveGameSeasonID: saveGameSeasonID,
 		SeasonNum:        displaySeasonNum,
+		InningsPerGame:   &inningsPerGame,
 	})
 	if err != nil {
 		slog.Error("import: step 1 failed", "step", "upsert season", "err", err)
@@ -219,6 +226,7 @@ func (svc *ImportService) importInTx(
 		SaveGameSeasonID: saveGameSeasonID,
 		SeasonNum:        displaySeasonNum,
 		NumGames:         gamesPerTeam,
+		InningsPerGame:   &inningsPerGame,
 	}); err != nil {
 		slog.Error("import: step 12 failed", "step", "backfill season game count", "err", err)
 		return result, fmt.Errorf("backfilling season game count: %w", err)

@@ -60,6 +60,124 @@ func TestSeasonStore_Upsert_Idempotent(t *testing.T) {
 	}
 }
 
+func TestSeasonStore_UpsertAndGet_InningsPerGame(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	s := store.NewSeasonStore(db)
+	ctx := context.Background()
+
+	innings := 6
+	id, err := s.Upsert(ctx, store.Season{
+		LeagueGUID: testLG, SaveGameSeasonID: 100, SeasonNum: 1, NumGames: 50,
+		InningsPerGame: &innings,
+	})
+	if err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	got, err := s.GetByID(ctx, id)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got.InningsPerGame == nil || *got.InningsPerGame != 6 {
+		t.Errorf("InningsPerGame: got %v, want 6", got.InningsPerGame)
+	}
+}
+
+func TestSeasonStore_UpsertAndGet_InningsPerGameNilWhenUnset(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	s := store.NewSeasonStore(db)
+	ctx := context.Background()
+
+	id, err := s.Upsert(ctx, store.Season{LeagueGUID: testLG, SaveGameSeasonID: 100, SeasonNum: 1, NumGames: 50})
+	if err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	got, err := s.GetByID(ctx, id)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got.InningsPerGame != nil {
+		t.Errorf("InningsPerGame: got %v, want nil (no implicit default)", *got.InningsPerGame)
+	}
+}
+
+func TestSeasonStore_HasSeasonsMissingInningsPerGame(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	s := store.NewSeasonStore(db)
+	ctx := context.Background()
+
+	got, err := s.HasSeasonsMissingInningsPerGame(ctx)
+	if err != nil {
+		t.Fatalf("HasSeasonsMissingInningsPerGame (no seasons): %v", err)
+	}
+	if got {
+		t.Error("want false when no seasons exist")
+	}
+
+	if _, err := s.Upsert(ctx, store.Season{LeagueGUID: testLG, SaveGameSeasonID: 1, SeasonNum: 1}); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	got, err = s.HasSeasonsMissingInningsPerGame(ctx)
+	if err != nil {
+		t.Fatalf("HasSeasonsMissingInningsPerGame: %v", err)
+	}
+	if !got {
+		t.Error("want true when a season has no innings_per_game")
+	}
+
+	innings := 9
+	if _, err := s.Upsert(ctx, store.Season{
+		LeagueGUID: testLG, SaveGameSeasonID: 1, SeasonNum: 1, InningsPerGame: &innings,
+	}); err != nil {
+		t.Fatalf("re-upserting with innings: %v", err)
+	}
+	got, err = s.HasSeasonsMissingInningsPerGame(ctx)
+	if err != nil {
+		t.Fatalf("HasSeasonsMissingInningsPerGame after backfill: %v", err)
+	}
+	if got {
+		t.Error("want false once every season has innings_per_game set")
+	}
+}
+
+func TestSeasonStore_BackfillInningsPerGame(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	s := store.NewSeasonStore(db)
+	ctx := context.Background()
+
+	idMissing, _ := s.Upsert(ctx, store.Season{LeagueGUID: testLG, SaveGameSeasonID: 1, SeasonNum: 1})
+	existing := 7
+	idSet, _ := s.Upsert(ctx, store.Season{
+		LeagueGUID: testLG, SaveGameSeasonID: 2, SeasonNum: 2, InningsPerGame: &existing,
+	})
+
+	if err := s.BackfillInningsPerGame(ctx, 6); err != nil {
+		t.Fatalf("BackfillInningsPerGame: %v", err)
+	}
+
+	gotMissing, _ := s.GetByID(ctx, idMissing)
+	if gotMissing.InningsPerGame == nil || *gotMissing.InningsPerGame != 6 {
+		t.Errorf("backfilled season: InningsPerGame = %v, want 6", gotMissing.InningsPerGame)
+	}
+	gotSet, _ := s.GetByID(ctx, idSet)
+	if gotSet.InningsPerGame == nil || *gotSet.InningsPerGame != 7 {
+		t.Errorf("already-set season: InningsPerGame = %v, want unchanged 7", gotSet.InningsPerGame)
+	}
+}
+
+func TestSeasonStore_BackfillInningsPerGame_RejectsOutOfRange(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	s := store.NewSeasonStore(db)
+	ctx := context.Background()
+
+	for _, innings := range []int{0, -1, 10} {
+		if err := s.BackfillInningsPerGame(ctx, innings); err == nil {
+			t.Errorf("BackfillInningsPerGame(%d): want error, got nil", innings)
+		}
+	}
+}
+
 func TestSeasonStore_ForkNoCollision(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	s := store.NewSeasonStore(db)

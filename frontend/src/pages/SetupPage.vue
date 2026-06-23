@@ -1,6 +1,13 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref } from 'vue'
-import { ListFranchiseSources, ListSnapshots, ReimportSeasonFromSnapshot, SyncSeason } from '../../wailsjs/go/main/App'
+import {
+  BackfillInningsPerGame,
+  HasSeasonsMissingInningsPerGame,
+  ListFranchiseSources,
+  ListSnapshots,
+  ReimportSeasonFromSnapshot,
+  SyncSeason,
+} from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppButton from '../components/AppButton.vue'
 import AppHelpButton from '../components/AppHelpButton.vue'
@@ -75,6 +82,7 @@ onMounted(() => set([{ label: 'Setup' }]))
 onMounted(loadSources)
 onMounted(loadSnapshots)
 onMounted(loadCandidates)
+onMounted(loadMissingInnings)
 
 function sourceDisplayName(src: (typeof sourcesWithRanges.value)[number]): string {
   if (src.isLegacy) return 'Legacy import'
@@ -145,6 +153,40 @@ async function confirmLegacyConnection() {
 function cancelLegacyConnection() {
   pendingLegacySource.value = null
   legacyConnectError.value = null
+}
+
+// ── Innings-per-game backfill (grandfathers seasons synced before this column existed) ──
+
+const missingInnings = ref(false)
+const backfillInnings = ref<number | null>(null)
+const backfillError = ref<string | null>(null)
+const backfilling = ref(false)
+
+const MIN_INNINGS = 1
+const MAX_INNINGS = 9
+
+async function loadMissingInnings() {
+  if (!franchiseStore.active) return
+  try {
+    missingInnings.value = await HasSeasonsMissingInningsPerGame()
+  } catch {
+    // non-fatal — backfill prompt just won't display
+  }
+}
+
+async function handleBackfillInnings() {
+  if (backfillInnings.value == null) return
+  backfillError.value = null
+  backfilling.value = true
+  try {
+    await BackfillInningsPerGame(backfillInnings.value)
+    missingInnings.value = false
+    highlightsStore.invalidate()
+  } catch (e) {
+    backfillError.value = String(e)
+  } finally {
+    backfilling.value = false
+  }
 }
 
 // ── Fork source ──────────────────────────────────────────────────────────────
@@ -375,6 +417,41 @@ async function handleReimport() {
           <AppButton variant="ghost" size="sm" @click="showReplacePicker = false">Cancel</AppButton>
         </template>
       </template>
+    </section>
+
+    <!-- Innings-per-game backfill — only shown while seasons predate the column -->
+    <section v-if="missingInnings" class="card-section">
+      <div class="heading-row">
+        <h3>Game Length</h3>
+        <AppHelpButton docs-path="franchise-forking.html#known-limitations" />
+      </div>
+      <p class="hint-text">
+        This franchise has seasons synced before smb-tools tracked innings per game. Enter the
+        game length you actually used in SMB4 (1–9 innings) to apply it to those seasons —
+        this can't be derived automatically.
+      </p>
+      <div class="fork-offset-row">
+        <label class="fork-label">Innings per game</label>
+        <input
+          v-model.number="backfillInnings"
+          type="number"
+          :min="MIN_INNINGS"
+          :max="MAX_INNINGS"
+          placeholder="1–9"
+          class="fork-offset-input"
+        />
+      </div>
+      <p v-if="backfillError" class="error-text">{{ backfillError }}</p>
+      <AppButton
+        variant="primary"
+        size="sm"
+        :disabled="
+          backfilling || backfillInnings == null || backfillInnings < MIN_INNINGS || backfillInnings > MAX_INNINGS
+        "
+        @click="handleBackfillInnings"
+      >
+        {{ backfilling ? 'Saving…' : 'Apply' }}
+      </AppButton>
     </section>
 
     <!-- Fork to new league — deliberately separate, below, with explanation -->

@@ -11,6 +11,27 @@ import (
 	"smb-tools/internal/models"
 )
 
+// HasSeasonsMissingInningsPerGame reports whether the active franchise has any
+// season rows that predate the innings_per_game column (synced or
+// legacy-migrated before this feature existed). The Setup page uses this to
+// show or hide the one-time backfill prompt.
+func (a *App) HasSeasonsMissingInningsPerGame() (bool, error) {
+	if err := a.requireCompanionDB(); err != nil {
+		return false, err
+	}
+	return a.seasonStore.HasSeasonsMissingInningsPerGame(a.ctx)
+}
+
+// BackfillInningsPerGame sets innings_per_game on every season row that
+// predates the column, to the actual game length the user supplies. There is
+// no derivable value for these rows, so the user must provide it explicitly.
+func (a *App) BackfillInningsPerGame(innings int) error {
+	if err := a.requireCompanionDB(); err != nil {
+		return err
+	}
+	return a.seasonStore.BackfillInningsPerGame(a.ctx, innings)
+}
+
 // GetSeasonList returns all synced seasons with champion information.
 func (a *App) GetSeasonList() ([]SeasonSummaryDTO, error) {
 	if err := a.requireCompanionDB(); err != nil {

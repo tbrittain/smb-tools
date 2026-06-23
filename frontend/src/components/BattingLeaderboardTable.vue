@@ -2,11 +2,14 @@
 import Column from 'primevue/column'
 import type { DataTablePageEvent, DataTableSortEvent } from 'primevue/datatable'
 import DataTable from 'primevue/datatable'
+import { computed } from 'vue'
 import type { main } from '../../wailsjs/go/models'
 import { formatAdjustedStat, formatBA, formatWAR } from '../composables/useStatFormatters'
 import {
   highlightTooltip,
+  isCareerRecordPO,
   isCareerRecordRS,
+  isRateCareerRecordPO,
   isRateCareerRecordRS,
   isRateSeasonLeader,
   isRateSingleSeasonRecord,
@@ -24,6 +27,7 @@ import TraitList from './TraitList.vue'
 const props = defineProps<{
   rows: main.BattingLeaderRowDTO[]
   isCareer: boolean
+  gameType?: string
   highlights?: main.StatHighlightsDTO | null
   totalRecords?: number
   first?: number
@@ -36,6 +40,15 @@ const emit = defineEmits<{
   page: [event: DataTablePageEvent]
 }>()
 
+// Career records are tracked separately for regular season and playoffs; "combined"
+// sums both game types together and has no matching record set, so highlighting is
+// suppressed rather than showing a misleading regular-season (or playoff) record.
+const careerContext = computed<'careerRS' | 'careerPO' | null>(() => {
+  if (props.gameType === 'playoffs') return 'careerPO'
+  if (props.gameType === 'combined') return null
+  return 'careerRS'
+})
+
 function leaderClass(r: main.BattingLeaderRowDTO, statKey: string): Record<string, boolean> {
   return {
     'stat-leader': isSeasonLeader(r.playerId, r.seasonNum, statKey, props.highlights, 'batting'),
@@ -44,9 +57,13 @@ function leaderClass(r: main.BattingLeaderRowDTO, statKey: string): Record<strin
 }
 
 function careerClass(r: main.BattingLeaderRowDTO, statKey: string): Record<string, boolean> {
-  return {
-    'stat-record': isCareerRecordRS(r.playerId, statKey, props.highlights, 'batting'),
+  if (careerContext.value === 'careerPO') {
+    return { 'stat-record': isCareerRecordPO(r.playerId, statKey, props.highlights, 'batting') }
   }
+  if (careerContext.value === 'careerRS') {
+    return { 'stat-record': isCareerRecordRS(r.playerId, statKey, props.highlights, 'batting') }
+  }
+  return {}
 }
 
 function seasonTip(r: main.BattingLeaderRowDTO, statKey: string, label: string): string {
@@ -54,7 +71,8 @@ function seasonTip(r: main.BattingLeaderRowDTO, statKey: string, label: string):
 }
 
 function careerTip(r: main.BattingLeaderRowDTO, statKey: string, label: string): string {
-  return highlightTooltip(r.playerId, r.seasonNum, statKey, label, props.highlights, 'batting', 'careerRS')
+  if (!careerContext.value) return ''
+  return highlightTooltip(r.playerId, r.seasonNum, statKey, label, props.highlights, 'batting', careerContext.value)
 }
 
 function rateLeaderClass(r: main.BattingLeaderRowDTO, statKey: string): Record<string, boolean> {
@@ -65,9 +83,13 @@ function rateLeaderClass(r: main.BattingLeaderRowDTO, statKey: string): Record<s
 }
 
 function rateCareerClass(r: main.BattingLeaderRowDTO, statKey: string): Record<string, boolean> {
-  return {
-    'stat-record': isRateCareerRecordRS(r.playerId, statKey, props.highlights, 'batting'),
+  if (careerContext.value === 'careerPO') {
+    return { 'stat-record': isRateCareerRecordPO(r.playerId, statKey, props.highlights, 'batting') }
   }
+  if (careerContext.value === 'careerRS') {
+    return { 'stat-record': isRateCareerRecordRS(r.playerId, statKey, props.highlights, 'batting') }
+  }
+  return {}
 }
 
 function rateSeasonTip(r: main.BattingLeaderRowDTO, statKey: string, label: string): string {
@@ -75,7 +97,8 @@ function rateSeasonTip(r: main.BattingLeaderRowDTO, statKey: string, label: stri
 }
 
 function rateCareerTip(r: main.BattingLeaderRowDTO, statKey: string, label: string): string {
-  return rateHighlightTooltip(r.playerId, r.seasonNum, statKey, label, props.highlights, 'batting', 'careerRS')
+  if (!careerContext.value) return ''
+  return rateHighlightTooltip(r.playerId, r.seasonNum, statKey, label, props.highlights, 'batting', careerContext.value)
 }
 </script>
 

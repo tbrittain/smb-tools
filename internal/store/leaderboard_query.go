@@ -139,20 +139,27 @@ LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
 
 	// The CTE aggregates counting stats and computes rate fields inline so that
 	// the outer SELECT can ORDER BY any column (including rates) without a subquery.
-	// TODO: this threshold (3000 PA scaled off a 162-game regular season) is
-	// calibrated for regular-season career totals. Applied unchanged when
-	// f.GameType=="playoffs", it's far too high — a career's worth of playoff PA
-	// is tiny by comparison — and silently returns zero rows. Same root cause as
-	// the identical formula in export_store.go's QualifiedOnly handling for
-	// career_batting/career_pitching. Tracked as a separate bug-fix work item;
-	// both call sites need a shared fix.
+	// Career qualification: regular season (and "combined") use the RS-scaled PA
+	// threshold; playoffs use the fixed, unscaled MLB postseason minimums (PA OR
+	// BB+H), since a career's worth of playoff PA is tiny compared to a regular
+	// season scaled threshold. See export_store.go's career_batting case for the
+	// matching fix.
 	qualHaving := ""
 	if f.QualifiedOnly {
-		qualHaving = `
-  AND CAST(SUM(b.plate_appearances) AS REAL) >= (
-      SELECT CAST(COALESCE(num_games, 162) AS REAL) * 3000.0 / 162.0
-      FROM seasons ORDER BY season_num LIMIT 1
-  )`
+		thresholds, err := GetCareerQualificationThresholds(ctx, s.db)
+		if err != nil {
+			return nil, 0, err
+		}
+		if f.GameType == "playoffs" {
+			qualHaving = `
+  AND (CAST(SUM(b.plate_appearances) AS REAL) >= ?
+       OR CAST(SUM(b.hits + b.walks) AS REAL) >= ?)`
+			args = append(args, thresholds.BattingPAThresholdPO, thresholds.BattingBBHThresholdPO)
+		} else {
+			qualHaving = `
+  AND CAST(SUM(b.plate_appearances) AS REAL) >= ?`
+			args = append(args, thresholds.BattingPAThresholdRS)
+		}
 	}
 	cte := fmt.Sprintf(`
 WITH career AS (
@@ -588,15 +595,23 @@ LEFT JOIN league_season_stats lss ON lss.season_id = ps.season_id
     END`
 	}
 
-	// TODO: see the matching TODO in GetBattingCareerLeaders above — this threshold
-	// has the same regular-season-calibrated-formula-applied-to-playoffs bug.
+	// Career qualification: see the matching comment in GetBattingCareerLeaders above.
 	qualHaving := ""
 	if f.QualifiedOnly {
-		qualHaving = `
-  AND SUM(pit.outs_pitched) >= (
-      SELECT CAST(COALESCE(num_games, 162) AS REAL) * 3000.0 / 162.0
-      FROM seasons ORDER BY season_num LIMIT 1
-  )`
+		thresholds, err := GetCareerQualificationThresholds(ctx, s.db)
+		if err != nil {
+			return nil, 0, err
+		}
+		if f.GameType == "playoffs" {
+			qualHaving = `
+  AND (SUM(pit.outs_pitched) >= ?
+       OR SUM(pit.wins + pit.losses) >= ?)`
+			args = append(args, thresholds.PitchingOutsThresholdPO, thresholds.PitchingDecisionsThresholdPO)
+		} else {
+			qualHaving = `
+  AND SUM(pit.outs_pitched) >= ?`
+			args = append(args, thresholds.PitchingOutsThresholdRS)
+		}
 	}
 
 	cte := fmt.Sprintf(`

@@ -6,6 +6,8 @@ export function AddFranchiseSource(arg1:string,arg2:string,arg3:string,arg4:numb
 
 export function AssignExistingTeamLogo(arg1:string,arg2:any,arg3:any):Promise<main.TeamLogoAssignmentDTO>;
 
+export function BackfillInningsPerGame(arg1:number):Promise<void>;
+
 export function BrowseLeagueExportDirectory():Promise<Array<main.LeagueOverviewDTO>>;
 
 export function BrowseLeagueImportZip():Promise<string>;
@@ -120,6 +122,8 @@ export function GetTeamsForExport():Promise<Array<main.TeamPickerResultDTO>>;
 
 export function GetVersion():Promise<string>;
 
+export function HasSeasonsMissingInningsPerGame():Promise<boolean>;
+
 export function ListAllAwards():Promise<Array<main.AwardDTO>>;
 
 export function ListAllTeamSeasons():Promise<Array<main.TeamSeasonListDTO>>;
@@ -138,7 +142,7 @@ export function ListSnapshots():Promise<Array<main.SnapshotDTO>>;
 
 export function LogFrontendError(arg1:string,arg2:string,arg3:string):Promise<void>;
 
-export function MigrateLegacyFranchise(arg1:string,arg2:number,arg3:string,arg4:string):Promise<main.MigrateLegacyResult>;
+export function MigrateLegacyFranchise(arg1:string,arg2:number,arg3:string,arg4:string,arg5:number):Promise<main.MigrateLegacyResult>;
 
 export function OpenAppDataDir():Promise<void>;
 

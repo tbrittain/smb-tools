@@ -111,10 +111,49 @@ func TestComputeBattingCareerRecords_SumsAcrossSeasons(t *testing.T) {
 		{PlayerID: 2, SeasonNum: 2, HomeRuns: 20},
 	}
 	// Player 1 career: 78 HR; Player 2 career: 65 HR. Threshold 0 = no PA gate.
-	records := computeBattingCareerRecords(rows, 0)
+	records := computeBattingCareerRecords(rows, 0, 0)
 	hrRecords := records["homeRuns"]
 	if len(hrRecords) != 1 || hrRecords[0] != 1 {
 		t.Errorf("career HR record: want [1] (78 HR), got %v", hrRecords)
+	}
+}
+
+// TestComputeBattingCareerRecords_POQualifiesViaBBH verifies the OR-conditioned
+// PO qualifier: a player below the PA threshold but at/above the BB+H threshold
+// still qualifies for lower-is-better stat gating.
+func TestComputeBattingCareerRecords_POQualifiesViaBBH(t *testing.T) {
+	rows := []store.BattingCountRow{
+		// 25 PA (below paThreshold=40), but hits(10)+walks(8)=18 >= bbHThreshold=18.
+		// Has the fewest strikeouts of the qualified players.
+		{PlayerID: 1, SeasonNum: 1, PlateAppearances: 25, Hits: 10, Walks: 8, Strikeouts: 1},
+		// 50 PA (above paThreshold=40) — qualifies via PA regardless of BB+H.
+		{PlayerID: 2, SeasonNum: 1, PlateAppearances: 50, Hits: 5, Walks: 1, Strikeouts: 5},
+		// 10 PA, hits(2)+walks(1)=3 — qualifies for neither, despite fewest K of all.
+		{PlayerID: 3, SeasonNum: 1, PlateAppearances: 10, Hits: 2, Walks: 1, Strikeouts: 0},
+	}
+	records := computeBattingCareerRecords(rows, 40, 18)
+	// Strikeouts is lower-is-better — only qualified players are eligible.
+	kRecord := records["strikeouts"]
+	if len(kRecord) != 1 || kRecord[0] != 1 {
+		t.Errorf("fewest-K record (qualified via BB+H): want [1], got %v", kRecord)
+	}
+}
+
+func TestComputePitchingCareerRecords_POQualifiesViaDecisions(t *testing.T) {
+	rows := []store.PitchingCountRow{
+		// 60 outs (below outsThreshold=90), but wins(4)+losses(2)=6 >= decisionsThreshold=6.
+		// Has the fewest walks allowed of the qualified players.
+		{PlayerID: 1, SeasonNum: 1, OutsPitched: 60, Wins: 4, Losses: 2, Walks: 1},
+		// 95 outs (above outsThreshold=90) — qualifies via outs regardless of decisions.
+		{PlayerID: 2, SeasonNum: 1, OutsPitched: 95, Wins: 1, Losses: 1, Walks: 5},
+		// 50 outs, 1 decision — qualifies for neither, despite fewest BB of all.
+		{PlayerID: 3, SeasonNum: 1, OutsPitched: 50, Wins: 1, Losses: 0, Walks: 0},
+	}
+	records := computePitchingCareerRecords(rows, 90, 6)
+	// Walks (allowed) is lower-is-better — only qualified players are eligible.
+	walksRecord := records["walks"]
+	if len(walksRecord) != 1 || walksRecord[0] != 1 {
+		t.Errorf("fewest-BB record (qualified via decisions): want [1], got %v", walksRecord)
 	}
 }
 
@@ -126,7 +165,7 @@ func TestComputeBattingCareerRecords_CareerTie(t *testing.T) {
 		{PlayerID: 2, SeasonNum: 2, HomeRuns: 25},
 	}
 	// Both players: 75 HR career. Threshold 0 = no PA gate.
-	records := computeBattingCareerRecords(rows, 0)
+	records := computeBattingCareerRecords(rows, 0, 0)
 	hrRecords := records["homeRuns"]
 	slices.Sort(hrRecords)
 	if len(hrRecords) != 2 || hrRecords[0] != 1 || hrRecords[1] != 2 {
@@ -158,7 +197,7 @@ func TestComputePitchingCareerRecords_SumsOutsPitched(t *testing.T) {
 		{PlayerID: 11, SeasonNum: 2, OutsPitched: 600},
 	}
 	// P10: 1410; P11: 1400. Threshold 0 = no IP gate.
-	records := computePitchingCareerRecords(rows, 0)
+	records := computePitchingCareerRecords(rows, 0, 0)
 	if got := records["outsPitched"]; len(got) != 1 || got[0] != 10 {
 		t.Errorf("career IP record: want [10], got %v", got)
 	}
@@ -294,7 +333,7 @@ func TestComputeBattingCareerRateRecords_BelowThresholdExcluded(t *testing.T) {
 		{PlayerID: 1, BA: fp(0.310), CareerPA: 800}, // above threshold
 		{PlayerID: 2, BA: fp(0.350), CareerPA: 300}, // below threshold
 	}
-	records := computeBattingCareerRateRecords(rows, threshold)
+	records := computeBattingCareerRateRecords(rows, threshold, 0)
 	got := records["ba"]
 	if len(got) != 1 || got[0] != 1 {
 		t.Errorf("career BA record: want [1] (above threshold), got %v", got)
@@ -307,7 +346,7 @@ func TestComputeBattingCareerRateRecords_AboveThresholdBestRateWins(t *testing.T
 		{PlayerID: 1, OPS: fp(0.900), CareerPA: 600},
 		{PlayerID: 2, OPS: fp(1.050), CareerPA: 700},
 	}
-	records := computeBattingCareerRateRecords(rows, threshold)
+	records := computeBattingCareerRateRecords(rows, threshold, 0)
 	got := records["ops"]
 	if len(got) != 1 || got[0] != 2 {
 		t.Errorf("career OPS record: want [2] (1.050), got %v", got)
@@ -321,7 +360,7 @@ func TestComputePitchingCareerRateRecords_OutsThresholdApplied(t *testing.T) {
 		{PlayerID: 10, ERA: fp(3.20), OutsPitched: 900},
 		{PlayerID: 11, ERA: fp(2.10), OutsPitched: 100}, // below threshold
 	}
-	records := computePitchingCareerRateRecords(rows, threshold)
+	records := computePitchingCareerRateRecords(rows, threshold, 0)
 	got := records["era"]
 	if len(got) != 1 || got[0] != 10 {
 		t.Errorf("career ERA record: want [10] (only qualified), got %v", got)
@@ -333,7 +372,7 @@ func TestComputePitchingCareerRateRecords_NoQualifiedPlayers(t *testing.T) {
 	rows := []store.PitchingCareerRateRow{
 		{PlayerID: 10, ERA: fp(2.50), OutsPitched: 300},
 	}
-	records := computePitchingCareerRateRecords(rows, threshold)
+	records := computePitchingCareerRateRecords(rows, threshold, 0)
 	if records != nil {
 		t.Errorf("expect nil when no qualified players, got %v", records)
 	}
@@ -431,7 +470,7 @@ func TestComputeBattingCareerRecords_StrikeoutsLowerIsBetter_PAThreshold(t *test
 		{PlayerID: 1, SeasonNum: 1, AtBats: 750, Strikeouts: 80, PlateAppearances: 800},
 		{PlayerID: 2, SeasonNum: 1, AtBats: 18, Strikeouts: 5, PlateAppearances: 20},
 	}
-	records := computeBattingCareerRecords(rows, threshold)
+	records := computeBattingCareerRecords(rows, threshold, 0)
 	got := records["strikeouts"]
 	if len(got) != 1 || got[0] != 1 {
 		t.Errorf("career K record (fewest, PA-gated): want [1], got %v", got)
@@ -449,7 +488,7 @@ func TestComputePitchingCareerRecords_LowerIsBetterStats_OutsThreshold(t *testin
 		{PlayerID: 10, SeasonNum: 2, EarnedRuns: 30, Walks: 20, HitsAllowed: 90, OutsPitched: 300},
 		{PlayerID: 11, SeasonNum: 1, EarnedRuns: 0, Walks: 0, HitsAllowed: 0, OutsPitched: 0},
 	}
-	records := computePitchingCareerRecords(rows, threshold)
+	records := computePitchingCareerRecords(rows, threshold, 0)
 	if got := records["earnedRuns"]; len(got) != 1 || got[0] != 10 {
 		t.Errorf("career ER record (fewest, IP-gated): want [10], got %v", got)
 	}
@@ -517,7 +556,7 @@ func TestComputeBattingCareerRateRecords_OPSPlusNotTracked(t *testing.T) {
 	rows := []store.BattingCareerRateRow{
 		{PlayerID: 1, OPS: fp(0.950), CareerPA: 500},
 	}
-	records := computeBattingCareerRateRecords(rows, threshold)
+	records := computeBattingCareerRateRecords(rows, threshold, 0)
 	if _, ok := records["opsPlus"]; ok {
 		t.Error("opsPlus should not appear in career batting rate records")
 	}
