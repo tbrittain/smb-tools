@@ -84,6 +84,11 @@ func TestImportSeason_SeasonRecordCreated(t *testing.T) {
 	if season.NumGames == 0 {
 		t.Error("num_games: got 0, want > 0 — qualified-player thresholds break when this is 0")
 	}
+	// The fixture's season 100 sets t_seasons.innings = 7 (non-default) so this
+	// assertion can't pass by coincidentally seeing the companion column default.
+	if season.InningsPerGame != 7 {
+		t.Errorf("innings_per_game: got %d, want 7 (from t_seasons.innings)", season.InningsPerGame)
+	}
 }
 
 func TestImportSeason_LeagueAvgAttributesPopulated(t *testing.T) {

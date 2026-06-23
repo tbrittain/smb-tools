@@ -44,3 +44,36 @@ func TestGetSeasonPlayoffConfig_NotFound(t *testing.T) {
 		t.Errorf("expected nil config for season 101 (no t_playoffs row), got %+v", cfg)
 	}
 }
+
+func TestGetSeasonInningsPerGame_ReadsNonDefaultValue(t *testing.T) {
+	// Season 100's t_seasons.innings is seeded to 7 (non-default) so this test
+	// can't pass by coincidentally reading the column default instead of the
+	// real column.
+	db := testutil.NewTestSaveGameDB(t)
+	reader := store.NewSqliteSaveGameReader(db, "")
+	ctx := context.Background()
+
+	got, err := reader.GetSeasonInningsPerGame(ctx, 100)
+	if err != nil {
+		t.Fatalf("GetSeasonInningsPerGame(100): %v", err)
+	}
+	if got != 7 {
+		t.Errorf("GetSeasonInningsPerGame(100) = %d, want 7", got)
+	}
+}
+
+func TestGetSeasonInningsPerGame_DefaultValue(t *testing.T) {
+	// Season 101 doesn't override innings, so it should read the column
+	// default (9, the standard SMB4 game length).
+	db := testutil.NewTestSaveGameDB(t)
+	reader := store.NewSqliteSaveGameReader(db, "")
+	ctx := context.Background()
+
+	got, err := reader.GetSeasonInningsPerGame(ctx, 101)
+	if err != nil {
+		t.Fatalf("GetSeasonInningsPerGame(101): %v", err)
+	}
+	if got != 9 {
+		t.Errorf("GetSeasonInningsPerGame(101) = %d, want 9", got)
+	}
+}

@@ -118,6 +118,45 @@ func TestComputeBattingCareerRecords_SumsAcrossSeasons(t *testing.T) {
 	}
 }
 
+// TestComputeBattingCareerRecords_POQualifiesViaBBH verifies the OR-conditioned
+// PO qualifier: a player below the PA threshold but at/above the BB+H threshold
+// still qualifies for lower-is-better stat gating.
+func TestComputeBattingCareerRecords_POQualifiesViaBBH(t *testing.T) {
+	rows := []store.BattingCountRow{
+		// 25 PA (below paThreshold=40), but hits(10)+walks(8)=18 >= bbHThreshold=18.
+		// Has the fewest strikeouts of the qualified players.
+		{PlayerID: 1, SeasonNum: 1, PlateAppearances: 25, Hits: 10, Walks: 8, Strikeouts: 1},
+		// 50 PA (above paThreshold=40) — qualifies via PA regardless of BB+H.
+		{PlayerID: 2, SeasonNum: 1, PlateAppearances: 50, Hits: 5, Walks: 1, Strikeouts: 5},
+		// 10 PA, hits(2)+walks(1)=3 — qualifies for neither, despite fewest K of all.
+		{PlayerID: 3, SeasonNum: 1, PlateAppearances: 10, Hits: 2, Walks: 1, Strikeouts: 0},
+	}
+	records := computeBattingCareerRecords(rows, 40, 18)
+	// Strikeouts is lower-is-better — only qualified players are eligible.
+	kRecord := records["strikeouts"]
+	if len(kRecord) != 1 || kRecord[0] != 1 {
+		t.Errorf("fewest-K record (qualified via BB+H): want [1], got %v", kRecord)
+	}
+}
+
+func TestComputePitchingCareerRecords_POQualifiesViaDecisions(t *testing.T) {
+	rows := []store.PitchingCountRow{
+		// 60 outs (below outsThreshold=90), but wins(4)+losses(2)=6 >= decisionsThreshold=6.
+		// Has the fewest walks allowed of the qualified players.
+		{PlayerID: 1, SeasonNum: 1, OutsPitched: 60, Wins: 4, Losses: 2, Walks: 1},
+		// 95 outs (above outsThreshold=90) — qualifies via outs regardless of decisions.
+		{PlayerID: 2, SeasonNum: 1, OutsPitched: 95, Wins: 1, Losses: 1, Walks: 5},
+		// 50 outs, 1 decision — qualifies for neither, despite fewest BB of all.
+		{PlayerID: 3, SeasonNum: 1, OutsPitched: 50, Wins: 1, Losses: 0, Walks: 0},
+	}
+	records := computePitchingCareerRecords(rows, 90, 6)
+	// Walks (allowed) is lower-is-better — only qualified players are eligible.
+	walksRecord := records["walks"]
+	if len(walksRecord) != 1 || walksRecord[0] != 1 {
+		t.Errorf("fewest-BB record (qualified via decisions): want [1], got %v", walksRecord)
+	}
+}
+
 func TestComputeBattingCareerRecords_CareerTie(t *testing.T) {
 	rows := []store.BattingCountRow{
 		{PlayerID: 1, SeasonNum: 1, HomeRuns: 40},

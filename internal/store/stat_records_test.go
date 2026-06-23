@@ -379,32 +379,21 @@ func TestGetPitchingRateRows_OutsPitchedAndNumGamesPresent(t *testing.T) {
 	}
 }
 
-func TestGetCareerQualificationThresholds_ScalesByFirstSeasonNumGames(t *testing.T) {
+// TestStatRecordQueryStore_GetCareerQualificationThresholds_Delegates verifies
+// the store-method wrapper delegates to the package-level helper correctly.
+// See career_qualification_test.go for thorough scaling coverage.
+func TestStatRecordQueryStore_GetCareerQualificationThresholds_Delegates(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()
 
 	seedSeason(t, db, 1, 1, 40)
-	seedSeason(t, db, 2, 2, 50) // second season with different length
 
 	got, err := newStatRecordStore(db).GetCareerQualificationThresholds(ctx)
 	if err != nil {
 		t.Fatalf("GetCareerQualificationThresholds: %v", err)
 	}
 	if got.BattingPAThresholdRS != 740 { // 3000 * 40/162 * 9/9
-		t.Errorf("want 740 (first season), got %d", got.BattingPAThresholdRS)
-	}
-}
-
-func TestGetCareerQualificationThresholds_NoSeasons(t *testing.T) {
-	db := testutil.NewTestDB(t)
-	ctx := context.Background()
-
-	got, err := newStatRecordStore(db).GetCareerQualificationThresholds(ctx)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got.BattingPAThresholdRS != 0 {
-		t.Errorf("want 0 when no seasons, got %d", got.BattingPAThresholdRS)
+		t.Errorf("want 740, got %d", got.BattingPAThresholdRS)
 	}
 }
 

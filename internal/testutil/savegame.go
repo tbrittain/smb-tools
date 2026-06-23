@@ -279,9 +279,11 @@ func seedSaveGameData(db *sql.DB) error {
 		VALUES (X'FF000000000000000000000000000000', X'EE000000000000000000000000000000', X'01000000000000000000000000000000');
 
 		-- t_seasons.GUID is a blob linked by t_playoffs.seasonGUID.
-		-- Season 100 GUID matches the playoff entry below.
-		INSERT INTO t_seasons (id, GUID, historicalLeagueGUID, elimination)
-		VALUES (100, X'DD000000000000000000000000000000', X'EE000000000000000000000000000000', 0);
+		-- Season 100 GUID matches the playoff entry below. Season 100 uses a
+		-- non-default innings value so tests can distinguish "read the real
+		-- column" from "happened to see the column default."
+		INSERT INTO t_seasons (id, GUID, historicalLeagueGUID, elimination, innings)
+		VALUES (100, X'DD000000000000000000000000000000', X'EE000000000000000000000000000000', 0, 7);
 		INSERT INTO t_seasons (id, GUID, historicalLeagueGUID, elimination)
 		VALUES (101, X'DE000000000000000000000000000000', X'EE000000000000000000000000000000', 0);
 

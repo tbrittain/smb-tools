@@ -184,10 +184,10 @@ func TestMigrateLegacy_IPConversion(t *testing.T) {
 	}
 
 	cases := []struct {
-		firstName  string
-		seasonNum  int
-		wantOuts   int
-		desc       string
+		firstName string
+		seasonNum int
+		wantOuts  int
+		desc      string
 	}{
 		{"Sam", 1, 540, "180.0 IP → 540 outs"},
 		{"Riley", 1, 137, "45.2 IP → 137 outs"},

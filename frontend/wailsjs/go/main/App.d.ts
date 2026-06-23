@@ -138,7 +138,7 @@ export function ListSnapshots():Promise<Array<main.SnapshotDTO>>;
 
 export function LogFrontendError(arg1:string,arg2:string,arg3:string):Promise<void>;
 
-export function MigrateLegacyFranchise(arg1:string,arg2:number,arg3:string,arg4:string):Promise<main.MigrateLegacyResult>;
+export function MigrateLegacyFranchise(arg1:string,arg2:number,arg3:string,arg4:string,arg5:number):Promise<main.MigrateLegacyResult>;
 
 export function OpenAppDataDir():Promise<void>;
 

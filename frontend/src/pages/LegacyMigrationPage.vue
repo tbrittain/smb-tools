@@ -7,7 +7,7 @@ import AppButton from '../components/AppButton.vue'
 import AppHelpButton from '../components/AppHelpButton.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 
-type Step = 'source' | 'select' | 'names' | 'confirm' | 'progress' | 'done'
+type Step = 'source' | 'select' | 'names' | 'innings' | 'confirm' | 'progress' | 'done'
 
 const router = useRouter()
 
@@ -20,8 +20,15 @@ const loading = ref(false)
 const franchises = ref<main.LegacyFranchiseDTO[]>([])
 const selected = ref<Set<number>>(new Set())
 const customNames = ref<Record<number, string>>({})
+const customInnings = ref<Record<number, number>>({})
 
-type MigrationEntry = { legacyID: number; legacyName: string; newName: string; gameVersion: string }
+type MigrationEntry = {
+  legacyID: number
+  legacyName: string
+  newName: string
+  gameVersion: string
+  inningsPerGame: number
+}
 const pendingMigrations = ref<MigrationEntry[]>([])
 
 type ResultEntry = { result: main.MigrateLegacyResult; error: string | null }
@@ -54,7 +61,11 @@ async function loadFranchises() {
     franchises.value = list ?? []
     selected.value = new Set()
     customNames.value = {}
-    for (const f of franchises.value) customNames.value[f.id] = f.name
+    customInnings.value = {}
+    for (const f of franchises.value) {
+      customNames.value[f.id] = f.name
+      customInnings.value[f.id] = 9
+    }
     step.value = 'select'
   } catch (e) {
     error.value = String(e)
@@ -73,6 +84,10 @@ function proceedToNames() {
   step.value = 'names'
 }
 
+function proceedToInnings() {
+  step.value = 'innings'
+}
+
 function proceedToConfirm() {
   pendingMigrations.value = franchises.value
     .filter((f) => selected.value.has(f.id))
@@ -81,6 +96,7 @@ function proceedToConfirm() {
       legacyName: f.name,
       newName: customNames.value[f.id] ?? f.name,
       gameVersion: f.isSmb3 ? 'smb3' : 'smb4',
+      inningsPerGame: customInnings.value[f.id] ?? 9,
     }))
   step.value = 'confirm'
 }
@@ -90,7 +106,13 @@ async function runMigrations() {
   results.value = []
   for (const entry of pendingMigrations.value) {
     try {
-      const r = await MigrateLegacyFranchise(chosenPath.value, entry.legacyID, entry.newName, entry.gameVersion)
+      const r = await MigrateLegacyFranchise(
+        chosenPath.value,
+        entry.legacyID,
+        entry.newName,
+        entry.gameVersion,
+        entry.inningsPerGame,
+      )
       results.value.push({ result: r, error: null })
     } catch (e) {
       results.value.push({
@@ -206,6 +228,36 @@ function backToSelector() {
 
       <div class="step-actions">
         <AppButton variant="secondary" @click="step = 'select'">Back</AppButton>
+        <AppButton variant="primary" @click="proceedToInnings">Next</AppButton>
+      </div>
+    </div>
+
+    <!-- ── Innings-per-game step ──────────────────────────────────── -->
+    <div v-else-if="step === 'innings'" class="step">
+      <p class="step-desc">
+        SmbExplorerCompanion doesn't record innings per game. If you know the value each franchise
+        used, enter it here — otherwise the default of 9 is fine.
+      </p>
+
+      <div class="names-form">
+        <div
+          v-for="f in franchises.filter((x) => selected.has(x.id))"
+          :key="f.id"
+          class="field"
+        >
+          <label :for="`innings-${f.id}`">{{ customNames[f.id] ?? f.name }}</label>
+          <input
+            :id="`innings-${f.id}`"
+            v-model.number="customInnings[f.id]"
+            type="number"
+            min="1"
+            max="30"
+          />
+        </div>
+      </div>
+
+      <div class="step-actions">
+        <AppButton variant="secondary" @click="step = 'names'">Back</AppButton>
         <AppButton variant="primary" @click="proceedToConfirm">Review & Import</AppButton>
       </div>
     </div>
@@ -464,7 +516,8 @@ label {
   color: var(--color-text-secondary);
 }
 
-input[type='text'] {
+input[type='text'],
+input[type='number'] {
   width: 100%;
   padding: 0.5rem 0.75rem;
   background: var(--color-surface-2);
@@ -477,7 +530,8 @@ input[type='text'] {
   box-sizing: border-box;
 }
 
-input[type='text']:focus {
+input[type='text']:focus,
+input[type='number']:focus {
   border-color: var(--color-accent);
 }
 

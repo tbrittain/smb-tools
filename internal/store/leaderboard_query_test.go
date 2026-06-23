@@ -220,8 +220,8 @@ func TestGetBattingCareerLeaders_PlayoffToggle(t *testing.T) {
 	h1 := seedTeamHistory(t, db, t1, 1, "Team", "E", "AL", 20, 20)
 	pid := seedPlayer(t, db, "gP", "Playoff", "Test")
 	ps1 := seedPlayerSeason(t, db, pid, 1, &h1)
-	seedBatting(t, db, ps1, true, 400, 100, 10, 40)  // regular season
-	seedBatting(t, db, ps1, false, 50, 15, 3, 10)    // playoffs
+	seedBatting(t, db, ps1, true, 400, 100, 10, 40) // regular season
+	seedBatting(t, db, ps1, false, 50, 15, 3, 10)   // playoffs
 
 	// Regular season: 10 HR
 	regRows, _, err := newLB(db).GetBattingCareerLeaders(ctx, noFilters())
@@ -872,8 +872,8 @@ func TestGetBattingSeasonLeaders_QualifiedOnly_PartialImport(t *testing.T) {
 	t1 := seedTeam(t, db, "tgP")
 	h1 := seedTeamHistory(t, db, t1, 1, "Team P", "E", "AL", 30, 30)
 
-	pQ := seedPlayer(t, db, "gQP2", "Partial", "Qual")    // 200 PA, 60 games → qualifies (≥186)
-	pU := seedPlayer(t, db, "gUP2", "Partial", "Unqual")  // 100 PA, 60 games → below threshold
+	pQ := seedPlayer(t, db, "gQP2", "Partial", "Qual")   // 200 PA, 60 games → qualifies (≥186)
+	pU := seedPlayer(t, db, "gUP2", "Partial", "Unqual") // 100 PA, 60 games → below threshold
 	psQ := seedPlayerSeason(t, db, pQ, 1, &h1)
 	psU := seedPlayerSeason(t, db, pU, 1, &h1)
 	seedBattingFull(t, db, psQ, true, 60, 200, 200, 60, 5, 30)
@@ -1062,6 +1062,160 @@ func TestGetPitchingCareerLeaders_QualifiedOnly(t *testing.T) {
 		t.Errorf("QualifiedOnly=false: want total=2, got %d", total)
 	}
 	_ = rows
+}
+
+// seedBattingWithWalks seeds a batting stat row with explicit walks, needed for
+// the playoff BB+H OR-qualification tests (seedBattingFull always zeroes walks).
+func seedBattingWithWalks(t *testing.T, db *sql.DB, playerSeasonID int64, isReg bool, gamesPlayed, pa, ab, hits, walks int) {
+	t.Helper()
+	isRegInt := 0
+	if isReg {
+		isRegInt = 1
+	}
+	_, err := db.ExecContext(context.Background(), `
+INSERT INTO player_season_batting_stats
+    (player_season_id, is_regular_season, games_played, games_batting,
+     at_bats, plate_appearances, runs, hits, doubles, triples, home_runs, rbi,
+     stolen_bases, caught_stealing, walks, strikeouts, hit_by_pitch,
+     sac_hits, sac_flies, errors, passed_balls)
+VALUES (?,?,?,?,?,?,0,?,0,0,0,0,0,0,?,0,0,0,0,0,0)
+`, playerSeasonID, isRegInt, gamesPlayed, gamesPlayed, ab, pa, hits, walks)
+	if err != nil {
+		t.Fatalf("seedBattingWithWalks: %v", err)
+	}
+}
+
+// TestGetBattingCareerLeaders_QualifiedOnly_Playoffs verifies playoff career
+// qualification uses the fixed, unscaled MLB postseason minimum (40 PA) rather
+// than the regular-season-scaled threshold, which would be far too high for a
+// career's worth of playoff PA (this was the bug fixed in issue #171).
+func TestGetBattingCareerLeaders_QualifiedOnly_Playoffs(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	// 162-game season → RS-scaled threshold would be 3000 PA, which no playoff
+	// career total could ever reach.
+	seedSeason(t, db, 1, 1, 162)
+	t1 := seedTeam(t, db, "tgPOQ")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team POQ", "E", "AL", 90, 72)
+
+	pPA := seedPlayer(t, db, "gPOPA", "QualByPA", "Career")    // 45 PA, 0 BB → qualifies via PA (≥40)
+	pBBH := seedPlayer(t, db, "gPOBBH", "QualByBBH", "Career") // 20 PA, 0 hits but 10 BB → not enough for either... use hits+walks>=18
+	pNone := seedPlayer(t, db, "gPONone", "Unqual", "Career")  // below both minimums
+
+	psPA := seedPlayerSeason(t, db, pPA, 1, &h1)
+	psBBH := seedPlayerSeason(t, db, pBBH, 1, &h1)
+	psNone := seedPlayerSeason(t, db, pNone, 1, &h1)
+
+	seedBattingWithWalks(t, db, psPA, false, 12, 45, 40, 10, 5) // 45 PA ≥ 40 → qualifies
+	seedBattingWithWalks(t, db, psBBH, false, 8, 30, 20, 10, 8) // 30 PA < 40, but hits+walks=18 ≥ 18 → qualifies
+	seedBattingWithWalks(t, db, psNone, false, 5, 15, 12, 3, 2) // 15 PA < 40, hits+walks=5 < 18 → excluded
+
+	lb := newLB(db)
+	rows, total, err := lb.GetBattingCareerLeaders(ctx, models.LeaderboardFilters{QualifiedOnly: true, GameType: "playoffs"})
+	if err != nil {
+		t.Fatalf("QualifiedOnly=true GameType=playoffs: %v", err)
+	}
+	if total != 2 {
+		t.Errorf("want total=2 (PA-qualified + BB+H-qualified), got %d", total)
+	}
+	gotIDs := map[int64]bool{}
+	for _, r := range rows {
+		gotIDs[r.PlayerID] = true
+	}
+	if !gotIDs[pPA] {
+		t.Errorf("expected pPA (%d) to qualify via PA threshold", pPA)
+	}
+	if !gotIDs[pBBH] {
+		t.Errorf("expected pBBH (%d) to qualify via BB+H threshold", pBBH)
+	}
+	if gotIDs[pNone] {
+		t.Errorf("expected pNone (%d) to be excluded", pNone)
+	}
+}
+
+// TestGetPitchingCareerLeaders_QualifiedOnly_Playoffs mirrors the batting test
+// above for pitching: outs>=90 (30 IP) OR decisions (W+L)>=6 qualifies.
+func TestGetPitchingCareerLeaders_QualifiedOnly_Playoffs(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	// 162-game season → RS-scaled threshold would be 3000 outs, unreachable by
+	// any playoff career total.
+	seedSeason(t, db, 1, 1, 162)
+	t1 := seedTeam(t, db, "tgPOPQ")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team POPQ", "W", "NL", 88, 74)
+
+	pOuts := seedPlayer(t, db, "gPOPOuts", "QualByOuts", "Pitcher") // 95 outs, 2 decisions → qualifies via outs
+	pDec := seedPlayer(t, db, "gPOPDec", "QualByDec", "Pitcher")    // 60 outs, 6 decisions → qualifies via decisions
+	pNone := seedPlayer(t, db, "gPOPNone", "Unqual", "Pitcher")     // below both minimums
+
+	psOuts := seedPlayerSeasonFull(t, db, pOuts, 1, &h1, "P", "RP", "R", "R", "")
+	psDec := seedPlayerSeasonFull(t, db, pDec, 1, &h1, "P", "SP", "R", "R", "")
+	psNone := seedPlayerSeasonFull(t, db, pNone, 1, &h1, "P", "RP", "R", "R", "")
+
+	seedPitching(t, db, psOuts, false, 1, 1, 95, 10, 30) // 95 outs ≥ 90 → qualifies
+	seedPitching(t, db, psDec, false, 4, 2, 60, 15, 20)  // 60 outs < 90, but 4+2=6 decisions ≥ 6 → qualifies
+	seedPitching(t, db, psNone, false, 1, 0, 50, 8, 10)  // 50 outs < 90, 1 decision < 6 → excluded
+
+	lb := newLB(db)
+	rows, total, err := lb.GetPitchingCareerLeaders(ctx, models.LeaderboardFilters{QualifiedOnly: true, GameType: "playoffs"})
+	if err != nil {
+		t.Fatalf("QualifiedOnly=true GameType=playoffs: %v", err)
+	}
+	if total != 2 {
+		t.Errorf("want total=2 (outs-qualified + decisions-qualified), got %d", total)
+	}
+	gotIDs := map[int64]bool{}
+	for _, r := range rows {
+		gotIDs[r.PlayerID] = true
+	}
+	if !gotIDs[pOuts] {
+		t.Errorf("expected pOuts (%d) to qualify via outs threshold", pOuts)
+	}
+	if !gotIDs[pDec] {
+		t.Errorf("expected pDec (%d) to qualify via decisions threshold", pDec)
+	}
+	if gotIDs[pNone] {
+		t.Errorf("expected pNone (%d) to be excluded", pNone)
+	}
+}
+
+// TestGetBattingCareerLeaders_QualifiedOnly_ScalesByInnings verifies the RS
+// career PA threshold scales with innings-per-game, not just games-per-season.
+func TestGetBattingCareerLeaders_QualifiedOnly_ScalesByInnings(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO seasons (league_guid, save_game_season_id, season_num, num_games, innings_per_game)
+		 VALUES ('TESTLEAGUE', 1, 1, 162, 6)`,
+	); err != nil {
+		t.Fatalf("seeding season: %v", err)
+	}
+	// Threshold = 3000 * 162/162 * 6/9 = 2000.
+	t1 := seedTeam(t, db, "tgInn")
+	h1 := seedTeamHistory(t, db, t1, 1, "Team Inn", "E", "AL", 81, 81)
+
+	pQ := seedPlayer(t, db, "gInnQ", "Qual", "Career")   // 2100 PA → qualifies (≥2000)
+	pU := seedPlayer(t, db, "gInnU", "Unqual", "Career") // 1900 PA → does not qualify
+
+	psQ := seedPlayerSeason(t, db, pQ, 1, &h1)
+	psU := seedPlayerSeason(t, db, pU, 1, &h1)
+	seedBattingFull(t, db, psQ, true, 162, 2100, 2000, 600, 50, 300)
+	seedBattingFull(t, db, psU, true, 162, 1900, 1800, 540, 40, 250)
+
+	lb := newLB(db)
+	rows, total, err := lb.GetBattingCareerLeaders(ctx, models.LeaderboardFilters{QualifiedOnly: true})
+	if err != nil {
+		t.Fatalf("QualifiedOnly=true: %v", err)
+	}
+	if total != 1 {
+		t.Errorf("want total=1, got %d", total)
+	}
+	if len(rows) != 1 || rows[0].PlayerID != pQ {
+		t.Errorf("want playerID %d, got %v", pQ, rows)
+	}
 }
 
 // ── Career pagination and sort tests ─────────────────────────────────────────

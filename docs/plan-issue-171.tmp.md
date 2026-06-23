@@ -250,11 +250,11 @@ legacy migration prompt path persists the supplied value.
 - [x] 6. [Store] Fix GetBattingCareerLeaders / GetPitchingCareerLeaders
 - [x] 7. [Store] Fix export_store.go career_batting/career_pitching extraConds
 - [x] 8. [Service+Binding] Prompt for innings-per-game during legacy migration
-- [ ] 9. [Frontend] Add innings-per-game step to legacy migration wizard
-- [ ] 10. [Docs] Update user-docs/franchise-forking.md
-- [ ] 11. Test coverage (see Test Coverage Plan checklist above) implemented and passing
-- [ ] 12. `wails build` run to regenerate bindings after Wails signature change
-- [ ] 13. `golangci-lint run` and `go test ./...` clean before commit
+- [x] 9. [Frontend] Add innings-per-game step to legacy migration wizard
+- [x] 10. [Docs] Update user-docs/franchise-forking.md
+- [x] 11. Test coverage (see Test Coverage Plan checklist above) implemented and passing
+- [x] 12. `wails build` run to regenerate bindings after Wails signature change
+- [x] 13. `golangci-lint run` and `go test ./...` clean before commit
 
 ## Open Questions / Assumptions
 
