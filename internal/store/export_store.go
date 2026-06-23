@@ -500,7 +500,7 @@ type ExportPreview struct {
 // IDs never appear in the downloaded file.
 //
 //nolint:gocognit // large switch-style allowlist validation — splitting would obscure the mapping
-func buildExportQuery(def datasetDef, opts ExportOptions, limit int, extraSelects map[string]string) (string, []any, error) {
+func buildExportQuery(def datasetDef, opts ExportOptions, limit int, extraSelects map[string]string, thresholds CareerQualificationThresholds) (string, []any, error) {
 	if len(opts.Columns) == 0 {
 		return "", nil, fmt.Errorf("no columns selected for export")
 	}
@@ -552,22 +552,30 @@ JOIN (
     GROUP BY ps2.season_id, b2.is_regular_season
 ) qual_gp ON qual_gp.season_id = ps.season_id AND qual_gp.is_regular_season = pit.is_regular_season`)
 			extraConds = append(extraConds, "pit.outs_pitched >= qual_gp.max_gp * 3")
-		// TODO: this threshold (3000 PA/outs scaled off a 162-game regular season)
-		// is calibrated for regular-season career totals. Applied unchanged to
-		// CareerStatType "playoffs" (and to "total_career" franchises with heavy
-		// playoff weighting), it's far too high — a career's worth of playoff PA/outs
-		// is tiny by comparison — and silently returns zero rows. Same root cause as
-		// the identical formula in leaderboard_query.go's GetBattingCareerLeaders /
-		// GetPitchingCareerLeaders for GameType=="playoffs". Tracked as a separate
-		// bug-fix work item; both call sites need a shared fix.
+		// Career qualification: "playoffs" uses the fixed, unscaled MLB postseason
+		// minimums (PA/outs OR BB+H/decisions), since a career's worth of playoff
+		// PA/outs is tiny compared to a regular-season-scaled threshold.
+		// "regular_season" and "total_career" use the RS-scaled threshold (see
+		// Open Questions in docs/plan-issue-171.tmp.md re: total_career). Same fix
+		// as leaderboard_query.go's GetBattingCareerLeaders/GetPitchingCareerLeaders.
 		case "career_batting":
-			extraConds = append(extraConds, `CAST(cbs.at_bats + cbs.walks + cbs.hit_by_pitch + cbs.sac_hits + cbs.sac_flies AS REAL) >= (
-    SELECT CAST(COALESCE(num_games, 162) AS REAL) * 3000.0 / 162.0 FROM seasons ORDER BY season_num LIMIT 1
-)`)
+			if opts.CareerStatType == "playoffs" {
+				extraConds = append(extraConds,
+					"(CAST(cbs.at_bats + cbs.walks + cbs.hit_by_pitch + cbs.sac_hits + cbs.sac_flies AS REAL) >= ? OR CAST(cbs.hits + cbs.walks AS REAL) >= ?)")
+				args = append(args, thresholds.BattingPAThresholdPO, thresholds.BattingBBHThresholdPO)
+			} else {
+				extraConds = append(extraConds,
+					"CAST(cbs.at_bats + cbs.walks + cbs.hit_by_pitch + cbs.sac_hits + cbs.sac_flies AS REAL) >= ?")
+				args = append(args, thresholds.BattingPAThresholdRS)
+			}
 		case "career_pitching":
-			extraConds = append(extraConds, `cps.outs_pitched >= (
-    SELECT CAST(COALESCE(num_games, 162) AS REAL) * 3000.0 / 162.0 FROM seasons ORDER BY season_num LIMIT 1
-)`)
+			if opts.CareerStatType == "playoffs" {
+				extraConds = append(extraConds, "(cps.outs_pitched >= ? OR (cps.wins + cps.losses) >= ?)")
+				args = append(args, thresholds.PitchingOutsThresholdPO, thresholds.PitchingDecisionsThresholdPO)
+			} else {
+				extraConds = append(extraConds, "cps.outs_pitched >= ?")
+				args = append(args, thresholds.PitchingOutsThresholdRS)
+			}
 		}
 	}
 
@@ -676,10 +684,15 @@ func (s *ExportStore) PreviewExportData(ctx context.Context, opts ExportOptions)
 		return ExportPreview{}, fmt.Errorf("unknown dataset %q", opts.DatasetID)
 	}
 
+	thresholds, err := GetCareerQualificationThresholds(ctx, s.db)
+	if err != nil {
+		return ExportPreview{}, err
+	}
+
 	// Build the data query (one page) and a count query sharing the same WHERE.
 	// Link columns are attached here only — they give the frontend the raw IDs
 	// needed for AppLink navigation without ever reaching the CSV export query.
-	dataQ, dataArgs, err := buildExportQuery(def, opts, previewPageSize, def.linkCols)
+	dataQ, dataArgs, err := buildExportQuery(def, opts, previewPageSize, def.linkCols, thresholds)
 	if err != nil {
 		return ExportPreview{}, err
 	}
@@ -689,7 +702,7 @@ func (s *ExportStore) PreviewExportData(ctx context.Context, opts ExportOptions)
 	countOpts := opts
 	countOpts.Columns = []string{opts.Columns[0]}
 	countOpts.SortCol = ""
-	baseQ, baseArgs, err := buildExportQuery(def, countOpts, 0, nil)
+	baseQ, baseArgs, err := buildExportQuery(def, countOpts, 0, nil, thresholds)
 	if err != nil {
 		return ExportPreview{}, err
 	}
@@ -770,7 +783,12 @@ func (s *ExportStore) ExportToCSV(ctx context.Context, opts ExportOptions) ([]by
 		return nil, fmt.Errorf("unknown dataset %q", opts.DatasetID)
 	}
 
-	q, args, err := buildExportQuery(def, opts, 0, nil)
+	thresholds, err := GetCareerQualificationThresholds(ctx, s.db)
+	if err != nil {
+		return nil, err
+	}
+
+	q, args, err := buildExportQuery(def, opts, 0, nil, thresholds)
 	if err != nil {
 		return nil, err
 	}

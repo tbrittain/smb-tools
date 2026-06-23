@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 )
 
@@ -188,6 +187,8 @@ type BattingCareerRateRow struct {
 	ABPerHR  *float64
 	SmbWAR   *float64
 	CareerPA int
+	Hits     int // career hits; used with Walks for the unscaled PO BB+H OR-qualifier
+	Walks    int
 }
 
 // PitchingCareerRateRow holds one player's career pitching rate stats plus qualification field.
@@ -206,6 +207,8 @@ type PitchingCareerRateRow struct {
 	FIP         *float64
 	SmbWAR      *float64
 	OutsPitched int
+	Wins        int // used with Losses for the unscaled PO decisions OR-qualifier
+	Losses      int
 }
 
 // GetBattingRateRows returns one row per player-season with batting rate stats
@@ -289,7 +292,8 @@ func (s *StatRecordQueryStore) GetCareerBattingRateRows(ctx context.Context, sta
 	rows, err := s.db.QueryContext(ctx, `
 SELECT player_id,
        ba, obp, slg, ops, iso, babip, k_pct, bb_pct, ab_per_hr, smb_war,
-       (at_bats + walks + hit_by_pitch + sac_hits + sac_flies) AS career_pa
+       (at_bats + walks + hit_by_pitch + sac_hits + sac_flies) AS career_pa,
+       hits, walks
 FROM player_career_batting_stats
 WHERE stat_type = ?`, statType)
 	if err != nil {
@@ -303,7 +307,7 @@ WHERE stat_type = ?`, statType)
 		if err := rows.Scan(
 			&r.PlayerID,
 			&r.BA, &r.OBP, &r.SLG, &r.OPS, &r.ISO, &r.BABIP, &r.KPct, &r.BBPct, &r.ABPerHR, &r.SmbWAR,
-			&r.CareerPA,
+			&r.CareerPA, &r.Hits, &r.Walks,
 		); err != nil {
 			return nil, fmt.Errorf("GetCareerBattingRateRows scan: %w", err)
 		}
@@ -318,7 +322,7 @@ func (s *StatRecordQueryStore) GetCareerPitchingRateRows(ctx context.Context, st
 	rows, err := s.db.QueryContext(ctx, `
 SELECT player_id,
        era, whip, k_per_9, bb_per_9, h_per_9, hr_per_9, k_per_bb, k_pct, win_pct, p_per_ip, fip, smb_war,
-       outs_pitched
+       outs_pitched, wins, losses
 FROM player_career_pitching_stats
 WHERE stat_type = ?`, statType)
 	if err != nil {
@@ -332,7 +336,7 @@ WHERE stat_type = ?`, statType)
 		if err := rows.Scan(
 			&r.PlayerID,
 			&r.ERA, &r.WHIP, &r.K9, &r.BB9, &r.H9, &r.HR9, &r.KPerBB, &r.KPct, &r.WinPct, &r.PPerIP, &r.FIP, &r.SmbWAR,
-			&r.OutsPitched,
+			&r.OutsPitched, &r.Wins, &r.Losses,
 		); err != nil {
 			return nil, fmt.Errorf("GetCareerPitchingRateRows scan: %w", err)
 		}
@@ -341,17 +345,9 @@ WHERE stat_type = ?`, statType)
 	return out, rows.Err()
 }
 
-// GetFranchiseSeasonLength returns num_games from the earliest season, used to scale
-// career qualification thresholds proportionally to the franchise's game count.
-// Returns 0 if no seasons exist yet.
-func (s *StatRecordQueryStore) GetFranchiseSeasonLength(ctx context.Context) (int, error) {
-	var numGames int
-	err := s.db.QueryRowContext(ctx, `SELECT num_games FROM seasons ORDER BY season_num LIMIT 1`).Scan(&numGames)
-	if err == sql.ErrNoRows {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, fmt.Errorf("GetFranchiseSeasonLength: %w", err)
-	}
-	return numGames, nil
+// GetCareerQualificationThresholds returns the career batting/pitching
+// qualification thresholds for the franchise. See the package-level
+// GetCareerQualificationThresholds for details.
+func (s *StatRecordQueryStore) GetCareerQualificationThresholds(ctx context.Context) (CareerQualificationThresholds, error) {
+	return GetCareerQualificationThresholds(ctx, s.db)
 }

@@ -785,3 +785,6 @@ func (r *erroringReader) GetCurrentSeason(ctx context.Context, leagueGUID string
 func (r *erroringReader) GetSeasonPlayoffConfig(ctx context.Context, seasonID int) (*models.SaveGamePlayoffConfig, error) {
 	return r.inner.GetSeasonPlayoffConfig(ctx, seasonID)
 }
+func (r *erroringReader) GetSeasonInningsPerGame(ctx context.Context, seasonID int) (int, error) {
+	return r.inner.GetSeasonInningsPerGame(ctx, seasonID)
+}

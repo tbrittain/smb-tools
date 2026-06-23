@@ -109,14 +109,20 @@ func readLegacyData(ctx context.Context, reader *store.LegacyCompanionReader, fr
 // leagueGUID is a caller-generated UUID written to seasons.league_guid and
 // registered as a franchise_source entry (save_file_path = "(legacy migration)").
 // The entire write is wrapped in a single transaction.
+// inningsPerGame is the user-supplied innings-per-game for all migrated seasons
+// (the legacy schema has no source data for this value). 0/unset defaults to 9.
 func (svc *LegacyMigrationService) Migrate(
 	ctx context.Context,
 	legacyDB *sql.DB,
 	legacyFranchiseID int,
 	companionDB *sql.DB,
 	leagueGUID string,
+	inningsPerGame int,
 ) (MigrationResult, error) {
-	slog.Info("legacy migration: starting", "legacyFranchiseID", legacyFranchiseID)
+	if inningsPerGame <= 0 {
+		inningsPerGame = 9
+	}
+	slog.Info("legacy migration: starting", "legacyFranchiseID", legacyFranchiseID, "inningsPerGame", inningsPerGame)
 	reader, err := store.NewLegacyCompanionReader(ctx, legacyDB)
 	if err != nil {
 		return MigrationResult{}, fmt.Errorf("creating legacy reader: %w", err)
@@ -155,7 +161,7 @@ func (svc *LegacyMigrationService) Migrate(
 		}
 	}()
 
-	result, err := svc.migrateInTx(ctx, tx, leagueGUID,
+	result, err := svc.migrateInTx(ctx, tx, leagueGUID, inningsPerGame,
 		data.seasons, data.teams, data.seasonTeamHistories,
 		data.players, data.playerSeasons, data.seasonTeamsByPSID, data.gameStats, data.battingStats, data.pitchingStats,
 		data.traitsByPSID, data.pitchesByPSID, data.awardAssignments, awardIDByOriginalName,
@@ -182,6 +188,7 @@ func (svc *LegacyMigrationService) migrateInTx(
 	ctx context.Context,
 	tx *sql.Tx,
 	leagueGUID string,
+	inningsPerGame int,
 	seasons []store.LegacySeason,
 	teams []store.LegacyTeam,
 	seasonTeamHistories []store.LegacySeasonTeamHistory,
@@ -213,7 +220,7 @@ func (svc *LegacyMigrationService) migrateInTx(
 	var legacyPlayerIDs []int64
 	var legacyPSIDToNew map[int]int64
 
-	legacySeasonIDToNew, result.SeasonsMigrated, err = svc.migrateLegacySeasons(ctx, seasonStore, leagueGUID, seasons)
+	legacySeasonIDToNew, result.SeasonsMigrated, err = svc.migrateLegacySeasons(ctx, seasonStore, leagueGUID, inningsPerGame, seasons)
 	if err != nil {
 		return result, err
 	}
@@ -277,6 +284,7 @@ func (svc *LegacyMigrationService) migrateLegacySeasons(
 	ctx context.Context,
 	seasonStore *store.SeasonStore,
 	leagueGUID string,
+	inningsPerGame int,
 	seasons []store.LegacySeason,
 ) (legacySeasonIDToNew map[int]int64, count int, err error) {
 	legacySeasonIDToNew = make(map[int]int64, len(seasons))
@@ -286,6 +294,7 @@ func (svc *LegacyMigrationService) migrateLegacySeasons(
 			SaveGameSeasonID: s.ID,
 			SeasonNum:        s.Number,
 			NumGames:         s.NumGamesRegularSeason,
+			InningsPerGame:   inningsPerGame,
 		})
 		if err != nil {
 			return nil, 0, fmt.Errorf("upserting season %d: %w", s.ID, err)

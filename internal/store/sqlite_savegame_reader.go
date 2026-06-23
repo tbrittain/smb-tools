@@ -391,6 +391,19 @@ func (r *SqliteSaveGameReader) GetSeasonPlayoffConfig(ctx context.Context, seaso
 	return &cfg, nil
 }
 
+func (r *SqliteSaveGameReader) GetSeasonInningsPerGame(ctx context.Context, seasonID int) (int, error) {
+	var innings int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT ts.innings
+		FROM t_seasons ts
+		WHERE ts.id = ?
+	`, seasonID).Scan(&innings)
+	if err != nil {
+		return 0, fmt.Errorf("querying innings per game for season %d: %w", seasonID, err)
+	}
+	return innings, nil
+}
+
 func (r *SqliteSaveGameReader) GetSeasonBattingStats(ctx context.Context, seasonID int) ([]models.SaveGameBattingStat, error) {
 	return r.queryBattingStats(ctx,
 		`JOIN t_season_stats ss ON ss.aggregatorID = st.aggregatorID AND ss.seasonID = ?`,

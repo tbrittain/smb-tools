@@ -83,11 +83,14 @@ func (a *App) ListLegacyFranchises(dbPath string) ([]LegacyFranchiseDTO, error) 
 //
 // gameVersion must be "smb3" or "smb4". newFranchiseName is used as the
 // new franchise name (typically pre-filled with the legacy franchise name).
+// inningsPerGame is user-supplied since the legacy schema has no source data
+// for it; 0 or unset defaults to 9.
 func (a *App) MigrateLegacyFranchise(
 	dbPath string,
 	legacyFranchiseID int,
 	newFranchiseName string,
 	gameVersion string,
+	inningsPerGame int,
 ) (MigrateLegacyResult, error) {
 	slog.Info("MigrateLegacyFranchise: starting", "legacyID", legacyFranchiseID, "name", newFranchiseName, "version", gameVersion)
 	if a.franchiseService == nil || a.legacyMigrationService == nil {
@@ -145,7 +148,7 @@ func (a *App) MigrateLegacyFranchise(
 	}
 
 	migResult, err := a.legacyMigrationService.Migrate(
-		a.ctx, legacyDB, legacyFranchiseID, companionDB, leagueGUID,
+		a.ctx, legacyDB, legacyFranchiseID, companionDB, leagueGUID, inningsPerGame,
 	)
 	if err != nil {
 		slog.Error("MigrateLegacyFranchise: migration failed", "legacyID", legacyFranchiseID, "err", err)

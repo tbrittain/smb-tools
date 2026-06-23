@@ -8,11 +8,12 @@ import (
 
 // Season is the companion DB representation of a franchise season.
 type Season struct {
-	ID                int64  // autoincrement companion DB PK
-	LeagueGUID        string // leagueGUID from the franchise_source that produced this season
-	SaveGameSeasonID  int    // raw t_seasons.id from the save game
-	SeasonNum         int    // display number: save game season num + source season_offset
-	NumGames          int
+	ID               int64  // autoincrement companion DB PK
+	LeagueGUID       string // leagueGUID from the franchise_source that produced this season
+	SaveGameSeasonID int    // raw t_seasons.id from the save game
+	SeasonNum        int    // display number: save game season num + source season_offset
+	NumGames         int
+	InningsPerGame   int // t_seasons.innings from the save game; defaults to 9 for legacy-migrated seasons
 }
 
 // SeasonStore manages season records in the companion DB.
@@ -30,13 +31,14 @@ func NewSeasonStore(db DBTX) *SeasonStore {
 // season: the seasons.id is preserved so all child FK references remain valid.
 func (s *SeasonStore) Upsert(ctx context.Context, season Season) (int64, error) {
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO seasons (league_guid, save_game_season_id, season_num, num_games)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO seasons (league_guid, save_game_season_id, season_num, num_games, innings_per_game)
+		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(season_num) DO UPDATE SET
 			league_guid         = excluded.league_guid,
 			save_game_season_id = excluded.save_game_season_id,
-			num_games           = excluded.num_games
-	`, season.LeagueGUID, season.SaveGameSeasonID, season.SeasonNum, season.NumGames)
+			num_games           = excluded.num_games,
+			innings_per_game    = excluded.innings_per_game
+	`, season.LeagueGUID, season.SaveGameSeasonID, season.SeasonNum, season.NumGames, season.InningsPerGame)
 	if err != nil {
 		return 0, fmt.Errorf("upserting season (league=%s sgID=%d): %w",
 			season.LeagueGUID, season.SaveGameSeasonID, err)
@@ -118,10 +120,10 @@ func (s *SeasonStore) InferAndSetPlayoffConfig(ctx context.Context, seasonID int
 func (s *SeasonStore) GetBySeasonNum(ctx context.Context, seasonNum int) (Season, error) {
 	var season Season
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, league_guid, save_game_season_id, season_num, num_games
+		`SELECT id, league_guid, save_game_season_id, season_num, num_games, innings_per_game
 		 FROM seasons WHERE season_num = ?`, seasonNum,
 	).Scan(&season.ID, &season.LeagueGUID, &season.SaveGameSeasonID,
-		&season.SeasonNum, &season.NumGames)
+		&season.SeasonNum, &season.NumGames, &season.InningsPerGame)
 	if err != nil {
 		return Season{}, fmt.Errorf("getting season by num %d: %w", seasonNum, err)
 	}
@@ -132,10 +134,10 @@ func (s *SeasonStore) GetBySeasonNum(ctx context.Context, seasonNum int) (Season
 func (s *SeasonStore) GetByID(ctx context.Context, id int64) (Season, error) {
 	var season Season
 	err := s.db.QueryRowContext(ctx,
-		`SELECT id, league_guid, save_game_season_id, season_num, num_games
+		`SELECT id, league_guid, save_game_season_id, season_num, num_games, innings_per_game
 		 FROM seasons WHERE id = ?`, id,
 	).Scan(&season.ID, &season.LeagueGUID, &season.SaveGameSeasonID,
-		&season.SeasonNum, &season.NumGames)
+		&season.SeasonNum, &season.NumGames, &season.InningsPerGame)
 	if err != nil {
 		return Season{}, fmt.Errorf("getting season %d: %w", id, err)
 	}
@@ -145,7 +147,7 @@ func (s *SeasonStore) GetByID(ctx context.Context, id int64) (Season, error) {
 // List returns all seasons ordered by season number ascending.
 func (s *SeasonStore) List(ctx context.Context) ([]Season, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, league_guid, save_game_season_id, season_num, num_games
+		`SELECT id, league_guid, save_game_season_id, season_num, num_games, innings_per_game
 		 FROM seasons ORDER BY season_num ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("listing seasons: %w", err)
@@ -156,7 +158,7 @@ func (s *SeasonStore) List(ctx context.Context) ([]Season, error) {
 	for rows.Next() {
 		var season Season
 		if err := rows.Scan(&season.ID, &season.LeagueGUID, &season.SaveGameSeasonID,
-			&season.SeasonNum, &season.NumGames); err != nil {
+			&season.SeasonNum, &season.NumGames, &season.InningsPerGame); err != nil {
 			return nil, fmt.Errorf("scanning season: %w", err)
 		}
 		seasons = append(seasons, season)
