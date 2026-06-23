@@ -25,11 +25,11 @@ func NewLegacyMigrationService() *LegacyMigrationService {
 
 // MigrationResult summarises the outcome of a franchise migration.
 type MigrationResult struct {
-	SeasonsMigrated  int
-	TeamsMigrated    int
-	PlayersMigrated  int
-	AwardsMigrated   int
-	LogosSkipped     int // non-zero when legacy had logo blobs
+	SeasonsMigrated int
+	TeamsMigrated   int
+	PlayersMigrated int
+	AwardsMigrated  int
+	LogosSkipped    int // non-zero when legacy had logo blobs
 }
 
 // legacyFranchiseData holds all data read from the legacy DB before the transaction opens.
@@ -110,7 +110,9 @@ func readLegacyData(ctx context.Context, reader *store.LegacyCompanionReader, fr
 // registered as a franchise_source entry (save_file_path = "(legacy migration)").
 // The entire write is wrapped in a single transaction.
 // inningsPerGame is the user-supplied innings-per-game for all migrated seasons
-// (the legacy schema has no source data for this value). 0/unset defaults to 9.
+// (the legacy schema has no source data for this value, so it must always be
+// provided — there is no default). Must be between store.MinInningsPerGame
+// and store.MaxInningsPerGame inclusive, SMB4's in-game restriction.
 func (svc *LegacyMigrationService) Migrate(
 	ctx context.Context,
 	legacyDB *sql.DB,
@@ -119,8 +121,9 @@ func (svc *LegacyMigrationService) Migrate(
 	leagueGUID string,
 	inningsPerGame int,
 ) (MigrationResult, error) {
-	if inningsPerGame <= 0 {
-		inningsPerGame = 9
+	if inningsPerGame < store.MinInningsPerGame || inningsPerGame > store.MaxInningsPerGame {
+		return MigrationResult{}, fmt.Errorf("inningsPerGame must be between %d and %d, got %d",
+			store.MinInningsPerGame, store.MaxInningsPerGame, inningsPerGame)
 	}
 	slog.Info("legacy migration: starting", "legacyFranchiseID", legacyFranchiseID, "inningsPerGame", inningsPerGame)
 	reader, err := store.NewLegacyCompanionReader(ctx, legacyDB)
@@ -294,7 +297,7 @@ func (svc *LegacyMigrationService) migrateLegacySeasons(
 			SaveGameSeasonID: s.ID,
 			SeasonNum:        s.Number,
 			NumGames:         s.NumGamesRegularSeason,
-			InningsPerGame:   inningsPerGame,
+			InningsPerGame:   &inningsPerGame,
 		})
 		if err != nil {
 			return nil, 0, fmt.Errorf("upserting season %d: %w", s.ID, err)

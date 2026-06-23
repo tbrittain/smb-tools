@@ -151,25 +151,19 @@ func TestMigrateLegacy_InningsPerGame(t *testing.T) {
 	}
 }
 
-// TestMigrateLegacy_InningsPerGameDefaultsToNine verifies that an unset
-// (zero-value) inningsPerGame defaults to 9 rather than persisting 0.
-func TestMigrateLegacy_InningsPerGameDefaultsToNine(t *testing.T) {
-	legacyDB := testutil.NewLegacyCompanionDB(t)
-	companionDB := testutil.NewTestDB(t)
+// TestMigrateLegacy_InningsPerGameRequired verifies there is no implicit
+// default: an unset (zero) or out-of-range inningsPerGame is rejected rather
+// than silently coerced to some assumed value.
+func TestMigrateLegacy_InningsPerGameRequired(t *testing.T) {
+	for _, innings := range []int{0, -1, 10, 99} {
+		legacyDB := testutil.NewLegacyCompanionDB(t)
+		companionDB := testutil.NewTestDB(t)
 
-	if _, err := newLegacyMigrationSvc().Migrate(context.Background(),
-		legacyDB, legacyFranchiseB, companionDB, "legacy-test-0000-0000-000000000002", 0); err != nil {
-		t.Fatalf("Migrate: %v", err)
-	}
-
-	var got int
-	if err := companionDB.QueryRowContext(context.Background(),
-		`SELECT innings_per_game FROM seasons LIMIT 1`,
-	).Scan(&got); err != nil {
-		t.Fatalf("querying innings_per_game: %v", err)
-	}
-	if got != 9 {
-		t.Errorf("innings_per_game = %d, want default 9", got)
+		_, err := newLegacyMigrationSvc().Migrate(context.Background(),
+			legacyDB, legacyFranchiseB, companionDB, "legacy-test-0000-0000-000000000002", innings)
+		if err == nil {
+			t.Errorf("Migrate(inningsPerGame=%d): want error, got nil", innings)
+		}
 	}
 }
 

@@ -48,6 +48,30 @@ func TestGetCareerQualificationThresholds_ScalesByGamesAndInnings(t *testing.T) 
 	}
 }
 
+// TestGetCareerQualificationThresholds_NullInningsLeavesUnscaled verifies that
+// a season predating the innings_per_game column (NULL, not 9) doesn't get an
+// assumed game length — the RS threshold scales by games only until the
+// franchise is backfilled via SeasonStore.BackfillInningsPerGame.
+func TestGetCareerQualificationThresholds_NullInningsLeavesUnscaled(t *testing.T) {
+	db := testutil.NewTestDB(t)
+	ctx := context.Background()
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO seasons (league_guid, save_game_season_id, season_num, num_games)
+		 VALUES ('TESTLEAGUE', 1, 1, 40)`,
+	); err != nil {
+		t.Fatalf("seeding season: %v", err)
+	}
+
+	got, err := store.GetCareerQualificationThresholds(ctx, db)
+	if err != nil {
+		t.Fatalf("GetCareerQualificationThresholds: %v", err)
+	}
+	// Games-only scaling: 3000 * 40/162 = 740 (innings factor 1.0, not assumed-9).
+	if got.BattingPAThresholdRS != 740 {
+		t.Errorf("BattingPAThresholdRS = %d, want 740 (games-only scaling when innings unknown)", got.BattingPAThresholdRS)
+	}
+}
+
 func TestGetCareerQualificationThresholds_UsesFirstSeasonOnly(t *testing.T) {
 	db := testutil.NewTestDB(t)
 	ctx := context.Background()

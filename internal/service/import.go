@@ -114,7 +114,7 @@ func (svc *ImportService) importInTx(
 		LeagueGUID:       leagueGUID,
 		SaveGameSeasonID: saveGameSeasonID,
 		SeasonNum:        displaySeasonNum,
-		InningsPerGame:   inningsPerGame,
+		InningsPerGame:   &inningsPerGame,
 	})
 	if err != nil {
 		slog.Error("import: step 1 failed", "step", "upsert season", "err", err)
@@ -226,7 +226,7 @@ func (svc *ImportService) importInTx(
 		SaveGameSeasonID: saveGameSeasonID,
 		SeasonNum:        displaySeasonNum,
 		NumGames:         gamesPerTeam,
-		InningsPerGame:   inningsPerGame,
+		InningsPerGame:   &inningsPerGame,
 	}); err != nil {
 		slog.Error("import: step 12 failed", "step", "backfill season game count", "err", err)
 		return result, fmt.Errorf("backfilling season game count: %w", err)

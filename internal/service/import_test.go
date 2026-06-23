@@ -85,9 +85,9 @@ func TestImportSeason_SeasonRecordCreated(t *testing.T) {
 		t.Error("num_games: got 0, want > 0 — qualified-player thresholds break when this is 0")
 	}
 	// The fixture's season 100 sets t_seasons.innings = 7 (non-default) so this
-	// assertion can't pass by coincidentally seeing the companion column default.
-	if season.InningsPerGame != 7 {
-		t.Errorf("innings_per_game: got %d, want 7 (from t_seasons.innings)", season.InningsPerGame)
+	// assertion can't pass by coincidentally seeing some hardcoded value.
+	if season.InningsPerGame == nil || *season.InningsPerGame != 7 {
+		t.Errorf("innings_per_game: got %v, want 7 (from t_seasons.innings)", season.InningsPerGame)
 	}
 }
 

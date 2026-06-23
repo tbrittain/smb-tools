@@ -10,6 +10,10 @@ export function AssignExistingTeamLogo(arg1, arg2, arg3) {
   return window['go']['main']['App']['AssignExistingTeamLogo'](arg1, arg2, arg3);
 }
 
+export function BackfillInningsPerGame(arg1) {
+  return window['go']['main']['App']['BackfillInningsPerGame'](arg1);
+}
+
 export function BrowseLeagueExportDirectory() {
   return window['go']['main']['App']['BrowseLeagueExportDirectory']();
 }
@@ -236,6 +240,10 @@ export function GetTeamsForExport() {
 
 export function GetVersion() {
   return window['go']['main']['App']['GetVersion']();
+}
+
+export function HasSeasonsMissingInningsPerGame() {
+  return window['go']['main']['App']['HasSeasonsMissingInningsPerGame']();
 }
 
 export function ListAllAwards() {

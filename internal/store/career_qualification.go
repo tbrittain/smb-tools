@@ -33,11 +33,15 @@ type CareerQualificationThresholds struct {
 
 // GetCareerQualificationThresholds computes the career qualification
 // thresholds for the franchise. RS thresholds are scaled off the earliest
-// season's num_games and innings_per_game; both default to 162 and 9
-// respectively if no seasons exist yet (yielding the unscaled 3000 threshold,
-// though with no seasons no players can qualify anyway).
+// season's num_games and innings_per_game. numGames defaults to 162 if no
+// seasons exist yet (yielding the unscaled 3000 threshold, though with no
+// seasons no players can qualify anyway). innings_per_game can be NULL for
+// seasons synced before that column existed — there is no assumed game
+// length for those rows, so the innings factor is left unscaled (1.0) until
+// the franchise is backfilled via SeasonStore.BackfillInningsPerGame.
 func GetCareerQualificationThresholds(ctx context.Context, db DBTX) (CareerQualificationThresholds, error) {
-	numGames, inningsPerGame := 162, 9
+	numGames := 162
+	var inningsPerGame sql.NullInt64
 	err := db.QueryRowContext(ctx,
 		`SELECT num_games, innings_per_game FROM seasons ORDER BY season_num LIMIT 1`,
 	).Scan(&numGames, &inningsPerGame)
@@ -45,7 +49,11 @@ func GetCareerQualificationThresholds(ctx context.Context, db DBTX) (CareerQuali
 		return CareerQualificationThresholds{}, fmt.Errorf("GetCareerQualificationThresholds: %w", err)
 	}
 
-	scaledRS := int(3000 * float64(numGames) / 162 * float64(inningsPerGame) / 9)
+	inningsFactor := 1.0
+	if inningsPerGame.Valid {
+		inningsFactor = float64(inningsPerGame.Int64) / 9
+	}
+	scaledRS := int(3000 * float64(numGames) / 162 * inningsFactor)
 	if err == sql.ErrNoRows {
 		scaledRS = 0
 	}

@@ -2,8 +2,17 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/bits"
+)
+
+// MinInningsPerGame and MaxInningsPerGame are SMB4's in-game restrictions on
+// game length. There is no default — every caller that writes a season must
+// supply a real value in this range.
+const (
+	MinInningsPerGame = 1
+	MaxInningsPerGame = 9
 )
 
 // Season is the companion DB representation of a franchise season.
@@ -13,7 +22,11 @@ type Season struct {
 	SaveGameSeasonID int    // raw t_seasons.id from the save game
 	SeasonNum        int    // display number: save game season num + source season_offset
 	NumGames         int
-	InningsPerGame   int // t_seasons.innings from the save game; defaults to 9 for legacy-migrated seasons
+	// InningsPerGame is t_seasons.innings from the save game. Nil only for
+	// seasons synced or legacy-migrated before this column existed — there is
+	// no default; the app must always supply a real value for new writes.
+	// Pre-existing NULL rows are backfilled via SeasonStore.BackfillInningsPerGame.
+	InningsPerGame *int
 }
 
 // SeasonStore manages season records in the companion DB.
@@ -119,13 +132,18 @@ func (s *SeasonStore) InferAndSetPlayoffConfig(ctx context.Context, seasonID int
 // Returns sql.ErrNoRows if no season with that number exists.
 func (s *SeasonStore) GetBySeasonNum(ctx context.Context, seasonNum int) (Season, error) {
 	var season Season
+	var innings sql.NullInt64
 	err := s.db.QueryRowContext(ctx,
 		`SELECT id, league_guid, save_game_season_id, season_num, num_games, innings_per_game
 		 FROM seasons WHERE season_num = ?`, seasonNum,
 	).Scan(&season.ID, &season.LeagueGUID, &season.SaveGameSeasonID,
-		&season.SeasonNum, &season.NumGames, &season.InningsPerGame)
+		&season.SeasonNum, &season.NumGames, &innings)
 	if err != nil {
 		return Season{}, fmt.Errorf("getting season by num %d: %w", seasonNum, err)
+	}
+	if innings.Valid {
+		v := int(innings.Int64)
+		season.InningsPerGame = &v
 	}
 	return season, nil
 }
@@ -133,13 +151,18 @@ func (s *SeasonStore) GetBySeasonNum(ctx context.Context, seasonNum int) (Season
 // GetByID returns the season with the given companion DB id.
 func (s *SeasonStore) GetByID(ctx context.Context, id int64) (Season, error) {
 	var season Season
+	var innings sql.NullInt64
 	err := s.db.QueryRowContext(ctx,
 		`SELECT id, league_guid, save_game_season_id, season_num, num_games, innings_per_game
 		 FROM seasons WHERE id = ?`, id,
 	).Scan(&season.ID, &season.LeagueGUID, &season.SaveGameSeasonID,
-		&season.SeasonNum, &season.NumGames, &season.InningsPerGame)
+		&season.SeasonNum, &season.NumGames, &innings)
 	if err != nil {
 		return Season{}, fmt.Errorf("getting season %d: %w", id, err)
+	}
+	if innings.Valid {
+		v := int(innings.Int64)
+		season.InningsPerGame = &v
 	}
 	return season, nil
 }
@@ -157,11 +180,45 @@ func (s *SeasonStore) List(ctx context.Context) ([]Season, error) {
 	var seasons []Season
 	for rows.Next() {
 		var season Season
+		var innings sql.NullInt64
 		if err := rows.Scan(&season.ID, &season.LeagueGUID, &season.SaveGameSeasonID,
-			&season.SeasonNum, &season.NumGames, &season.InningsPerGame); err != nil {
+			&season.SeasonNum, &season.NumGames, &innings); err != nil {
 			return nil, fmt.Errorf("scanning season: %w", err)
+		}
+		if innings.Valid {
+			v := int(innings.Int64)
+			season.InningsPerGame = &v
 		}
 		seasons = append(seasons, season)
 	}
 	return seasons, rows.Err()
+}
+
+// HasSeasonsMissingInningsPerGame reports whether any season row predates the
+// innings_per_game column (i.e. was synced or legacy-migrated before this
+// feature existed) and still needs to be backfilled.
+func (s *SeasonStore) HasSeasonsMissingInningsPerGame(ctx context.Context) (bool, error) {
+	var exists int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM seasons WHERE innings_per_game IS NULL)`,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("checking for seasons missing innings_per_game: %w", err)
+	}
+	return exists == 1, nil
+}
+
+// BackfillInningsPerGame sets innings_per_game on every season row that
+// predates the column, to the franchise's actual game length as supplied by
+// the user (there is no way to derive this after the fact for old rows).
+func (s *SeasonStore) BackfillInningsPerGame(ctx context.Context, innings int) error {
+	if innings < MinInningsPerGame || innings > MaxInningsPerGame {
+		return fmt.Errorf("innings per game must be between %d and %d, got %d", MinInningsPerGame, MaxInningsPerGame, innings)
+	}
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE seasons SET innings_per_game = ? WHERE innings_per_game IS NULL`, innings,
+	); err != nil {
+		return fmt.Errorf("backfilling innings_per_game: %w", err)
+	}
+	return nil
 }
