@@ -32,6 +32,12 @@ wails dev
 
 The Wails dev server embeds both the Go backend and the Vite frontend. Changes to Go files restart the backend; changes to Vue/TypeScript files hot-reload in the WebView.
 
+> **Linux note:** On newer distros (e.g. Ubuntu 24.04+), the system ships `webkit2gtk-4.1` instead of `webkit2gtk-4.0`, which Wails v2 looks for by default. If `wails dev`/`wails build` fails with a `webkit2gtk-4.0` pkg-config error, pass the `webkit2_41` build tag:
+> ```sh
+> wails dev -tags webkit2_41
+> wails build -tags webkit2_41
+> ```
+
 You can also run the frontend standalone (without the Go backend) for pure UI work:
 
 ```sh
