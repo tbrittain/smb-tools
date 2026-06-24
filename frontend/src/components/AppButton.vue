@@ -69,7 +69,7 @@ withDefaults(
 /* Style variants */
 .app-btn--primary {
   background: var(--color-accent);
-  color: #fff;
+  color: #000;
 }
 
 .app-btn--primary:hover:not(:disabled) {
