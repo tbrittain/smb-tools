@@ -40,7 +40,7 @@ function stubWails(items: object[], totalCount?: number) {
 }
 
 const meta: Meta<typeof MediaGallery> = {
-  title: 'Components/MediaGallery',
+  title: 'Media/MediaGallery',
   component: MediaGallery,
 }
 export default meta

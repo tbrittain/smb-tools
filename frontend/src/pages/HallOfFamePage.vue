@@ -4,6 +4,7 @@ import Paginator, { type PageState } from 'primevue/paginator'
 import { onMounted, ref, watch } from 'vue'
 import { GetHoFCandidates, GetHoFInducted, SetHallOfFamer } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
+import AppButton from '../components/AppButton.vue'
 import AppLink from '../components/AppLink.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
@@ -158,13 +159,13 @@ onMounted(load)
       <section class="panel">
         <div class="panel-header">
           <h2 class="panel-title">Candidates</h2>
-          <button
-            class="btn btn-primary"
-            :disabled="saving || selected.size === 0"
+          <AppButton
+            :disabled="selected.size === 0"
+            :loading="saving"
             @click="inductSelected"
           >
             {{ saving ? 'Saving…' : `Induct Selected (${selected.size})` }}
-          </button>
+          </AppButton>
         </div>
 
         <LoadingSpinner v-if="loadingCandidates" />
@@ -368,15 +369,6 @@ onMounted(load)
   cursor: pointer;
   font-size: 0.8rem;
   font-weight: 500;
-}
-
-.btn-primary {
-  background: var(--color-accent, #4c9aff);
-  color: #fff;
-}
-
-.btn-primary:hover:not(:disabled) {
-  filter: brightness(1.1);
 }
 
 .btn-ghost {

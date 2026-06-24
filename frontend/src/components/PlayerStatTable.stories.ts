@@ -3,7 +3,7 @@ import { main } from '../../wailsjs/go/models'
 import PlayerStatTable from './PlayerStatTable.vue'
 
 const meta: Meta<typeof PlayerStatTable> = {
-  title: 'Components/PlayerStatTable',
+  title: 'Tables/PlayerStatTable',
   component: PlayerStatTable,
   decorators: [() => ({ template: '<div style="padding: 1.5rem"><story /></div>' })],
 }
@@ -80,8 +80,8 @@ const makeRow = (i: number) =>
     batHand: 'R',
     throwHand: 'R',
     chemistryType: 'Competitive',
-    traitsJson: '[]',
-    pitchesJson: '[]',
+    traits: [],
+    pitches: [],
     power: 70 + i,
     contact: 75 + i,
     speed: 65,

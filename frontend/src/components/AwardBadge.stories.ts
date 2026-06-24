@@ -3,7 +3,7 @@ import { main } from '../../wailsjs/go/models'
 import AwardBadge from './AwardBadge.vue'
 
 const meta: Meta<typeof AwardBadge> = {
-  title: 'Components/AwardBadge',
+  title: 'Awards/AwardBadge',
   component: AwardBadge,
 }
 export default meta

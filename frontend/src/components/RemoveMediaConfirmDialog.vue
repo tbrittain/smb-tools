@@ -1,10 +1,10 @@
 <script lang="ts" setup>
-import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import { useToast } from 'primevue/usetoast'
 import { computed, ref } from 'vue'
 import { DeleteMediaEverywhere, RemoveMediaAssociation } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
+import AppButton from './AppButton.vue'
 
 const props = defineProps<{
   mediaItem: main.MediaItemDTO
@@ -74,25 +74,20 @@ async function deleteEverywhere() {
           This item is linked to {{ mediaItem.totalAssociationCount }} places. What would you like to do?
         </p>
         <div class="confirm-actions">
-          <Button
-            label="Remove from this page only"
-            :loading="removing"
-            @click="removeFromContext"
-          />
-          <Button
-            label="Delete everywhere"
-            severity="danger"
-            :loading="removing"
-            @click="deleteEverywhere"
-          />
+          <AppButton :loading="removing" @click="removeFromContext">
+            Remove from this page only
+          </AppButton>
+          <AppButton variant="danger" :loading="removing" @click="deleteEverywhere">
+            Delete everywhere
+          </AppButton>
         </div>
       </template>
 
       <template v-else>
         <p class="confirm-text">This will permanently delete the file. This cannot be undone.</p>
         <div class="confirm-actions">
-          <Button label="Cancel" severity="secondary" :disabled="removing" @click="visible = false" />
-          <Button label="Delete" severity="danger" :loading="removing" @click="deleteEverywhere" />
+          <AppButton variant="secondary" :disabled="removing" @click="visible = false">Cancel</AppButton>
+          <AppButton variant="danger" :loading="removing" @click="deleteEverywhere">Delete</AppButton>
         </div>
       </template>
     </div>

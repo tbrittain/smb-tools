@@ -3,7 +3,7 @@ import { EXPORT_DATASETS } from '../lib/exportDatasets'
 import ExportPreviewTable from './ExportPreviewTable.vue'
 
 const meta: Meta<typeof ExportPreviewTable> = {
-  title: 'Components/ExportPreviewTable',
+  title: 'Tables/ExportPreviewTable',
   component: ExportPreviewTable,
   tags: ['autodocs'],
 }

@@ -3,7 +3,7 @@ import { main } from '../../wailsjs/go/models'
 import LeaderboardFilters from './LeaderboardFilters.vue'
 
 const meta: Meta<typeof LeaderboardFilters> = {
-  title: 'Components/LeaderboardFilters',
+  title: 'Leaderboards/LeaderboardFilters',
   component: LeaderboardFilters,
   decorators: [() => ({ template: '<div style="padding: 1.5rem; max-width: 900px"><story /></div>' })],
 }

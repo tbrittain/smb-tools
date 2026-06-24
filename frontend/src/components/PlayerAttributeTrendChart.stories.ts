@@ -3,7 +3,7 @@ import { main } from '../../wailsjs/go/models'
 import PlayerAttributeTrendChart from './PlayerAttributeTrendChart.vue'
 
 const meta: Meta<typeof PlayerAttributeTrendChart> = {
-  title: 'Components/PlayerAttributeTrendChart',
+  title: 'Charts/PlayerAttributeTrendChart',
   component: PlayerAttributeTrendChart,
 }
 export default meta

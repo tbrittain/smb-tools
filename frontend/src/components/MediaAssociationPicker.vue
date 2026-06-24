@@ -1,9 +1,9 @@
 <script lang="ts" setup>
-import Button from 'primevue/button'
 import { ref } from 'vue'
 import { GetTeamSeasonsForMediaPicker, SearchPlayers, SearchTeamsForMediaPicker } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import { useSearchDebounce } from '../composables/useSearchDebounce'
+import AppButton from './AppButton.vue'
 
 const props = defineProps<{
   mode: 'team_season' | 'player'
@@ -127,12 +127,9 @@ function isPlayerAlreadySelected(playerId: number): boolean {
               Season {{ s.seasonNum }}{{ isTeamSeasonAlreadySelected(s.teamHistoryId) ? ' (already added)' : '' }}
             </option>
           </select>
-          <Button
-            label="Add"
-            size="small"
-            :disabled="selectedSeasonHistoryId === null"
-            @click="addTeamSeason"
-          />
+          <AppButton size="sm" :disabled="selectedSeasonHistoryId === null" @click="addTeamSeason">
+            Add
+          </AppButton>
         </div>
       </div>
     </template>

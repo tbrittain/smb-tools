@@ -41,7 +41,7 @@ const sampleCandidates: main.SaveFileCandidateDTO[] = [
 ]
 
 const meta: Meta<typeof SaveFilePicker> = {
-  title: 'Components/SaveFilePicker',
+  title: 'Franchise/SaveFilePicker',
   component: SaveFilePicker,
   tags: ['autodocs'],
 }

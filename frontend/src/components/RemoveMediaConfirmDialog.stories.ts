@@ -30,7 +30,7 @@ function makeItem(totalAssociationCount: number): main.MediaItemDTO {
 }
 
 const meta: Meta<typeof RemoveMediaConfirmDialog> = {
-  title: 'Components/RemoveMediaConfirmDialog',
+  title: 'Media/RemoveMediaConfirmDialog',
   component: RemoveMediaConfirmDialog,
 }
 export default meta

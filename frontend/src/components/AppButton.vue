@@ -6,6 +6,7 @@ withDefaults(
     disabled?: boolean
     loading?: boolean
     type?: 'button' | 'submit' | 'reset'
+    icon?: string
   }>(),
   {
     variant: 'primary',
@@ -13,6 +14,7 @@ withDefaults(
     disabled: false,
     loading: false,
     type: 'button',
+    icon: undefined,
   },
 )
 
@@ -28,6 +30,7 @@ withDefaults(
     v-bind="$attrs"
   >
     <i v-if="loading" class="pi pi-spinner pi-spin" />
+    <i v-else-if="icon" :class="icon" />
     <slot />
   </button>
 </template>
@@ -66,7 +69,7 @@ withDefaults(
 /* Style variants */
 .app-btn--primary {
   background: var(--color-accent);
-  color: #fff;
+  color: #000;
 }
 
 .app-btn--primary:hover:not(:disabled) {

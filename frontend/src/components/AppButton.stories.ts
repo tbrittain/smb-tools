@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/vue3'
 import AppButton from './AppButton.vue'
 
 const meta: Meta<typeof AppButton> = {
-  title: 'Components/AppButton',
+  title: 'Common/AppButton',
   component: AppButton,
   tags: ['autodocs'],
   argTypes: {

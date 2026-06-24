@@ -100,6 +100,72 @@ All links share one appearance: accent color, no underline at rest, underlines o
 
 ---
 
+### Buttons
+
+#### Use `AppButton` for every solid action button
+
+`AppButton` (`src/components/AppButton.vue`) is the component for primary/secondary/ghost/danger action buttons — Save, Cancel, Submit, Delete, Upload, and similar calls to action. Do not import PrimeVue's `Button` or hand-roll a `<button class="btn …">` for these.
+
+```vue
+<AppButton :loading="saving" :disabled="form.invalid" @click="save">Save</AppButton>
+<AppButton variant="secondary" @click="visible = false">Cancel</AppButton>
+<AppButton variant="danger" :loading="deleting" @click="remove">Delete</AppButton>
+<AppButton variant="secondary" size="sm" icon="pi pi-image" @click="openManager">Manage Logos</AppButton>
+```
+
+| Prop | Type | Description |
+|------|------|--------------|
+| `variant` | `'primary' \| 'secondary' \| 'ghost' \| 'danger'` | Defaults to `primary`. |
+| `size` | `'sm' \| 'md'` | Defaults to `md`. |
+| `icon` | `string` | PrimeIcons class (e.g. `'pi pi-image'`). Hidden automatically while `loading`. |
+| `loading` | `boolean` | Shows the spinner (replacing `icon`) and implies `disabled`. |
+| `disabled` | `boolean` | |
+| `type` | `'button' \| 'submit' \| 'reset'` | Defaults to `button`. |
+
+**Known exceptions** — these stay on PrimeVue's `Button` until `AppButton` grows the matching mode; don't convert them on sight:
+- **Tertiary `text` actions** (e.g. a modal's secondary "Cancel", an inline "Load" link inside a list row) — `AppButton` has no borderless `text` mode yet. The canonical `Cancel` button in the Modals pattern below is one of these.
+- **Tab/segmented controls, toggle groups, and selectable list rows** — these are a different UI affordance (selection state, not a one-shot action) and should stay as hand-rolled `<button class="tab-btn">`/`toggle-btn` elements, not `AppButton`.
+
+**What NOT to do**
+
+```vue
+<!-- Bad: raw PrimeVue Button for a solid action -->
+<Button label="Save" :loading="saving" @click="save" />
+
+<!-- Bad: hand-rolled .btn-primary class duplicating AppButton's styling -->
+<button class="btn btn-primary" :disabled="saving" @click="save">Save</button>
+```
+
+#### Use `IconButton` for every icon-only action button
+
+`IconButton` (`src/components/IconButton.vue`) is the component for icon-only actions — a row's delete trash can, a circular help trigger, and similar single-glyph buttons with no visible label. Do not import PrimeVue's `Button` with an `icon` prop and no `label` for these.
+
+```vue
+<IconButton icon="pi pi-trash" variant="danger" aria-label="Delete preset" @click="deletePreset(p)" />
+<IconButton icon="pi pi-question-circle" rounded aria-label="Learn more in the docs" @click="openDocs" />
+```
+
+| Prop | Type | Description |
+|------|------|--------------|
+| `icon` | `string` | Required. PrimeIcons class (e.g. `'pi pi-trash'`). |
+| `variant` | `'secondary' \| 'danger'` | Defaults to `secondary`. |
+| `size` | `'sm' \| 'md'` | Defaults to `sm`. |
+| `rounded` | `boolean` | Circular instead of the default rounded-square shape. Use for standalone triggers like help icons, not for icons inside a list row. |
+| `disabled` | `boolean` | |
+
+`aria-label` isn't a declared prop — like any other native attribute, it flows through to the `<button>` via `$attrs`. Always pass one: icon-only buttons have no visible text for screen readers to announce.
+
+`AppHelpButton` (`src/components/AppHelpButton.vue`) is a thin, docs-specific wrapper around `IconButton` (question-circle icon, rounded, opens a docs URL via `BrowserOpenURL`). Use it directly for "learn more in the docs" triggers rather than re-implementing it with a raw `IconButton`.
+
+**What NOT to do**
+
+```vue
+<!-- Bad: raw PrimeVue Button for an icon-only action -->
+<Button icon="pi pi-trash" severity="danger" text size="small" aria-label="Delete" @click="remove" />
+```
+
+---
+
 ### Icons
 
 smb-tools uses **PrimeIcons** (`primeicons` package). The CSS is imported globally in `src/main.ts` — no per-component import needed.

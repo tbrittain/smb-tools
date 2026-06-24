@@ -4,7 +4,7 @@ import { EXPORT_DATASET_MAP } from '../lib/exportDatasets'
 import ExportFilterPanel from './ExportFilterPanel.vue'
 
 const meta: Meta<typeof ExportFilterPanel> = {
-  title: 'Components/ExportFilterPanel',
+  title: 'Export/ExportFilterPanel',
   component: ExportFilterPanel,
   tags: ['autodocs'],
 }

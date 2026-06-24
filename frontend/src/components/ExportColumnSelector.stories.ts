@@ -4,7 +4,7 @@ import { EXPORT_DATASETS } from '../lib/exportDatasets'
 import ExportColumnSelector from './ExportColumnSelector.vue'
 
 const meta: Meta<typeof ExportColumnSelector> = {
-  title: 'Components/ExportColumnSelector',
+  title: 'Export/ExportColumnSelector',
   component: ExportColumnSelector,
   tags: ['autodocs'],
 }

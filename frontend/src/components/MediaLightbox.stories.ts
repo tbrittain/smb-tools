@@ -39,7 +39,7 @@ const MULTI_ITEMS = [
 ]
 
 const meta: Meta<typeof MediaLightbox> = {
-  title: 'Components/MediaLightbox',
+  title: 'Media/MediaLightbox',
   component: MediaLightbox,
 }
 export default meta

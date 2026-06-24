@@ -3,7 +3,7 @@ import { main } from '../../wailsjs/go/models'
 import PlayerBioCard from './PlayerBioCard.vue'
 
 const meta: Meta<typeof PlayerBioCard> = {
-  title: 'Components/PlayerBioCard',
+  title: 'Player/PlayerBioCard',
   component: PlayerBioCard,
 }
 export default meta
@@ -13,7 +13,7 @@ type Story = StoryObj<typeof PlayerBioCard>
 const baseSeason = new main.PlayerSeasonLogDTO({
   seasonNum: 8,
   seasonId: 8,
-  teamName: 'Giants',
+  teams: [new main.TeamRefDTO({ teamId: 1, teamHistoryId: 1, teamName: 'Giants', sortOrder: 0 })],
   age: 34,
   salary: 15000000,
   primaryPosition: 'LF',
@@ -22,8 +22,8 @@ const baseSeason = new main.PlayerSeasonLogDTO({
   batHand: 'L',
   throwHand: 'L',
   chemistryType: 'Competitive',
-  traitsJson: '[]',
-  pitchesJson: '[]',
+  traits: [],
+  pitches: [],
   power: 99,
   contact: 85,
   speed: 72,
@@ -62,7 +62,7 @@ export const Pitcher: Story = {
       pitcherRole: 'SP',
       batHand: 'R',
       throwHand: 'L',
-      teamName: 'Diamondbacks',
+      teams: [new main.TeamRefDTO({ teamId: 2, teamHistoryId: 2, teamName: 'Diamondbacks', sortOrder: 0 })],
     }),
   },
 }

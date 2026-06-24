@@ -14,6 +14,7 @@ import {
   SubmitSeasonAwards,
 } from '../../wailsjs/go/main/App'
 import { main } from '../../wailsjs/go/models'
+import AppButton from '../components/AppButton.vue'
 import AppLink from '../components/AppLink.vue'
 import AwardsViewCard from '../components/AwardsViewCard.vue'
 import EmptyState from '../components/EmptyState.vue'
@@ -262,14 +263,14 @@ onMounted(loadSeasons)
         <button class="btn btn-ghost" @click="viewMode ? exitViewMode() : enterViewMode()">
           {{ viewMode ? 'Edit Awards' : 'View Awards' }}
         </button>
-        <button
+        <AppButton
           v-if="!viewMode"
-          class="btn btn-primary"
-          :disabled="submitting || selectedSeasonId == null"
+          :disabled="selectedSeasonId == null"
+          :loading="submitting"
           @click="submitAwards"
         >
           {{ submitting ? 'Saving…' : 'Submit Awards' }}
-        </button>
+        </AppButton>
       </div>
     </div>
 
@@ -802,13 +803,13 @@ onMounted(loadSeasons)
       <span v-if="candidates?.autoSuggested" class="suggest-note">
         Auto-suggested awards loaded — review and submit.
       </span>
-      <button
-        class="btn btn-primary btn-lg"
-        :disabled="submitting || selectedSeasonId == null"
+      <AppButton
+        :disabled="selectedSeasonId == null"
+        :loading="submitting"
         @click="submitAwards"
       >
         {{ submitting ? 'Saving…' : 'Submit Awards' }}
-      </button>
+      </AppButton>
     </div>
   </div>
 </template>
@@ -855,15 +856,6 @@ onMounted(loadSeasons)
   white-space: nowrap;
 }
 
-.btn-primary {
-  background: var(--color-accent, #4c9aff);
-  color: #fff;
-}
-
-.btn-primary:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-
 .btn-ghost {
   background: var(--color-surface-2);
   color: var(--color-text-primary);
@@ -877,11 +869,6 @@ onMounted(loadSeasons)
 .btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-
-.btn-lg {
-  padding: 0.6rem 1.5rem;
-  font-size: 0.9375rem;
 }
 
 .auto-suggest-banner {

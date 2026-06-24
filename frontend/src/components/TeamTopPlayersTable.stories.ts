@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/vue3'
 import TeamTopPlayersTable from './TeamTopPlayersTable.vue'
 
 const meta: Meta<typeof TeamTopPlayersTable> = {
-  title: 'Components/TeamTopPlayersTable',
+  title: 'Tables/TeamTopPlayersTable',
   component: TeamTopPlayersTable,
 }
 export default meta

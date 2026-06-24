@@ -1,7 +1,7 @@
 <script lang="ts" setup>
-import Button from 'primevue/button'
 import { onMounted } from 'vue'
 import type { main } from '../../wailsjs/go/models'
+import AppButton from '../components/AppButton.vue'
 import ExportColumnSelector from '../components/ExportColumnSelector.vue'
 import ExportDatasetPicker from '../components/ExportDatasetPicker.vue'
 import ExportFilterPanel from '../components/ExportFilterPanel.vue'
@@ -95,23 +95,25 @@ function setQualifiedOnly(v: boolean) {
       </section>
 
       <div class="apply-row">
-        <Button
-          label="Apply"
+        <AppButton
           icon="pi pi-refresh"
           :loading="isPreviewLoading"
           :disabled="selectedColumnKeys.length === 0"
           class="apply-btn"
           @click="applyAndPreview"
-        />
-        <Button
-          label="Export CSV"
+        >
+          Apply
+        </AppButton>
+        <AppButton
+          variant="secondary"
           icon="pi pi-download"
-          severity="secondary"
           :loading="isExporting"
           :disabled="isExporting || selectedColumnKeys.length === 0"
           class="apply-btn"
           @click="downloadCSV"
-        />
+        >
+          Export CSV
+        </AppButton>
       </div>
     </div>
 
@@ -136,13 +138,14 @@ function setQualifiedOnly(v: boolean) {
             <i :class="sortDir === 'asc' ? 'pi pi-sort-amount-up-alt' : 'pi pi-sort-amount-down'" />
           </button>
         </div>
-        <Button
-          label="Export CSV"
+        <AppButton
           icon="pi pi-download"
           :loading="isExporting"
           :disabled="isExporting || selectedColumnKeys.length === 0"
           @click="downloadCSV"
-        />
+        >
+          Export CSV
+        </AppButton>
       </div>
       <ExportPreviewTable
         :selected-columns="appliedColumns"

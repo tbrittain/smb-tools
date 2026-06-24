@@ -3,7 +3,7 @@ import { main } from '../../wailsjs/go/models'
 import SeasonWinDeltaChart from './SeasonWinDeltaChart.vue'
 
 const meta: Meta<typeof SeasonWinDeltaChart> = {
-  title: 'Components/SeasonWinDeltaChart',
+  title: 'Charts/SeasonWinDeltaChart',
   component: SeasonWinDeltaChart,
 }
 export default meta

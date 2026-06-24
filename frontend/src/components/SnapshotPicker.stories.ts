@@ -19,7 +19,7 @@ const sampleSnapshots: main.SnapshotDTO[] = [
 ]
 
 const meta: Meta<typeof SnapshotPicker> = {
-  title: 'Components/SnapshotPicker',
+  title: 'Franchise/SnapshotPicker',
   component: SnapshotPicker,
   tags: ['autodocs'],
 }

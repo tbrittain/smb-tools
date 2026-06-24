@@ -8,7 +8,7 @@ const P1 = 1
 const P2 = 2
 
 const meta: Meta<typeof BattingLeaderboardTable> = {
-  title: 'Components/BattingLeaderboardTable',
+  title: 'Tables/BattingLeaderboardTable',
   component: BattingLeaderboardTable,
   decorators: [() => ({ template: '<div style="padding: 1.5rem"><story /></div>' })],
 }

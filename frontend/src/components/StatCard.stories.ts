@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/vue3'
 import StatCard from './StatCard.vue'
 
 const meta: Meta<typeof StatCard> = {
-  title: 'Components/StatCard',
+  title: 'Common/StatCard',
   component: StatCard,
 }
 export default meta

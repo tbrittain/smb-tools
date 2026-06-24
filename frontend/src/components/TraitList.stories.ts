@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/vue3'
 import TraitList from './TraitList.vue'
 
 const meta: Meta<typeof TraitList> = {
-  title: 'Components/TraitList',
+  title: 'Common/TraitList',
   component: TraitList,
   tags: ['autodocs'],
 }

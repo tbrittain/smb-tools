@@ -1,11 +1,11 @@
 <script lang="ts" setup>
-import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import { useToast } from 'primevue/usetoast'
 import { ref } from 'vue'
 import { BrowseMediaFile, UploadMedia } from '../../wailsjs/go/main/App'
+import AppButton from './AppButton.vue'
 import MediaAssociationPicker from './MediaAssociationPicker.vue'
 
 const props = defineProps<{
@@ -125,7 +125,7 @@ function onHide() {
       <!-- File selection -->
       <div class="form-row">
         <div class="file-row">
-          <Button label="Browse…" size="small" severity="secondary" @click="browseFile" />
+          <AppButton variant="secondary" size="sm" @click="browseFile">Browse…</AppButton>
           <span v-if="filePath" class="file-name">{{ filePath.replace(/\\/g, '/').split('/').pop() }}</span>
           <span v-else class="file-placeholder">No file selected</span>
         </div>
@@ -194,13 +194,10 @@ function onHide() {
     </div>
 
     <template #footer>
-      <Button label="Cancel" severity="secondary" :disabled="uploading" @click="visible = false" />
-      <Button
-        label="Upload"
-        :loading="uploading"
-        :disabled="!filePath || !mediaName.trim()"
-        @click="upload"
-      />
+      <AppButton variant="secondary" :disabled="uploading" @click="visible = false">Cancel</AppButton>
+      <AppButton :loading="uploading" :disabled="!filePath || !mediaName.trim()" @click="upload">
+        Upload
+      </AppButton>
     </template>
   </Dialog>
 </template>

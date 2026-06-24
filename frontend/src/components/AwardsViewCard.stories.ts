@@ -3,7 +3,7 @@ import { main } from '../../wailsjs/go/models'
 import AwardsViewCard from './AwardsViewCard.vue'
 
 const meta: Meta<typeof AwardsViewCard> = {
-  title: 'Components/AwardsViewCard',
+  title: 'Awards/AwardsViewCard',
   component: AwardsViewCard,
 }
 export default meta

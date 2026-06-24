@@ -37,7 +37,7 @@ function stubWails() {
 }
 
 const meta: Meta<typeof MediaUploadDialog> = {
-  title: 'Components/MediaUploadDialog',
+  title: 'Media/MediaUploadDialog',
   component: MediaUploadDialog,
 }
 export default meta

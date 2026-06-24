@@ -7,6 +7,7 @@ import PrimeVue from 'primevue/config'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { Preview } from '@storybook/vue3-vite'
 import { setup } from '@storybook/vue3-vite'
+import 'primeicons/primeicons.css'
 import '../src/assets/tokens.css'
 import '../src/style.css'
 
@@ -16,6 +17,22 @@ const storybookRouter = createRouter({
   history: createMemoryHistory(),
   routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div />' } }],
 })
+
+// Wails injects window.runtime only inside the desktop webview. Stub it so any
+// component calling wailsjs/runtime functions (BrowserOpenURL, etc.) no-ops
+// in Storybook instead of throwing "Cannot read properties of undefined".
+;(window as unknown as { runtime: unknown }).runtime ??= new Proxy(
+  {},
+  { get: () => () => {} },
+)
+
+// PrimeVue's dark-mode CSS variables are emitted scoped to `:root.dark`
+// (matching main.ts, which adds 'dark' to document.documentElement) — a
+// `.dark` class on a wrapper div further down the tree doesn't satisfy that
+// selector, so PrimeVue components (DataTable, Paginator, etc.) silently keep
+// their light-theme `--p-*` tokens even though our own --color-* tokens
+// (a plain `.dark` selector) pick up correctly from the decorator below.
+document.documentElement.classList.add('dark')
 
 setup((app) => {
   app.use(PrimeVue, {
@@ -31,21 +48,18 @@ setup((app) => {
 })
 
 const preview: Preview = {
-  // Wrap every story in a .dark div so CSS variables resolve correctly
   decorators: [
     (story) => ({
       components: { story },
-      // .dark activates PrimeVue's dark mode selector and makes --color-*
-      // variables available. The wrapper is otherwise unstyled so Storybook's
-      // own canvas controls the background.
-      template: '<div class="dark"><story /></div>',
+      // The background is set inline (rather than relying on the backgrounds
+      // addon's `parameters.backgrounds`, which isn't registered in main.ts)
+      // so components styled for dark text are legible by default instead of
+      // sitting on Storybook's white canvas. 'dark' itself is applied to
+      // document.documentElement above, not here — see that comment.
+      template: '<div style="background:#0d1117;min-height:100vh;padding:1rem"><story /></div>',
     }),
   ],
   parameters: {
-    backgrounds: {
-      default: 'dark',
-      values: [{ name: 'dark', value: '#0d1117' }],
-    },
     controls: {
       matchers: {
         color: /(background|color)$/i,

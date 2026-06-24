@@ -3,7 +3,7 @@ import { main } from '../../wailsjs/go/models'
 import SeasonSelector from './SeasonSelector.vue'
 
 const meta: Meta<typeof SeasonSelector> = {
-  title: 'Components/SeasonSelector',
+  title: 'Franchise/SeasonSelector',
   component: SeasonSelector,
 }
 export default meta
