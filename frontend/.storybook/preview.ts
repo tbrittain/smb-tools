@@ -7,6 +7,7 @@ import PrimeVue from 'primevue/config'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import type { Preview } from '@storybook/vue3-vite'
 import { setup } from '@storybook/vue3-vite'
+import 'primeicons/primeicons.css'
 import '../src/assets/tokens.css'
 import '../src/style.css'
 
