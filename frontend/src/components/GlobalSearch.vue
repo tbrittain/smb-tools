@@ -104,7 +104,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsi
         >
           <span class="result-name">{{ p.firstName }} {{ p.lastName }}</span>
           <HofBadge v-if="p.isHallOfFamer" />
-          <span class="result-meta">{{ p.seasonsPlayed }}s</span>
+          <span class="result-meta">{{ p.seasonsPlayed }} {{ p.seasonsPlayed === 1 ? 'season' : 'seasons' }}</span>
         </button>
       </section>
       <div class="section-divider" aria-hidden="true" />
@@ -118,7 +118,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', handleClickOutsi
           @click="navigateTo(`/teams/${t.teamId}`)"
         >
           <span class="result-name">{{ t.teamName }}</span>
-          <span class="result-meta">{{ t.seasons }}s</span>
+          <span class="result-meta">{{ t.seasons }} {{ t.seasons === 1 ? 'season' : 'seasons' }}</span>
         </button>
       </section>
     </div>
