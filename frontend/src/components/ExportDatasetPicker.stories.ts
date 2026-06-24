@@ -3,7 +3,7 @@ import { EXPORT_DATASETS } from '../lib/exportDatasets'
 import ExportDatasetPicker from './ExportDatasetPicker.vue'
 
 const meta: Meta<typeof ExportDatasetPicker> = {
-  title: 'Components/ExportDatasetPicker',
+  title: 'Export/ExportDatasetPicker',
   component: ExportDatasetPicker,
   tags: ['autodocs'],
 }

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/vue3'
 import StatHighlightLegend from './StatHighlightLegend.vue'
 
 const meta: Meta<typeof StatHighlightLegend> = {
-  title: 'Components/StatHighlightLegend',
+  title: 'Common/StatHighlightLegend',
   component: StatHighlightLegend,
   decorators: [() => ({ template: '<div style="padding: 1.5rem"><story /></div>' })],
 }

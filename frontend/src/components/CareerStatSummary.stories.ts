@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/vue3'
 import CareerStatSummary from './CareerStatSummary.vue'
 
 const meta: Meta<typeof CareerStatSummary> = {
-  title: 'Components/CareerStatSummary',
+  title: 'Leaderboards/CareerStatSummary',
   component: CareerStatSummary,
 }
 export default meta

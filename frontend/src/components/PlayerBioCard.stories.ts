@@ -3,7 +3,7 @@ import { main } from '../../wailsjs/go/models'
 import PlayerBioCard from './PlayerBioCard.vue'
 
 const meta: Meta<typeof PlayerBioCard> = {
-  title: 'Components/PlayerBioCard',
+  title: 'Player/PlayerBioCard',
   component: PlayerBioCard,
 }
 export default meta

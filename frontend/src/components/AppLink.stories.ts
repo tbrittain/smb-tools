@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/vue3'
 import AppLink from './AppLink.vue'
 
 const meta: Meta<typeof AppLink> = {
-  title: 'Components/AppLink',
+  title: 'Common/AppLink',
   component: AppLink,
   tags: ['autodocs'],
 }

@@ -3,7 +3,7 @@ import { main } from '../../wailsjs/go/models'
 import PlayerStatTable from './PlayerStatTable.vue'
 
 const meta: Meta<typeof PlayerStatTable> = {
-  title: 'Components/PlayerStatTable',
+  title: 'Tables/PlayerStatTable',
   component: PlayerStatTable,
   decorators: [() => ({ template: '<div style="padding: 1.5rem"><story /></div>' })],
 }

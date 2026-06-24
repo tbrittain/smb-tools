@@ -3,7 +3,7 @@ import { main } from '../../wailsjs/go/models'
 import StatLeadersPanel from './StatLeadersPanel.vue'
 
 const meta: Meta<typeof StatLeadersPanel> = {
-  title: 'Components/StatLeadersPanel',
+  title: 'Leaderboards/StatLeadersPanel',
   component: StatLeadersPanel,
 }
 export default meta

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/vue3'
 import EmptyState from './EmptyState.vue'
 
 const meta: Meta<typeof EmptyState> = {
-  title: 'Components/EmptyState',
+  title: 'Common/EmptyState',
   component: EmptyState,
 }
 export default meta

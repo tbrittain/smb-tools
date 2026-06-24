@@ -52,7 +52,7 @@ function stubWails() {
 }
 
 const meta: Meta<typeof MediaAssociationPicker> = {
-  title: 'Components/MediaAssociationPicker',
+  title: 'Media/MediaAssociationPicker',
   component: MediaAssociationPicker,
 }
 export default meta

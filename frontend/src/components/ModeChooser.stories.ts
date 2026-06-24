@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/vue3'
 import ModeChooser from './ModeChooser.vue'
 
 const meta: Meta<typeof ModeChooser> = {
-  title: 'Components/ModeChooser',
+  title: 'Common/ModeChooser',
   component: ModeChooser,
   tags: ['autodocs'],
 }

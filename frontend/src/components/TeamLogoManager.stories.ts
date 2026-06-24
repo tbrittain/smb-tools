@@ -6,7 +6,7 @@ const SAMPLE_LOGO =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
 const meta: Meta<typeof TeamLogoManager> = {
-  title: 'Components/TeamLogoManager',
+  title: 'Team/TeamLogoManager',
   component: TeamLogoManager,
   tags: ['autodocs'],
 }

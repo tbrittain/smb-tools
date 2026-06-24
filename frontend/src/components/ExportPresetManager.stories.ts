@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/vue3'
 import ExportPresetManager from './ExportPresetManager.vue'
 
 const meta: Meta<typeof ExportPresetManager> = {
-  title: 'Components/ExportPresetManager',
+  title: 'Export/ExportPresetManager',
   component: ExportPresetManager,
   tags: ['autodocs'],
 }

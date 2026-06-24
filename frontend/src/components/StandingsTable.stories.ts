@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/vue3'
 import StandingsTable from './StandingsTable.vue'
 
 const meta: Meta<typeof StandingsTable> = {
-  title: 'Components/StandingsTable',
+  title: 'Tables/StandingsTable',
   component: StandingsTable,
 }
 export default meta
