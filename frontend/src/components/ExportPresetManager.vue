@@ -59,10 +59,6 @@ function loadPreset(preset: main.ExportPresetDTO) {
   emit('load', preset.datasetId, preset.configJson)
 }
 
-function onNameKeyup(event: KeyboardEvent) {
-  if (event.key === 'Enter') savePreset()
-}
-
 onMounted(loadPresets)
 </script>
 
@@ -75,7 +71,7 @@ onMounted(loadPresets)
         class="preset-name-input"
         placeholder="Preset name…"
         maxlength="80"
-        @keyup="onNameKeyup"
+        @keyup.enter="savePreset"
       />
       <AppButton size="sm" :disabled="!newPresetName.trim() || saving" @click="savePreset">
         Save
