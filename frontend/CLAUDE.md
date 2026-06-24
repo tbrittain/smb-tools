@@ -100,6 +100,45 @@ All links share one appearance: accent color, no underline at rest, underlines o
 
 ---
 
+### Buttons
+
+#### Use `AppButton` for every solid action button
+
+`AppButton` (`src/components/AppButton.vue`) is the component for primary/secondary/ghost/danger action buttons — Save, Cancel, Submit, Delete, Upload, and similar calls to action. Do not import PrimeVue's `Button` or hand-roll a `<button class="btn …">` for these.
+
+```vue
+<AppButton :loading="saving" :disabled="form.invalid" @click="save">Save</AppButton>
+<AppButton variant="secondary" @click="visible = false">Cancel</AppButton>
+<AppButton variant="danger" :loading="deleting" @click="remove">Delete</AppButton>
+<AppButton variant="secondary" size="sm" icon="pi pi-image" @click="openManager">Manage Logos</AppButton>
+```
+
+| Prop | Type | Description |
+|------|------|--------------|
+| `variant` | `'primary' \| 'secondary' \| 'ghost' \| 'danger'` | Defaults to `primary`. |
+| `size` | `'sm' \| 'md'` | Defaults to `md`. |
+| `icon` | `string` | PrimeIcons class (e.g. `'pi pi-image'`). Hidden automatically while `loading`. |
+| `loading` | `boolean` | Shows the spinner (replacing `icon`) and implies `disabled`. |
+| `disabled` | `boolean` | |
+| `type` | `'button' \| 'submit' \| 'reset'` | Defaults to `button`. |
+
+**Known exceptions** — these stay on PrimeVue's `Button` until `AppButton` grows the matching mode; don't convert them on sight:
+- **Icon-only circular triggers** (e.g. `AppHelpButton`'s `rounded` help icon) — `AppButton` has no icon-only/rounded mode.
+- **Tertiary `text` actions** (e.g. a modal's secondary "Cancel", inline "Load"/"Delete" links inside a list row) — `AppButton` has no borderless `text` mode yet. The canonical `Cancel` button in the Modals pattern below is one of these.
+- **Tab/segmented controls, toggle groups, and selectable list rows** — these are a different UI affordance (selection state, not a one-shot action) and should stay as hand-rolled `<button class="tab-btn">`/`toggle-btn` elements, not `AppButton`.
+
+**What NOT to do**
+
+```vue
+<!-- Bad: raw PrimeVue Button for a solid action -->
+<Button label="Save" :loading="saving" @click="save" />
+
+<!-- Bad: hand-rolled .btn-primary class duplicating AppButton's styling -->
+<button class="btn btn-primary" :disabled="saving" @click="save">Save</button>
+```
+
+---
+
 ### Icons
 
 smb-tools uses **PrimeIcons** (`primeicons` package). The CSS is imported globally in `src/main.ts` — no per-component import needed.
