@@ -20,6 +20,7 @@ import {
 } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppButton from './AppButton.vue'
+import IconButton from './IconButton.vue'
 import TeamLogoDisplay from './TeamLogoDisplay.vue'
 
 const props = defineProps<{
@@ -194,11 +195,9 @@ const allAssignments = computed(() =>
         <div v-for="a in allAssignments" :key="a.id" class="assignment-row">
           <TeamLogoDisplay :logoUrl="a.logoUrl" size="sm" />
           <span class="range-label">{{ rangeLabel(a) }}</span>
-          <Button
+          <IconButton
             icon="pi pi-trash"
-            severity="danger"
-            text
-            size="small"
+            variant="danger"
             aria-label="Delete assignment"
             @click="deleteAssignment(a.id)"
           />

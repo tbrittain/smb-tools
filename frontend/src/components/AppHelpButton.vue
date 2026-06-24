@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import Button from 'primevue/button'
 import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
+import IconButton from './IconButton.vue'
 
 const DOCS_BASE_URL = 'https://tbrittain.github.io/smb-tools/'
 
@@ -15,13 +15,10 @@ function openDocs() {
 </script>
 
 <template>
-  <Button
+  <IconButton
     v-tooltip.top="'Learn more in the docs'"
     icon="pi pi-question-circle"
-    severity="secondary"
-    text
     rounded
-    size="small"
     aria-label="Learn more in the docs"
     @click="openDocs"
   />

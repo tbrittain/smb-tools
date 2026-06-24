@@ -5,6 +5,7 @@ import { onMounted, ref } from 'vue'
 import { DeleteExportPreset, GetExportPresets, SaveExportPreset } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
 import AppButton from './AppButton.vue'
+import IconButton from './IconButton.vue'
 
 const props = defineProps<{
   currentConfigJSON: string
@@ -90,13 +91,7 @@ onMounted(loadPresets)
             text
             @click="loadPreset(p)"
           />
-          <Button
-            icon="pi pi-trash"
-            size="small"
-            severity="danger"
-            text
-            @click="deletePreset(p)"
-          />
+          <IconButton icon="pi pi-trash" variant="danger" aria-label="Delete preset" @click="deletePreset(p)" />
         </div>
       </li>
     </ul>
