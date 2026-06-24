@@ -1,10 +1,10 @@
 <script lang="ts" setup>
-import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import { computed, onMounted, ref } from 'vue'
 import { GetLogoURLForSeason, GetTeamHistory, GetTeamTopPlayers } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
+import AppButton from '../components/AppButton.vue'
 import AppLink from '../components/AppLink.vue'
 import EmptyState from '../components/EmptyState.vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
@@ -104,14 +104,9 @@ onMounted(async () => {
             <h2>{{ summary.currentName }}</h2>
           </div>
           <div class="header-actions">
-            <Button
-              label="Manage Logos"
-              icon="pi pi-image"
-              severity="secondary"
-              outlined
-              size="small"
-              @click="showLogoManager = true"
-            />
+            <AppButton variant="secondary" size="sm" icon="pi pi-image" @click="showLogoManager = true">
+              Manage Logos
+            </AppButton>
           </div>
         </div>
         <div class="header-stats">

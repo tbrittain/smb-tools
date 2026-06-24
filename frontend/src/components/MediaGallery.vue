@@ -1,8 +1,8 @@
 <script lang="ts" setup>
-import Button from 'primevue/button'
 import { computed, onMounted, ref, watch } from 'vue'
 import { GetMediaForPlayer, GetMediaForTeamSeason } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
+import AppButton from './AppButton.vue'
 import MediaLightbox from './MediaLightbox.vue'
 import MediaUploadDialog from './MediaUploadDialog.vue'
 
@@ -78,7 +78,7 @@ onMounted(() => loadPage(0))
   <section class="media-gallery">
     <div class="gallery-header">
       <h3 class="gallery-title">Media</h3>
-      <Button label="Upload media" size="small" @click="uploadDialogVisible = true" />
+      <AppButton size="sm" @click="uploadDialogVisible = true">Upload media</AppButton>
     </div>
 
     <div v-if="loading && items.length === 0" class="gallery-loading">
@@ -116,7 +116,7 @@ onMounted(() => loadPage(0))
       </div>
 
       <div v-if="hasMore" class="load-more-row">
-        <Button label="Load more" severity="secondary" :loading="loading" @click="loadMore" />
+        <AppButton variant="secondary" :loading="loading" @click="loadMore">Load more</AppButton>
         <span class="count-hint">Showing {{ items.length }} of {{ totalCount }}</span>
       </div>
     </template>

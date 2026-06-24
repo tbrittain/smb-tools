@@ -4,6 +4,7 @@ import { useToast } from 'primevue/usetoast'
 import { onMounted, ref } from 'vue'
 import { DeleteExportPreset, GetExportPresets, SaveExportPreset } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
+import AppButton from './AppButton.vue'
 
 const props = defineProps<{
   currentConfigJSON: string
@@ -71,12 +72,9 @@ onMounted(loadPresets)
         maxlength="80"
         @keyup.enter="savePreset"
       />
-      <Button
-        label="Save"
-        size="small"
-        :disabled="!newPresetName.trim() || saving"
-        @click="savePreset"
-      />
+      <AppButton size="sm" :disabled="!newPresetName.trim() || saving" @click="savePreset">
+        Save
+      </AppButton>
     </div>
 
     <div v-if="presets.length === 0" class="no-presets">No saved presets.</div>

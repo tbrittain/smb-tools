@@ -19,6 +19,7 @@ import {
   UploadAndAssignTeamLogo,
 } from '../../wailsjs/go/main/App'
 import type { main } from '../../wailsjs/go/models'
+import AppButton from './AppButton.vue'
 import TeamLogoDisplay from './TeamLogoDisplay.vue'
 
 const props = defineProps<{
@@ -221,7 +222,7 @@ const allAssignments = computed(() =>
         <TabPanel value="upload">
           <div class="tab-content">
             <div class="file-row">
-              <Button label="Browse…" severity="secondary" size="small" @click="browseFile" />
+              <AppButton variant="secondary" size="sm" @click="browseFile">Browse…</AppButton>
               <span class="file-name">{{ pendingFileName || 'No file selected' }}</span>
             </div>
 
@@ -266,12 +267,9 @@ const allAssignments = computed(() =>
 
             <p v-if="uploadError" class="error-text">{{ uploadError }}</p>
 
-            <Button
-              label="Upload &amp; assign"
-              :disabled="!pendingFilePath || uploading"
-              :loading="uploading"
-              @click="upload"
-            />
+            <AppButton :disabled="!pendingFilePath || uploading" :loading="uploading" @click="upload">
+              Upload &amp; assign
+            </AppButton>
           </div>
         </TabPanel>
 
@@ -333,13 +331,9 @@ const allAssignments = computed(() =>
 
             <p v-if="assignError" class="error-text">{{ assignError }}</p>
 
-            <Button
-              v-if="selectedLogoId"
-              label="Assign to range"
-              :disabled="assigning"
-              :loading="assigning"
-              @click="assignExisting"
-            />
+            <AppButton v-if="selectedLogoId" :disabled="assigning" :loading="assigning" @click="assignExisting">
+              Assign to range
+            </AppButton>
           </div>
         </TabPanel>
       </TabPanels>
