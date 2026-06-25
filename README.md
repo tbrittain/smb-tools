@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="frontend/src/assets/images/logo-universal.png" alt="smb-tools logo" width="120" />
+  <img src="user-docs/assets/smb-tools-hero.jpg" alt="smb-tools" width="480" />
 </p>
-
-<h1 align="center">smb-tools</h1>
 
 <p align="center">
   A cross-platform desktop app for Super Mega Baseball 4 franchise management and statistics.
@@ -15,8 +13,6 @@
 </p>
 
 ---
-
-<!-- screenshot goes here -->
 
 ## What it does
 
@@ -56,6 +52,7 @@ wails dev
 ```
 
 > **Linux note:** On newer distros (e.g. Ubuntu 24.04+), pass the `webkit2_41` build tag if you hit a `webkit2gtk-4.0` pkg-config error:
+
 > ```sh
 > wails dev -tags webkit2_41
 > ```
