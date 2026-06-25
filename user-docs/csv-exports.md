@@ -1,34 +1,40 @@
 ---
-title: CSV Exports
+title: Stat Explorer
 ---
 
-# CSV Exports
+# Stat Explorer
 
-::: warning Coming soon
-CSV exports are not yet available. This page documents the planned feature.
-:::
+The Stat Explorer lets you pull any slice of your franchise data out as a CSV file — for spreadsheet analysis, sharing with the community, or feeding into other tools.
 
-CSV export is an opt-in feature for people who want to get their franchise data out of smb-tools, whether that's for analysis in a spreadsheet, sharing with the community, or feeding into other tools. Nothing in the core app depends on it.
+Open it from the sidebar. The page is split into a configuration panel on the left and a live preview table on the right.
 
-## Custom Export Builder
+![Stat Explorer page showing sidebar with filters and a preview data grid](./assets/ui-4-stat-explorer-page.png)
+*Stat Explorer page showing sidebar with filters and a preview data grid*
 
-At the heart of the export feature is a flexible query builder. Instead of a fixed set of named exports, you describe exactly the dataset you want:
+## Datasets
 
-- Pick the tables and relationships you need: player stats, team records, awards, schedule data, or any combination of those.
-- Pick the columns. If all you care about is batting average, home runs, and team name, that's all you'll get.
-- Run it, and smb-tools writes the result to a CSV file.
+Pick one of nine datasets to query:
 
-The idea is that you shouldn't have to wonder whether smb-tools can export something. If it's in your franchise data, you can get it out.
+| Dataset | What it contains |
+|---|---|
+| **Player Season Batting** | Per-player batting stats for a single season, including counting stats, rate stats, OPS+, and smbWAR |
+| **Player Season Pitching** | Per-player pitching stats for a single season, including ERA, FIP, FIP-, ERA+, and smbWAR |
+| **Team Season Standings** | Win-loss records, run differential, playoff results, budget, and payroll by team and season |
+| **Career Batting Stats** | Cumulative and rate batting stats across a player's entire franchise career |
+| **Career Pitching Stats** | Cumulative and rate pitching stats across a player's entire franchise career |
+| **Player Season Attributes** | Per-player ratings (Power, Contact, Speed, Fielding, Arm, Velocity, Junk, Accuracy) captured at end of season |
+| **Season Award Winners** | Award winners and runners-up for every season |
+| **Regular Season Schedule** | Game-by-game results for every regular season |
+| **Playoff Schedule** | Game-by-game results for every playoff series |
 
-## Convenience Exports
+## Columns
 
-For the common cases, you'll be able to export straight from the view you're already looking at:
+Toggle individual columns on or off. The CSV export contains exactly the columns you select.
 
-- From a leaderboard, export it exactly as filtered and configured.
-- From a player's profile, export their full career stat line.
+## Preview and Export
 
-Both use the same export engine under the hood; they're just shortcuts to it.
+Click **Apply** to run the query and see the first page of results in the preview table. When you're ready, **Export CSV** downloads the full result set (all records, not just the current preview page).
 
-## SMB3Explorer-Compatible Season Export
+## Presets
 
-A full season export will match the original SMB3Explorer CSV schema, so if you've got spreadsheets or community tools built around those exports, they should keep working without changes.
+Save a named preset to store your current configuration. Presets are saved per franchise and persist across sessions.
