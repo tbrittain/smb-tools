@@ -8,6 +8,9 @@ The Stat Explorer lets you pull any slice of your franchise data out as a CSV fi
 
 Open it from the sidebar. The page is split into a configuration panel on the left and a live preview table on the right.
 
+![Stat Explorer page showing sidebar with filters and a preview data grid](./assets/ui-4-stat-explorer-page.png)
+*Stat Explorer page showing sidebar with filters and a preview data grid*
+
 ## Datasets
 
 Pick one of nine datasets to query:
@@ -30,7 +33,7 @@ Toggle individual columns on or off. The CSV export contains exactly the columns
 
 ## Preview and Export
 
-Click **Apply** to run the query and see the first page of results in the preview table. When you're ready, **Export CSV** downloads the full result set — all records, not just the current preview page.
+Click **Apply** to run the query and see the first page of results in the preview table. When you're ready, **Export CSV** downloads the full result set (all records, not just the current preview page).
 
 ## Presets
 
