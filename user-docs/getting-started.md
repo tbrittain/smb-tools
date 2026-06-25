@@ -26,7 +26,11 @@ smb-tools runs natively on all three platforms, but Super Mega Baseball 4 is a W
 
 Franchise stat tracking is the core of the app. After a brief first-time setup, you connect smb-tools to your SMB4 franchise save and sync each season as you finish it. The app builds a permanent record of everything the game would otherwise discard: career statistics, season-by-season breakdowns, player development over time, award history, Hall of Fame, and franchise leaderboards going back as far as you've been playing.
 
-The team transfer tool, coming in a later release, extends the app into territory neither original app touched: packaging up entire leagues, moving teams between save games, and a full save game editor for large-scale changes to rosters and attributes. It's also the most-requested community feature for SMB4.
+![Player career page showing career batting stats, attribute progression chart, and season log](./assets/ui-1-player-detail.png)
+*Player career page showing career totals, season-by-season attribute chart, and a full season log with traits and awards.*
+
+![Team season performance chart and game-by-game schedule](./assets/ui-3-team-detail-2.png)
+*Team detail page showing margin of victory chart across a full 162-game season alongside the complete schedule.*
 
 ## A Note on Game Version
 
