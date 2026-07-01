@@ -16,7 +16,7 @@
 
 ## What it does
 
-smb-tools reads your SMB4 save game and gives you a Baseball Reference–style franchise history: season-by-season standings, batting and pitching leaderboards, full player career pages, awards tracking, and a Hall of Fame. One button click imports an entire season — no CSV exports, no multi-step wizards.
+smb-tools reads your SMB4 save game and gives you a Baseball Reference–style franchise history: season-by-season standings, batting and pitching leaderboards, full player career pages, awards tracking, and a Hall of Fame.
 
 > [!IMPORTANT]
 > **SMB4 only.** This app does not support SMB3 at this time.
