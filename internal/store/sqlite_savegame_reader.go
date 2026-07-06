@@ -735,15 +735,19 @@ func saveGamePosition(raw string) string {
 	}
 }
 
-// saveGamePitcherRole maps the integer pitcher role code to SP/RP/CL.
+// saveGamePitcherRole maps the integer pitcher role code to
+// SP, SP/RP, RP, and CL. If the value is already a non-numeric
+// string (e.g., from the test fixture) it is returned unchanged.
 // Codes from SMB3Explorer's PitcherRole enum.
 func saveGamePitcherRole(raw string) string {
 	switch raw {
 	case "1":
 		return "SP"
 	case "2":
-		return "RP"
+		return "SP/RP"
 	case "3":
+		return "RP"
+	case "4":
 		return "CL"
 	default:
 		return raw
