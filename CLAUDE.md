@@ -29,7 +29,7 @@ Each layer has its own CLAUDE.md with full coding standards and testing requirem
 
 **Backend**
 - Go 1.26
-- Wails v2.12.0 (the current stable release; v3 remains in alpha)
+- Wails v2.13.0 (the current stable release; v3 remains in alpha)
 - `modernc.org/sqlite` — pure Go SQLite driver, no CGO
 - Custom SQL migration runner (`internal/db/migrate.go`) — `embed.FS`-based, `.up.sql` files only
 
