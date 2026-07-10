@@ -42,7 +42,7 @@ Layer-specific setup and tooling are documented in their own READMEs:
 |------|---------|-------|
 | [Go](https://go.dev/dl/) | 1.26 | Backend language |
 | [Node.js](https://nodejs.org/) | 26 | Frontend toolchain |
-| [Wails CLI](https://wails.io/docs/gettingstarted/installation) | v2.12.x | Desktop app framework |
+| [Wails CLI](https://wails.io/docs/gettingstarted/installation) | v2.13.x | Desktop app framework |
 
 ### Running in development
 
