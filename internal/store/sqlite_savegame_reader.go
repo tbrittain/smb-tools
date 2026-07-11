@@ -181,6 +181,15 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 				 WHERE t.baseballPlayerLocalID = bpli.localID),
 				'[]'
 			) AS traits,
+			COALESCE(
+				(SELECT json_group_array(json_object('optionKey', p.optionKey))
+				 FROM t_baseball_player_options p
+				 WHERE p.baseballPlayerLocalID = bpli.localID
+				   AND p.optionKey BETWEEN 58 AND 65
+				   AND p.optionValue = 1
+				 ORDER BY p.optionKey),
+				'[]'
+			) AS pitches,
 			bpo_throw.optionValue AS throwHandCode,
 			bpo_bat.optionValue   AS batHandCode,
 			bpo_chem.optionValue  AS chemCode
@@ -213,7 +222,7 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 	var players []models.SaveGamePlayer
 	for rows.Next() {
 		var p models.SaveGamePlayer
-		var traitsJSON string
+		var traitsJSON, pitchesJSON string
 		var rawPrimaryPos, rawPitcherRole string
 		var throwCode, batCode, chemCode sql.NullInt64
 		if err := rows.Scan(
@@ -223,12 +232,13 @@ func (r *SqliteSaveGameReader) GetCurrentSeasonPlayers(ctx context.Context, seas
 			&p.CurrentTeam, &p.PreviousTeam, &p.Prev2Team,
 			&p.Power, &p.Contact, &p.Speed, &p.Fielding, &p.Arm,
 			&p.Velocity, &p.Junk, &p.Accuracy,
-			&p.Age, &p.Salary, &traitsJSON,
+			&p.Age, &p.Salary, &traitsJSON, &pitchesJSON,
 			&throwCode, &batCode, &chemCode,
 		); err != nil {
 			return nil, fmt.Errorf("scanning player: %w", err)
 		}
 		p.Traits = parseTraitJSON(traitsJSON)
+		p.Pitches = parsePitchesJSON(pitchesJSON)
 		p.PrimaryPos = saveGamePosition(rawPrimaryPos)
 		p.PitcherRole = saveGamePitcherRole(rawPitcherRole)
 		p.ThrowHand = saveGameHand(throwCode)
@@ -697,6 +707,38 @@ func parseTraitJSON(raw string) []string {
 		return nil
 	}
 	return names
+}
+
+// t_baseball_player_options optionKeys 58–65 are boolean slots for SMB4's 8
+// pitch types (value 1 = has pitch): 58=4F, 59=2F, 60=SB, 61=CH, 62=FK, 63=CB, 64=SL, 65=CF.
+var smb4PitchByOptionKey = map[int]string{
+	58: "4F", 59: "2F", 60: "SB", 61: "CH",
+	62: "FK", 63: "CB", 64: "SL", 65: "CF",
+}
+
+// parsePitchesJSON resolves the {optionKey} JSON emitted by the pitches
+// subquery into pitch abbreviations. Unknown keys are skipped.
+func parsePitchesJSON(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "[]" || raw == "null" {
+		return nil
+	}
+	var entries []struct {
+		OptionKey int `json:"optionKey"`
+	}
+	if err := json.Unmarshal([]byte(raw), &entries); err != nil {
+		return nil
+	}
+	pitches := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if name, ok := smb4PitchByOptionKey[e.OptionKey]; ok {
+			pitches = append(pitches, name)
+		}
+	}
+	if len(pitches) == 0 {
+		return nil
+	}
+	return pitches
 }
 
 // ---- Save game code → domain value translators -------------------------
