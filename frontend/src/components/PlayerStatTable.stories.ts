@@ -99,6 +99,7 @@ const makePitchRow = (i: number) =>
     ...makeRow(i),
     primaryPosition: 'P',
     pitcherRole: 'SP',
+    pitches: ['4F', 'SL', 'CB'],
     batting: undefined,
     playoffBatting: undefined,
     pitching: makePitching(12 + i, 8, 600 + i * 30, 60 + i * 3, 180 + i * 15),
@@ -122,6 +123,14 @@ export const PitchingRegular: Story = {
 
 export const PitchingPlayoffs: Story = {
   args: { rows: pitcherRows, mode: 'pitching', showPlayoffs: true },
+}
+
+export const PitchingNoPitchData: Story = {
+  args: {
+    rows: [new main.PlayerSeasonLogDTO({ ...makePitchRow(1), pitches: [] })],
+    mode: 'pitching',
+    showPlayoffs: false,
+  },
 }
 
 export const Empty: Story = {

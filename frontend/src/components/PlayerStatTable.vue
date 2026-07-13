@@ -192,6 +192,8 @@ const careerPitchingSummary = computed(() => {
 
 // Non-stat prefix columns: Season, Team, Age, Pos/Role, Traits, [Awards]
 const batchingPrefixCols = computed(() => (hasAwards.value ? 6 : 5))
+// Pitching adds a Pitches column: Season, Team, Age, Role, Pitches, Traits, [Awards]
+const pitchingPrefixCols = computed(() => (hasAwards.value ? 7 : 6))
 
 // ── Highlight helpers ─────────────────────────────────────────────────────────
 
@@ -541,7 +543,7 @@ function pRateSeasonTip(r: { seasonNum: number }, statKey: string, label: string
     >
       <ColumnGroup type="footer">
         <Row v-if="rsPitchingSummary">
-          <Column :colspan="batchingPrefixCols" footer="Regular Season" footer-class="summary-label" />
+          <Column :colspan="pitchingPrefixCols" footer="Regular Season" footer-class="summary-label" />
           <Column footer-class="summary-cell">
             <template #footer><StatHighlightCell :value="rsPitchingSummary.g" :class-map="rsFooterClass('games', 'pitching')" :tooltip="rsFooterTip('games', 'G', 'pitching')" /></template>
           </Column>
@@ -589,7 +591,7 @@ function pRateSeasonTip(r: { seasonNum: number }, statKey: string, label: string
           </Column>
         </Row>
         <Row v-if="poPitchingSummary">
-          <Column :colspan="batchingPrefixCols" footer="Playoffs" footer-class="summary-label summary-po" />
+          <Column :colspan="pitchingPrefixCols" footer="Playoffs" footer-class="summary-label summary-po" />
           <Column footer-class="summary-cell summary-po">
             <template #footer><StatHighlightCell :value="poPitchingSummary.g" :class-map="poFooterClass('games', 'pitching')" :tooltip="poFooterTip('games', 'G', 'pitching')" /></template>
           </Column>
@@ -637,7 +639,7 @@ function pRateSeasonTip(r: { seasonNum: number }, statKey: string, label: string
           </Column>
         </Row>
         <Row v-if="careerPitchingSummary">
-          <Column :colspan="batchingPrefixCols" footer="Career" footer-class="summary-label summary-career" />
+          <Column :colspan="pitchingPrefixCols" footer="Career" footer-class="summary-label summary-career" />
           <Column :footer="String(careerPitchingSummary.g)" footer-class="summary-cell summary-career" />
           <Column :footer="String(careerPitchingSummary.gs)" footer-class="summary-cell summary-career" />
           <Column :footer="String(careerPitchingSummary.w)" footer-class="summary-cell summary-career" />
@@ -676,6 +678,9 @@ function pRateSeasonTip(r: { seasonNum: number }, statKey: string, label: string
       <Column field="age" header="Age" sortable style="min-width: 55px" />
       <Column header="Role" style="min-width: 70px">
         <template #body="{ data: r }">{{ r.pitcherRole || '—' }}</template>
+      </Column>
+      <Column header="Pitches" style="min-width: 140px">
+        <template #body="{ data: r }">{{ r.pitches.length > 0 ? r.pitches.join(', ') : '—' }}</template>
       </Column>
       <Column header="Traits" style="min-width: 160px">
         <template #body="{ data: r }">
