@@ -331,6 +331,11 @@ func seedSaveGameData(db *sql.DB) error {
 		INSERT INTO t_baseball_player_options (baseballPlayerLocalID, optionKey, optionValue) VALUES (1, 107, 0); -- batter: Competitive
 		INSERT INTO t_baseball_player_options (baseballPlayerLocalID, optionKey, optionValue) VALUES (2, 4, 1);   -- pitcher: throw R
 		INSERT INTO t_baseball_player_options (baseballPlayerLocalID, optionKey, optionValue) VALUES (2, 107, 1); -- pitcher: Spirited
+		-- Pitcher arsenal (optionKeys 58-65): 4F, CB, SL
+		INSERT INTO t_baseball_player_options (baseballPlayerLocalID, optionKey, optionValue) VALUES (2, 58, 1); -- 4F
+		INSERT INTO t_baseball_player_options (baseballPlayerLocalID, optionKey, optionValue) VALUES (2, 59, 0); -- no 2F
+		INSERT INTO t_baseball_player_options (baseballPlayerLocalID, optionKey, optionValue) VALUES (2, 63, 1); -- CB
+		INSERT INTO t_baseball_player_options (baseballPlayerLocalID, optionKey, optionValue) VALUES (2, 64, 1); -- SL
 
 		-- Player AA traits: Clutch (traitId=32, subtypeId=6) and Tough Out (traitId=4, subtypeId=6)
 		INSERT INTO t_baseball_player_traits (baseballPlayerLocalID, trait, subType) VALUES (1, 32, 6), (1, 4, 6);
