@@ -5,7 +5,7 @@ go 1.26
 require (
 	github.com/google/uuid v1.6.0
 	github.com/wailsapp/wails/v2 v2.13.0
-	golang.org/x/mod v0.37.0
+	golang.org/x/mod v0.38.0
 	modernc.org/sqlite v1.53.0
 )
 
