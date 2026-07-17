@@ -21,10 +21,14 @@ func NewFranchiseStore(db DBTX) *FranchiseStore {
 
 // Create inserts a new franchise record. id must be a unique string (use UUID).
 func (s *FranchiseStore) Create(ctx context.Context, f models.Franchise) error {
+	leagueMode := f.LeagueMode
+	if leagueMode == "" {
+		leagueMode = models.LeagueModeFranchise
+	}
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO franchises (id, name, game_version)
-		VALUES (?, ?, ?)
-	`, f.ID, f.Name, f.GameVersion)
+		INSERT INTO franchises (id, name, game_version, league_mode)
+		VALUES (?, ?, ?, ?)
+	`, f.ID, f.Name, f.GameVersion, leagueMode)
 	if err != nil {
 		return fmt.Errorf("creating franchise %q: %w", f.Name, err)
 	}
@@ -34,7 +38,7 @@ func (s *FranchiseStore) Create(ctx context.Context, f models.Franchise) error {
 // List returns all franchises ordered by creation time ascending.
 func (s *FranchiseStore) List(ctx context.Context) ([]models.Franchise, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, game_version, created_at,
+		SELECT id, name, game_version, league_mode, created_at,
 		       last_synced_at, last_synced_season
 		FROM franchises
 		ORDER BY created_at ASC
@@ -49,7 +53,7 @@ func (s *FranchiseStore) List(ctx context.Context) ([]models.Franchise, error) {
 // GetByID returns the franchise with the given ID, or sql.ErrNoRows if not found.
 func (s *FranchiseStore) GetByID(ctx context.Context, id string) (models.Franchise, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, game_version, created_at,
+		SELECT id, name, game_version, league_mode, created_at,
 		       last_synced_at, last_synced_season
 		FROM franchises
 		WHERE id = ?
@@ -118,13 +122,15 @@ func scanFranchises(rows *sql.Rows) ([]models.Franchise, error) {
 		var lastSyncedAt sql.NullString
 		var lastSyncedSeason sql.NullInt64
 		var gameVersion string
+		var leagueMode string
 		if err := rows.Scan(
-			&f.ID, &f.Name, &gameVersion,
+			&f.ID, &f.Name, &gameVersion, &leagueMode,
 			&createdAt, &lastSyncedAt, &lastSyncedSeason,
 		); err != nil {
 			return nil, fmt.Errorf("scanning franchise: %w", err)
 		}
 		f.GameVersion = models.GameVersion(gameVersion)
+		f.LeagueMode = models.LeagueMode(leagueMode)
 		t, _ := time.Parse("2006-01-02T15:04:05Z", createdAt)
 		f.CreatedAt = t
 		if lastSyncedAt.Valid {

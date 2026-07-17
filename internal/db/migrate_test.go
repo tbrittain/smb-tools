@@ -48,6 +48,13 @@ func TestOpenRegistry_MigrationsApplied(t *testing.T) {
 	); err != nil {
 		t.Errorf("franchises table missing or malformed: %v", err)
 	}
+
+	// league_mode column must exist (from 0003_add_league_mode.up.sql)
+	if _, err := db.ExecContext(context.Background(),
+		`SELECT league_mode FROM franchises LIMIT 0`,
+	); err != nil {
+		t.Errorf("franchises.league_mode column missing or malformed: %v", err)
+	}
 }
 
 func TestOpenCompanion_IdempotentMigrations(t *testing.T) {
