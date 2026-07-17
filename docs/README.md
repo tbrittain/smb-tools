@@ -15,6 +15,7 @@ Foundational knowledge about Super Mega Baseball itself and the data structures 
 | [save-game-schema.md](domain/save-game-schema.md) | Every table and view in the SMB save game SQLite database |
 | [player-model.md](domain/player-model.md) | Player attributes, positions, handedness, pitcher roles, chemistry |
 | [player-stats.md](domain/player-stats.md) | Every batting and pitching stat tracked, including derived/advanced metrics |
+| [game-top10-algorithm.md](domain/game-top10-algorithm.md) | Exact SMB4 League Leaders Top 10 scoring formulas and validation results |
 | [player-traits.md](domain/player-traits.md) | SMB3 trait list (20), SMB4 trait list (80+), chemistry system, save game encoding |
 | [pitch-types.md](domain/pitch-types.md) | The 8 pitch types with abbreviations and context |
 | [awards.md](domain/awards.md) | All 30+ awards with importance tiers, categories, and Hall of Fame criteria |
