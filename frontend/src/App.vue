@@ -12,6 +12,7 @@ import FranchiseSelector from './components/FranchiseSelector.vue'
 import GlobalSearch from './components/GlobalSearch.vue'
 import ModeChooser from './components/ModeChooser.vue'
 import { useBreadcrumbs } from './composables/useBreadcrumbs'
+import { isSeasonMode } from './lib/leagueMode'
 import { useFranchiseStore } from './stores/franchise'
 
 const router = useRouter()
@@ -184,7 +185,7 @@ function goToCrumb(historyPosition: number) {
           <router-link to="/teams">Teams</router-link>
           <router-link to="/leaderboards">Leaderboards</router-link>
           <router-link to="/awards">Awards</router-link>
-          <router-link to="/hall-of-fame">Hall of Fame</router-link>
+          <router-link v-if="!isSeasonMode(franchiseStore.active?.leagueMode)" to="/hall-of-fame">Hall of Fame</router-link>
           <router-link to="/export">Stat Explorer</router-link>
           <router-link to="/setup">Setup</router-link>
         </nav>
