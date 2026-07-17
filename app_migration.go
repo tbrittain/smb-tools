@@ -104,7 +104,7 @@ func (a *App) MigrateLegacyFranchise(
 	}
 
 	// Create the new franchise (no live save file source — migration provides data).
-	newFranchise, err := a.franchiseService.CreateFranchise(a.ctx, newFranchiseName, version, "", "")
+	newFranchise, err := a.franchiseService.CreateFranchise(a.ctx, newFranchiseName, version, "", "", models.LeagueModeFranchise)
 	if err != nil {
 		slog.Error("MigrateLegacyFranchise: creating franchise", "err", err)
 		return MigrateLegacyResult{}, fmt.Errorf("creating franchise: %w", err)

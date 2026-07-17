@@ -100,7 +100,25 @@ func (a *App) CreateFranchise(name, gameVersion, saveFilePath, leagueGUID string
 		return FranchiseDTO{}, fmt.Errorf("app not initialized")
 	}
 	v := models.GameVersion(gameVersion)
-	f, err := a.franchiseService.CreateFranchise(a.ctx, name, v, saveFilePath, leagueGUID)
+	leagueMode := models.LeagueModeFranchise
+	if saveFilePath != "" && leagueGUID != "" {
+		leagues, err := a.probeLeaguesFromPath(saveFilePath)
+		if err != nil {
+			return FranchiseDTO{}, fmt.Errorf("probing save file: %w", err)
+		}
+		found := false
+		for _, lg := range leagues {
+			if lg.GUID == leagueGUID {
+				leagueMode = lg.Mode
+				found = true
+				break
+			}
+		}
+		if !found {
+			return FranchiseDTO{}, fmt.Errorf("league %q not found in save file", leagueGUID)
+		}
+	}
+	f, err := a.franchiseService.CreateFranchise(a.ctx, name, v, saveFilePath, leagueGUID, leagueMode)
 	if err != nil {
 		slog.Error("CreateFranchise: failed", "err", err)
 		return FranchiseDTO{}, err
