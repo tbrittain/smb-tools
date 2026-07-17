@@ -19,6 +19,8 @@ type FranchiseDTO struct {
 	ID               string `json:"id"`
 	Name             string `json:"name"`
 	GameVersion      string `json:"gameVersion"`
+	// LeagueMode is "franchise" or "season". Immutable once the franchise is created.
+	LeagueMode       string `json:"leagueMode"`
 	HasActiveSource  bool   `json:"hasActiveSource"`
 	HasLegacySource  bool   `json:"hasLegacySource"`
 	ActiveSourcePath string `json:"activeSourcePath"` // empty when no source configured
@@ -655,6 +657,7 @@ func franchiseToDTO(f models.Franchise, src models.FranchiseSource) FranchiseDTO
 		ID:          f.ID,
 		Name:        f.Name,
 		GameVersion: f.GameVersion.String(),
+		LeagueMode:  f.LeagueMode.String(),
 		HasActiveSource:  src.SaveFilePath != "" && src.SaveFilePath != legacyMigrationSourcePath,
 		HasLegacySource:  src.SaveFilePath == legacyMigrationSourcePath,
 		ActiveSourcePath: src.SaveFilePath,
