@@ -7,14 +7,15 @@ const makeSave = (
   leagueName: string,
   playerTeamName: string,
   numSeasons: number,
+  mode: main.SaveFileCandidateDTO['mode'] = 'franchise',
 ): main.SaveFileCandidateDTO =>
   ({
     path,
     gameVersion: 'smb4',
     leagueName,
     numSeasons,
-    mode: 'franchise',
-    isFranchise: true,
+    mode,
+    isFranchise: mode === 'franchise',
     playerTeamName,
     leagueGUID: path,
   }) as main.SaveFileCandidateDTO
@@ -40,6 +41,19 @@ const sampleCandidates: main.SaveFileCandidateDTO[] = [
   ),
 ]
 
+// Season Mode saves have no player-controlled team — the player never gets
+// assigned to a franchise-managed roster, so playerTeamName is always empty.
+const seasonModeCandidates: main.SaveFileCandidateDTO[] = [
+  makeSave(
+    'C:\\Users\\Player\\AppData\\Local\\Metalhead\\Super Mega Baseball 4\\76561198000000001\\league-ddd.sav',
+    'Weekend League',
+    '',
+    6,
+    'season',
+  ),
+  ...sampleCandidates,
+]
+
 const meta: Meta<typeof SaveFilePicker> = {
   title: 'Franchise/SaveFilePicker',
   component: SaveFilePicker,
@@ -62,6 +76,22 @@ export const AutoDetected: Story = {
     browsing: false,
     error: null,
     selectedPath: sampleCandidates[0].path,
+  },
+}
+
+export const WithSeasonMode: Story = {
+  render: (args) => ({
+    components: { SaveFilePicker },
+    setup: () => ({ args }),
+    template: '<SaveFilePicker v-bind="args" />',
+  }),
+  args: {
+    candidates: seasonModeCandidates,
+    loading: false,
+    scanning: false,
+    browsing: false,
+    error: null,
+    selectedPath: seasonModeCandidates[0].path,
   },
 }
 
@@ -121,7 +151,7 @@ export const WithError: Story = {
     loading: false,
     scanning: false,
     browsing: false,
-    error: 'No franchise mode saves found in that folder. Season and elimination saves are not supported.',
+    error: 'No Franchise or Season mode saves found in that folder. Elimination saves are not supported.',
   },
 }
 
@@ -170,7 +200,7 @@ export const AllVariants: Story = {
           <p style="color:#8b949e;font-size:0.75rem;margin:0 0 0.75rem">Error state</p>
           <SaveFilePicker
             :candidates="[]"
-            error="No franchise mode saves found in that folder."
+            error="No Franchise or Season mode saves found in that folder."
           />
         </div>
       </div>
