@@ -375,6 +375,67 @@ func TestImportSeason_PlayerTrackedAcrossSeasons(t *testing.T) {
 	}
 }
 
+// ── Season mode ──────────────────────────────────────────────────────────────
+
+// TestImportSeason_SeasonModeMultiSeason proves the import pipeline needs no
+// franchise-mode-specific logic: a season-mode fixture (no t_franchise row)
+// imports multiple seasons and tracks the same player across them exactly
+// like franchise mode.
+func TestImportSeason_SeasonModeMultiSeason(t *testing.T) {
+	companionDB := testutil.NewTestDB(t)
+	saveGameDB := testutil.NewTestSaveGameDB_SeasonMode(t)
+	reader := store.NewSqliteSaveGameReader(saveGameDB, "")
+	svc := service.NewImportService()
+	ctx := context.Background()
+
+	if _, err := svc.ImportSeason(ctx, companionDB, reader, 200, 1, testLeagueGUID, 0); err != nil {
+		t.Fatalf("ImportSeason 200: %v", err)
+	}
+	if _, err := svc.ImportSeason(ctx, companionDB, reader, 201, 2, testLeagueGUID, 0); err != nil {
+		t.Fatalf("ImportSeason 201: %v", err)
+	}
+
+	var playerCount, psCount int
+	_ = companionDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM players`).Scan(&playerCount)
+	_ = companionDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM player_seasons`).Scan(&psCount)
+	if playerCount != 1 {
+		t.Errorf("expected 1 unique player across 2 season-mode seasons, got %d", playerCount)
+	}
+	if psCount != 2 {
+		t.Errorf("expected 2 player_season records (1 player x 2 seasons), got %d", psCount)
+	}
+}
+
+// TestImportSeason_SeasonModeIdempotent mirrors TestImportSeason_Idempotent
+// for a season-mode fixture — re-syncing an in-progress season is expected
+// UX for season mode, same as franchise mode.
+func TestImportSeason_SeasonModeIdempotent(t *testing.T) {
+	companionDB := testutil.NewTestDB(t)
+	saveGameDB := testutil.NewTestSaveGameDB_SeasonMode(t)
+	reader := store.NewSqliteSaveGameReader(saveGameDB, "")
+	svc := service.NewImportService()
+	ctx := context.Background()
+
+	var firstID int64
+	for i := range 3 {
+		result, err := svc.ImportSeason(ctx, companionDB, reader, 200, 1, testLeagueGUID, 0)
+		if err != nil {
+			t.Fatalf("import attempt %d failed: %v", i+1, err)
+		}
+		if i == 0 {
+			firstID = result.SeasonID
+		} else if result.SeasonID != firstID {
+			t.Errorf("expected same season ID on re-import, got %d then %d", firstID, result.SeasonID)
+		}
+	}
+
+	var seasonCount int
+	_ = companionDB.QueryRowContext(ctx, `SELECT COUNT(*) FROM seasons`).Scan(&seasonCount)
+	if seasonCount != 1 {
+		t.Errorf("idempotency: expected 1 season record after 3 imports, got %d", seasonCount)
+	}
+}
+
 func TestImportSeason_MidSeasonThenEndOfSeason(t *testing.T) {
 	companionDB := testutil.NewTestDB(t)
 	ctx := context.Background()
