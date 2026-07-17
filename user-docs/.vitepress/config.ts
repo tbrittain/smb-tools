@@ -25,6 +25,7 @@ export default defineConfig({
         text: 'Franchise Stat Tracking',
         items: [
           { text: 'Save Game Setup & Season Sync', link: '/save-game-setup' },
+          { text: 'Season Mode', link: '/season-mode' },
           { text: 'Importing from SmbExplorerCompanion', link: '/legacy-migration' },
           { text: 'Franchise Forking', link: '/franchise-forking' },
           { text: 'CSV Exports', link: '/csv-exports' },

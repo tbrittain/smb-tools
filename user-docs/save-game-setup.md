@@ -13,7 +13,7 @@ When you open smb-tools for the first time, you'll see the franchise selector. C
 You'll be asked for two things:
 
 - **Name**: a label for this franchise in smb-tools. It doesn't have to match the league name in the game.
-- **Save File**: the `.sav` file for your franchise. Only franchise mode saves show up in the picker; smb-tools looks specifically for files named `league-<id>.sav` and filters out auxiliary files like `master.sav`, `mugshots-*.sav`, and `season-*.sav`.
+- **Save File**: the `.sav` file for your franchise. smb-tools supports both **Franchise Mode** and **Season Mode** saves — see [Season Mode](season-mode.md) if you play Season Mode. It looks specifically for files named `league-<id>.sav` and filters out auxiliary files like `master.sav`, `mugshots-*.sav`, and `season-*.sav`.
 
 On Windows, smb-tools looks in the default SMB4 location (`%LOCALAPPDATA%\Metalhead\Super Mega Baseball 4\`) and your file should appear automatically. On macOS and Linux, whether smb-tools can find it automatically depends on how you're running the game. See [Finding Your Save File on macOS and Linux](#finding-your-save-file-on-macos-and-linux) below.
 

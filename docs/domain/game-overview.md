@@ -23,7 +23,7 @@ The core mode these tools are built around. Key characteristics:
 
 ### Season Mode
 
-Single-season competition with no franchise continuity. Stats and standings exist for that season only. SMB3Explorer supports exporting from Season mode leagues as well.
+Fundamentally the same as Franchise Mode — the user plays multiple seasons continuously with full standings, stats, and career accumulation — with one difference: **players and teams never evolve**. No aging, no attribute changes, no retirement, and no free agency; the player pool stays exactly as it started. In the save file, a Season Mode league has no `t_franchise` row (see `docs/domain/save-game-schema.md`), which is also how the app tells the two modes apart. smb-tools supports importing and tracking Season Mode saves; the only feature that doesn't apply is Hall of Fame, since induction is based on career length and retirement, neither of which happens in Season Mode.
 
 ### Elimination Mode
 
