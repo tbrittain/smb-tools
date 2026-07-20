@@ -110,8 +110,8 @@ function modeLabel(c: main.SaveFileCandidateDTO): string | null {
           {{ props.scanning ? 'Scanning…' : 'Scan a folder…' }}
         </AppButton>
         <p class="action-hint">
-          Points to a folder and identifies all Franchise and Season mode saves inside — the
-          easiest way to find your saves if they are not in the default location.
+          Points to a folder and identifies all Franchise and Season mode saves inside (the
+          easiest way to find your saves if they are not in the default location)
         </p>
       </div>
 

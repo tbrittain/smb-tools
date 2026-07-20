@@ -82,7 +82,7 @@ async function handleSubmit() {
     <div class="field">
       <label>Save File</label>
       <p class="field-hint">
-        Franchise and Season mode saves are supported — this Franchise will track whichever mode your save uses.
+        Franchise and Season mode saves are supported. This Franchise will track whichever mode your save uses.
         Elimination mode is not supported.
       </p>
       <SaveFilePicker
