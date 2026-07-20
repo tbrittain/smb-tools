@@ -31,7 +31,7 @@ func TestFranchiseService_CreateFranchise(t *testing.T) {
 	svc, fs := newTestFranchiseService(t)
 	ctx := context.Background()
 
-	f, err := svc.CreateFranchise(ctx, "Test League", models.GameVersionSMB4, "", "")
+	f, err := svc.CreateFranchise(ctx, "Test League", models.GameVersionSMB4, "", "", models.LeagueModeFranchise)
 	if err != nil {
 		t.Fatalf("CreateFranchise: %v", err)
 	}
@@ -44,6 +44,9 @@ func TestFranchiseService_CreateFranchise(t *testing.T) {
 	if f.GameVersion != models.GameVersionSMB4 {
 		t.Errorf("game_version: got %q, want %q", f.GameVersion, models.GameVersionSMB4)
 	}
+	if f.LeagueMode != models.LeagueModeFranchise {
+		t.Errorf("league_mode: got %q, want %q", f.LeagueMode, models.LeagueModeFranchise)
+	}
 
 	// Verify it's in the registry
 	list, _ := fs.List(ctx)
@@ -52,9 +55,38 @@ func TestFranchiseService_CreateFranchise(t *testing.T) {
 	}
 }
 
+func TestFranchiseService_CreateFranchise_SeasonMode(t *testing.T) {
+	svc, fs := newTestFranchiseService(t)
+	ctx := context.Background()
+
+	f, err := svc.CreateFranchise(ctx, "Season League", models.GameVersionSMB4, "", "", models.LeagueModeSeason)
+	if err != nil {
+		t.Fatalf("CreateFranchise: %v", err)
+	}
+	if f.LeagueMode != models.LeagueModeSeason {
+		t.Errorf("league_mode: got %q, want %q", f.LeagueMode, models.LeagueModeSeason)
+	}
+
+	got, err := fs.GetByID(ctx, f.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got.LeagueMode != models.LeagueModeSeason {
+		t.Errorf("round-tripped league_mode: got %q, want %q", got.LeagueMode, models.LeagueModeSeason)
+	}
+}
+
+func TestFranchiseService_CreateFranchise_InvalidLeagueMode(t *testing.T) {
+	svc, _ := newTestFranchiseService(t)
+	_, err := svc.CreateFranchise(context.Background(), "My Franchise", models.GameVersionSMB4, "", "", models.LeagueModeElimination)
+	if err == nil {
+		t.Error("expected error for unsupported league mode")
+	}
+}
+
 func TestFranchiseService_CreateFranchise_EmptyName(t *testing.T) {
 	svc, _ := newTestFranchiseService(t)
-	_, err := svc.CreateFranchise(context.Background(), "", models.GameVersionSMB4, "", "")
+	_, err := svc.CreateFranchise(context.Background(), "", models.GameVersionSMB4, "", "", models.LeagueModeFranchise)
 	if err == nil {
 		t.Error("expected error for empty franchise name")
 	}
@@ -62,7 +94,7 @@ func TestFranchiseService_CreateFranchise_EmptyName(t *testing.T) {
 
 func TestFranchiseService_CreateFranchise_InvalidVersion(t *testing.T) {
 	svc, _ := newTestFranchiseService(t)
-	_, err := svc.CreateFranchise(context.Background(), "My Franchise", "smb5", "", "")
+	_, err := svc.CreateFranchise(context.Background(), "My Franchise", "smb5", "", "", models.LeagueModeFranchise)
 	if err == nil {
 		t.Error("expected error for invalid game version")
 	}
@@ -72,7 +104,7 @@ func TestFranchiseService_OpenFranchise(t *testing.T) {
 	svc, _ := newTestFranchiseService(t)
 	ctx := context.Background()
 
-	f, err := svc.CreateFranchise(ctx, "Test", models.GameVersionSMB4, "", "")
+	f, err := svc.CreateFranchise(ctx, "Test", models.GameVersionSMB4, "", "", models.LeagueModeFranchise)
 	if err != nil {
 		t.Fatalf("CreateFranchise: %v", err)
 	}
@@ -95,7 +127,7 @@ func TestFranchiseService_DeleteFranchise(t *testing.T) {
 	svc, fs := newTestFranchiseService(t)
 	ctx := context.Background()
 
-	f, _ := svc.CreateFranchise(ctx, "To Delete", models.GameVersionSMB4, "", "")
+	f, _ := svc.CreateFranchise(ctx, "To Delete", models.GameVersionSMB4, "", "", models.LeagueModeFranchise)
 	if err := svc.DeleteFranchise(ctx, f.ID); err != nil {
 		t.Fatalf("DeleteFranchise: %v", err)
 	}

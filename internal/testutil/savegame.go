@@ -438,6 +438,100 @@ func seedSaveGameData(db *sql.DB) error {
 	return err
 }
 
+// NewTestSaveGameDB_SeasonMode creates an in-memory SQLite database seeded
+// with the same core schema and player/team data as NewTestSaveGameDB, but
+// with no t_franchise row for the league — the real save-game signature of a
+// Season Mode league (multi-season continuity, but no franchise progression).
+// Seeds 2 seasons (IDs 200 and 201) for league GUID X'FE...' so mode-detection
+// and multi-season sync tests can exercise the season-only code path.
+func NewTestSaveGameDB_SeasonMode(t *testing.T) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("testutil.NewTestSaveGameDB_SeasonMode: open: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	if err := createSaveGameSchema(db); err != nil {
+		t.Fatalf("testutil.NewTestSaveGameDB_SeasonMode: schema: %v", err)
+	}
+	if err := seedSeasonModeSaveGameData(db); err != nil {
+		t.Fatalf("testutil.NewTestSaveGameDB_SeasonMode: seed: %v", err)
+	}
+	return db
+}
+
+func seedSeasonModeSaveGameData(db *sql.DB) error {
+	_, err := db.Exec(`
+		INSERT INTO t_team_types (teamType, typeName) VALUES (1, 'season');
+
+		-- No t_franchise row for this league — the real save-game signature of
+		-- a Season Mode league. t_seasons still accumulates rows per season,
+		-- exactly like franchise mode, since season progression is keyed only
+		-- to t_leagues (historicalLeagueGUID), never to t_franchise.
+		INSERT INTO t_leagues (GUID, name, allowedTeamType)
+		VALUES (X'FE000000000000000000000000000000', 'Test Season League', 1);
+
+		INSERT INTO t_seasons (id, GUID, historicalLeagueGUID, elimination, innings)
+		VALUES (200, X'DF000000000000000000000000000000', X'FE000000000000000000000000000000', 0, 9);
+		INSERT INTO t_seasons (id, GUID, historicalLeagueGUID, elimination)
+		VALUES (201, X'E0000000000000000000000000000000', X'FE000000000000000000000000000000', 0);
+
+		-- Teams
+		INSERT INTO t_teams (GUID, teamName) VALUES (X'11000000000000000000000000000000', 'Season Home');
+		INSERT INTO t_teams (GUID, teamName) VALUES (X'12000000000000000000000000000000', 'Season Away');
+		INSERT INTO t_team_local_ids (GUID) VALUES (X'11000000000000000000000000000000'); -- localID 1
+		INSERT INTO t_team_local_ids (GUID) VALUES (X'12000000000000000000000000000000'); -- localID 2
+
+		-- Player (season mode players never age/retire, but the fixture still
+		-- needs a bio row for import to work)
+		INSERT INTO t_baseball_players (GUID, power, contact, speed, fielding, arm, velocity, junk, accuracy, age)
+		VALUES (X'A9000000000000000000000000000000', 70, 65, 55, 60, 60, 50, 50, 50, 27);
+		INSERT INTO t_baseball_player_local_ids (GUID) VALUES (X'A9000000000000000000000000000000');
+		INSERT INTO t_salary (baseballPlayerGUID, salary) VALUES (X'A9000000000000000000000000000000', 200);
+
+		CREATE VIEW v_baseball_player_info AS
+		SELECT
+			bpli.GUID        AS baseballPlayerGUID,
+			sp.firstName,
+			sp.lastName,
+			sp.primaryPos    AS primaryPosition,
+			sp.pitcherRole,
+			sp.statsPlayerID
+		FROM t_baseball_player_local_ids bpli
+		JOIN t_stats_players sp ON sp.baseballPlayerLocalID = bpli.localID;
+
+		-- ── Season 200 stats ────────────────────────────────────────────────
+		INSERT INTO t_stats (aggregatorID, statsPlayerID, currentTeamLocalID) VALUES (1, 1, 1);
+		INSERT INTO t_stats_players (statsPlayerID, baseballPlayerLocalID, firstName, lastName, primaryPos, age)
+		VALUES (1, 1, 'Season', 'Player', 'CF', 27);
+		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, gamesBatting, atBats, runs, hits, homeruns, rbi)
+		VALUES (1, 40, 40, 150, 20, 42, 8, 30);
+		INSERT INTO t_season_stats (aggregatorID, seasonID) VALUES (1, 200);
+		INSERT INTO t_career_season_stats (aggregatorID) VALUES (1);
+
+		INSERT INTO t_season_schedule (seasonID, homeTeamID, awayTeamID) VALUES (200, 1, 2);
+		INSERT INTO t_game_results (ID, homeTeamLocalID, awayTeamLocalID, homeRunsScored, awayRunsScored)
+		VALUES (1, 1, 2, 4, 2);
+		INSERT INTO t_season_games (seasonID, gameID) VALUES (200, 1);
+
+		-- ── Season 201 stats (same player, unchanged attributes — season mode
+		-- has no evolution, so age stays 27) ──────────────────────────────────
+		INSERT INTO t_stats (aggregatorID, statsPlayerID, currentTeamLocalID) VALUES (2, 2, 1);
+		INSERT INTO t_stats_players (statsPlayerID, baseballPlayerLocalID, firstName, lastName, primaryPos, age)
+		VALUES (2, 1, 'Season', 'Player', 'CF', 27);
+		INSERT INTO t_stats_batting (aggregatorID, gamesPlayed, gamesBatting, atBats, runs, hits, homeruns, rbi)
+		VALUES (2, 42, 42, 155, 22, 45, 9, 32);
+		INSERT INTO t_season_stats (aggregatorID, seasonID) VALUES (2, 201);
+
+		INSERT INTO t_season_schedule (seasonID, homeTeamID, awayTeamID) VALUES (201, 1, 2);
+		INSERT INTO t_game_results (ID, homeTeamLocalID, awayTeamLocalID, homeRunsScored, awayRunsScored)
+		VALUES (2, 1, 2, 5, 3);
+		INSERT INTO t_season_games (seasonID, gameID) VALUES (201, 2);
+	`)
+	return err
+}
+
 // MidSeasonStats are overrides for creating a save game DB that simulates
 // a mid-season snapshot (partial stats) for player AA in season 100.
 type MidSeasonStats struct {

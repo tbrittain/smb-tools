@@ -1,5 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { isSeasonMode } from './lib/leagueMode'
 import DashboardPage from './pages/DashboardPage.vue'
+import { useFranchiseStore } from './stores/franchise'
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -47,6 +49,13 @@ const router = createRouter({
     {
       path: '/hall-of-fame',
       component: () => import('./pages/HallOfFamePage.vue'),
+      // Season Mode franchises have no aging/retirement, so Hall of Fame
+      // induction is meaningless — redirect away even on direct navigation.
+      beforeEnter: () => {
+        const franchiseStore = useFranchiseStore()
+        if (isSeasonMode(franchiseStore.active?.leagueMode)) return '/'
+        return true
+      },
     },
     {
       path: '/export',

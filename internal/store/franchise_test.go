@@ -68,6 +68,53 @@ func TestFranchiseStore_GetByID(t *testing.T) {
 	}
 }
 
+func TestFranchiseStore_LeagueMode(t *testing.T) {
+	db := testutil.NewTestRegistryDB(t)
+	s := store.NewFranchiseStore(db)
+	ctx := context.Background()
+
+	if err := s.Create(ctx, models.Franchise{
+		ID:          "season-1",
+		Name:        "Season Franchise",
+		GameVersion: models.GameVersionSMB4,
+		LeagueMode:  models.LeagueModeSeason,
+	}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	got, err := s.GetByID(ctx, "season-1")
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got.LeagueMode != models.LeagueModeSeason {
+		t.Errorf("league_mode: got %q, want %q", got.LeagueMode, models.LeagueModeSeason)
+	}
+
+	// Omitting LeagueMode defaults to franchise, mirroring the column default
+	// that pre-migration registry rows fall back to.
+	if err := s.Create(ctx, models.Franchise{
+		ID:          "no-mode",
+		Name:        "Unset Mode",
+		GameVersion: models.GameVersionSMB4,
+	}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	got, err = s.GetByID(ctx, "no-mode")
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got.LeagueMode != models.LeagueModeFranchise {
+		t.Errorf("league_mode default: got %q, want %q", got.LeagueMode, models.LeagueModeFranchise)
+	}
+
+	list, err := s.List(ctx)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("expected 2 franchises, got %d", len(list))
+	}
+}
+
 func TestFranchiseStore_Rename(t *testing.T) {
 	db := testutil.NewTestRegistryDB(t)
 	s := store.NewFranchiseStore(db)

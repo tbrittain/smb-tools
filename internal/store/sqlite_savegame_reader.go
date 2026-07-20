@@ -76,16 +76,7 @@ func (r *SqliteSaveGameReader) GetLeagues(ctx context.Context) ([]models.SaveGam
 		); err != nil {
 			return nil, fmt.Errorf("scanning league: %w", err)
 		}
-		switch {
-		case franchiseGUID.Valid && franchiseGUID.String != "":
-			lg.Mode = models.LeagueModeFranchise
-		case elimination == 1:
-			lg.Mode = models.LeagueModeElimination
-		case lg.NumSeasons > 0:
-			lg.Mode = models.LeagueModeSeason
-		default:
-			lg.Mode = models.LeagueModeNone
-		}
+		lg.Mode = resolveLeagueMode(franchiseGUID.Valid && franchiseGUID.String != "", elimination == 1, lg.NumSeasons)
 		leagues = append(leagues, lg)
 	}
 	return leagues, rows.Err()

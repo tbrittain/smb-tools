@@ -15,7 +15,7 @@ export function useSaveFileCandidates() {
     try {
       const all = await GetSaveFileCandidates()
       candidates.value = (all ?? [])
-        .filter((c) => c.gameVersion === 'smb4' && c.mode === 'franchise')
+        .filter((c) => c.gameVersion === 'smb4' && (c.mode === 'franchise' || c.mode === 'season'))
         .sort((a, b) => b.numSeasons - a.numSeasons)
     } catch (e) {
       error.value = String(e)
@@ -29,15 +29,15 @@ export function useSaveFileCandidates() {
     error.value = null
     try {
       const found = await BrowseSaveDirectory()
-      const franchise = found.filter((c) => c.gameVersion === 'smb4' && c.mode === 'franchise')
+      const supported = found.filter((c) => c.gameVersion === 'smb4' && (c.mode === 'franchise' || c.mode === 'season'))
       const existing = new Set(candidates.value.map((c) => c.path))
-      const merged = [...candidates.value, ...franchise.filter((c) => !existing.has(c.path))]
+      const merged = [...candidates.value, ...supported.filter((c) => !existing.has(c.path))]
       candidates.value = merged.sort((a, b) => b.numSeasons - a.numSeasons)
       if (found.length === 0) {
         error.value =
           'No save files found. Make sure you are pointing at the folder that directly contains your league-*.sav files, or its parent.'
-      } else if (franchise.length === 0) {
-        error.value = 'No franchise mode saves found in that folder. Season and elimination saves are not supported.'
+      } else if (supported.length === 0) {
+        error.value = 'No Franchise or Season mode saves found in that folder. Elimination saves are not supported.'
       }
     } catch (e) {
       const msg = String(e)

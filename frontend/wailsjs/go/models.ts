@@ -716,6 +716,7 @@ export namespace main {
 	    id: string;
 	    name: string;
 	    gameVersion: string;
+	    leagueMode: string;
 	    hasActiveSource: boolean;
 	    hasLegacySource: boolean;
 	    activeSourcePath: string;
@@ -731,6 +732,7 @@ export namespace main {
 	        this.id = source["id"];
 	        this.name = source["name"];
 	        this.gameVersion = source["gameVersion"];
+	        this.leagueMode = source["leagueMode"];
 	        this.hasActiveSource = source["hasActiveSource"];
 	        this.hasLegacySource = source["hasLegacySource"];
 	        this.activeSourcePath = source["activeSourcePath"];

@@ -43,15 +43,6 @@ Documents the second original app: a Baseball Reference–style franchise histor
 | [companion-db-schema.md](smb-explorer-companion/companion-db-schema.md) | Full schema of the companion's own SQLite database |
 | [import-flow.md](smb-explorer-companion/import-flow.md) | End-to-end CSV import wizard flow |
 
-### `rewrite/` — Rewrite context
-
-Why we're rewriting and what we're building toward.
-
-| File | Contents |
-|------|----------|
-| [goals.md](rewrite/goals.md) | Motivations, tech stack choices, what's new vs. carried over |
-| [feature-matrix.md](rewrite/feature-matrix.md) | Side-by-side feature map across SMB3Explorer, Companion, and smb-tools target |
-
 ### `game-integration/` — Game internals investigation
 
 | File | Contents |
@@ -74,4 +65,3 @@ For a new developer on this project:
 3. `domain/player-model.md` + `domain/player-stats.md` — understand the player data model
 4. `smb3-explorer/user-features.md` — understand what the first app does
 5. `smb-explorer-companion/user-features.md` — understand what the second app does
-6. `rewrite/goals.md` + `rewrite/feature-matrix.md` — understand what we're building

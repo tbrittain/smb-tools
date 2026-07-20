@@ -39,19 +39,27 @@ func NewFranchiseService(
 // If saveFilePath and leagueGUID are non-empty, an initial franchise_sources
 // row is created with season_offset = 0. Leave them empty when the user has
 // not yet configured a save file; they can be added later via AddSource.
+//
+// leagueMode is immutable once set — a franchise created from a season-mode
+// save is always a season-mode franchise. Pass models.LeagueModeFranchise
+// when the mode is not yet known (e.g. no save file configured yet).
 func (s *FranchiseService) CreateFranchise(
 	ctx context.Context,
 	name string,
 	version models.GameVersion,
 	saveFilePath string,
 	leagueGUID string,
+	leagueMode models.LeagueMode,
 ) (models.Franchise, error) {
-	slog.Info("FranchiseService.CreateFranchise", "name", name, "version", version)
+	slog.Info("FranchiseService.CreateFranchise", "name", name, "version", version, "leagueMode", leagueMode)
 	if name == "" {
 		return models.Franchise{}, fmt.Errorf("franchise name must not be empty")
 	}
 	if !version.Valid() {
 		return models.Franchise{}, fmt.Errorf("invalid game version %q", version)
+	}
+	if leagueMode != models.LeagueModeFranchise && leagueMode != models.LeagueModeSeason {
+		return models.Franchise{}, fmt.Errorf("unsupported league mode %q", leagueMode)
 	}
 
 	id := uuid.New().String()
@@ -74,6 +82,7 @@ func (s *FranchiseService) CreateFranchise(
 		ID:          id,
 		Name:        name,
 		GameVersion: version,
+		LeagueMode:  leagueMode,
 	}
 	if err := s.franchises.Create(ctx, f); err != nil {
 		_ = os.RemoveAll(s.dirs.FranchiseDir(id))

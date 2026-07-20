@@ -12,38 +12,56 @@ Stores all leagues in the save file.
 
 | Column | Notes |
 |--------|-------|
-| leagueId | Primary key |
-| leagueName | Display name of the league |
-| leagueTeamTypeId | References team type; used to distinguish franchise/season/elimination mode |
+| GUID | Primary key (blob) |
+| name | Display name of the league |
+| allowedTeamType | References `t_team_types.teamType`; combined with `t_franchise`/`t_seasons` presence to derive game mode — see "Deriving league mode" below |
+| originalGUID | Present on some leagues; not used by any current reader query |
 
 ### `t_team_types`
 
-Lookup table for league team type definitions (used to identify Franchise vs. Season vs. Elimination mode).
+Lookup table for league team type definitions.
 
 | Column | Notes |
 |--------|-------|
-| leagueTypeName | Name of the mode type |
+| teamType | Primary key |
+| typeName | Name of the team type |
 
 ### `t_franchise`
 
-Franchise records linked to leagues.
+Franchise records linked to leagues. **A league has a `t_franchise` row if and only if it is a Franchise Mode league** — Season Mode leagues have no `t_franchise` row at all, which is the signal used to distinguish the two modes (see below).
 
 | Column | Notes |
 |--------|-------|
-| franchiseId | Primary key |
-| leagueId (FK) | References `t_leagues` |
-| playerTeamId | The team ID that the user controls |
-| playerTeamName | Display name of the user's team |
+| GUID | Primary key (blob) |
+| leagueGUID (FK) | References `t_leagues.GUID` |
+| playerTeamGUID | The team the user controls (FK to `t_teams.GUID`) |
+
+### Deriving league mode
+
+League mode (`franchise` / `season` / `elimination` / `none`) is **not stored directly** — it's inferred from `t_franchise` presence, `t_seasons.elimination`, and season count, mirroring SMB3Explorer's `LeagueModeExtensions.Parse`:
+
+1. A `t_franchise` row exists for the league → **Franchise Mode** (wins regardless of the other signals).
+2. No `t_franchise` row, and any linked `t_seasons` row has `elimination = 1` → **Elimination Mode**.
+3. No `t_franchise` row, no elimination flag, but at least one `t_seasons` row exists → **Season Mode**. Season Mode leagues progress through multiple `t_seasons` rows exactly like Franchise Mode — the only functional difference is that players and teams never evolve (no aging, retirement, or free agency) — so season enumeration, import, and sync all work unmodified for Season Mode.
+4. No `t_franchise` row and no seasons played → **None** (an empty league shell).
+
+Implemented in `internal/store/leaguemode.go` (`resolveLeagueMode`), called from both `SqliteSaveGameReader.GetLeagues` and `LeagueSaveStore.resolveLeagueModeForGUID`.
 
 ### `t_franchise_seasons`
 
-Individual season records within a franchise.
+Present in the schema but **not used by any current reader query** — season enumeration goes directly through `t_seasons.historicalLeagueGUID` (see `GetCurrentSeason`/`GetFranchiseSeasons`/`GetLeagues` in `internal/store/sqlite_savegame_reader.go`). This is precisely why season progression works for Season Mode leagues with no `t_franchise` row: `t_seasons` is keyed only to `t_leagues`, never to `t_franchise`.
+
+### `t_seasons`
+
+The actual season-progression table, used by every reader query that enumerates seasons. One row per season played, regardless of game mode.
 
 | Column | Notes |
 |--------|-------|
-| seasonID | Primary key |
-| leagueGUID | Historical league identifier (used for multi-league SMB4 saves) |
-| seasonNum | Computed via RANK() over franchise seasons |
+| id | Primary key (integer); referenced throughout the save game as the season key (`t_season_stats.seasonID`, `t_playoff_stats.seasonID`, etc.) |
+| GUID | Blob identifier; linked by `t_playoffs.seasonGUID` |
+| historicalLeagueGUID (FK) | References `t_leagues.GUID` — the only linkage needed for season enumeration in either Franchise or Season Mode |
+| elimination | 1 if this season was played in Elimination Mode |
+| innings | Innings per game for this season |
 
 ### `t_franchise_season_creation_params`
 
@@ -244,12 +262,12 @@ Pitching statistics.
 
 ### `t_season_stats`
 
-Links stats records to specific franchise seasons.
+Links stats records to specific seasons.
 
 | Column | Notes |
 |--------|-------|
 | aggregatorID (FK) | |
-| seasonID (FK) | References `t_franchise_seasons` |
+| seasonID (FK) | References `t_seasons.id` |
 
 ### `t_career_season_stats`
 

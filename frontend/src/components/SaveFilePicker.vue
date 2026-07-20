@@ -35,6 +35,10 @@ function seasonLine(c: main.SaveFileCandidateDTO): string | null {
   if (c.numSeasons === 0) return null
   return `${c.numSeasons} season${c.numSeasons === 1 ? '' : 's'} played`
 }
+
+function modeLabel(c: main.SaveFileCandidateDTO): string | null {
+  return c.mode === 'season' ? 'Season Mode' : null
+}
 </script>
 
 <template>
@@ -46,8 +50,8 @@ function seasonLine(c: main.SaveFileCandidateDTO): string | null {
 
     <template v-else>
       <div v-if="props.candidates.length === 0" class="no-candidates">
-        No franchise mode save files found in the default SMB4 location.
-        Season and elimination saves are not supported.
+        No Franchise or Season mode save files found in the default SMB4 location.
+        Elimination saves are not supported.
       </div>
 
       <!-- Scrollable candidate list -->
@@ -70,7 +74,10 @@ function seasonLine(c: main.SaveFileCandidateDTO): string | null {
           </div>
 
           <div class="card-body">
-            <span class="league-name">{{ primaryLabel(c) }}</span>
+            <span class="league-name">
+              {{ primaryLabel(c) }}
+              <span v-if="modeLabel(c)" class="mode-chip">{{ modeLabel(c) }}</span>
+            </span>
 
             <span v-if="c.playerTeamName" class="detail-line">
               Playing as: <strong>{{ c.playerTeamName }}</strong>
@@ -103,8 +110,8 @@ function seasonLine(c: main.SaveFileCandidateDTO): string | null {
           {{ props.scanning ? 'Scanning…' : 'Scan a folder…' }}
         </AppButton>
         <p class="action-hint">
-          Points to a folder and identifies all franchise saves inside — the easiest way to
-          find your saves if they are not in the default location.
+          Points to a folder and identifies all Franchise and Season mode saves inside (the
+          easiest way to find your saves if they are not in the default location)
         </p>
       </div>
 
@@ -212,6 +219,20 @@ function seasonLine(c: main.SaveFileCandidateDTO): string | null {
 .detail-line {
   font-size: 0.8125rem;
   color: var(--color-text-secondary);
+}
+
+.mode-chip {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.05rem 0.375rem;
+  margin-left: 0.4rem;
+  vertical-align: middle;
 }
 
 .used-label {

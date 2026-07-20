@@ -8,6 +8,7 @@ type Franchise struct {
 	ID               string
 	Name             string
 	GameVersion      GameVersion
+	LeagueMode       LeagueMode
 	CreatedAt        time.Time
 	LastSyncedAt     *time.Time
 	LastSyncedSeason *int

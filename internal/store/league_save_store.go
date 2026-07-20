@@ -124,7 +124,7 @@ func (s *LeagueSaveStore) GetLeagueOverview(ctx context.Context, guid uuid.UUID)
 	}
 	overview.Conferences = conferences
 
-	mode, err := s.resolveLeagueMode(ctx, guid)
+	mode, err := s.resolveLeagueModeForGUID(ctx, guid)
 	if err != nil {
 		return models.LeagueOverview{}, err
 	}
@@ -133,17 +133,12 @@ func (s *LeagueSaveStore) GetLeagueOverview(ctx context.Context, guid uuid.UUID)
 	return overview, nil
 }
 
-// resolveLeagueMode derives a league's game mode from t_franchise/t_seasons
-// presence — the anti-corruption-layer translation required by the root
-// CLAUDE.md: the raw franchise-row and elimination signals are only ever
-// compared in Go, never via a SQL CASE. Mirrors the same mode logic used
-// against the franchise-tracking save game in
-// SqliteSaveGameReader.GetLeagues (and, in turn, SMB3Explorer's
-// LeagueModeExtensions.Parse): franchise wins regardless of elimination;
-// otherwise any season with elimination=true makes it Elimination, any
-// season at all makes it Season, and no franchise + no seasons is an empty
-// shell (LeagueModeNone).
-func (s *LeagueSaveStore) resolveLeagueMode(ctx context.Context, guid uuid.UUID) (models.LeagueMode, error) {
+// resolveLeagueModeForGUID queries the raw t_franchise/t_seasons signals for a
+// league and translates them via the shared resolveLeagueMode decision tree —
+// the anti-corruption-layer translation required by the root CLAUDE.md: the
+// raw franchise-row and elimination signals are only ever compared in Go,
+// never via a SQL CASE.
+func (s *LeagueSaveStore) resolveLeagueModeForGUID(ctx context.Context, guid uuid.UUID) (models.LeagueMode, error) {
 	var (
 		franchiseGUID sql.NullString
 		elimination   int
@@ -163,16 +158,7 @@ func (s *LeagueSaveStore) resolveLeagueMode(ctx context.Context, guid uuid.UUID)
 		return "", fmt.Errorf("resolving league mode for %s: %w", guid, err)
 	}
 
-	switch {
-	case franchiseGUID.Valid && franchiseGUID.String != "":
-		return models.LeagueModeFranchise, nil
-	case elimination == 1:
-		return models.LeagueModeElimination, nil
-	case numSeasons > 0:
-		return models.LeagueModeSeason, nil
-	default:
-		return models.LeagueModeNone, nil
-	}
+	return resolveLeagueMode(franchiseGUID.Valid && franchiseGUID.String != "", elimination == 1, numSeasons), nil
 }
 
 // RenameLeague updates a league's display name in place. It is the only
