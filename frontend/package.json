@@ -18,11 +18,11 @@
   "dependencies": {
     "@fontsource/ibm-plex-mono": "5.2.7",
     "@fontsource/ibm-plex-sans": "5.2.8",
-    "@primeuix/themes": "2.0.3",
+    "@primeuix/themes": "3.0.0",
     "echarts": "6.1.0",
     "pinia": "4.0.2",
-    "primeicons": "^7.0.0",
-    "primevue": "4.5.5",
+    "primeicons": "^8.0.0",
+    "primevue": "5.0.0",
     "vue": "3.5.39",
     "vue-echarts": "8.0.1",
     "vue-router": "5.2.0"
