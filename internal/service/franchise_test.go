@@ -2,6 +2,8 @@ package service_test
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"smb-tools/internal/config"
@@ -12,6 +14,13 @@ import (
 )
 
 func newTestFranchiseService(t *testing.T) (*service.FranchiseService, *store.FranchiseStore) {
+	svc, franchiseStore, _ := newTestFranchiseServiceWithSourceStore(t)
+	return svc, franchiseStore
+}
+
+func newTestFranchiseServiceWithSourceStore(
+	t *testing.T,
+) (*service.FranchiseService, *store.FranchiseStore, *store.FranchiseSourceStore) {
 	t.Helper()
 	registryDB := testutil.NewTestRegistryDB(t)
 	franchiseStore := store.NewFranchiseStore(registryDB)
@@ -24,7 +33,7 @@ func newTestFranchiseService(t *testing.T) (*service.FranchiseService, *store.Fr
 	dirs.RegistryPath = dirs.DataDir + "/registry.db"
 
 	svc := service.NewFranchiseService(dirs, franchiseStore, sourceStore)
-	return svc, franchiseStore
+	return svc, franchiseStore, sourceStore
 }
 
 func TestFranchiseService_CreateFranchise(t *testing.T) {
@@ -97,6 +106,100 @@ func TestFranchiseService_CreateFranchise_InvalidVersion(t *testing.T) {
 	_, err := svc.CreateFranchise(context.Background(), "My Franchise", "smb5", "", "", models.LeagueModeFranchise)
 	if err == nil {
 		t.Error("expected error for invalid game version")
+	}
+}
+
+func TestFranchiseService_AddSource_RejectsDuplicates(t *testing.T) {
+	svc, _, _ := newTestFranchiseServiceWithSourceStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	originalPath := dir + string(filepath.Separator) + "league-original.sav"
+	originalGUID := "b9b0f849-480c-4b01-b9d8-cb632c739a9b"
+	f, err := svc.CreateFranchise(
+		ctx,
+		"Test",
+		models.GameVersionSMB4,
+		originalPath,
+		originalGUID,
+		models.LeagueModeFranchise,
+	)
+	if err != nil {
+		t.Fatalf("CreateFranchise: %v", err)
+	}
+
+	normalizedDuplicatePath := dir + string(filepath.Separator) + "unused" +
+		string(filepath.Separator) + ".." + string(filepath.Separator) + "league-original.sav"
+	tests := []struct {
+		name       string
+		path       string
+		leagueGUID string
+		wantError  string
+	}{
+		{
+			name:       "exact path and GUID",
+			path:       originalPath,
+			leagueGUID: originalGUID,
+			wantError:  "save file path is already connected",
+		},
+		{
+			name:       "same GUID from copied file",
+			path:       dir + string(filepath.Separator) + "league-copy.sav",
+			leagueGUID: originalGUID,
+			wantError:  "league GUID is already connected",
+		},
+		{
+			name:       "normalized path with different metadata",
+			path:       normalizedDuplicatePath,
+			leagueGUID: "2fc4219b-9da9-4e62-b6aa-a962f9d677ee",
+			wantError:  "save file path is already connected",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := svc.AddSource(ctx, f.ID, tt.path, tt.leagueGUID, 3)
+			if err == nil || !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("AddSource error = %v, want error containing %q", err, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestFranchiseService_AddSource_AcceptsDistinctSourceAndOffset(t *testing.T) {
+	svc, _, sourceStore := newTestFranchiseServiceWithSourceStore(t)
+	ctx := context.Background()
+	dir := t.TempDir()
+	f, err := svc.CreateFranchise(
+		ctx,
+		"Test",
+		models.GameVersionSMB4,
+		dir+string(filepath.Separator)+"league-original.sav",
+		"b9b0f849-480c-4b01-b9d8-cb632c739a9b",
+		models.LeagueModeFranchise,
+	)
+	if err != nil {
+		t.Fatalf("CreateFranchise: %v", err)
+	}
+
+	const seasonOffset = 3
+	if err := svc.AddSource(
+		ctx,
+		f.ID,
+		dir+string(filepath.Separator)+"league-fork.sav",
+		"2fc4219b-9da9-4e62-b6aa-a962f9d677ee",
+		seasonOffset,
+	); err != nil {
+		t.Fatalf("AddSource: %v", err)
+	}
+
+	sources, err := sourceStore.ListByFranchise(ctx, f.ID)
+	if err != nil {
+		t.Fatalf("ListByFranchise: %v", err)
+	}
+	if len(sources) != 2 {
+		t.Fatalf("source count = %d, want 2", len(sources))
+	}
+	if sources[1].SeasonOffset != seasonOffset {
+		t.Errorf("season offset = %d, want %d", sources[1].SeasonOffset, seasonOffset)
 	}
 }
 

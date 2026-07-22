@@ -489,11 +489,10 @@ func (a *App) SetInitialSource(franchiseID, saveFilePath, leagueGUID string) err
 // before this fork (i.e., the current last_synced_season). After this call,
 // SyncSeason will read from the new source.
 func (a *App) AddFranchiseSource(franchiseID, saveFilePath, leagueGUID string, seasonOffset int) error {
-	if a.franchiseSourceStore == nil {
+	if a.franchiseService == nil {
 		return fmt.Errorf("app not initialized")
 	}
-	_, err := a.franchiseSourceStore.Add(a.ctx, franchiseID, saveFilePath, leagueGUID, seasonOffset)
-	if err != nil {
+	if err := a.franchiseService.AddSource(a.ctx, franchiseID, saveFilePath, leagueGUID, seasonOffset); err != nil {
 		return fmt.Errorf("adding franchise source: %w", err)
 	}
 	return nil

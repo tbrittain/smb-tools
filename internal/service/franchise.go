@@ -6,6 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
 
 	"github.com/google/uuid"
 
@@ -22,6 +26,7 @@ type FranchiseService struct {
 	dirs          *config.AppDirs
 	franchises    *store.FranchiseStore
 	sources       *store.FranchiseSourceStore
+	sourceMu      sync.Mutex
 }
 
 func NewFranchiseService(
@@ -99,6 +104,50 @@ func (s *FranchiseService) CreateFranchise(
 
 	slog.Info("FranchiseService.CreateFranchise: created", "id", id)
 	return f, nil
+}
+
+// AddSource registers a new save game source after confirming it is not
+// already connected to the franchise by normalized path or league GUID.
+func (s *FranchiseService) AddSource(
+	ctx context.Context,
+	franchiseID string,
+	saveFilePath string,
+	leagueGUID string,
+	seasonOffset int,
+) error {
+	s.sourceMu.Lock()
+	defer s.sourceMu.Unlock()
+
+	existingSources, err := s.sources.ListByFranchise(ctx, franchiseID)
+	if err != nil {
+		return fmt.Errorf("checking existing franchise sources: %w", err)
+	}
+
+	normalizedPath, err := filepath.Abs(filepath.Clean(saveFilePath))
+	if err != nil {
+		return fmt.Errorf("normalizing save file path %q: %w", saveFilePath, err)
+	}
+	for _, source := range existingSources {
+		existingPath, err := filepath.Abs(filepath.Clean(source.SaveFilePath))
+		if err != nil {
+			return fmt.Errorf("normalizing existing save file path %q: %w", source.SaveFilePath, err)
+		}
+		pathsMatch := normalizedPath == existingPath
+		if runtime.GOOS == "windows" {
+			pathsMatch = strings.EqualFold(normalizedPath, existingPath)
+		}
+		if pathsMatch {
+			return fmt.Errorf("save file path is already connected to this franchise")
+		}
+		if strings.EqualFold(strings.TrimSpace(leagueGUID), strings.TrimSpace(source.LeagueGUID)) {
+			return fmt.Errorf("league GUID is already connected to this franchise")
+		}
+	}
+
+	if _, err := s.sources.Add(ctx, franchiseID, saveFilePath, leagueGUID, seasonOffset); err != nil {
+		return fmt.Errorf("storing franchise source: %w", err)
+	}
+	return nil
 }
 
 // OpenFranchise opens the companion DB for the given franchise ID and returns
