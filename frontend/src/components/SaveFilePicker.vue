@@ -11,6 +11,7 @@ const props = defineProps<{
   error?: string | null
   selectedPath?: string
   usedSourceLabels?: Record<string, string>
+  disabledCandidateReasons?: Record<string, string>
 }>()
 
 const emit = defineEmits<{
@@ -20,7 +21,12 @@ const emit = defineEmits<{
 }>()
 
 function select(c: main.SaveFileCandidateDTO) {
+  if (disabledReason(c)) return
   emit('change', c.path, c.leagueGUID, c)
+}
+
+function disabledReason(c: main.SaveFileCandidateDTO): string | null {
+  return props.disabledCandidateReasons?.[c.path] ?? null
 }
 
 function primaryLabel(c: main.SaveFileCandidateDTO): string {
@@ -60,13 +66,18 @@ function modeLabel(c: main.SaveFileCandidateDTO): string | null {
           v-for="c in props.candidates"
           :key="c.path"
           class="candidate-card"
-          :class="{ 'is-selected': c.path === props.selectedPath }"
+          :class="{
+            'is-selected': c.path === props.selectedPath,
+            'is-disabled': disabledReason(c),
+          }"
+          :aria-disabled="disabledReason(c) ? 'true' : undefined"
           @click="select(c)"
         >
           <div class="card-select">
             <input
               type="radio"
               :checked="c.path === props.selectedPath"
+              :disabled="Boolean(disabledReason(c))"
               :name="`save-file-picker-${c.path}`"
               @change="select(c)"
               @click.stop
@@ -87,6 +98,10 @@ function modeLabel(c: main.SaveFileCandidateDTO): string | null {
 
             <span v-if="props.usedSourceLabels?.[c.path]" class="detail-line used-label">
               {{ props.usedSourceLabels[c.path] }}
+            </span>
+
+            <span v-if="disabledReason(c)" class="detail-line disabled-reason">
+              {{ disabledReason(c) }}
             </span>
 
             <span class="file-path">{{ fileName(c) }}</span>
@@ -189,6 +204,15 @@ function modeLabel(c: main.SaveFileCandidateDTO): string | null {
   border-color: color-mix(in srgb, var(--color-accent) 60%, var(--color-border));
 }
 
+.candidate-card.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.candidate-card.is-disabled:hover {
+  border-color: var(--color-border);
+}
+
 .candidate-card.is-selected {
   border-color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface-2));
@@ -237,6 +261,10 @@ function modeLabel(c: main.SaveFileCandidateDTO): string | null {
 
 .used-label {
   color: var(--color-accent);
+  font-size: 0.75rem;
+}
+
+.disabled-reason {
   font-size: 0.75rem;
 }
 

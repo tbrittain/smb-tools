@@ -15,6 +15,7 @@ import SaveFilePicker from '../components/SaveFilePicker.vue'
 import SnapshotPicker from '../components/SnapshotPicker.vue'
 import { useBreadcrumbs } from '../composables/useBreadcrumbs'
 import { useSaveFileCandidates } from '../composables/useSaveFileCandidates'
+import { forkDuplicateReason } from '../lib/franchiseSource'
 import { useFranchiseStore } from '../stores/franchise'
 import { useStatHighlightsStore } from '../stores/statHighlights'
 
@@ -66,6 +67,15 @@ const usedSourceLabels = computed<Record<string, string>>(() => {
     map[s.saveFilePath] = label
   }
   return map
+})
+
+const forkDisabledCandidateReasons = computed<Record<string, string>>(() => {
+  const reasons: Record<string, string> = {}
+  for (const candidate of candidates.value) {
+    const reason = forkDuplicateReason(candidate, sources.value)
+    if (reason) reasons[candidate.path] = reason
+  }
+  return reasons
 })
 
 async function loadSources() {
@@ -494,6 +504,7 @@ async function handleReimport() {
           :browsing="browsing"
           :error="pickerError"
           :used-source-labels="usedSourceLabels"
+          :disabled-candidate-reasons="forkDisabledCandidateReasons"
           @change="handleForkSourceChange"
           @scan-directory="scanDirectory"
           @browse-file="browseForFork"

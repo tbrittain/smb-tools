@@ -175,6 +175,24 @@ export const WithUsedLabels: Story = {
   },
 }
 
+export const WithDisabledCandidates: Story = {
+  render: (args) => ({
+    components: { SaveFilePicker },
+    setup: () => ({ args }),
+    template: '<SaveFilePicker v-bind="args" />',
+  }),
+  args: {
+    candidates: sampleCandidates,
+    loading: false,
+    scanning: false,
+    browsing: false,
+    error: null,
+    disabledCandidateReasons: {
+      [sampleCandidates[0].path]: 'Already connected. Fork requires a different SMB4 league/save.',
+    },
+  },
+}
+
 export const AllVariants: Story = {
   render: () => ({
     components: { SaveFilePicker },
