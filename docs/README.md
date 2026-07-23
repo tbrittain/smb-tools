@@ -13,6 +13,7 @@ Foundational knowledge about Super Mega Baseball itself and the data structures 
 | [game-overview.md](domain/game-overview.md) | SMB3/SMB4, game modes (Franchise/Season/Elimination), key differences between versions |
 | [save-game-format.md](domain/save-game-format.md) | ZLib+SQLite format, default file locations, decompression approach, constraints |
 | [save-game-schema.md](domain/save-game-schema.md) | Every table and view in the SMB save game SQLite database |
+| [franchise-offseason.md](domain/franchise-offseason.md) | SMB4 Franchise offseason states, rollover boundaries, and live-roster timing |
 | [player-model.md](domain/player-model.md) | Player attributes, positions, handedness, pitcher roles, chemistry |
 | [player-stats.md](domain/player-stats.md) | Every batting and pitching stat tracked, including derived/advanced metrics |
 | [game-top10-algorithm.md](domain/game-top10-algorithm.md) | Exact SMB4 League Leaders Top 10 scoring formulas and validation results |
