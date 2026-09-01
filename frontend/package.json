@@ -20,12 +20,12 @@
     "@fontsource/ibm-plex-sans": "5.2.8",
     "@primeuix/themes": "2.0.3",
     "echarts": "6.1.0",
-    "pinia": "4.0.2",
+    "pinia": "4.0.3",
     "primeicons": "^7.0.0",
     "primevue": "4.5.5",
-    "vue": "3.5.40",
+    "vue": "3.5.42",
     "vue-echarts": "8.0.1",
-    "vue-router": "5.2.0"
+    "vue-router": "5.3.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.3",
@@ -36,12 +36,12 @@
     "@storybook/vue3-vite": "10.5.6",
     "@vitejs/plugin-vue": "6.0.8",
     "@vitest/coverage-v8": "4.1.10",
-    "@vue/test-utils": "2.4.11",
+    "@vue/test-utils": "2.5.0",
     "happy-dom": "20.10.6",
     "storybook": "10.5.6",
     "typescript": "6.0.3",
     "vite": "8.1.5",
     "vitest": "4.1.10",
-    "vue-tsc": "3.3.7"
+    "vue-tsc": "3.3.11"
   }
 }
